@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atlas Analysis — AI-Powered Stock Research</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { font-family: "DM Sans", system-ui, sans-serif; }
+  body { background: #06080f; color: white; }
+  .grad-text { background: linear-gradient(135deg, #4f8fff, #00e088); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .card { background: #10142a; border: 1px solid #1a2045; border-radius: 1.5rem; }
+  .grok-btn { background: linear-gradient(135deg, #4f8fff, #7c3aed); color: white; font-weight: 600; border-radius: 0.875rem; cursor: pointer; transition: opacity 0.15s, transform 0.15s; border: none; display: inline-block; text-decoration: none; }
+  .grok-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+  .tier-card { background: #10142a; border: 1px solid #1a2045; border-radius: 1.5rem; transition: border-color 0.2s, transform 0.2s; }
+  .tier-card:hover { border-color: #4f8fff; transform: translateY(-4px); }
+  .tier-card.featured { border-color: #4f8fff; background: linear-gradient(160deg, #10142a, #0d1535); }
+  .nav-link { color: #8899bb; transition: color 0.15s; font-size: 0.9rem; text-decoration: none; }
+  .nav-link:hover { color: white; }
+  .ticker-bar { animation: tickerScroll 30s linear infinite; white-space: nowrap; }
+  @keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+  .check { color: #00e088; }
+  ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #06080f; } ::-webkit-scrollbar-thumb { background: #1a2045; }
+</style>
+</head>
+<body>
+<nav class="fixed top-0 left-0 right-0 z-50 bg-[#06080f]/90 backdrop-blur-md border-b border-[#1a2045]">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-[#4f8fff] to-[#7c3aed] flex items-center justify-center text-sm font-bold">A</div>
+      <span class="font-bold text-lg">Atlas Analysis</span>
+      <span class="bg-[#4f8fff] text-xs font-bold px-2 py-0.5 rounded-full tracking-widest hidden sm:block">GROK EDITION</span>
+    </div>
+    <div class="hidden md:flex items-center gap-8">
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#sectors" class="nav-link">Sectors</a>
+      <a href="#pricing" class="nav-link">Pricing</a>
+      <a href="dashboard.html" class="nav-link">Dashboard</a>
+    </div>
+    <a href="dashboard.html" class="grok-btn px-5 py-2.5 text-sm">Launch Dashboard &rarr;</a>
+  </div>
+</nav>
+
+<div class="fixed top-[65px] left-0 right-0 z-40 bg-[#0b0e18] border-b border-[#1a2045] py-2 overflow-hidden">
+  <div class="ticker-bar inline-flex gap-8 text-xs text-[#607090]">
+    <span>NVDA <span class="text-[#00e088]">$138.42 +3.8%</span></span>
+    <span>MSFT <span class="text-[#00e088]">$422.18 +1.2%</span></span>
+    <span>PLTR <span class="text-[#00e088]">$42.11 +4.1%</span></span>
+    <span>META <span class="text-[#00e088]">$594.22 +2.1%</span></span>
+    <span>GOOGL <span class="text-[#00e088]">$178.34 +0.9%</span></span>
+    <span>AMD <span class="text-[#00e088]">$162.55 +2.7%</span></span>
+    <span>LMT <span class="text-[#00e088]">$468.90 +0.6%</span></span>
+    <span>FCX <span class="text-[#00e088]">$42.18 +4.2%</span></span>
+    <span>ABX <span class="text-[#00e088]">$21.85 +2.4%</span></span>
+    <span>BTC <span class="text-[#00e088]">$103,420 +1.9%</span></span>
+    <span>NVDA <span class="text-[#00e088]">$138.42 +3.8%</span></span>
+    <span>MSFT <span class="text-[#00e088]">$422.18 +1.2%</span></span>
+    <span>PLTR <span class="text-[#00e088]">$42.11 +4.1%</span></span>
+    <span>META <span class="text-[#00e088]">$594.22 +2.1%</span></span>
+    <span>GOOGL <span class="text-[#00e088]">$178.34 +0.9%</span></span>
+    <span>AMD <span class="text-[#00e088]">$162.55 +2.7%</span></span>
+  </div>
+</div>
+
+<section class="pt-40 pb-24 px-6 relative overflow-hidden">
+  <div class="absolute inset-0 bg-gradient-to-br from-[#4f8fff08] via-transparent to-[#00e08808] pointer-events-none"></div>
+  <div class="absolute top-32 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#4f8fff] opacity-[0.04] rounded-full blur-3xl pointer-events-none"></div>
+  <div class="max-w-5xl mx-auto text-center relative">
+    <div class="inline-flex items-center gap-2 bg-[#10142a] border border-[#1a2045] rounded-full px-4 py-2 text-sm text-[#607090] mb-8">
+      <div class="w-2 h-2 bg-[#00e088] rounded-full animate-pulse"></div>
+      Powered by Grok-3 AI &bull; Live Polygon.io Data
+    </div>
+    <h1 class="text-6xl md:text-7xl font-bold tracking-tight mb-6 leading-tight">
+      AI-Powered<br><span class="grad-text">Stock Research</span><br>Built for Serious Investors
+    </h1>
+    <p class="text-xl text-[#8899bb] max-w-2xl mx-auto mb-10 leading-relaxed">
+      Atlas Analysis combines Grok-3 AI, live market data, and proprietary scoring to give you institutional-grade research on AI, Tech, Mining, and Defense stocks.
+    </p>
+    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+      <a href="dashboard.html" class="grok-btn px-8 py-4 text-lg">Launch Dashboard &rarr;</a>
+      <a href="#pricing" class="px-8 py-4 text-lg bg-[#10142a] border border-[#1a2045] rounded-2xl hover:border-[#4f8fff] transition-colors text-center" style="text-decoration:none;color:white;">View Plans</a>
+    </div>
+    <div class="mt-12 flex items-center justify-center gap-8 text-sm text-[#607090]">
+      <div class="flex items-center gap-2"><span class="text-[#00e088]">&#10003;</span> Real-time Polygon data</div>
+      <div class="flex items-center gap-2"><span class="text-[#00e088]">&#10003;</span> Grok-3 AI analysis</div>
+      <div class="flex items-center gap-2"><span class="text-[#00e088]">&#10003;</span> Proprietary Atlas Score</div>
+    </div>
+  </div>
+</section>
+
+<section class="py-12 px-6 border-y border-[#1a2045]">
+  <div class="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+    <div><div class="text-4xl font-bold grad-text">500+</div><div class="text-[#607090] text-sm mt-1">Stocks Tracked</div></div>
+    <div><div class="text-4xl font-bold grad-text">97%</div><div class="text-[#607090] text-sm mt-1">Grok Confidence</div></div>
+    <div><div class="text-4xl font-bold grad-text">4</div><div class="text-[#607090] text-sm mt-1">Key Sectors</div></div>
+    <div><div class="text-4xl font-bold grad-text">Live</div><div class="text-[#607090] text-sm mt-1">Market Data</div></div>
+  </div>
+</section>
+
+<section id="features" class="py-24 px-6">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center mb-16">
+      <div class="text-[#4f8fff] text-sm font-semibold uppercase tracking-widest mb-3">Platform Features</div>
+      <h2 class="text-4xl font-bold mb-4">Everything you need to invest smarter</h2>
+      <p class="text-[#607090] max-w-xl mx-auto">From live charts to AI-generated research, Atlas gives you the edge that institutional investors have always had.</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="card p-7"><div class="text-4xl mb-5">&#128202;</div><h3 class="font-bold text-lg mb-2">Proprietary Atlas Score</h3><p class="text-[#607090] text-sm leading-relaxed">Our 5-factor scoring model combines momentum, macro alignment, analyst consensus, news sentiment, and valuation into a single 0-100 score. Boosted by Grok-3 AI sentiment analysis.</p></div>
+      <div class="card p-7"><div class="text-4xl mb-5">&#128200;</div><h3 class="font-bold text-lg mb-2">Live Polygon.io Charts</h3><p class="text-[#607090] text-sm leading-relaxed">Real-time and historical price charts powered by Polygon.io. Bollinger Bands, EMA overlays, volume analysis, and technical indicators built in.</p></div>
+      <div class="card p-7"><div class="text-4xl mb-5">&#129302;</div><h3 class="font-bold text-lg mb-2">Grok-3 AI Research</h3><p class="text-[#607090] text-sm leading-relaxed">Deep AI-generated research reports on every stock. Thesis, risks, catalysts, and 12-month price targets updated daily with the latest market intelligence.</p></div>
+      <div class="card p-7"><div class="text-4xl mb-5">&#128240;</div><h3 class="font-bold text-lg mb-2">Curated News Feed</h3><p class="text-[#607090] text-sm leading-relaxed">AI-filtered news with sentiment scoring. Know instantly whether breaking news is bullish or bearish for your positions, with direct links to source articles.</p></div>
+      <div class="card p-7"><div class="text-4xl mb-5">&#128188;</div><h3 class="font-bold text-lg mb-2">Portfolio Manager</h3><p class="text-[#607090] text-sm leading-relaxed">Track your positions with real-time P&amp;L, portfolio-level Atlas scoring, risk analysis, and Grok-3 rebalancing suggestions tailored to your holdings.</p></div>
+      <div class="card p-7"><div class="text-4xl mb-5">&#128276;</div><h3 class="font-bold text-lg mb-2">Smart Alerts</h3><p class="text-[#607090] text-sm leading-relaxed">Set price alerts, Atlas score thresholds, and AI sentiment shift notifications. Get notified the moment Grok-3 changes its outlook on a stock you follow.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="sectors" class="py-24 px-6 bg-[#0b0e18]">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center mb-16">
+      <div class="text-[#4f8fff] text-sm font-semibold uppercase tracking-widest mb-3">Coverage</div>
+      <h2 class="text-4xl font-bold mb-4">Deep research across 4 key sectors</h2>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+      <div class="card p-6 text-center hover:border-[#4f8fff] transition-colors cursor-pointer" onclick="window.location.href='dashboard.html'">
+        <div class="text-4xl mb-4">&#129302;</div><div class="font-bold mb-2">Artificial Intelligence</div>
+        <div class="text-[#607090] text-xs mb-3">NVDA, PLTR, AMD and the AI infrastructure supercycle</div>
+        <div class="text-[#00e088] text-xs font-semibold">Avg Score: 88</div>
+      </div>
+      <div class="card p-6 text-center hover:border-[#4f8fff] transition-colors cursor-pointer" onclick="window.location.href='dashboard.html'">
+        <div class="text-4xl mb-4">&#128187;</div><div class="font-bold mb-2">Technology</div>
+        <div class="text-[#607090] text-xs mb-3">MSFT, GOOGL, META -- Big Tech monetizing AI</div>
+        <div class="text-[#00e088] text-xs font-semibold">Avg Score: 86</div>
+      </div>
+      <div class="card p-6 text-center hover:border-[#4f8fff] transition-colors cursor-pointer" onclick="window.location.href='dashboard.html'">
+        <div class="text-4xl mb-4">&#9935;&#65039;</div><div class="font-bold mb-2">Mining</div>
+        <div class="text-[#607090] text-xs mb-3">ABX, FCX -- Gold and copper commodity supercycle</div>
+        <div class="text-[#00e088] text-xs font-semibold">Avg Score: 89</div>
+      </div>
+      <div class="card p-6 text-center hover:border-[#4f8fff] transition-colors cursor-pointer" onclick="window.location.href='dashboard.html'">
+        <div class="text-4xl mb-4">&#128737;&#65039;</div><div class="font-bold mb-2">Defense</div>
+        <div class="text-[#607090] text-xs mb-3">LMT, RTX -- NATO spending surge and hypersonics</div>
+        <div class="text-[#00e088] text-xs font-semibold">Avg Score: 81</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing" class="py-24 px-6">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-16">
+      <div class="text-[#4f8fff] text-sm font-semibold uppercase tracking-widest mb-3">Pricing</div>
+      <h2 class="text-4xl font-bold mb-4">Choose your edge</h2>
+      <p class="text-[#607090]">All plans include live Polygon data and Grok-3 AI. Billed monthly in CAD.</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="tier-card p-8">
+        <div class="text-[#607090] text-sm uppercase tracking-widest mb-2">Core</div>
+        <div class="text-5xl font-bold mb-1">$29<span class="text-2xl text-[#607090]">.99</span></div>
+        <div class="text-[#607090] text-sm mb-6">CAD / month</div>
+        <ul class="space-y-3 text-sm mb-8">
+          <li class="flex gap-2"><span class="check">&#10003;</span> Dashboard and live prices</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Atlas Score for all stocks</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Basic Grok-3 analysis</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> News feed</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Watchlist (up to 10)</li>
+          <li class="flex gap-2 text-[#607090]"><span>&#10007;</span> Live charts</li>
+          <li class="flex gap-2 text-[#607090]"><span>&#10007;</span> Portfolio manager</li>
+          <li class="flex gap-2 text-[#607090]"><span>&#10007;</span> ETF research</li>
+        </ul>
+        <a href="https://buy.stripe.com/core" class="block text-center py-3 bg-[#1a2045] rounded-xl hover:bg-[#252d50] transition-colors text-sm font-semibold" style="text-decoration:none;color:white;">Get Started</a>
+      </div>
+      <div class="tier-card featured p-8 relative">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#4f8fff] to-[#7c3aed] text-xs font-bold px-4 py-1 rounded-full">MOST POPULAR</div>
+        <div class="text-[#4f8fff] text-sm uppercase tracking-widest mb-2">Pro</div>
+        <div class="text-5xl font-bold mb-1">$49<span class="text-2xl text-[#607090]">.99</span></div>
+        <div class="text-[#607090] text-sm mb-6">CAD / month</div>
+        <ul class="space-y-3 text-sm mb-8">
+          <li class="flex gap-2"><span class="check">&#10003;</span> Everything in Core</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Live Polygon.io charts</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Bollinger Bands and EMA</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Full Grok-3 deep research</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Portfolio manager</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> ETF research and scoring</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Unlimited watchlist</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Smart alerts</li>
+        </ul>
+        <a href="https://buy.stripe.com/pro" class="grok-btn block text-center py-3 text-sm" style="text-decoration:none;">Get Pro &rarr;</a>
+      </div>
+      <div class="tier-card p-8">
+        <div class="text-[#607090] text-sm uppercase tracking-widest mb-2">Institutional</div>
+        <div class="text-5xl font-bold mb-1">$99<span class="text-2xl text-[#607090]">.99</span></div>
+        <div class="text-[#607090] text-sm mb-6">CAD / month</div>
+        <ul class="space-y-3 text-sm mb-8">
+          <li class="flex gap-2"><span class="check">&#10003;</span> Everything in Pro</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Daily AI research reports</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Sector deep dives</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Macro alignment signals</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Backtest engine</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> API access</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Priority support</li>
+          <li class="flex gap-2"><span class="check">&#10003;</span> Early feature access</li>
+        </ul>
+        <a href="https://buy.stripe.com/institutional" class="block text-center py-3 bg-[#1a2045] rounded-xl hover:bg-[#252d50] transition-colors text-sm font-semibold" style="text-decoration:none;color:white;">Get Institutional</a>
+      </div>
+    </div>
+    <p class="text-center text-[#607090] text-xs mt-6">Payments processed securely by Stripe. Cancel anytime.</p>
+  </div>
+</section>
+
+<footer class="border-t border-[#1a2045] py-12 px-6">
+  <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+    <div class="flex items-center gap-3">
+      <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-[#4f8fff] to-[#7c3aed] flex items-center justify-center text-xs font-bold">A</div>
+      <span class="font-bold">Atlas Analysis</span>
+    </div>
+    <div class="flex gap-8 text-sm text-[#607090]">
+      <a href="#features" class="hover:text-white transition-colors" style="text-decoration:none;">Features</a>
+      <a href="#pricing" class="hover:text-white transition-colors" style="text-decoration:none;">Pricing</a>
+      <a href="dashboard.html" class="hover:text-white transition-colors" style="text-decoration:none;">Dashboard</a>
+    </div>
+    <div class="text-[#607090] text-xs">&copy; 2025 Atlas Analysis. All rights reserved.</div>
+  </div>
+</footer>
+</body>
+</html>
