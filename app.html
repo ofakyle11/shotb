@@ -278,19 +278,26 @@ async function init(){
     });
     db=firebase.database();
     if(bt)bt.textContent="Loading project data...";
-    // Use once() instead of on() for initial load -- avoids hanging on listener setup
-    var snapScript=await db.ref("projects/"+PID+"/scriptText").once("value");
-    var v=snapScript.val();if(v){scriptText=v;var ta=document.getElementById("story-script");if(ta)ta.value=v;}
-    var snapScenes=await db.ref("projects/"+PID+"/scenes").once("value");
-    var sd=snapScenes.val();if(sd&&Array.isArray(sd)&&sd.length)SCENES=sd;
-    var snapShots=await db.ref("projects/"+PID+"/shots").once("value");
-    var shd=snapShots.val();if(shd)ST.shots=shd;
-    // Now attach live listeners (after initial load is done)
-    db.ref("projects/"+PID+"/scriptText").on("value",function(snap){var v=snap.val();if(v){scriptText=v;var ta=document.getElementById("story-script");if(ta)ta.value=v;}});
-    db.ref("projects/"+PID+"/scenes").on("value",function(snap){var d=snap.val();if(d&&Array.isArray(d)&&d.length){SCENES=d;if(document.getElementById("content").style.display!=="none")renderSec(curSec);}});
-    db.ref("projects/"+PID+"/shots").on("value",function(s){var d=s.val();if(d)ST.shots=d;if(document.getElementById("content").style.display!=="none")renderSec(curSec);});
-    db.ref("projects/"+PID+"/videos").on("value",function(s){ST.videos=[];var d=s.val();if(d)Object.values(d).forEach(function(v){ST.videos.push(v);});ST.videos.sort(function(a,b){return new Date(b.ts)-new Date(a.ts);});renderLib();});
-    if(bt)bt.textContent="Ready!";
+    // Load saved data -- wrapped in try/catch so permission errors don't block app load
+    try{
+      var snapScript=await db.ref("projects/"+PID+"/scriptText").once("value");
+      var v=snapScript.val();if(v){scriptText=v;var ta=document.getElementById("story-script");if(ta)ta.value=v;}
+    }catch(fe){console.warn("scriptText load:",fe.message);}
+    try{
+      var snapScenes=await db.ref("projects/"+PID+"/scenes").once("value");
+      var sd=snapScenes.val();if(sd&&Array.isArray(sd)&&sd.length)SCENES=sd;
+    }catch(fe){console.warn("scenes load:",fe.message);}
+    try{
+      var snapShots=await db.ref("projects/"+PID+"/shots").once("value");
+      var shd=snapShots.val();if(shd)ST.shots=shd;
+    }catch(fe){console.warn("shots load:",fe.message);}
+    // Attach live listeners
+    try{
+      db.ref("projects/"+PID+"/scriptText").on("value",function(snap){var v=snap.val();if(v){scriptText=v;var ta=document.getElementById("story-script");if(ta)ta.value=v;}});
+      db.ref("projects/"+PID+"/scenes").on("value",function(snap){var d=snap.val();if(d&&Array.isArray(d)&&d.length){SCENES=d;if(document.getElementById("content").style.display!=="none")renderSec(curSec);}});
+      db.ref("projects/"+PID+"/shots").on("value",function(s){var d=s.val();if(d)ST.shots=d;if(document.getElementById("content").style.display!=="none")renderSec(curSec);});
+      db.ref("projects/"+PID+"/videos").on("value",function(s){ST.videos=[];var d=s.val();if(d)Object.values(d).forEach(function(v){ST.videos.push(v);});ST.videos.sort(function(a,b){return new Date(b.ts)-new Date(a.ts);});renderLib();});
+    }catch(fe){console.warn("listeners:",fe.message);}
     hideBoot();
     showSec(curSec);
   }catch(e){
