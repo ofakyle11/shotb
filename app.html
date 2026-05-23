@@ -203,8 +203,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,sa
     <div class="sb-project-name" id="sb-project-name">London Calling</div>
   </div>
   <div class="sb-steps">
-    <div class="sb-step done" onclick="showSec('vision')" id="nav-vision"><div class="sb-step-num">&#10003;</div><div class="sb-step-label">Vision</div></div>
     <div class="sb-step done" onclick="showSec('story')" id="nav-story"><div class="sb-step-num">&#10003;</div><div class="sb-step-label">Story</div></div>
+    <div class="sb-step done" onclick="showSec('vision')" id="nav-vision"><div class="sb-step-num">&#10003;</div><div class="sb-step-label">Vision</div></div>
     <div class="sb-step done" onclick="showSec('cast')" id="nav-cast"><div class="sb-step-num">&#10003;</div><div class="sb-step-label">Cast &amp; Places</div></div>
     <div class="sb-step done" onclick="showSec('coverage')" id="nav-coverage"><div class="sb-step-num">&#10003;</div><div class="sb-step-label">Coverage</div></div>
     <div class="sb-step active" onclick="showSec('generate')" id="nav-generate"><div class="sb-step-num">5</div><div class="sb-step-label">Generate</div><div class="sb-step-now">Now</div></div>
@@ -252,7 +252,7 @@ var WSK="",db=null,PID="project-001";
 var AGENTS={story:["Vision Director","Scene Architect","Beat Sheet Architect","Logline Refiner","Tone Guardian","Genre Interpreter","Premise Expander","Creative Prompt Writer","Research Specialist","World Builder","Continuity Supervisor","Emotional Truth Guardian"],cast:["Character Designer","Character Bible Maintainer","Character Arc Guardian","Wardrobe Coordinator","Makeup and Hair Specialist","Location Scout","Prop Master","Crowd Coordinator","Wardrobe and Prop Auditor","Geography and Set Guardian"],coverage:["Cinematographer","Lighting Designer","Movement Choreographer","Director of Photography Assistant","Gaffer","Key Grip","Stunt Coordinator","Practical Effects Supervisor","Stunt Performer Coordinator","Visual Consistency Guardian","Performance Consistency Checker","Timeline Consistency Checker"],generate:["Head Editor","Cut Specialist","Montage Specialist","Color Grading Agent","Music Sync Specialist","Cross-Fade and Transition Artist","Tempo and Pacing Analyst","Dialogue Editor","Sound Editor","Final Cut Approver","Dramatic Logic Guardian","Final Review Orchestrator","Post-Production Supervisor"],edit:["Head Editor","Cut Specialist","Montage Specialist","Color Grading Agent","Music Sync Specialist","Cross-Fade and Transition Artist","Tempo and Pacing Analyst","Dialogue Editor","Sound Editor","Final Cut Approver","Dramatic Logic Guardian","Final Review Orchestrator","Post-Production Supervisor"]};
 var SCENES=[{id:"S1",name:"Scene 1",clips:["S1.1","S1.2","S1.3","S1.4","S1.5"]},{id:"S2",name:"Scene 2",clips:["S2.1","S2.2","S2.3","S2.4"]},{id:"S3",name:"Scene 3",clips:["S3.1","S3.2","S3.3"]},{id:"S4",name:"Scene 4",clips:["S4.1","S4.2","S4.3","S4.4","S4.5"]}];
 var COVF=[["shotType","Shot Type"],["angle","Angle"],["lens","Lens"],["timeOfDay","Time of Day"],["style","Style"],["temperature","Temperature"],["filmGrain","Film Grain"],["season","Season"],["contrast","Contrast"],["depthOfField","Depth of Field"],["cameraMove","Camera Move"],["distortion","Distortion"],["exposure","Exposure"],["colourTheme","Colour Theme"],["cinematics","Cinematics"]];
-var ST={shots:{},videos:[]},curSec="coverage",libF="all",selAgent={},secQ={},crewA=[];
+var ST={shots:{},videos:[]},curSec="story",libF="all",selAgent={},secQ={},crewA=[];
 function key(id){return id.replace(".","_");}
 function bootErr(msg){var e=document.getElementById("boot-err"),t=document.getElementById("boot-text");if(t)t.style.display="none";if(e){e.style.display="block";e.textContent=msg;}}
 function hideBoot(){var b=document.getElementById("boot");if(b)b.style.display="none";}
@@ -285,9 +285,9 @@ async function init(){
   }
 }
 function initShots(){if(!db)return;var s={};SCENES.forEach(function(sc){sc.clips.forEach(function(c){s[key(c)]={sceneId:sc.id,clipId:c,locked:false,minimized:false,currentPrompt:"",committedPrompt:"",bg:"",fields:{},log:[],videos:[],quality:"standard"};});});db.ref("projects/"+PID+"/shots").set(s);}
-function showSec(sec){curSec=sec;document.querySelectorAll(".sb-step").forEach(function(el){el.classList.remove("active");if(el.id.replace("nav-","")===sec)el.classList.add("active");});renderSec(sec);}
+function showSec(sec){curSec=sec;document.querySelectorAll(".sb-step").forEach(function(el){el.classList.remove("active");if(el.id.replace("nav-","")===sec)el.classList.add("active");});renderSec(sec);if(sec==='story')setTimeout(renderBreakdown,100);}
 function renderSec(sec){var el=document.getElementById("content");if(sec==="story")el.innerHTML=storyPage();else if(sec==="deliver")el.innerHTML=deliverPage();else el.innerHTML=clipsPage(sec);}
-function storyPage(){return '<div class="page-header"><div class="page-title">Step 1 &mdash; Story</div><div class="page-subtitle">Paste a screenplay, Fountain file, or prose scene.</div></div><div class="story-paste-box"><div class="story-paste-label">Your Script or Scene</div><textarea class="story-textarea" id="story-script">RAVEN STOLE THE SUN\n\nPilot &mdash; London Calling\n\nWritten by Michael Mackay / Steve Katmarian</textarea><div class="story-actions"><button class="story-btn" onclick="reparseScript()">Re-parse script</button><button class="story-btn continue" onclick="showSec(\'cast\')">Continue to Cast &amp; Places &rarr;</button></div></div><div class="story-meta-row"><div class="story-meta-title">(Untitled)</div><span class="story-tag">prose</span><span class="story-tag">27 scenes</span><span class="story-tag">14 characters</span></div><div class="crew-run-block"><div class="crew-run-title"><span class="star">*</span> Run full writers + characters crew</div><div class="crew-run-desc">12 specialists analyze voice, structure, dialogue, cliches, subtext, character psychology, and ADR needs.</div><div class="crew-run-actions"><button class="crew-btn gold" onclick="runCrewStory()">Retry 3 failed (15c)</button><button class="crew-btn" onclick="runCrewStory()">Re-run full crew (75c)</button></div></div>';}
+function storyPage(){return '<div class="page-header"><div class="page-title">Step 1 &mdash; Story</div><div class="page-subtitle">Paste a screenplay, Fountain file, or prose scene.</div></div><div class="story-paste-box"><div class="story-paste-label">Your Script or Scene</div><textarea class="story-textarea" id="story-script">RAVEN STOLE THE SUN\n\nPilot &mdash; London Calling\n\nWritten by Michael Mackay / Steve Katmarian</textarea><div class="story-actions"><button class="story-btn" onclick="reparseScript()">Re-parse script</button><button class="story-btn continue" onclick="showSec(\'cast\')">Continue to Cast &amp; Places &rarr;</button></div></div><div class="story-meta-row"><div class="story-meta-title">(Untitled)</div><span class="story-tag">prose</span><span class="story-tag">27 scenes</span><span class="story-tag">14 characters</span></div><div class="crew-run-block"><div class="crew-run-title"><span class="star">*</span> Run full writers + characters crew</div><div class="crew-run-desc">12 specialists analyze voice, structure, dialogue, cliches, subtext, character psychology, and ADR needs.</div><div class="crew-run-actions"><button class="crew-btn gold" onclick="runCrewStory()">Retry 3 failed (15c)</button><button class="crew-btn" onclick="runCrewStory()">Re-run full crew (75c)</button></div></div><div class=\'story-breakdown\' style=\'margin-top:24px;\'><div style=\'font-size:12px;color:#888;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;\'>Scene Breakdown</div><div id=\'scene-breakdown-grid\' style=\'display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;\'></div></div>';}
 function clipsPage(sec){var L={cast:"Cast & Places",coverage:"Coverage",generate:"Generate",edit:"Edit",vision:"Vision"};var S={cast:"Define characters, locations, wardrobe, and props.",coverage:"Each clip has its own settings. Defaults inherit from the previous clip and scene master.",generate:"Generate video for each clip using committed prompts and coverage settings.",edit:"Edit and assemble generated clips into a final cut.",vision:"Set the overall vision and tone for your project."};var h='<div class="page-header"><div class="page-title">Step '+sNum(sec)+' &mdash; '+(L[sec]||sec)+'</div><div class="page-subtitle">'+(S[sec]||'')+'</div></div>';SCENES.forEach(function(sc){h+=sceneGroup(sc,sec);});h+=secGenBlock(sec);return h;}
 function sNum(s){return {vision:1,story:2,cast:3,coverage:4,generate:5,edit:6,deliver:7}[s]||'';}
 function sceneGroup(sc,sec){var clips=sc.clips.map(function(c){return clipCard(c,sec);}).join('');return '<div class="scene-group" id="sg-'+sc.id+'"><div class="scene-header-row"><button class="scene-pill" onclick="toggleScene(\''+sc.id+'\')">&middot; '+sc.id+' &mdash; '+sc.name.toUpperCase()+' ('+sc.clips.length+' CLIPS)</button><div class="scene-master-link" onclick="toast(\'Scene master: '+sc.id+'\')">&rsaquo; Scene master</div></div><div class="scene-clips" id="sc-'+sc.id+'">'+clips+'</div></div>';}
@@ -335,6 +335,43 @@ function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
 function fmt(iso){if(!iso)return'';var d=new Date(iso);return d.toLocaleDateString("en-US",{month:"short",day:"numeric"})+" "+d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true});}
 function toast(msg){var el=document.getElementById("toast");if(!el)return;el.innerHTML=msg;el.classList.add("show");setTimeout(function(){el.classList.remove("show");},2500);}
 init();
+
+function renderBreakdown(){
+  var grid=document.getElementById('scene-breakdown-grid');
+  if(!grid)return;
+  if(!window.ST||!ST.shots||!Object.keys(ST.shots).length){
+    grid.innerHTML='<div style="color:#555;font-size:13px;padding:8px;">No shot data yet — run crew to populate.</div>';
+    return;
+  }
+  var shots=Object.values(ST.shots);
+  var byScene={};
+  shots.forEach(function(s){
+    var sc=s.scene||'Unknown';
+    if(!byScene[sc])byScene[sc]={total:0,locked:0,video:0};
+    byScene[sc].total++;
+    if(s.locked)byScene[sc].locked++;
+    if(s.videos&&s.videos.length>0)byScene[sc].video++;
+  });
+  var keys=Object.keys(byScene).sort();
+  if(!keys.length){grid.innerHTML='<div style="color:#555;font-size:13px;">No scenes found.</div>';return;}
+  grid.innerHTML=keys.map(function(sc){
+    var d=byScene[sc];
+    var lp=d.total?Math.round(d.locked/d.total*100):0;
+    var vp=d.total?Math.round(d.video/d.total*100):0;
+    return '<div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:14px;">'
+      +'<div style="font-weight:600;font-size:13px;margin-bottom:6px;color:#e0e0e0;">'+sc+'</div>'
+      +'<div style="font-size:12px;color:#888;margin-bottom:10px;">'+d.total+' clips</div>'
+      +'<div style="margin-bottom:8px;">'
+        +'<div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;margin-bottom:3px;"><span>Locked</span><span>'+lp+'%</span></div>'
+        +'<div style="background:#2a2a2a;border-radius:4px;height:6px;"><div style="background:#4ade80;height:6px;border-radius:4px;width:'+lp+'%;"></div></div>'
+      +'</div>'
+      +'<div>'
+        +'<div style="display:flex;justify-content:space-between;font-size:11px;color:#aaa;margin-bottom:3px;"><span>Video</span><span>'+vp+'%</span></div>'
+        +'<div style="background:#2a2a2a;border-radius:4px;height:6px;"><div style="background:#60a5fa;height:6px;border-radius:4px;width:'+vp+'%;"></div></div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
 </script>
 </body>
 </html>
