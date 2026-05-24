@@ -561,7 +561,7 @@ function inhF(k,f){var s=ST.shots[k]||{};var sc=SCENES.find(function(sc){return 
 function setQ(k,q,btn){if(!db)return;db.ref("projects/"+PID+"/shots/"+k+"/quality").set(q);var row=btn.closest(".quality-row");if(row)row.querySelectorAll(".q-btn").forEach(function(b){b.classList.remove("active");});btn.classList.add("active");}
 function setSecQ(sec,q,btn){secQ[sec]=q;var row=btn.closest(".sec-gen-row");if(row)row.querySelectorAll(".q-btn").forEach(function(b){b.classList.remove("active");});btn.classList.add("active");}
 function selAg(k,a,sec){selAgent[k]=a;(AGENTS[sec]||[]).forEach(function(ag){var c=document.getElementById("chip-"+k+"_"+ag.replace(/\s+/g,"_"));if(c)c.classList.toggle("selected",ag===a);});}
-async async function runAg(k,sec,forAll){
+async function runAg(k,sec,forAll){
   var a=selAgent[k];
   if(!a){toast("Select an agent first");return;}
   await runSingleAgent(a, sec||'story');
@@ -573,7 +573,7 @@ async function callGrokAgent(k,a,sec){
 async function simAg(k,a,sec){var ak=k+"_"+a.replace(/\s+/g,"_"),chip=document.getElementById("chip-"+ak),bar=chip?chip.querySelector(".chip-progress"):null;if(chip)chip.classList.add("running");var pct=0;var iv=setInterval(function(){pct=Math.min(pct+Math.random()*18,95);if(bar)bar.style.width=pct+"%";var lbl=chip?chip.querySelector(".chip-label"):null;if(lbl)lbl.textContent=a+" "+Math.round(pct)+"%";},180);await sleep(1200+Math.random()*1400);clearInterval(iv);if(bar)bar.style.width="100%";if(chip){chip.classList.remove("running");chip.classList.add("complete");var lbl=chip.querySelector(".chip-label");if(lbl)lbl.textContent=a+" done";}var txt=agOut(a);var s=ST.shots[k]||{};var lg=(s.log||[]).concat([{agent:a,text:txt,ts:new Date().toISOString()}]);if(db)db.ref("projects/"+PID+"/shots/"+k+"/log").set(lg);var np=(s.currentPrompt||'')+(s.currentPrompt?' ':'')+txt;if(db)db.ref("projects/"+PID+"/shots/"+k+"/currentPrompt").set(np);var el=document.getElementById("prompt-"+k);if(el){el.value=np;el.classList.add("has-proposal");}updCrew(a);}
 function agOut(a){var m={"Vision Director":"Cinematic wide establishing shot. Anamorphic lens, golden hour, shallow depth of field.","Cinematographer":"Handheld, 24fps, 180 shutter, 2.39:1 anamorphic. Motivated practical lighting.","Lighting Designer":"Single practical source from window. Deep shadows, warm tungsten key, teal fill.","Character Designer":"Mid-30s, weathered features. Dark wool coat, worn leather shoes.","Head Editor":"Cut on action at frame 48. J-cut audio from next scene begins 12 frames early.","Color Grading Agent":"Teal-orange grade, lifted blacks, crushed highlights, film emulation.","Scene Architect":"Character enters frame left. Environmental storytelling through blocking.","Tone Guardian":"Foreboding, restrained, high contrast. Consistent with scene master."};return m[a]||a+" reviewed and refined this clip.";}
 function updCrew(a){crewA=[a].concat(crewA.filter(function(x){return x!==a;})).slice(0,5);var el=document.getElementById("crew-agents");if(!el)return;el.innerHTML=crewA.map(function(x,i){return '<div class="sb-crew-agent"><div class="sb-crew-dot '+(i===0?'running':'')+'"></div><span>'+x+'</span></div>';}).join('');var cnt=document.getElementById("crew-count");if(cnt)cnt.textContent=crewA.length+" / 50";}
-async async function runFailedAgents(sec){
+async function runFailedAgents(sec){
   var agents=AGENTS[sec||'story']||[];
   var failed=agents.filter(function(n){return agentState[n]&&agentState[n].status==='error';});
   if(!failed.length){toast("No failed agents");return;}
@@ -606,7 +606,7 @@ async function updateTopbar() {
   if (tbClips) tbClips.textContent = totalClips;
   if (tbScenes) tbScenes.textContent = (SCENES && SCENES.length) || 0;
 }
-async async function reparseScript() {
+async function reparseScript() {
   var btn   = document.getElementById('reparse-btn');
   var pctEl = document.getElementById('reparse-pct');
   var ta    = document.getElementById('story-script');
