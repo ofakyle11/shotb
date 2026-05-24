@@ -248,7 +248,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,sa
 </div>
 <div id="toast"></div>
 <script>
-var WSE={standard:"https://api.wavespeed.ai/api/v3/bytedance/seedance-1-lite-t2v-480p",pro:"https://api.wavespeed.ai/api/v3/bytedance/seedance-1-pro-t2v-720p",veo:"https://api.wavespeed.ai/api/v3/google/veo-2-t2v-720p"};
+var WSE={
+  var agents = AGENTS[sec] || [];
+  agents.forEach(function(name) { runSingleAgent(name, sec); });
+};
 var WSK="",db=null,PID="project-001";
 var AGENTS={story:["Vision Director","Scene Architect","Beat Sheet Architect","Logline Refiner","Tone Guardian","Genre Interpreter","Premise Expander","Creative Prompt Writer","Research Specialist","World Builder","Continuity Supervisor","Emotional Truth Guardian"],cast:["Character Designer","Character Bible Maintainer","Character Arc Guardian","Wardrobe Coordinator","Makeup and Hair Specialist","Location Scout","Prop Master","Crowd Coordinator","Wardrobe and Prop Auditor","Geography and Set Guardian"],coverage:["Cinematographer","Lighting Designer","Movement Choreographer","Director of Photography Assistant","Gaffer","Key Grip","Stunt Coordinator","Practical Effects Supervisor","Stunt Performer Coordinator","Visual Consistency Guardian","Performance Consistency Checker","Timeline Consistency Checker"],generate:["Head Editor","Cut Specialist","Montage Specialist","Color Grading Agent","Music Sync Specialist","Cross-Fade and Transition Artist","Tempo and Pacing Analyst","Dialogue Editor","Sound Editor","Final Cut Approver","Dramatic Logic Guardian","Final Review Orchestrator","Post-Production Supervisor"],edit:["Head Editor","Cut Specialist","Montage Specialist","Color Grading Agent","Music Sync Specialist","Cross-Fade and Transition Artist","Tempo and Pacing Analyst","Dialogue Editor","Sound Editor","Final Cut Approver","Dramatic Logic Guardian","Final Review Orchestrator","Post-Production Supervisor"]};
 var scriptText=""; // persisted to Firebase
@@ -307,7 +310,14 @@ async function init(){
 }
 function initShots(){if(!db)return;var s={};SCENES.forEach(function(sc){sc.clips.forEach(function(c){s[key(c)]={sceneId:sc.id,clipId:c,locked:false,minimized:false,currentPrompt:"",committedPrompt:"",bg:"",fields:{},log:[],videos:[],quality:"standard"};});});db.ref("projects/"+PID+"/shots").set(s);}
 function showSec(sec){curSec=sec;document.querySelectorAll(".sb-step").forEach(function(el){el.classList.remove("active");if(el.id.replace("nav-","")===sec)el.classList.add("active");});renderSec(sec);if(sec==='story'){setTimeout(renderAgentProgress,100);setTimeout(function(){if(SCENES&&SCENES.length)renderScriptBreakdown(SCENES);},150);}}
-function renderSec(sec){var el=document.getElementById("content");if(sec==="story")el.innerHTML=storyPage();else if(sec==="deliver")el.innerHTML=deliverPage();else el.innerHTML=clipsPage(sec);}
+function renderSec(sec){
+  var el=document.getElementById("content");
+  if(sec==="story")el.innerHTML=storyPage();
+  else if(sec==="deliver")el.innerHTML=deliverPage();
+  else el.innerHTML=clipsPage(sec);
+  // Render agent grid for sections that have agents
+  if(AGENTS[sec]) { initAgentState(sec); renderAgentGrid(sec); }
+}
 function storyPage(){return '<div class="page-header"><div class="page-title">Step 1 &mdash; Story</div><div class="page-subtitle">Paste a screenplay, Fountain file, or prose scene.</div></div><div class="story-paste-box"><div class="story-paste-label">Your Script or Scene</div><textarea class="story-textarea" id="story-script" oninput="saveScript(this.value)">'+scriptText+'</textarea><div class="story-actions"><button class="story-btn" onclick="reparseScript()" id="reparse-btn">Re-parse script <span id="reparse-pct" style="font-size:11px;opacity:.8;"></span></button><button class="story-btn continue" onclick="showSec(\'cast\')">Continue to Cast &amp; Places &rarr;</button></div></div><div class="story-meta-row"><div class="story-meta-title">(Untitled)</div><span class="story-tag">prose</span><span class="story-tag">27 scenes</span><span class="story-tag">14 characters</span></div><div class="crew-run-block"><div class="crew-run-title"><span class="star">*</span> Run full writers + characters crew</div><div class="crew-run-desc">12 specialists analyze voice, structure, dialogue, cliches, subtext, character psychology, and ADR needs.</div><div class="crew-run-actions"><button class="crew-btn gold" onclick="runCrewStory()">Retry 3 failed (15c)</button><button class="crew-btn" onclick="runCrewStory()">Re-run full crew (75c)</button></div></div><div class=\'story-breakdown\' style=\'margin-top:24px;\'><div style=\'font-size:12px;color:#888;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;\'>Agent Progress</div><div id=\'agent-progress-grid\' style=\'display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;\'></div></div><div style=\'margin-top:28px;\'><div style=\'font-size:12px;color:#888;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;\'>Script Breakdown</div><div id=\'script-breakdown-grid\' style=\'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;\'><div style=\'color:#555;font-size:13px;padding:8px;\'>Hit Re-parse script to generate breakdown.</div></div></div>';}
 function clipsPage(sec){var L={cast:"Cast & Places",coverage:"Coverage",generate:"Generate",edit:"Edit",vision:"Vision"};var S={cast:"Define characters, locations, wardrobe, and props.",coverage:"Each clip has its own settings. Defaults inherit from the previous clip and scene master.",generate:"Generate video for each clip using committed prompts and coverage settings.",edit:"Edit and assemble generated clips into a final cut.",vision:"Set the overall vision and tone for your project."};var h='<div class="page-header"><div class="page-title">Step '+sNum(sec)+' &mdash; '+(L[sec]||sec)+'</div><div class="page-subtitle">'+(S[sec]||'')+'</div></div>';if(!SCENES||!SCENES.length){h+='<div style="color:#888;font-size:13px;padding:20px;text-align:center;">No scenes yet &mdash; go to Story and hit Re-parse script first.</div>';}else{SCENES.forEach(function(sc){h+=sceneGroup(sc,sec);});}h+=secGenBlock(sec);return h;}
 function sNum(s){return {story:1,cast:2,vision:3,coverage:4,generate:5,edit:6,deliver:7}[s]||'';}
@@ -727,6 +737,252 @@ function runCrewStory() {
 
 
 document.addEventListener('DOMContentLoaded', init);
+
+
+// ── AGENT SYSTEM ─────────────────────────────────────────────────────────────
+// agentState: { [agentName]: { status:'idle'|'running'|'done'|'error', activity:'', upgrades:[], pct:0 } }
+var agentState = {};
+var pendingUpgrades = {}; // { upgradeId: {shotId, field, current, proposed, reason, agentName} }
+var upgradeIdCounter = 0;
+
+function agentKey(name) { return name.replace(/[^a-zA-Z0-9]/g,'_'); }
+
+function initAgentState(sec) {
+  (AGENTS[sec]||[]).forEach(function(name) {
+    if (!agentState[name]) agentState[name] = { status:'idle', activity:'', upgrades:[], pct:0 };
+  });
+}
+
+function renderAgentGrid(sec) {
+  var grid = document.getElementById('agent-progress-grid');
+  if (!grid) return;
+  initAgentState(sec);
+  var agents = AGENTS[sec] || [];
+  grid.innerHTML = agents.map(function(name) {
+    var st = agentState[name] || { status:'idle', activity:'', upgrades:[], pct:0 };
+    var statusColor = st.status==='done' ? '#4ade80' : st.status==='running' ? '#facc15' : st.status==='error' ? '#f87171' : '#555';
+    var statusLabel = st.status==='done' ? 'Done' : st.status==='running' ? 'Running...' : st.status==='error' ? 'Error' : 'Idle';
+    var pct = st.pct || 0;
+    var pendingCount = Object.values(pendingUpgrades).filter(function(u){ return u.agentName===name && !u.resolved; }).length;
+    return '<div id="agent-card-'+agentKey(name)+'" style="background:#111;border:1px solid '+(st.status==='running'?'#facc15':'#1e1e1e')+';border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:6px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+        + '<div style="font-size:11px;font-weight:600;color:#e0e0e0;line-height:1.3;flex:1;">' + name + '</div>'
+        + '<div style="font-size:10px;color:'+statusColor+';font-weight:600;white-space:nowrap;margin-left:6px;">' + statusLabel + '</div>'
+      + '</div>'
+      + '<div style="font-size:10px;color:#555;min-height:28px;line-height:1.4;">' + (st.activity || (st.status==='idle'?'Click ▶ to run':'')) + '</div>'
+      + '<div style="background:#1a1a1a;border-radius:3px;height:3px;overflow:hidden;">'
+        + '<div style="background:'+statusColor+';height:100%;width:'+pct+'%;transition:width .3s;"></div>'
+      + '</div>'
+      + '<div style="display:flex;gap:6px;align-items:center;margin-top:2px;">'
+        + '<button onclick="runSingleAgent(''+name+'',''+sec+'')" style="flex:1;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:4px;color:#aaa;font-size:10px;padding:4px 0;cursor:pointer;" '+(st.status==='running'?'disabled':'')+'>▶ Run</button>'
+        + (pendingCount > 0 ? '<button onclick="showUpgradesForAgent(''+name+'')" style="flex:1;background:#1a1a2a;border:1px solid #3a3a6a;border-radius:4px;color:#60a5fa;font-size:10px;padding:4px 0;cursor:pointer;">'+pendingCount+' upgrade'+(pendingCount!==1?'s':'')+' ›</button>' : '')
+      + '</div>'
+    + '</div>';
+  }).join('');
+}
+
+function updateAgentCard(name, sec) {
+  var card = document.getElementById('agent-card-' + agentKey(name));
+  if (!card) { renderAgentGrid(sec); return; }
+  var st = agentState[name] || { status:'idle', activity:'', upgrades:[], pct:0 };
+  var statusColor = st.status==='done' ? '#4ade80' : st.status==='running' ? '#facc15' : st.status==='error' ? '#f87171' : '#555';
+  var statusLabel = st.status==='done' ? 'Done' : st.status==='running' ? 'Running...' : st.status==='error' ? 'Error' : 'Idle';
+  var pct = st.pct || 0;
+  var pendingCount = Object.values(pendingUpgrades).filter(function(u){ return u.agentName===name && !u.resolved; }).length;
+  card.style.borderColor = st.status==='running' ? '#facc15' : '#1e1e1e';
+  card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;">'
+    + '<div style="font-size:11px;font-weight:600;color:#e0e0e0;line-height:1.3;flex:1;">' + name + '</div>'
+    + '<div style="font-size:10px;color:'+statusColor+';font-weight:600;white-space:nowrap;margin-left:6px;">' + statusLabel + '</div>'
+  + '</div>'
+  + '<div style="font-size:10px;color:#888;min-height:28px;line-height:1.4;">' + (st.activity || (st.status==='idle'?'Click ▶ to run':'')) + '</div>'
+  + '<div style="background:#1a1a1a;border-radius:3px;height:3px;overflow:hidden;">'
+    + '<div style="background:'+statusColor+';height:100%;width:'+pct+'%;transition:width .3s;"></div>'
+  + '</div>'
+  + '<div style="display:flex;gap:6px;align-items:center;margin-top:2px;">'
+    + '<button onclick="runSingleAgent(''+name+'',''+curSec+'')" style="flex:1;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:4px;color:#aaa;font-size:10px;padding:4px 0;cursor:pointer;" '+(st.status==='running'?'disabled':'')+'>▶ Run</button>'
+    + (pendingCount > 0 ? '<button onclick="showUpgradesForAgent(''+name+'')" style="flex:1;background:#1a1a2a;border:1px solid #3a3a6a;border-radius:4px;color:#60a5fa;font-size:10px;padding:4px 0;cursor:pointer;">'+pendingCount+' upgrade'+(pendingCount!==1?'s':'')+' ›</button>' : '')
+  + '</div>';
+}
+
+async function runSingleAgent(name, sec) {
+  if (!SCENES || !SCENES.length) { toast('Parse a script first'); return; }
+  if (!agentState[name]) agentState[name] = { status:'idle', activity:'', upgrades:[], pct:0 };
+  agentState[name].status = 'running';
+  agentState[name].activity = 'Contacting Grok...';
+  agentState[name].pct = 10;
+  updateAgentCard(name, sec);
+
+  // Animate progress while waiting
+  var pct = 10;
+  var iv = setInterval(function() {
+    pct = Math.min(pct + Math.floor(Math.random()*8)+3, 88);
+    agentState[name].pct = pct;
+    var bar = document.querySelector('#agent-card-'+agentKey(name)+' div[style*="transition"]');
+    if (bar) bar.style.width = pct + '%';
+  }, 500);
+
+  try {
+    var resp = await fetch('/.netlify/functions/run-agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agentName: name, scenes: SCENES, shots: ST.shots, section: sec })
+    });
+
+    clearInterval(iv);
+
+    if (!resp.ok) {
+      var errData = await resp.json().catch(function(){ return { error: 'Unknown error' }; });
+      throw new Error(errData.error || 'Agent failed (' + resp.status + ')');
+    }
+
+    var data = await resp.json();
+    agentState[name].status = 'done';
+    agentState[name].activity = data.activity || 'Analysis complete.';
+    agentState[name].pct = 100;
+    agentState[name].upgrades = data.upgrades || [];
+
+    // Register pending upgrades
+    (data.upgrades || []).forEach(function(u) {
+      var uid = 'upg_' + (++upgradeIdCounter);
+      pendingUpgrades[uid] = {
+        id: uid,
+        agentName: name,
+        shotId: u.shotId,
+        field: u.field,
+        current: u.current,
+        proposed: u.proposed,
+        reason: u.reason,
+        resolved: false
+      };
+    });
+
+    updateAgentCard(name, sec);
+    if (data.upgrades && data.upgrades.length > 0) {
+      toast(name + ': ' + data.upgrades.length + ' upgrade' + (data.upgrades.length!==1?'s':'') + ' ready');
+      // Also refresh upgrade panel if open
+      var panel = document.getElementById('upgrade-panel');
+      if (panel && panel.style.display !== 'none') showUpgradesForAgent(panel.dataset.agent);
+    } else {
+      toast(name + ': no upgrades needed');
+    }
+
+  } catch(e) {
+    clearInterval(iv);
+    agentState[name].status = 'error';
+    agentState[name].activity = 'Error: ' + e.message;
+    agentState[name].pct = 0;
+    updateAgentCard(name, sec);
+    toast(name + ' failed: ' + e.message);
+  }
+}
+
+function showUpgradesForAgent(agentName) {
+  var upgrades = Object.values(pendingUpgrades).filter(function(u){ return u.agentName===agentName && !u.resolved; });
+  var panel = document.getElementById('upgrade-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'upgrade-panel';
+    panel.style.cssText = 'position:fixed;top:0;right:0;width:420px;height:100vh;background:#0d0d0d;border-left:1px solid #2a2a2a;z-index:1000;overflow-y:auto;display:flex;flex-direction:column;';
+    document.body.appendChild(panel);
+  }
+  panel.dataset.agent = agentName;
+  panel.style.display = 'flex';
+
+  if (!upgrades.length) {
+    panel.innerHTML = '<div style="padding:20px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div style="font-size:13px;font-weight:600;color:#e0e0e0;">'+agentName+'</div><button onclick="closeUpgradePanel()" style="background:none;border:none;color:#888;font-size:18px;cursor:pointer;">×</button></div><div style="color:#555;font-size:12px;">No pending upgrades.</div></div>';
+    return;
+  }
+
+  var html = '<div style="padding:16px 20px;border-bottom:1px solid #1e1e1e;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#0d0d0d;z-index:1;">'
+    + '<div><div style="font-size:12px;font-weight:700;color:#e0e0e0;">'+agentName+'</div>'
+    + '<div style="font-size:10px;color:#555;margin-top:2px;">'+upgrades.length+' pending upgrade'+(upgrades.length!==1?'s':'')+'</div></div>'
+    + '<div style="display:flex;gap:8px;align-items:center;">'
+    + '<button onclick="applyAllUpgrades(''+agentName+'')" style="background:#14532d;border:1px solid #166534;border-radius:4px;color:#4ade80;font-size:10px;padding:5px 10px;cursor:pointer;">✓ Apply All</button>'
+    + '<button onclick="declineAllUpgrades(''+agentName+'')" style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:4px;color:#888;font-size:10px;padding:5px 10px;cursor:pointer;">✕ Decline All</button>'
+    + '<button onclick="closeUpgradePanel()" style="background:none;border:none;color:#888;font-size:18px;cursor:pointer;line-height:1;">×</button>'
+    + '</div></div>'
+    + '<div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">';
+
+  upgrades.forEach(function(u) {
+    html += '<div id="upg-card-'+u.id+'" style="background:#111;border:1px solid #1e1e1e;border-radius:8px;padding:12px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
+        + '<div style="font-size:11px;color:#facc15;font-weight:600;">Shot '+u.shotId+'</div>'
+        + '<div style="font-size:10px;color:#555;background:#1a1a1a;border-radius:3px;padding:2px 6px;">'+u.field+'</div>'
+      + '</div>'
+      + (u.current ? '<div style="font-size:10px;color:#555;margin-bottom:4px;line-height:1.4;"><span style="color:#444;">Before:</span> '+escHtml(u.current)+'</div>' : '')
+      + '<div style="font-size:11px;color:#e0e0e0;margin-bottom:6px;line-height:1.5;background:#0a1a0a;border-left:2px solid #4ade80;padding:6px 8px;border-radius:0 4px 4px 0;">'+escHtml(u.proposed)+'</div>'
+      + '<div style="font-size:10px;color:#666;margin-bottom:10px;line-height:1.4;font-style:italic;">'+escHtml(u.reason)+'</div>'
+      + '<div style="display:flex;gap:8px;">'
+        + '<button onclick="applyUpgrade(''+u.id+'')" style="flex:1;background:#14532d;border:1px solid #166534;border-radius:4px;color:#4ade80;font-size:11px;padding:6px 0;cursor:pointer;">✓ Apply</button>'
+        + '<button onclick="declineUpgrade(''+u.id+'')" style="flex:1;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:4px;color:#888;font-size:11px;padding:6px 0;cursor:pointer;">✕ Decline</button>'
+      + '</div>'
+    + '</div>';
+  });
+
+  html += '</div>';
+  panel.innerHTML = html;
+}
+
+function escHtml(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function applyUpgrade(uid) {
+  var u = pendingUpgrades[uid];
+  if (!u) return;
+  // Find the shot and apply the field
+  var shotKey = null;
+  Object.keys(ST.shots).forEach(function(k) {
+    if (ST.shots[k].clipId === u.shotId || k === u.shotId.replace('.','_')) shotKey = k;
+  });
+  if (shotKey) {
+    if (!ST.shots[shotKey].fields) ST.shots[shotKey].fields = {};
+    if (u.field === 'currentPrompt') {
+      ST.shots[shotKey].currentPrompt = u.proposed;
+    } else {
+      ST.shots[shotKey].fields[u.field] = u.proposed;
+    }
+    // Persist to Firebase
+    if (db) db.ref('projects/'+PID+'/shots/'+shotKey).set(ST.shots[shotKey]);
+  }
+  u.resolved = true;
+  // Remove card from panel
+  var card = document.getElementById('upg-card-'+uid);
+  if (card) { card.style.opacity='0.4'; card.style.pointerEvents='none'; setTimeout(function(){ if(card.parentNode) card.parentNode.removeChild(card); updateAgentCard(u.agentName, curSec); }, 400); }
+  toast('Applied: ' + u.field + ' on ' + u.shotId);
+}
+
+function declineUpgrade(uid) {
+  var u = pendingUpgrades[uid];
+  if (!u) return;
+  u.resolved = true;
+  var card = document.getElementById('upg-card-'+uid);
+  if (card) { card.style.opacity='0.3'; card.style.pointerEvents='none'; setTimeout(function(){ if(card.parentNode) card.parentNode.removeChild(card); updateAgentCard(u.agentName, curSec); }, 300); }
+}
+
+function applyAllUpgrades(agentName) {
+  Object.keys(pendingUpgrades).forEach(function(uid) {
+    var u = pendingUpgrades[uid];
+    if (u.agentName===agentName && !u.resolved) applyUpgrade(uid);
+  });
+  setTimeout(function(){ showUpgradesForAgent(agentName); }, 500);
+}
+
+function declineAllUpgrades(agentName) {
+  Object.keys(pendingUpgrades).forEach(function(uid) {
+    var u = pendingUpgrades[uid];
+    if (u.agentName===agentName && !u.resolved) declineUpgrade(uid);
+  });
+  setTimeout(function(){ showUpgradesForAgent(agentName); }, 400);
+}
+
+function closeUpgradePanel() {
+  var panel = document.getElementById('upgrade-panel');
+  if (panel) panel.style.display = 'none';
+}
+
+function runCrewStory() { runCrew('story'); }
+function runCrewCast()  { runCrew('cast'); }
 </script>
 </body>
 </html>
