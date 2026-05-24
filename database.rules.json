@@ -2,17 +2,17 @@
   "rules": {
     "projects": {
       "$projectId": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".read": true,
+        ".write": false
       }
     },
     "sessions": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": false,
+      ".write": false
     },
     "users": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": false,
+      ".write": false
     }
   }
 }
