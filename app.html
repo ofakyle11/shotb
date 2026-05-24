@@ -976,8 +976,8 @@ function showUpgradesForAgent(agentName) {
     + '<div><div style="font-size:12px;font-weight:700;color:#e0e0e0;">'+agentName+'</div>'
     + '<div style="font-size:10px;color:#555;margin-top:2px;">'+upgrades.length+' pending upgrade'+(upgrades.length!==1?'s':'')+'</div></div>'
     + '<div style="display:flex;gap:8px;align-items:center;">'
-    + '<button onclick="applyAllUpgrades(''+agentName+'')" style="background:#14532d;border:1px solid #166534;border-radius:4px;color:#4ade80;font-size:10px;padding:5px 10px;cursor:pointer;">✓ Apply All</button>'
-    + '<button onclick="declineAllUpgrades(''+agentName+'')" style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:4px;color:#888;font-size:10px;padding:5px 10px;cursor:pointer;">✕ Decline All</button>'
+    + '<button onclick="applyAllUpgrades(\''+agentName+\'')" style="background:#14532d;border:1px solid #166534;border-radius:4px;color:#4ade80;font-size:10px;padding:5px 10px;cursor:pointer;">✓ Apply All</button>'
+    + '<button onclick="declineAllUpgrades(\''+agentName+\'')" style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:4px;color:#888;font-size:10px;padding:5px 10px;cursor:pointer;">✕ Decline All</button>'
     + '<button onclick="closeUpgradePanel()" style="background:none;border:none;color:#888;font-size:18px;cursor:pointer;line-height:1;">×</button>'
     + '</div></div>'
     + '<div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">';
@@ -992,8 +992,8 @@ function showUpgradesForAgent(agentName) {
       + '<div style="font-size:11px;color:#e0e0e0;margin-bottom:6px;line-height:1.5;background:#0a1a0a;border-left:2px solid #4ade80;padding:6px 8px;border-radius:0 4px 4px 0;">'+escHtml(u.proposed)+'</div>'
       + '<div style="font-size:10px;color:#666;margin-bottom:10px;line-height:1.4;font-style:italic;">'+escHtml(u.reason)+'</div>'
       + '<div style="display:flex;gap:8px;">'
-        + '<button onclick="applyUpgrade(''+u.id+'')" style="flex:1;background:#14532d;border:1px solid #166534;border-radius:4px;color:#4ade80;font-size:11px;padding:6px 0;cursor:pointer;">✓ Apply</button>'
-        + '<button onclick="declineUpgrade(''+u.id+'')" style="flex:1;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:4px;color:#888;font-size:11px;padding:6px 0;cursor:pointer;">✕ Decline</button>'
+        + '<button onclick="applyUpgrade(\''+u.id+\'')" style="flex:1;background:#14532d;border:1px solid #166534;border-radius:4px;color:#4ade80;font-size:11px;padding:6px 0;cursor:pointer;">✓ Apply</button>'
+        + '<button onclick="declineUpgrade(\''+u.id+\'')" style="flex:1;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:4px;color:#888;font-size:11px;padding:6px 0;cursor:pointer;">✕ Decline</button>'
       + '</div>'
     + '</div>';
   });
