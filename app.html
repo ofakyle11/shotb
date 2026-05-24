@@ -667,17 +667,41 @@ async function reparseScript() {
     // Rebuild ST.shots — pre-populate cast fields from Grok data
     var newShots = {};
     SCENES.forEach(function(sc) {
-      // Build cast fields from first character in scene (primary character)
-      var primaryChar = (sc.characters && sc.characters[0]) || {};
-      // Build a combined character name list for the field
-      var allCharNames = (sc.characters || []).map(function(c){ return c.name; }).join(', ');
+      // Build a lookup: shotId -> shot object (has per-shot characters if prompt returns them)
+      var shotLookup = {};
+      (sc.shots || []).forEach(function(sh) { shotLookup[sh.id] = sh; });
 
       sc.clips.forEach(function(c) {
+        // c is a shot ID like "S1.1" -- find the matching shot object
+        var shotObj = shotLookup[c] || {};
+
+        // Per-shot characters (if Grok returned them) take priority over scene-level
+        var shotChars = shotObj.characters || null;
+
+        // If no per-shot characters, infer from shot description:
+        // only include scene characters whose name appears in the shot description
+        if (!shotChars) {
+          var desc = (shotObj.description || '').toLowerCase();
+          if (desc) {
+            shotChars = (sc.characters || []).filter(function(ch) {
+              var nm = (ch.name || '').toLowerCase();
+              return nm && desc.indexOf(nm.toLowerCase()) >= 0;
+            });
+          }
+        }
+
+        // Final fallback: if shot description mentions no named characters AND
+        // the scene has speaking characters (dialogue scenes), use scene chars.
+        // But for pure action/establishing shots with no character mention, leave blank.
+        var primaryChar = (shotChars && shotChars.length) ? shotChars[0] : {};
+        var allCharNames = (shotChars && shotChars.length)
+          ? shotChars.map(function(c){ return c.name; }).join(', ')
+          : '';
+
         newShots[key(c)] = {
           sceneId: sc.id, clipId: c, locked: false, minimized: false,
           currentPrompt: '', committedPrompt: '', bg: '',
           fields: {
-            // Character fields — use primary character, list all names in role
             characterName: primaryChar.name || allCharNames || '',
             role: primaryChar.role || '',
             physicalDesc: primaryChar.physicalDesc || '',
