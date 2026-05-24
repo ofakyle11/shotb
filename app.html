@@ -223,7 +223,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,sa
 </nav>
 <div id="main">
   <div id="topbar">
-    <div class="topbar-meta" id="topbar-meta"><strong>128</strong> clips across <strong>27</strong> scenes</div>
+    <div class="topbar-meta" id="topbar-meta"><strong id="tb-clips">0</strong> clips across <strong id="tb-scenes">0</strong> scenes</div>
     <div class="topbar-actions">
       <button class="tb-btn" onclick="rerunSuggestions()">Re-run suggestions</button>
       <button class="tb-btn gold" onclick="redraftAllMasters()">&#8635; Redraft All Masters</button>
@@ -286,7 +286,8 @@ async function init(){
     }catch(fe){console.warn("scriptText load:",fe.message);}
     try{
       var snapScenes=await db.ref("projects/"+PID+"/scenes").once("value");
-      var sd=snapScenes.val();if(sd&&Array.isArray(sd)&&sd.length){SCENES=sd;var _chars=new Set();sd.forEach(function(sc){(sc.characters||[]).forEach(function(c){_chars.add(c);});});window._charCount=_chars.size;buildCharacterBible(sd);}
+      var sd=snapScenes.val();if(sd&&Array.isArray(sd)&&sd.length){SCENES=sd;var _chars=new Set();sd.forEach(function(sc){(sc.characters||[]).forEach(function(c){_chars.add(c);});});window._charCount=_chars.size;buildCharacterBible(sd);
+      updateTopbar();}
     }catch(fe){console.warn("scenes load:",fe.message);}
     try{
       var snapShots=await db.ref("projects/"+PID+"/shots").once("value");
@@ -491,6 +492,16 @@ function rerunSuggestions(){toast("Re-running suggestions...");}
 function redraftAllMasters(){toast("Redrafting all scene masters...");}
 
 async function saveScript(v){scriptText=v;if(db)db.ref("projects/"+PID+"/scriptText").set(v);}
+async function updateTopbar() {
+  var totalClips = 0;
+  if (SCENES && SCENES.length) {
+    SCENES.forEach(function(sc) { totalClips += (sc.clips || sc.shots || []).length; });
+  }
+  var tbClips = document.getElementById('tb-clips');
+  var tbScenes = document.getElementById('tb-scenes');
+  if (tbClips) tbClips.textContent = totalClips;
+  if (tbScenes) tbScenes.textContent = (SCENES && SCENES.length) || 0;
+}
 async function reparseScript() {
   var btn   = document.getElementById('reparse-btn');
   var pctEl = document.getElementById('reparse-pct');
@@ -589,7 +600,8 @@ async function reparseScript() {
     var titleEl = document.querySelector('.story-meta-title');
     if (titleEl) titleEl.textContent = parsed.title || '(Untitled)';
     var tags = document.querySelectorAll('.story-tag');
-    var tagVals = ['screenplay', parsed.scenes.length + ' scenes', (parsed.characters || []).length + ' characters'];
+    window._charCount = (parsed.characters || []).length;
+    var tagVals = ['screenplay', parsed.scenes.length + ' scenes', window._charCount + ' characters'];
     tags.forEach(function(t, i) { if (tagVals[i]) t.textContent = tagVals[i]; });
 
     // Render breakdown
@@ -600,6 +612,7 @@ async function reparseScript() {
       renderSec(curSec);
     }
 
+    updateTopbar();
     toast('Parsed ' + parsed.scenes.length + ' scenes — Cast & Places pre-filled');
 
   } catch(e) {
