@@ -24,6 +24,7 @@ Rules:
 - Shot IDs use format S1.1, S1.2, S2.1, S2.2 etc.
 - For each scene, extract ALL production details: characters present, their wardrobe, location details, props, atmosphere.
 - For each character in a scene, provide their name, role/function in the scene, physical description, and wardrobe.
+- For each shot, include a "characters" array listing ONLY the character names that actually appear in that specific shot. Leave it empty [] for establishing shots, cutaways, or shots with no named characters.
 
 Return ONLY valid JSON in this exact format, no markdown, no explanation:
 {
@@ -48,8 +49,8 @@ Return ONLY valid JSON in this exact format, no markdown, no explanation:
         }
       ],
       "shots": [
-        { "id": "S1.1", "type": "Wide", "description": "Establishing shot of arrivals hall" },
-        { "id": "S1.2", "type": "Medium", "description": "Character walks through crowd" }
+        { "id": "S1.1", "type": "Wide", "description": "Establishing shot of arrivals hall", "characters": [] },
+        { "id": "S1.2", "type": "Medium", "description": "Character walks through crowd", "characters": ["CHARACTER NAME"] }
       ]
     }
   ],
