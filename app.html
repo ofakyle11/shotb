@@ -248,10 +248,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,sa
 </div>
 <div id="toast"></div>
 <script>
-var WSE={
-  var agents = AGENTS[sec] || [];
-  agents.forEach(function(name) { runSingleAgent(name, sec); });
-};
+// runAllAgents is defined below as a proper function
 var WSK="",db=null,PID="project-001";
 var AGENTS={story:["Vision Director","Scene Architect","Beat Sheet Architect","Logline Refiner","Tone Guardian","Genre Interpreter","Premise Expander","Creative Prompt Writer","Research Specialist","World Builder","Continuity Supervisor","Emotional Truth Guardian"],cast:["Character Designer","Character Bible Maintainer","Character Arc Guardian","Wardrobe Coordinator","Makeup and Hair Specialist","Location Scout","Prop Master","Crowd Coordinator","Wardrobe and Prop Auditor","Geography and Set Guardian"],coverage:["Cinematographer","Lighting Designer","Movement Choreographer","Director of Photography Assistant","Gaffer","Key Grip","Stunt Coordinator","Practical Effects Supervisor","Stunt Performer Coordinator","Visual Consistency Guardian","Performance Consistency Checker","Timeline Consistency Checker"],generate:["Head Editor","Cut Specialist","Montage Specialist","Color Grading Agent","Music Sync Specialist","Cross-Fade and Transition Artist","Tempo and Pacing Analyst","Dialogue Editor","Sound Editor","Final Cut Approver","Dramatic Logic Guardian","Final Review Orchestrator","Post-Production Supervisor"],edit:["Head Editor","Cut Specialist","Montage Specialist","Color Grading Agent","Music Sync Specialist","Cross-Fade and Transition Artist","Tempo and Pacing Analyst","Dialogue Editor","Sound Editor","Final Cut Approver","Dramatic Logic Guardian","Final Review Orchestrator","Post-Production Supervisor"]};
 var scriptText=""; // persisted to Firebase
@@ -731,14 +728,15 @@ function renderScriptBreakdown(scenes) {
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
 function fmt(iso){if(!iso)return'';var d=new Date(iso);return d.toLocaleDateString("en-US",{month:"short",day:"numeric"})+" "+d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true});}
 function toast(msg){var el=document.getElementById("toast");if(!el)return;el.innerHTML=msg;el.classList.add("show");setTimeout(function(){el.classList.remove("show");},2500);}
-init();
-
+// init() called once below
 function runCrewStory(){toast("Running full crew...");}
-function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
-function fmt(iso){if(!iso)return'';var d=new Date(iso);return d.toLocaleDateString("en-US",{month:"short",day:"numeric"})+" "+d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true});}
-function toast(msg){var el=document.getElementById("toast");if(!el)return;el.innerHTML=msg;el.classList.add("show");setTimeout(function(){el.classList.remove("show");},2500);}
-init();
+// (duplicate removed)
 
+// (duplicate removed)
+
+// (duplicate removed)
+
+// init() called once below
 function renderBreakdown(){
   var grid=document.getElementById('scene-breakdown-grid');
   if(!grid)return;
@@ -811,43 +809,13 @@ function renderAgentProgress() {
   }).join('');
 }
 
-function runCrewStory() {
-  toast("Running full crew...");
-  var agents = (window.AGENTS && AGENTS.story) ? AGENTS.story : [
-    "Vision Director","Scene Architect","Beat Sheet Architect","Logline Refiner",
-    "Tone Guardian","Genre Interpreter","Premise Expander","Creative Prompt Writer",
-    "Research Specialist","World Builder","Continuity Supervisor","Emotional Truth Guardian"
-  ];
-  STORY_AGENT_STATE = {};
-  agents.forEach(function(a){ STORY_AGENT_STATE[a] = {pct:0, status:'idle'}; });
-  renderAgentProgress();
-  var idx = 0;
-  function runNext() {
-    if (idx >= agents.length) { toast("Crew complete!"); return; }
-    var name = agents[idx];
-    STORY_AGENT_STATE[name] = {pct:0, status:'active'};
-    renderAgentProgress();
-    var pct = 0;
-    var iv = setInterval(function() {
-      pct += Math.floor(Math.random() * 18) + 6;
-      if (pct >= 100) {
-        pct = 100; clearInterval(iv);
-        STORY_AGENT_STATE[name] = {pct:100, status:'done'};
-        renderAgentProgress();
-        idx++; runNext();
-      } else {
-        STORY_AGENT_STATE[name] = {pct:pct, status:'active'};
-        renderAgentProgress();
-      }
-    }, 280);
-  }
-  runNext();
-}
+// (duplicate removed)
 
 
 
 
-document.addEventListener('DOMContentLoaded', init);
+
+
 
 
 // ── AGENT SYSTEM ─────────────────────────────────────────────────────────────
@@ -1339,6 +1307,9 @@ runSingleAgent = async function(name, sec) {
     toast(name + ' failed: ' + e.message);
   }
 };
+
+// Single init call
+init();
 </script>
 </body>
 </html>
