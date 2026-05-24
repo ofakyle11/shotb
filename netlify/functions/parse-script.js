@@ -19,10 +19,11 @@ exports.handler = async (event) => {
 Analyze the following script and break it down into PRODUCTION SCENES.
 
 Rules:
-- A production scene = a continuous block of action in ONE physical location/setting. If the story moves to a new place, that is a new scene.
-- Do NOT use scene heading numbers mechanically. Group by actual location continuity (e.g. everything happening at the airport is one scene even if the script has multiple INT. headings there).
-- For each scene, determine the EXACT shots needed to film it. Think like a cinematographer: establish the space, cover the action, capture dialogue, close-ups, inserts, transitions. Be specific and realistic.
+- A production scene = a continuous block of action in ONE physical location/setting.
+- For each scene, determine the EXACT shots needed to film it.
 - Shot IDs use format S1.1, S1.2, S2.1, S2.2 etc.
+- For each scene, extract ALL production details: characters present, their wardrobe, location details, props, atmosphere.
+- For each character in a scene, provide their name, role/function in the scene, physical description, and wardrobe.
 
 Return ONLY valid JSON in this exact format, no markdown, no explanation:
 {
@@ -32,6 +33,20 @@ Return ONLY valid JSON in this exact format, no markdown, no explanation:
       "id": "S1",
       "name": "Brief location name (e.g. London Airport - Arrivals)",
       "description": "One sentence describing what happens here",
+      "intExt": "INT" or "EXT",
+      "locationDesc": "Detailed description of the physical location and set dressing",
+      "timePeriod": "e.g. Day, Night, Dawn, Dusk, or specific era",
+      "atmosphere": "Mood and tone of the scene (e.g. tense, warm, chaotic)",
+      "props": "Comma-separated list of key props needed",
+      "characters": [
+        {
+          "name": "CHARACTER NAME",
+          "role": "Their function in this scene (e.g. Protagonist, Detective, Bystander)",
+          "physicalDesc": "Age, build, distinguishing features",
+          "wardrobe": "What they are wearing in this scene",
+          "makeup": "Any notable makeup or hair notes"
+        }
+      ],
       "shots": [
         { "id": "S1.1", "type": "Wide", "description": "Establishing shot of arrivals hall" },
         { "id": "S1.2", "type": "Medium", "description": "Character walks through crowd" }
@@ -53,7 +68,7 @@ ${script.substring(0,8000)}`;
         model: 'grok-3-mini',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
-        max_tokens: 4000
+        max_tokens: 6000
       })
     });
 
@@ -64,8 +79,6 @@ ${script.substring(0,8000)}`;
 
     const data = await resp.json();
     const raw = data.choices[0].message.content.trim();
-
-    // Strip markdown code fences if present
     const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
     const parsed = JSON.parse(cleaned);
 
