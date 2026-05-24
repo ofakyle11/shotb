@@ -3,6 +3,25 @@
   command = ""
   functions = "netlify/functions"
 
+# ── Cache static assets aggressively to save bandwidth ──────────────────────
+# app.html: short cache (1 hour) + must-revalidate so deploys propagate fast
+[[headers]]
+  for = "/app.html"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+# Everything else (JS, CSS, images): cache for 1 year (content-hashed filenames)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Netlify functions: never cache (always fresh)
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Cache-Control = "no-store"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
