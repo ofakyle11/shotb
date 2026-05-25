@@ -553,7 +553,7 @@ function toggleMin(k){if(!db)return;var s=ST.shots[k]||{};db.ref("projects/"+PID
 function toggleScene(id){var el=document.getElementById("sc-"+id);if(el)el.classList.toggle("collapsed");}
 function collapseAll(){SCENES.forEach(function(s){var el=document.getElementById("sc-"+s.id);if(el)el.classList.add("collapsed");});}
 function expandAll(){SCENES.forEach(function(s){var el=document.getElementById("sc-"+s.id);if(el)el.classList.remove("collapsed");});}
-function updP(k,v){if(!db)return;db.ref("projects/"+PID+"/shots/"+k+"/currentPrompt").set(v);}
+function updP(k,v){if(!db)return;if(!ST.shots[k])ST.shots[k]={};ST.shots[k].currentPrompt=v;db.ref("projects/"+PID+"/shots/"+k+"/currentPrompt").set(v);}
 function updBg(k,v){if(!db)return;db.ref("projects/"+PID+"/shots/"+k+"/bg").set(v);}
 function updF(k,f,v){if(!db)return;db.ref("projects/"+PID+"/shots/"+k+"/fields/"+f).set(v);}
 function applyC(k){if(!db)return;var s=ST.shots[k]||{};var ref=db.ref("projects/"+PID+"/shots/"+k);ref.child("committedPrompt").set(s.currentPrompt||'');if(s.fields&&Object.keys(s.fields).length){ref.child("fields").set(s.fields);}toast("Changes applied");}
@@ -587,7 +587,7 @@ async function runFailedAgents(sec){
 
 async function genClip(k,cid){
   if(!db){toast("Not connected");return;}
-  var s=ST.shots[k]||{},p=s.committedPrompt||s.currentPrompt||'';
+  var s=ST.shots[k]||{},_ta=document.getElementById('prompt-'+k),p=s.committedPrompt||s.currentPrompt||(_ta&&_ta.value)||'';
   if(!p){toast("Add a prompt before generating");return;}
   var q=s.quality||'standard';
   var gp=document.getElementById("gp-"+k);
