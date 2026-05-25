@@ -656,7 +656,6 @@ async function genClip(k,cid){
     if(gt)gt.textContent="Complete";
     if(ge)ge.textContent='';
     var vids=(s.videos||[]).concat([{take:(s.videos||[]).length+1,quality:q,url:url,ts:new Date().toISOString(),section:curSec,clipId:cid}]);
-    db.ref("projects/"+PID+"/shots/"+k+"/videos").set(vids);
     var vid={id:Date.now()+'',clipKey:k,clipId:cid,take:vids.length,quality:q,url:url,ts:new Date().toISOString(),section:curSec};
     db.ref("projects/"+PID+"/videos/"+vid.id).set(vid);
     if(ST.shots[k])ST.shots[k].videos=vids;
