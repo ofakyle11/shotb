@@ -252,7 +252,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,sa
 var WSK="",db=null,PID="project-001";var WSE={standard:"https://api.wavespeed.ai/api/v3/wavespeed-ai/wan2.1-t2v-720p",pro:"https://api.wavespeed.ai/api/v3/wavespeed-ai/wan2.1-t2v-1080p",veo:"https://api.wavespeed.ai/api/v3/wavespeed-ai/wan2.1-t2v-1080p"};
 var AGENTS={story:["Vision Director","Scene Architect","Beat Sheet Architect","Logline Refiner","Tone Guardian","Genre Interpreter","Premise Expander","Creative Prompt Writer","Research Specialist","World Builder","Continuity Supervisor","Emotional Truth Guardian"],cast:["Character Designer","Character Bible Maintainer","Character Arc Guardian","Wardrobe Coordinator","Makeup and Hair Specialist","Location Scout","Prop Master","Crowd Coordinator","Wardrobe and Prop Auditor","Geography and Set Guardian"],coverage:["Cinematographer","Lighting Designer","Movement Choreographer","Director of Photography Assistant","Gaffer","Key Grip","Stunt Coordinator","Practical Effects Supervisor","Stunt Performer Coordinator","Visual Consistency Guardian","Performance Consistency Checker","Timeline Consistency Checker"],generate:["Head Editor","Cut Specialist","Montage Specialist","Color Grading Agent","Music Sync Specialist","Cross-Fade and Transition Artist","Tempo and Pacing Analyst","Dialogue Editor","Sound Editor","Final Cut Approver","Dramatic Logic Guardian","Final Review Orchestrator","Post-Production Supervisor"],edit:["Head Editor","Cut Specialist","Montage Specialist","Color Grading Agent","Music Sync Specialist","Cross-Fade and Transition Artist","Tempo and Pacing Analyst","Dialogue Editor","Sound Editor","Final Cut Approver","Dramatic Logic Guardian","Final Review Orchestrator","Post-Production Supervisor"]};
 var scriptText=""; // persisted to Firebase
-var _parsing=false; // true while reparseScript fetch is in flight -- blocks syncUI re-render
+var _parsing=false;var _suppressRender=false; // true while reparseScript fetch is in flight -- blocks syncUI re-render
 var SCENES=[]; // populated from Firebase or Grok parse
 var CHARACTER_BIBLE={}; // keyed by char name uppercase, auto-filled from Grok
 var COVF=[["shotType","Shot Type"],["angle","Angle"],["lens","Lens"],["timeOfDay","Time of Day"],["style","Style"],["temperature","Temperature"],["filmGrain","Film Grain"],["season","Season"],["contrast","Contrast"],["depthOfField","Depth of Field"],["cameraMove","Camera Move"],["distortion","Distortion"],["exposure","Exposure"],["colourTheme","Colour Theme"],["cinematics","Cinematics"]];
@@ -351,10 +351,11 @@ function syncUI(source){
     var pending=_syncPending;
     _syncPending={};
     _syncTimer=null;
+    var _sr=_suppressRender;_suppressRender=false;
     var contentEl=document.getElementById("content");
     if(!contentEl||contentEl.style.display==="none")return;
     updateTopbar();
-    if(!_parsing&&(pending.scenes||pending.shots||pending.scriptText)){
+    if(!_parsing&&!_suppressRender&&(pending.scenes||pending.shots||pending.scriptText)){
       renderSec(curSec);
       if(curSec==='story'){
         if(SCENES&&SCENES.length)renderScriptBreakdown(SCENES);
@@ -554,14 +555,14 @@ function toggleScene(id){var el=document.getElementById("sc-"+id);if(el)el.class
 function collapseAll(){SCENES.forEach(function(s){var el=document.getElementById("sc-"+s.id);if(el)el.classList.add("collapsed");});}
 function expandAll(){SCENES.forEach(function(s){var el=document.getElementById("sc-"+s.id);if(el)el.classList.remove("collapsed");});}
 function updP(k,v){if(!db)return;if(!ST.shots[k])ST.shots[k]={};ST.shots[k].currentPrompt=v;db.ref("projects/"+PID+"/shots/"+k+"/currentPrompt").set(v);}
-function updBg(k,v){if(!db)return;db.ref("projects/"+PID+"/shots/"+k+"/bg").set(v);}
-function updF(k,f,v){if(!db)return;db.ref("projects/"+PID+"/shots/"+k+"/fields/"+f).set(v);}
+function updBg(k,v){if(!db)return;if(!ST.shots[k])ST.shots[k]={};ST.shots[k].bg=v;_suppressRender=true;db.ref("projects/"+PID+"/shots/"+k+"/bg").set(v);}
+function updF(k,f,v){if(!db)return;if(!ST.shots[k])ST.shots[k]={};if(!ST.shots[k].fields)ST.shots[k].fields={};ST.shots[k].fields[f]=v;_suppressRender=true;db.ref("projects/"+PID+"/shots/"+k+"/fields/"+f).set(v);}
 function applyC(k){if(!db)return;var s=ST.shots[k]||{};var ref=db.ref("projects/"+PID+"/shots/"+k);ref.child("committedPrompt").set(s.currentPrompt||'');if(s.fields&&Object.keys(s.fields).length){ref.child("fields").set(s.fields);}toast("Changes applied");}
 function undoC(k){if(!db)return;var s=ST.shots[k]||{};var c=s.committedPrompt||'';db.ref("projects/"+PID+"/shots/"+k+"/currentPrompt").set(c);var el=document.getElementById("prompt-"+k);if(el)el.value=c;toast("Reverted");}
 function handleInh(k,v){if(v!=="scene")return;var s=ST.shots[k]||{};var sc=SCENES.find(function(sc){return sc.id===s.sceneId;});if(!sc)return;var m=ST.shots[key(sc.clips[0])]||{};var p=m.committedPrompt||m.currentPrompt||'';updP(k,p);var el=document.getElementById("prompt-"+k);if(el)el.value=p;toast("Inherited from scene master");}
 function inhBg(k){var s=ST.shots[k]||{};var sc=SCENES.find(function(sc){return sc.id===s.sceneId;});if(!sc)return;var m=ST.shots[key(sc.clips[0])]||{};updBg(k,m.bg||'');var el=document.getElementById("bg-"+k);if(el)el.value=m.bg||'';toast("Background inherited");}
 function inhF(k,f){var s=ST.shots[k]||{};var sc=SCENES.find(function(sc){return sc.id===s.sceneId;});if(!sc)return;var m=ST.shots[key(sc.clips[0])]||{};var v=(m.fields||{})[f]||'';updF(k,f,v);toast("Inherited");}
-function setQ(k,q,btn){if(!db)return;db.ref("projects/"+PID+"/shots/"+k+"/quality").set(q);var row=btn.closest(".quality-row");if(row)row.querySelectorAll(".q-btn").forEach(function(b){b.classList.remove("active");});btn.classList.add("active");}
+function setQ(k,q,btn){if(!db)return;if(!ST.shots[k])ST.shots[k]={};ST.shots[k].quality=q;_suppressRender=true;db.ref("projects/"+PID+"/shots/"+k+"/quality").set(q);var row=btn.closest(".quality-row");if(row)row.querySelectorAll(".q-btn").forEach(function(b){b.classList.remove("active");});btn.classList.add("active");}
 function setSecQ(sec,q,btn){secQ[sec]=q;var row=btn.closest(".sec-gen-row");if(row)row.querySelectorAll(".q-btn").forEach(function(b){b.classList.remove("active");});btn.classList.add("active");}
 function selAg(k,a,sec){selAgent[k]=a;(AGENTS[sec]||[]).forEach(function(ag){var c=document.getElementById("chip-"+k+"_"+ag.replace(/\s+/g,"_"));if(c)c.classList.toggle("selected",ag===a);});}
 async function runAg(k,sec,forAll){
