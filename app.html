@@ -796,7 +796,7 @@ async function reparseScript() {
 
         newShots[key(c)] = {
           sceneId: sc.id, clipId: c, locked: false, minimized: false,
-          currentPrompt: '', committedPrompt: '', bg: '',
+          currentPrompt: shotObj.description||'', committedPrompt: shotObj.description||'', bg: '',
           fields: {
             characterName: primaryChar.name || allCharNames || '',
             role: primaryChar.role || '',
