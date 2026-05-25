@@ -663,7 +663,7 @@ async function genClip(k,cid){
     var tw=document.getElementById("takes-"+k);
     if(tw){
       var tabsH=vids.map(function(v,i){
-        return '<button class="take-tab '+(i===vids.length-1?'active':'')+'" onclick="swTake(''+k+'','+i+',this)">Take '+(i+1)+'</button>';
+        return '<button class="take-tab '+(i===vids.length-1?'active':'')+' " onclick="swTake(\''+k+'\','+i+',this)">Take '+(i+1)+'</button>';
       }).join('');
       tw.innerHTML='<div class="takes-tabs">'+tabsH+'</div>'
         +'<div class="take-meta" id="take-meta-'+k+'">'+cid+' · '+qL(q)+' · '+fmt(new Date().toISOString())+'</div>'
