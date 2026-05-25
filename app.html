@@ -137,7 +137,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,sa
 .take-tab{padding:4px 12px;border-radius:4px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--card3);color:var(--text-muted);transition:all .15s;font-family:inherit}
 .take-tab.active{border-color:var(--gold);color:var(--gold);background:var(--gold-bg)}
 .take-meta{font-size:10px;color:var(--text-muted);margin-bottom:8px}
-.video-box{background:var(--card2);border:1px solid var(--border);border-radius:var(--r);height:150px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px;overflow:hidden}
+.video-box{background:var(--card2);border:1px solid var(--border);border-radius:var(--r);min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px;overflow:hidden}
 .sec-gen-block{margin-top:28px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px}
 .sec-gen-title{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
 .sec-gen-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -670,7 +670,7 @@ async function genClip(k,cid){
       tw.innerHTML='<div class="takes-tabs">'+tabsH+'</div>'
         +'<div class="take-meta" id="take-meta-'+k+'">'+cid+' · '+qL(q)+' · '+fmt(new Date().toISOString())+'</div>'
         +'<div class="video-box" id="vprev-'+k+'">'
-        +(url?'<video src="'+url+'" controls autoplay muted loop style="width:100%;height:100%;border-radius:4px" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'block\'"></video><a href="'+url+'" target="_blank" style="display:none;color:#4ade80;font-size:12px">Open video</a>':'&#9654; Video ready (no URL)')
+        +(url?'<video src="'+url+'" controls playsinline style="width:100%;display:block;border-radius:4px"></video><div style="padding:4px 8px;font-size:11px"><a href="'+url+'" target="_blank" style="color:var(--accent)">⬇ Open / download</a></div>':'<span style="opacity:.5">&#9654; Video ready (no URL)</span>')
         +'</div>';
       tw.classList.add("show");
     }
@@ -691,7 +691,7 @@ function filterLib(f,btn){libF=f;document.querySelectorAll(".lib-filter").forEac
 function renderLib(){var el=document.getElementById("lib-list");if(!el)return;var items=libF==="all"?ST.videos:ST.videos.filter(function(v){return v.section===libF;});if(!items.length){el.innerHTML='<div class="lib-empty">No videos yet.</div>';return;}el.innerHTML=items.map(function(v){return '<div class="lib-item"><div class="lib-item-id">'+v.clipId+' &middot; Take '+v.take+'</div><div class="lib-item-meta">'+qL(v.quality)+' &middot; '+fmt(v.ts)+'</div><div class="lib-item-actions"><button class="lib-item-btn" onclick="playV(\''+v.url+'\')">&rsaquo; Play</button><button class="lib-item-btn" onclick="dlV(\''+v.url+'\',\''+v.clipId+'\')">&darr; Download</button></div></div>';}).join('');}
 function playV(url){if(!url){toast("No URL (demo mode)");return;}window.open(url,"_blank");}
 function dlV(url,id){if(!url){toast("No URL (demo mode)");return;}var a=document.createElement("a");a.href=url;a.download=id+".mp4";a.click();}
-function swTake(k,i,btn){var s=ST.shots[k]||{},v=(s.videos||[])[i];if(!v)return;var tabs=btn.closest(".takes-tabs");if(tabs)tabs.querySelectorAll(".take-tab").forEach(function(t,j){t.classList.toggle("active",j===i);});var m=document.getElementById("take-meta-"+k),p=document.getElementById("vprev-"+k);if(m)m.textContent=s.clipId+" \u00b7 "+qL(v.quality)+" \u00b7 "+fmt(v.ts);if(p)p.innerHTML=v.url?'<video src="'+v.url+'" controls style="width:100%;height:100%;border-radius:4px"></video>':'&#9654; Video ready';}
+function swTake(k,i,btn){var s=ST.shots[k]||{},v=(s.videos||[])[i];if(!v)return;var tabs=btn.closest(".takes-tabs");if(tabs)tabs.querySelectorAll(".take-tab").forEach(function(t,j){t.classList.toggle("active",j===i);});var m=document.getElementById("take-meta-"+k),p=document.getElementById("vprev-"+k);if(m)m.textContent=s.clipId+" \u00b7 "+qL(v.quality)+" \u00b7 "+fmt(v.ts);if(p)p.innerHTML=v.url?'<video src="'+v.url+'" controls playsinline style="width:100%;display:block;border-radius:4px"></video><div style="padding:4px 8px;font-size:11px"><a href="'+v.url+'" target="_blank" style="color:var(--accent)">⬇ Open / download</a></div>':'<span style=\'opacity:.5\'>&#9654; No video URL</span>';}
 function rerunSuggestions(){toast("Re-running suggestions...");}
 function redraftAllMasters(){toast("Redrafting all scene masters...");}
 
