@@ -248,7 +248,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,sa
 <script>
 // runAllAgents is defined below as a proper function
 var WSK="",db=null,PID="project-001";var WSE={standard:"https://api.wavespeed.ai/api/v3/kling-ai/kling-v3-5s",pro:"https://api.wavespeed.ai/api/v3/google/veo-3.1-generate-preview",wan:"https://api.wavespeed.ai/api/v3/wavespeed-ai/wan2.7-t2v-720p",turbo:"https://api.wavespeed.ai/api/v3/bytedance/seedance-v1-lite-t2v-turbo"};
-var AGENTS={story:["Beat Sheet Architect","Logline Refiner","Tone Guardian","Genre Interpreter","Premise Expander","Creative Prompt Writer","Research Specialist","World Builder","Continuity Supervisor","Emotional Truth Guardian","Scene Architect","Narrative Flow Guardian"],"shot-design":["Vision Director","Cinematographer","Lighting Designer","Movement Choreographer","Director of Photography Assistant","Gaffer","Key Grip","Stunt Coordinator","Practical Effects Supervisor","Visual Consistency Guardian","Performance Consistency Checker","Timeline Consistency Checker"],cast:["Character Designer","Character Bible Maintainer","Character Arc Guardian","Wardrobe Coordinator","Makeup and Hair Specialist","Location Scout","Prop Master","Crowd Coordinator","Wardrobe and Prop Auditor","Geography and Set Guardian"],generate:["Head Editor","Cut Specialist","Montage Specialist","Color Grading Agent","Music Sync Specialist","Cross-Fade and Transition Artist","Tempo and Pacing Analyst","Dialogue Editor","Sound Editor","Final Cut Approver","Dramatic Logic Guardian","Final Review Orchestrator","Post-Production Supervisor"],edit:["Head Editor","Cut Specialist","Montage Specialist","Color Grading Agent","Music Sync Specialist","Cross-Fade and Transition Artist","Tempo and Pacing Analyst","Dialogue Editor","Sound Editor","Final Cut Approver","Dramatic Logic Guardian","Final Review Orchestrator","Post-Production Supervisor"]};
+var AGENTS={story:["Beat Sheet Architect","Logline Refiner","Tone Guardian","Genre Interpreter","Premise Expander","Creative Prompt Writer","Research Specialist","World Builder","Continuity Supervisor","Emotional Truth Guardian","Scene Architect","Narrative Flow Guardian"],"shot-design":["Vision Director","Scene Architect","Cinematographer","Lighting Designer","Movement Choreographer","Director of Photography Assistant","Gaffer","Key Grip","Stunt Coordinator","Stunt Performer Coordinator","Practical Effects Supervisor","Visual Consistency Guardian","Performance Consistency Checker","Timeline Consistency Checker","Creative Prompt Writer"],cast:["Character Designer","Character Bible Maintainer","Character Arc Guardian","Wardrobe Coordinator","Makeup and Hair Specialist","Location Scout","Prop Master","Crowd Coordinator","Wardrobe and Prop Auditor","Geography and Set Guardian"],generate:["Head Editor","Cut Specialist","Montage Specialist","Color Grading Agent","Music Sync Specialist","Cross-Fade and Transition Artist","Tempo and Pacing Analyst","Dialogue Editor","Sound Editor","Final Cut Approver","Dramatic Logic Guardian","Final Review Orchestrator","Post-Production Supervisor"],edit:["Head Editor","Cut Specialist","Montage Specialist","Color Grading Agent","Music Sync Specialist","Cross-Fade and Transition Artist","Tempo and Pacing Analyst","Dialogue Editor","Sound Editor","Final Cut Approver","Dramatic Logic Guardian","Final Review Orchestrator","Post-Production Supervisor"]};
 var scriptText=""; // persisted to Firebase
 var _parsing=false;var _suppressRender=false; // true while reparseScript fetch is in flight -- blocks syncUI re-render
 var SCENES=[]; // populated from Firebase or Grok parse
@@ -415,7 +415,7 @@ function renderSec(sec){
   }
 }
 function storyPage(){return '<div class="page-header"><div class="page-title">Step 1 &mdash; Story</div><div class="page-subtitle">Paste a screenplay, Fountain file, or prose scene.</div></div><div class="story-paste-box"><div class="story-paste-label">Your Script or Scene</div><textarea class="story-textarea" id="story-script" oninput="saveScript(this.value)">'+scriptText+'</textarea><div class="story-actions"><button class="story-btn" onclick="reparseScript()" id="reparse-btn">Re-parse script <span id="reparse-pct" style="font-size:11px;opacity:.8;"></span></button><button class="story-btn continue" onclick="showSec(\'cast\')">Continue to Shot Studios &rarr;</button></div></div><div class="story-meta-row"><div class="story-meta-title">'+(ST&&ST.title?ST.title:'(Untitled)')+'</div><span class="story-tag">'+(SCENES&&SCENES.length?SCENES.length+' scenes':'0 scenes')+'</span><span class="story-tag">'+(window._charCount||0)+' characters</span></div><div class=\'story-breakdown\' style=\'margin-top:24px;\'><div style=\'font-size:12px;color:#888;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;\'>Agent Progress</div><div id=\'agent-progress-grid\' style=\'display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;\'></div></div><div style=\'margin-top:28px;\'><div style=\'font-size:12px;color:#888;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;\'>Script Breakdown</div><div id=\'script-breakdown-grid\' style=\'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;\'><div style=\'color:#555;font-size:13px;padding:8px;\'>Hit Re-parse script to generate breakdown.</div></div></div>';}
-function clipsPage(sec){var L={cast:"Cast & Places",coverage:"Coverage",generate:"Generate",edit:"Edit",vision:"Vision"};var S={cast:"Define characters, locations, wardrobe, and props.",coverage:"Each clip has its own settings. Defaults inherit from the previous clip and scene master.",generate:"Generate video for each clip using committed prompts and coverage settings.",edit:"Edit and assemble generated clips into a final cut.",vision:"Set the overall vision and tone for your project."};var h='<div class="page-header"><div class="page-title">Step '+sNum(sec)+' &mdash; '+(L[sec]||sec)+'</div><div class="page-subtitle">'+(S[sec]||'')+'</div></div>';if(sec==='cast'){h+='<div id="character-bible-section"></div>';}if(!SCENES||!SCENES.length){h+='<div style="color:#888;font-size:13px;padding:20px;text-align:center;">No scenes yet &mdash; go to Story and hit Re-parse script first.</div>';}else{SCENES.forEach(function(sc){h+=sceneGroup(sc,sec);});}h+=secGenBlock(sec);return h;}
+function clipsPage(sec){var L={cast:"Cast & Places",coverage:"Coverage",generate:"Generate",edit:"Edit",vision:"Vision","shot-design":"Shot Design"};var S={cast:"Define characters, locations, wardrobe, and props.",coverage:"Each clip has its own settings. Defaults inherit from the previous clip and scene master.",generate:"Generate video for each clip using committed prompts and coverage settings.",edit:"Edit and assemble generated clips into a final cut.",vision:"Set the overall vision and tone for your project.","shot-design":"Configure shot-level visual settings and run your crew agents."};var h='<div class="page-header"><div class="page-title">Step '+sNum(sec)+' &mdash; '+(L[sec]||sec)+'</div><div class="page-subtitle">'+(S[sec]||'')+'</div></div>';if(sec==='cast'){h+='<div id="character-bible-section"></div>';}if(!SCENES||!SCENES.length){h+='<div style="color:#888;font-size:13px;padding:20px;text-align:center;">No scenes yet &mdash; go to Story and hit Re-parse script first.</div>';}else{SCENES.forEach(function(sc){h+=sceneGroup(sc,sec);});}h+=secGenBlock(sec);return h;}
 function sNum(s){return {story:1,'shot-design':2,generate:3,edit:4,deliver:5}[s]||'';}
 function sceneGroup(sc,sec){var clips=sc.clips.map(function(c){return clipCard(c,sec);}).join('');var desc=sc.description?'<div style="font-size:11px;color:#666;padding:4px 12px 8px;">'+sc.description+'</div>':'';return '<div class="scene-group" id="sg-'+sc.id+'"><div class="scene-header-row"><button class="scene-pill" onclick="toggleScene(\''+sc.id+'\')">&middot; '+sc.id+' &mdash; '+sc.name.toUpperCase()+' ('+sc.clips.length+' CLIPS)</button><div class="scene-master-link" onclick="toast(\'Scene master: '+sc.id+'\')">&rsaquo; Scene master</div></div>'+desc+'<div class="scene-clips" id="sc-'+sc.id+'">'+clips+'</div></div>';}
 
@@ -431,7 +431,7 @@ function getShotLabel(cid){
   });
   return info;
 }
-function clipCard(cid,sec){var k=key(cid),s=ST.shots[k]||{},locked=s.locked||false,min=s.minimized||false,agents=AGENTS[sec]||AGENTS.coverage,log=s.log||[],q=s.quality||'standard';var chips=agents.map(function(a){return '<button class="agent-chip" id="chip-'+k+'_'+a.replace(/\s+/g,'_')+'" onclick="selAg(\''+k+'\',\''+a+'\',\''+sec+'\')">'+'<div class="chip-progress"></div><span class="chip-label">'+a+'</span></button>';}).join('');var logH=log.length===0?'<div class="log-empty">No agent activity yet.</div>':log.slice(-5).reverse().map(function(e){return '<div class="log-entry"><div class="log-entry-top"><span class="log-agent">&#10022; '+e.agent+'</span><span class="log-time">'+fmt(e.ts)+'</span></div><div class="log-text">'+e.text+'</div><button class="log-rerun" onclick="rerunAg(\''+k+'\',\''+e.agent+'\',\''+sec+'\')">&crarr; Re-run</button></div>';}).join('');var qH=['standard','pro','veo'].map(function(v){return '<button class="q-btn '+(q===v?'active':'')+' " onclick="setQ(\''+k+'\',\''+v+'\',this)">'+qL(v)+'</button>';}).join('');var vids=s.videos||[];var takesH=vids.length>0?'<div class="takes-wrap show" id="takes-'+k+'"><div class="takes-tabs">'+vids.map(function(v,i){return '<button class="take-tab '+(i===0?'active':'')+' " onclick="swTake(\''+k+'\','+i+',this)">Take '+(i+1)+'</button>';}).join('')+'</div><div class="take-meta" id="take-meta-'+k+'">'+cid+' &middot; '+vids[0].quality+' &middot; '+fmt(vids[0].ts)+'</div><div class="video-box" id="vprev-'+k+'">'+(vids[0].url?'<video src="'+vids[0].url+'" controls style="width:100%;height:100%;border-radius:4px"></video>':'&#9654; Video ready')+'</div></div>':'<div class="takes-wrap" id="takes-'+k+'"></div>';if(locked){return '<div class="clip-card locked" id="card-'+k+'"><div class="clip-header"><div class="clip-id">'+cid+'</div>'+getShotLabel(cid)+'<div class="clip-inherit-label">LOCKED</div><div class="clip-header-actions"><button class="clip-btn lock-active" onclick="toggleLock(\''+k+'\')">&loz; Unlock</button></div></div></div>';}return '<div class="clip-card" id="card-'+k+'"><div class="clip-header"><div class="clip-id">'+cid+'</div>'+getShotLabel(cid)+'<div class="clip-header-actions"><button class="clip-btn" onclick="toggleMin(\''+k+'\')">'+(min?'&#9650; Expand':'&#9660; Minimize')+'</button><button class="clip-btn" onclick="toggleLock(\''+k+'\')">&loz; Lock</button></div></div><div class="clip-body'+(min?' hidden':'')+' " id="body-'+k+'"><div class="agent-stack"><div class="agent-stack-header"><div class="agent-stack-title">Crew</div><div style="font-size:10px;color:var(--text-muted)">'+agents.length+' agents</div></div><div class="agent-chips" id="chips-'+k+'">'+chips+'</div><div class="agent-run-row"><button class="run-btn primary" onclick="runAg(\''+k+'\',\''+sec+'\',false)">&#9654; Run this clip</button><button class="run-btn" onclick="runAg(\''+k+'\',\''+sec+'\',true)">&#9654; Run for all clips</button></div><div class="run-progress" id="rp-'+k+'"><div class="run-progress-text" id="rp-text-'+k+'">Running...</div><div class="pbar"><div class="pbar-fill" id="rp-fill-'+k+'" style="width:0%"></div></div></div></div>'+topFields(cid,s,sec)+'<div class="field-label-row" style="margin-bottom:6px"><div class="field-label">Agent Activity</div></div><div class="agent-log" id="log-'+k+'">'+logH+'</div><div class="apply-bar"><button class="run-btn primary" onclick="applyC(\''+k+'\')">&check; Apply Changes</button><button class="run-btn" onclick="undoC(\''+k+'\')">&larrhk; Undo</button></div><div class="gen-bar"><div class="gen-bar-label">Generate</div><div class="quality-row">'+qH+'</div><div class="dur-row" style="display:flex;gap:6px;margin-bottom:10px"><span style="font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--text-label);text-transform:uppercase;line-height:28px">Duration</span><select id="dur-'+k+'" class="q-btn" style="padding:4px 8px" onchange="setShotDur(\''+k+'\')"><option value="5">5s</option><option value="8">8s</option><option value="10">10s</option></select></div><div class="gen-btn-row"><button class="run-btn primary" onclick="genClip(\''+k+'\',\''+cid+'\')">&rsaquo; Generate this clip</button></div><div class="gen-progress" id="gp-'+k+'"><div class="gen-progress-row"><span id="gp-text-'+k+'">Generating...</span><span id="gp-eta-'+k+'"></span></div><div class="pbar"><div class="pbar-fill" id="gp-fill-'+k+'" style="width:0%"></div></div></div>'+takesH+'</div></div></div>';}
+function clipCard(cid,sec){var k=key(cid),s=ST.shots[k]||{},locked=s.locked||false,min=s.minimized||false,agents=AGENTS[sec]||AGENTS.coverage,log=s.log||[],q=s.quality||'standard';var chips=agents.map(function(a){return '<button class="agent-chip" id="chip-'+k+'_'+a.replace(/\s+/g,'_')+'" onclick="selAg(\''+k+'\',\''+a+'\',\''+sec+'\')">'+'<div class="chip-progress"></div><span class="chip-label">'+a+'</span></button>';}).join('');var logH=log.length===0?'<div class="log-empty">No agent activity yet.</div>':log.slice(-5).reverse().map(function(e){return '<div class="log-entry"><div class="log-entry-top"><span class="log-agent">&#10022; '+e.agent+'</span><span class="log-time">'+fmt(e.ts)+'</span></div><div class="log-text">'+e.text+'</div><button class="log-rerun" onclick="rerunAg(\''+k+'\',\''+e.agent+'\',\''+sec+'\')">&crarr; Re-run</button></div>';}).join('');var qH=['standard','pro','veo'].map(function(v){return '<button class="q-btn '+(q===v?'active':'')+' " onclick="setQ(\''+k+'\',\''+v+'\',this)">'+qL(v)+'</button>';}).join('');var vids=s.videos||[];var takesH=vids.length>0?'<div class="takes-wrap show" id="takes-'+k+'"><div class="takes-tabs">'+vids.map(function(v,i){return '<button class="take-tab '+(i===0?'active':'')+' " onclick="swTake(\''+k+'\','+i+',this)">Take '+(i+1)+'</button>';}).join('')+'</div><div class="take-meta" id="take-meta-'+k+'">'+cid+' &middot; '+vids[0].quality+' &middot; '+fmt(vids[0].ts)+'</div><div class="video-box" id="vprev-'+k+'">'+(vids[0].url?'<video src="'+vids[0].url+'" controls style="width:100%;height:100%;border-radius:4px"></video>':'&#9654; Video ready')+'</div></div>':'<div class="takes-wrap" id="takes-'+k+'"></div>';if(locked){return '<div class="clip-card locked" id="card-'+k+'"><div class="clip-header"><div class="clip-id">'+cid+'</div>'+getShotLabel(cid)+'<div class="clip-inherit-label">LOCKED</div><div class="clip-header-actions"><button class="clip-btn lock-active" onclick="toggleLock(\''+k+'\')">&loz; Unlock</button></div></div></div>';}return '<div class="clip-card" id="card-'+k+'"><div class="clip-header"><div class="clip-id">'+cid+'</div>'+getShotLabel(cid)+'<div class="clip-header-actions"><button class="clip-btn" onclick="toggleMin(\''+k+'\')">'+(min?'&#9650; Expand':'&#9660; Minimize')+'</button><button class="clip-btn" onclick="toggleLock(\''+k+'\')">&loz; Lock</button></div></div><div class="clip-body'+(min?' hidden':'')+' " id="body-'+k+'"><div class="agent-stack"><div class="agent-stack-header"><div class="agent-stack-title">Crew</div><div style="font-size:10px;color:var(--text-muted)">'+agents.length+' agents</div></div><div class="agent-chips" id="chips-'+k+'">'+chips+'</div><div class="agent-run-row"><button class="run-btn primary" onclick="runAg(\''+k+'\',\''+sec+'\',false)">&#9654; Run this clip</button><button class="run-btn" onclick="runAllAgentsOnShot(\''+k+'\',\''+sec+'\')">&#9654;&#9654; Run all agents on this shot</button></div><div class="run-progress" id="rp-'+k+'"><div class="run-progress-text" id="rp-text-'+k+'">Running...</div><div class="pbar"><div class="pbar-fill" id="rp-fill-'+k+'" style="width:0%"></div></div></div></div>'+topFields(cid,s,sec)+'<div class="field-label-row" style="margin-bottom:6px"><div class="field-label">Agent Activity</div></div><div class="agent-log" id="log-'+k+'">'+logH+'</div><div class="apply-bar"><button class="run-btn primary" onclick="applyC(\''+k+'\')">&check; Apply Changes</button><button class="run-btn" onclick="undoC(\''+k+'\')">&larrhk; Undo</button></div><div class="gen-bar"><div class="gen-bar-label">Generate</div><div class="quality-row">'+qH+'</div><div class="dur-row" style="display:flex;gap:6px;margin-bottom:10px"><span style="font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--text-label);text-transform:uppercase;line-height:28px">Duration</span><select id="dur-'+k+'" class="q-btn" style="padding:4px 8px" onchange="setShotDur(\''+k+'\')"><option value="5">5s</option><option value="8">8s</option><option value="10">10s</option></select></div><div class="gen-btn-row"><button class="run-btn primary" onclick="genClip(\''+k+'\',\''+cid+'\')">&rsaquo; Generate this clip</button></div><div class="gen-progress" id="gp-'+k+'"><div class="gen-progress-row"><span id="gp-text-'+k+'">Generating...</span><span id="gp-eta-'+k+'"></span></div><div class="pbar"><div class="pbar-fill" id="gp-fill-'+k+'" style="width:0%"></div></div></div>'+takesH+'</div></div></div>';}
 function topFields(cid,s,sec){
   var k=key(cid), f=s.fields||{}, p=s.currentPrompt||'', bg=s.bg||'';
 
@@ -1190,6 +1190,22 @@ async function runAllAgents(sec) {
   if (btn) { btn.disabled = false; btn.textContent = errors ? ('Run All (' + errors + ' errors)') : '▶▶ Run All'; }
   toast(errors ? (errors + ' agent(s) failed') : 'All agents complete');
 }
+
+// Run ALL agents for this section sequentially on a specific shot -- no auto-apply
+async function runAllAgentsOnShot(k, sec) {
+  var agents = AGENTS[sec] || [];
+  if (!agents.length) { toast('No agents for this section'); return; }
+  var card = document.getElementById('card-' + k);
+  var btn = card ? card.querySelector('button[onclick*="runAllAgentsOnShot"]') : null;
+  if (btn) { btn.disabled = true; btn.textContent = 'Running all agents...'; }
+  var errors = 0;
+  for (var i = 0; i < agents.length; i++) {
+    try { await runSingleAgent(agents[i], sec); }
+    catch(e) { errors++; }
+  }
+  if (btn) { btn.disabled = false; btn.innerHTML = '&#9654;&#9654; Run all agents on this shot'; }
+  toast(errors ? (errors + ' agent(s) failed — check upgrade panel') : 'All agents complete — review upgrades in panel');
+}
 function setShotDur(k) {
   var sel = document.getElementById('dur-'+k);
   if (!sel) return;
@@ -1768,6 +1784,71 @@ async function genAllBibleImages() {
   toast('All portraits done!');
 }
 
+
+// ── Scene Master Coverage Panel (shot-design) ────────────────────────────────
+function toggleSceneMaster(scId, sec) {
+  var panel = document.getElementById('smp-' + scId);
+  if (!panel) return;
+  if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  if (panel.innerHTML) return; // already built
+
+  var sc = SCENES.find(function(s){ return s.id === scId; });
+  if (!sec || sec !== 'shot-design') {
+    panel.innerHTML = '<div style="padding:12px;color:#555;font-size:11px;">Scene master settings available in Shot Design tab.</div>';
+    return;
+  }
+
+  // Build COVF master fields for this scene
+  var master = (ST.shots['__master_' + scId] || {}).fields || {};
+  var fields = COVF.map(function(pair) {
+    var fk = pair[0], fl = pair[1];
+    var val = master[fk] || '';
+    return '<div style="display:flex;flex-direction:column;gap:3px;">'
+      + '<div style="font-size:9px;font-weight:700;letter-spacing:.1em;color:#555;text-transform:uppercase;">' + fl + '</div>'
+      + '<input type="text" value="' + val.replace(/"/g,'&quot;') + '" placeholder="Scene default..."'
+      + ' style="background:#111;border:1px solid #2a2a2a;border-radius:4px;color:#ccc;font-size:11px;padding:5px 8px;"'
+      + ' onchange="setSceneMasterField('' + scId + '','' + fk + '',this.value)">'
+      + '</div>';
+  }).join('');
+
+  panel.innerHTML = '<div style="background:#0d0d0d;border:1px solid #1e1e1e;border-radius:6px;padding:14px 16px;margin:6px 0 10px;">'
+    + '<div style="font-size:10px;font-weight:700;color:#888;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;">'
+    + 'Scene Master &mdash; ' + scId + ' &mdash; Coverage Defaults</div>'
+    + '<div style="font-size:10px;color:#555;margin-bottom:12px;">These values are inherited by all clips in this scene unless overridden per-clip.</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">' + fields + '</div>'
+    + '<div style="margin-top:12px;display:flex;gap:8px;">'
+    + '<button onclick="applySceneMasterToAll('' + scId + '')" style="background:#1a2a1a;border:1px solid #2a5a2a;border-radius:4px;color:#4ade80;font-size:10px;padding:5px 12px;cursor:pointer;font-weight:600;">'
+    + '&#9654; Apply to all clips in scene</button>'
+    + '<button onclick="toggleSceneMaster('' + scId + '','' + sec + '')" style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:4px;color:#888;font-size:10px;padding:5px 12px;cursor:pointer;">'
+    + 'Close</button>'
+    + '</div></div>';
+}
+
+function setSceneMasterField(scId, field, value) {
+  var mk = '__master_' + scId;
+  if (!ST.shots[mk]) ST.shots[mk] = { fields: {} };
+  if (!ST.shots[mk].fields) ST.shots[mk].fields = {};
+  ST.shots[mk].fields[field] = value;
+  saveShot(mk);
+}
+
+function applySceneMasterToAll(scId) {
+  var sc = SCENES.find(function(s){ return s.id === scId; });
+  if (!sc) return;
+  var master = (ST.shots['__master_' + scId] || {}).fields || {};
+  if (!Object.keys(master).length) { toast('No master fields set for ' + scId); return; }
+  sc.clips.forEach(function(cid) {
+    var k = key(cid);
+    if (!ST.shots[k]) ST.shots[k] = { fields: {} };
+    if (!ST.shots[k].fields) ST.shots[k].fields = {};
+    Object.keys(master).forEach(function(fk) {
+      if (!ST.shots[k].fields[fk]) ST.shots[k].fields[fk] = master[fk];
+    });
+    saveShot(k);
+  });
+  toast('Scene master applied to ' + sc.clips.length + ' clips in ' + scId);
+}
 </script>
 </body>
 </html>
