@@ -1236,7 +1236,7 @@ function setShotDur(k) {
   ST.shots[k].duration = dur;
   toast('Duration set to ' + dur + 's');
 }
-async async function runSingleAgent(name, sec) {
+async function runSingleAgent(name, sec) {
   if (!SCENES || !SCENES.length) { toast('Parse a script first'); return; }
   if (!agentState[name]) agentState[name] = { status:'idle', activity:'', upgrades:[], pct:0 };
   agentState[name].status = 'running';
