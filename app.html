@@ -1192,20 +1192,42 @@ async function runAllAgents(sec) {
 }
 
 // Run ALL agents for this section sequentially on a specific shot -- no auto-apply
-async function runAllAgentsOnShot(k, sec) {
+async async function runAllAgentsOnShot(k, sec) {
   var agents = AGENTS[sec] || [];
   if (!agents.length) { toast('No agents for this section'); return; }
+
+  // Lock button
   var card = document.getElementById('card-' + k);
   var btn = card ? card.querySelector('button[onclick*="runAllAgentsOnShot"]') : null;
-  if (btn) { btn.disabled = true; btn.textContent = 'Running all agents...'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Running...'; }
+
+  // Show inline progress bar
+  var rpDiv  = document.getElementById('rp-' + k);
+  var rpText = document.getElementById('rp-text-' + k);
+  var rpFill = document.getElementById('rp-fill-' + k);
+  if (rpDiv)  { rpDiv.classList.add('show'); }
+  if (rpFill) { rpFill.style.width = '0%'; }
+
   var errors = 0;
   for (var i = 0; i < agents.length; i++) {
-    try { await runSingleAgent(agents[i], sec); }
-    catch(e) { errors++; }
+    var agentName = agents[i];
+    if (rpText) rpText.textContent = 'Agent ' + (i+1) + '/' + agents.length + ': ' + agentName + '...';
+    if (rpFill) rpFill.style.width = Math.round(((i) / agents.length) * 100) + '%';
+    try {
+      await runSingleAgent(agentName, sec);
+    } catch(e) {
+      errors++;
+    }
+    if (rpFill) rpFill.style.width = Math.round(((i+1) / agents.length) * 100) + '%';
   }
+
+  // Done
+  if (rpText) rpText.textContent = errors ? (errors + ' agent(s) failed') : 'All ' + agents.length + ' agents done — review upgrades above';
+  if (rpFill) rpFill.style.width = '100%';
   if (btn) { btn.disabled = false; btn.innerHTML = '&#9654;&#9654; Run all agents on this shot'; }
   toast(errors ? (errors + ' agent(s) failed — check upgrade panel') : 'All agents complete — review upgrades in panel');
 }
+
 function setShotDur(k) {
   var sel = document.getElementById('dur-'+k);
   if (!sel) return;
@@ -1214,7 +1236,7 @@ function setShotDur(k) {
   ST.shots[k].duration = dur;
   toast('Duration set to ' + dur + 's');
 }
-async function runSingleAgent(name, sec) {
+async async function runSingleAgent(name, sec) {
   if (!SCENES || !SCENES.length) { toast('Parse a script first'); return; }
   if (!agentState[name]) agentState[name] = { status:'idle', activity:'', upgrades:[], pct:0 };
   agentState[name].status = 'running';
