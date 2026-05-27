@@ -1722,8 +1722,16 @@ async function approveChange(k, cid, sec, btn) {
     }
   } catch(e) { /* prompt rewrite failed — field still applied */ }
 
-  // Persist
-  if (db) db.ref('projects/'+PID+'/shots/'+k).set(s);
+  // Persist -- surgical update only (never .set(s) which wipes the whole shot)
+  if (db) {
+    var patch = { 'changesLog': s.changesLog };
+    if (change.field === 'currentPrompt') {
+      patch['currentPrompt'] = s.currentPrompt;
+    } else {
+      patch['fields/' + change.field] = s.fields[change.field];
+    }
+    db.ref('projects/'+PID+'/shots/'+k).update(patch);
+  }
 
   // Refresh the changes box
   var box = document.getElementById('changes-box-'+k);
@@ -1949,11 +1957,15 @@ async function genBibleImage(bkey) {
 
   var portraitModel = (document.getElementById('portrait-model-sel') && document.getElementById('portrait-model-sel').value) || 'wan';
   try {
+    var _portraitCtrl = new AbortController();
+    var _portraitTimeout = setTimeout(function(){ _portraitCtrl.abort(); }, 60000);
     var resp = await fetch('/.netlify/functions/gen-portrait', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({prompt: prompt, model: portraitModel})
+      body: JSON.stringify({prompt: prompt, model: portraitModel}),
+      signal: _portraitCtrl.signal
     });
+    clearTimeout(_portraitTimeout);
     var data = await resp.json();
     if (data.imageUrl) {
       CHARACTER_BIBLE[bkey].imageUrl = data.imageUrl;

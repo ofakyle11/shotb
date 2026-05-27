@@ -54,7 +54,7 @@ exports.handler = async (event) => {
     },
     'veo-3.1': {
       key: WAVESPEED_KEY,
-      endpoint: 'https://api.wavespeed.ai/api/v3/google/veo3.1-fast/text-to-video',
+      endpoint: 'https://api.wavespeed.ai/api/v3/google/veo3.1/text-to-video',
       allowedDurations: [5, 8],
       buildBody: (p, d) => ({
         prompt: p,
