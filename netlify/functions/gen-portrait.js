@@ -10,16 +10,22 @@ exports.handler = async (event) => {
   const key = process.env.WAVESPEED_API_KEY;
   if (!key) return { statusCode: 500, headers, body: JSON.stringify({ error: 'WAVESPEED_API_KEY not set' }) };
 
-  let prompt;
+  let prompt, modelKey;
   try {
     const body = JSON.parse(event.body);
     prompt = body.prompt;
+    modelKey = body.model || 'wan';
   } catch(e) {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid body' }) };
   }
   if (!prompt) return { statusCode: 400, headers, body: JSON.stringify({ error: 'prompt required' }) };
 
-  const MODEL = 'wavespeed-ai/flux-schnell';
+  // Model routing
+  const MODELS = {
+    wan:    'wavespeed-ai/wan2.1-t2i-1.3b',
+    banana: 'wavespeed-ai/nano-banana-pro'
+  };
+  const MODEL = MODELS[modelKey] || MODELS.wan;
   const submitUrl = `https://api.wavespeed.ai/api/v3/${MODEL}`;
 
   let requestId;
@@ -44,16 +50,17 @@ exports.handler = async (event) => {
       const pollRes = await fetch(resultUrl, { headers: { 'Authorization': `Bearer ${key}` } });
       const pollData = await pollRes.json();
       const status = (pollData.data && pollData.data.status) || pollData.status;
-      if (status === 'completed' || status === 'succeeded') {
+      if (status === 'completed') {
         const outputs = (pollData.data && pollData.data.outputs) || pollData.outputs || [];
-        const imageUrl = outputs[0] || null;
+        const imageUrl = outputs[0] || (pollData.data && pollData.data.output && pollData.data.output[0]);
         if (imageUrl) return { statusCode: 200, headers, body: JSON.stringify({ imageUrl }) };
         return { statusCode: 500, headers, body: JSON.stringify({ error: 'No output URL', detail: pollData }) };
       }
-      if (status === 'failed' || status === 'error') {
+      if (status === 'failed') {
         return { statusCode: 500, headers, body: JSON.stringify({ error: 'Generation failed', detail: pollData }) };
       }
-    } catch(e) { /* transient -- keep polling */ }
+    } catch(e) { /* keep polling */ }
   }
-  return { statusCode: 504, headers, body: JSON.stringify({ error: 'Timeout -- image still processing. Try again in a moment.' }) };
+
+  return { statusCode: 504, headers, body: JSON.stringify({ error: 'Timeout waiting for portrait' }) };
 };
