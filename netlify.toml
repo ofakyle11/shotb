@@ -7,6 +7,9 @@
   # Default timeout for all functions
   node_bundler = "esbuild"
 
+[functions."gen-clip"]
+  timeout = 26
+
 [functions."gen-portrait"]
   # Wavespeed image gen can take 20-25s — bump to Netlify's 26s hard cap
   timeout = 26

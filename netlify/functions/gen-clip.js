@@ -48,27 +48,13 @@ exports.handler = async (event) => {
     'veo-3.1': {
       key: WAVESPEED_KEY,
       endpoint: 'https://api.wavespeed.ai/api/v3/google/veo3.1/text-to-video',
-      allowedDurations: [5, 8],
+      allowedDurations: [8],
       buildBody: (p, d) => ({
         prompt: p,
-        duration: d,
+        duration: 8,
         aspect_ratio: '16:9',
+        resolution: '720p',
         generate_audio: false
-      })
-    },
-    'wan-2.7': {
-      key: WAVESPEED_KEY,
-      endpoint: 'https://api.wavespeed.ai/api/v3/alibaba/wan-2.6-text-to-video',
-      allowedDurations: [5, 10],
-      buildBody: (p, d) => ({
-        prompt: p,
-        duration: d,
-        size: '1280*720',
-        num_inference_steps: 30,
-        guidance_scale: 5,
-        flow_shift: 5,
-        seed: -1,
-        enable_safety_checker: false
       })
     },
     'seedance-turbo': {
@@ -104,8 +90,12 @@ exports.handler = async (event) => {
       body: JSON.stringify(cfg.buildBody(prompt, safeDuration)),
       signal: submitCtrl.signal
     });
-    const submitData = await submitRes.json();
-    console.log('gen-clip submit:', model, JSON.stringify(submitData).slice(0, 300));
+    const rawText = await submitRes.text();
+    console.log('gen-clip submit raw:', submitRes.status, rawText.slice(0, 400));
+    let submitData;
+    try { submitData = JSON.parse(rawText); } catch(e) {
+      return { statusCode: 500, headers, body: JSON.stringify({ error: 'Non-JSON from API', raw: rawText.slice(0, 200) }) };
+    }
     requestId = (submitData.data && submitData.data.id)
       || submitData.id
       || (submitData.data && submitData.data.task_id)
