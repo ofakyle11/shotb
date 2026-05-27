@@ -1111,17 +1111,26 @@ function renderAgentProgress() {
     var statusTxt = isDone ? 'Done' : isActive ? 'Running...' : 'Idle';
     var statusCol = isDone ? '#4ade80' : isActive ? '#facc15' : '#555';
     var pulse     = isActive ? 'animation:agentPulse 1.4s ease-in-out infinite;' : '';
+    var activityTxt = s.activity || (isDone ? '' : (isActive ? 'Working...' : 'Click ▶ Run to start'));
+    var pendingCnt = Object.values(pendingUpgrades).filter(function(u){ return u.agentName===name && !u.resolved; }).length;
+    var upgradeBadge = pendingCnt > 0
+      ? '<div style="margin-top:6px;"><button onclick="showUpgradesForAgent(\''+name+'\')" style="width:100%;background:#14532d;border:1px solid #4ade80;border-radius:4px;color:#4ade80;font-size:10px;padding:4px 0;cursor:pointer;font-weight:700;">&#10003; '+pendingCnt+' upgrade'+(pendingCnt!==1?'s':'')+' to review ›</button></div>'
+      : '';
+    var errorTxt = s.status==='error' ? '<div style="margin-top:4px;font-size:10px;color:#f87171;">' + (s.activity||'Failed') + '</div>' : '';
     return '<div style="background:#1a1a1a;border:1px solid '+borderCol+';border-radius:8px;padding:12px;'+pulse+'">'
-      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'
         + '<div style="font-size:12px;font-weight:600;color:#e0e0e0;line-height:1.3;">'+name+'</div>'
         + '<div style="font-size:10px;color:'+statusCol+';white-space:nowrap;margin-left:6px;">'+statusTxt+'</div>'
       + '</div>'
+      + (activityTxt ? '<div style="font-size:10px;color:#aaa;margin-bottom:6px;line-height:1.4;min-height:14px;">'+activityTxt+'</div>' : '')
+      + errorTxt
       + '<div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-bottom:4px;">'
         + '<span>Progress</span><span style="color:'+statusCol+';">'+pct+'%</span>'
       + '</div>'
       + '<div style="background:#2a2a2a;border-radius:4px;height:5px;">'
         + '<div style="background:'+barCol+';height:5px;border-radius:4px;width:'+pct+'%;transition:width .35s ease;"></div>'
       + '</div>'
+      + upgradeBadge
       + '</div>';
   }).join('');
 }
