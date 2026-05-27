@@ -107,6 +107,9 @@ function grokPost(payload) {
         catch(e) { reject(new Error('Grok response parse failed: ' + e.message)); }
       });
     });
+    req.setTimeout(25000, () => {
+      req.destroy(new Error('Grok API timeout after 25s'));
+    });
     req.on('error', reject);
     req.write(body);
     req.end();
