@@ -1280,6 +1280,7 @@ async function runSingleAgent(name, sec) {
     }
 
     var data = await resp.json();
+    console.log('[agent]', name, '-> upgrades:', (data.upgrades||[]).length, data);
     agentState[name].status = 'done';
     agentState[name].activity = data.activity || 'Analysis complete.';
     agentState[name].pct = 100;
