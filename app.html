@@ -677,7 +677,7 @@ async function genClip(k,cid){
         var pollRes=await fetch('/.netlify/functions/gen-clip-status?id='+requestId);
         var pollData=await pollRes.json();
         var st=pollData.status;
-        if(st==='completed'||st==='succeeded'){
+        if(st==='completed'||st==='succeeded'||st==='succeed'||st==='complete'){
           url=pollData.videoUrl||'';
           console.log('genClip completed -- videoUrl:',url,'full pollData:',JSON.stringify(pollData));
           if(!url) toast('Video done but no URL returned -- check console');
@@ -697,6 +697,13 @@ async function genClip(k,cid){
       }
     }
     clearInterval(iv);
+    if(!url){
+      // Poll timed out or completed with no URL -- don't write a blank record
+      if(gp)gp.classList.remove("show");
+      toast("Generation timed out or returned no video URL -- try again");
+      console.error("genClip: no URL after polling. requestId="+requestId);
+      return;
+    }
     if(gf)gf.style.width="100%";
     if(gt)gt.textContent="Complete";
     if(ge)ge.textContent='';
