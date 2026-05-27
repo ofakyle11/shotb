@@ -24,7 +24,7 @@ exports.handler = async (event) => {
     'kling-3.0': {
       key: WAVESPEED_KEY,
       endpoint: 'https://api.wavespeed.ai/api/v3/kwaivgi/kling-v2.1-t2v-master',
-      allowedDurations: [4, 6, 8],
+      allowedDurations: [5, 10],
       buildBody: (p, d) => ({
         prompt: p,
         duration: d,
