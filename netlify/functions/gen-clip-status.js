@@ -21,13 +21,15 @@ exports.handler = async (event) => {
       pollRes = await fetch(resultUrl, { headers: { 'Authorization': `Bearer ${key}` }, signal: ctrl.signal });
     } finally { clearTimeout(tmo); }
 
+    // Read as text first to avoid JSON parse crash on unexpected responses
     const rawText = await pollRes.text();
-    console.log('gen-clip-status raw:', pollRes.status, rawText.slice(0, 400));
+    console.log('gen-clip-status raw response (first 500):', rawText.slice(0, 500));
 
     let pollData;
-    try { pollData = JSON.parse(rawText); }
-    catch(e) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: 'Wavespeed non-JSON response', raw: rawText.slice(0, 200) }) };
+    try {
+      pollData = JSON.parse(rawText);
+    } catch(e) {
+      return { statusCode: 500, headers, body: JSON.stringify({ error: 'Wavespeed non-JSON response', raw: rawText.slice(0, 300) }) };
     }
 
     const data = pollData.data || {};
@@ -38,7 +40,7 @@ exports.handler = async (event) => {
     const firstOutput = outputs[0];
     const videoUrl = (firstOutput && typeof firstOutput === 'object' ? firstOutput.url : firstOutput) || null;
     const error = data.error || pollData.error || null;
-    console.log('gen-clip-status normalized:', { rawStatus, status, videoUrl });
+    console.log('gen-clip-status normalized:', { rawStatus, status, videoUrl, outputs: JSON.stringify(outputs).slice(0,200) });
     return { statusCode: 200, headers, body: JSON.stringify({ status, videoUrl, error }) };
   } catch(e) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
