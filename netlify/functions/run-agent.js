@@ -317,10 +317,11 @@ ${scShots}`;
 ${promptWriteRule}
 
 STRICT RULES:
-- Only propose upgrades for fields that are genuinely empty, vague, or incorrect based on the script data.
+- You MUST propose upgrades for ALL fields that are empty or contain fewer than 5 characters. Empty fields are your primary target.
+- For fields that already have a specific, detailed value: skip them.
 - Do NOT invent characters, locations, props, or story elements not present in the scene data.
-- Do NOT propose an upgrade if the current value is already specific and correct.
-- Max 12 upgrades total. Be specific and production-ready.
+- Aim for 5-12 upgrades. Be specific and production-ready. If all fields are empty, fill as many as you can.
+- IMPORTANT: If you see empty fields, that is your job — fill them based on the scene context.
 
 Here are the current scenes and shots:
 
@@ -362,13 +363,16 @@ Return ONLY valid JSON, no markdown:
     const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
     const parsed = JSON.parse(cleaned);
 
+    const upgrades = parsed.upgrades || [];
+    console.log('[run-agent]', agentName, '-> upgrades:', upgrades.length, '| activity:', parsed.activity);
     return { statusCode: 200, headers, body: JSON.stringify({
       agentName,
       writesPrompt,
       activity: parsed.activity || '',
-      upgrades: parsed.upgrades || []
+      upgrades
     })};
   } catch(e) {
+    console.error('[run-agent] Grok call failed:', e.message);
     return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
   }
 };
