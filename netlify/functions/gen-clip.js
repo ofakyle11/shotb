@@ -18,13 +18,6 @@ exports.handler = async (event) => {
   }
   if (!prompt) return { statusCode: 400, headers, body: JSON.stringify({ error: 'prompt required' }) };
 
-  // ── Model routing ─────────────────────────────────────────────────────────
-  // kling-3.0      → kwaivgi/kling-v2.1-t2v-master   (5s or 10s)
-  // kling-pro      → kwaivgi/kling-v2.6-pro-text-to-video (5s or 10s)
-  // veo-3.1        → google/veo3.1-fast/text-to-video  (5s or 8s)
-  // wan-2.7        → alibaba/wan-2.6-text-to-video     (5s or 10s)
-  // seedance-turbo → wavespeed-ai/seedance-1-0-lite-t2v-480p (5s only)
-
   const WAVESPEED_KEY = process.env.WAVESPEED_API_KEY;
 
   const MODEL_CONFIG = {
@@ -100,16 +93,16 @@ exports.handler = async (event) => {
     ? Number(duration)
     : cfg.allowedDurations[0];
 
+  // Submit generation request with 25s timeout
   let requestId;
+  const submitCtrl = new AbortController();
+  const submitTmo  = setTimeout(() => submitCtrl.abort(), 25000);
   try {
-    const submitCtrl = new AbortController();
-    const submitTmo  = setTimeout(() => submitCtrl.abort(), 25000);
-    let submitRes;
-    try {
-      submitRes = await fetch(cfg.endpoint, {
+    const submitRes = await fetch(cfg.endpoint, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${cfg.key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(cfg.buildBody(prompt, safeDuration))
+      body: JSON.stringify(cfg.buildBody(prompt, safeDuration)),
+      signal: submitCtrl.signal
     });
     const submitData = await submitRes.json();
     console.log('gen-clip submit:', model, JSON.stringify(submitData).slice(0, 300));
@@ -120,6 +113,8 @@ exports.handler = async (event) => {
     if (!requestId) return { statusCode: 500, headers, body: JSON.stringify({ error: 'No requestId from API', detail: submitData }) };
   } catch(e) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Submit failed: ' + e.message }) };
+  } finally {
+    clearTimeout(submitTmo);
   }
 
   return { statusCode: 202, headers, body: JSON.stringify({ requestId, model, duration: safeDuration, status: 'processing' }) };
