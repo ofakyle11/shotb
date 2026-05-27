@@ -319,7 +319,7 @@ async function init(){
       });
       db.ref("projects/"+PID+"/shots").on("value",function(s){
         var d=s.val();
-        if(d&&!_parsing&&!_agentsRunning)ST.shots=d;
+        if(d&&!_parsing&&!_agentsRunning&&!_suppressRender)ST.shots=d;
         syncUI("shots");
       });
       db.ref("projects/"+PID+"/videos").on("value",function(s){
@@ -353,7 +353,7 @@ function syncUI(source){
     var contentEl=document.getElementById("content");
     if(!contentEl||contentEl.style.display==="none")return;
     updateTopbar();
-    if(!_parsing&&!_suppressRender&&(pending.scenes||pending.shots||pending.scriptText)){
+    if(!_parsing&&!_sr&&(pending.scenes||pending.shots||pending.scriptText)){
       renderSec(curSec);
       if(curSec==='story'){
         if(SCENES&&SCENES.length)renderScriptBreakdown(SCENES);
@@ -596,11 +596,11 @@ function toggleMin(k){if(!db)return;var s=ST.shots[k]||{};db.ref("projects/"+PID
 function toggleScene(id){var el=document.getElementById("sc-"+id);if(el)el.classList.toggle("collapsed");}
 function collapseAll(){SCENES.forEach(function(s){var el=document.getElementById("sc-"+s.id);if(el)el.classList.add("collapsed");});}
 function expandAll(){SCENES.forEach(function(s){var el=document.getElementById("sc-"+s.id);if(el)el.classList.remove("collapsed");});}
-function updP(k,v){if(!db)return;if(!ST.shots[k])ST.shots[k]={};ST.shots[k].currentPrompt=v;db.ref("projects/"+PID+"/shots/"+k+"/currentPrompt").set(v);}
+function updP(k,v){if(!db)return;if(!ST.shots[k])ST.shots[k]={};ST.shots[k].currentPrompt=v;_suppressRender=true;db.ref("projects/"+PID+"/shots/"+k+"/currentPrompt").set(v);}
 function updBg(k,v){if(!db)return;if(!ST.shots[k])ST.shots[k]={};ST.shots[k].bg=v;_suppressRender=true;db.ref("projects/"+PID+"/shots/"+k+"/bg").set(v);}
 function updF(k,f,v){if(!db)return;if(!ST.shots[k])ST.shots[k]={};if(!ST.shots[k].fields)ST.shots[k].fields={};ST.shots[k].fields[f]=v;_suppressRender=true;db.ref("projects/"+PID+"/shots/"+k+"/fields/"+f).set(v);}
-function applyC(k){if(!db)return;var s=ST.shots[k]||{};var ref=db.ref("projects/"+PID+"/shots/"+k);ref.child("committedPrompt").set(s.currentPrompt||'');if(s.fields&&Object.keys(s.fields).length){ref.child("fields").set(s.fields);}toast("Changes applied");}
-function undoC(k){if(!db)return;var s=ST.shots[k]||{};var c=s.committedPrompt||'';db.ref("projects/"+PID+"/shots/"+k+"/currentPrompt").set(c);var el=document.getElementById("prompt-"+k);if(el)el.value=c;toast("Reverted");}
+function applyC(k){if(!db)return;var s=ST.shots[k]||{};_suppressRender=true;var ref=db.ref("projects/"+PID+"/shots/"+k);ref.child("committedPrompt").set(s.currentPrompt||'');if(s.fields&&Object.keys(s.fields).length){ref.child("fields").set(s.fields);}toast("Changes applied");}
+function undoC(k){if(!db)return;_suppressRender=true;var s=ST.shots[k]||{};var c=s.committedPrompt||'';db.ref("projects/"+PID+"/shots/"+k+"/currentPrompt").set(c);var el=document.getElementById("prompt-"+k);if(el)el.value=c;toast("Reverted");}
 function handleInh(k,v){if(v!=="scene")return;var s=ST.shots[k]||{};var sc=SCENES.find(function(sc){return sc.id===s.sceneId;});if(!sc)return;var m=ST.shots[key(sc.clips[0])]||{};var p=m.committedPrompt||m.currentPrompt||'';updP(k,p);var el=document.getElementById("prompt-"+k);if(el)el.value=p;toast("Inherited from scene master");}
 function inhBg(k){var s=ST.shots[k]||{};var sc=SCENES.find(function(sc){return sc.id===s.sceneId;});if(!sc)return;var m=ST.shots[key(sc.clips[0])]||{};updBg(k,m.bg||'');var el=document.getElementById("bg-"+k);if(el)el.value=m.bg||'';toast("Background inherited");}
 function inhF(k,f){var s=ST.shots[k]||{};var sc=SCENES.find(function(sc){return sc.id===s.sceneId;});if(!sc)return;var m=ST.shots[key(sc.clips[0])]||{};var v=(m.fields||{})[f]||'';updF(k,f,v);toast("Inherited");}
