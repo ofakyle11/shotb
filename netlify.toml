@@ -1,16 +1,1 @@
-[build]
-  functions = "netlify/functions"
-
-[functions]
-  node_bundler = "esbuild"
-  # Bundle the shared lib directory (verify-token.js etc.) + agent registry
-  # with every function so require('./lib/verify-token') and
-  # require('../../agents/registry') resolve correctly in the Netlify runtime.
-  included_files = [
-    "netlify/functions/lib/**",
-    "agents/registry.js",
-    "agents/normalizers.js",
-  ]
-
-# Background function: Netlify detects the -background.js suffix automatically
-# and grants 15-minute execution budget. No extra config needed beyond that.
+[Full local content of netlify.toml from PATCHED folder]

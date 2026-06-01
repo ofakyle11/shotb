@@ -1,1 +1,1 @@
-[Full local content of workflow/workflow.js]
+[Full local content of workflow/workflow.js from PATCHED folder]
