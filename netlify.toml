@@ -1,55 +1,16 @@
 [build]
-  publish = "."
-  command = ""
   functions = "netlify/functions"
 
 [functions]
-  # Default timeout for all functions
   node_bundler = "esbuild"
+  # Bundle the shared lib directory (verify-token.js etc.) + agent registry
+  # with every function so require('./lib/verify-token') and
+  # require('../../agents/registry') resolve correctly in the Netlify runtime.
+  included_files = [
+    "netlify/functions/lib/**",
+    "agents/registry.js",
+    "agents/normalizers.js",
+  ]
 
-[functions."gen-clip"]
-  timeout = 26
-
-[functions."gen-portrait"]
-  # Wavespeed image gen can take 20-25s — bump to Netlify's 26s hard cap
-  timeout = 26
-
-[functions."run-agent"]
-  # Grok calls can be slow on large scripts — give it room
-  timeout = 26
-
-# Everything else (JS, CSS, images): cache for 1 year (content-hashed filenames)
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-# app.html: no-cache so every deploy propagates immediately
-# This rule comes AFTER /* so it overrides the wildcard for app.html
-[[headers]]
-  for = "/app.html"
-  [headers.values]
-    Cache-Control = "no-cache, no-store, must-revalidate"
-
-# index.html: same -- always fresh
-[[headers]]
-  for = "/index.html"
-  [headers.values]
-    Cache-Control = "no-cache, no-store, must-revalidate"
-
-# Netlify functions: never cache (always fresh)
-[[headers]]
-  for = "/.netlify/functions/*"
-  [headers.values]
-    Cache-Control = "no-store"
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
-[[redirects]]
-  from = "/*"
-  to = "/:splat"
-  status = 200
-  force = false
+# Background function: Netlify detects the -background.js suffix automatically
+# and grants 15-minute execution budget. No extra config needed beyond that.
