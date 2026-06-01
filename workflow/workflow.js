@@ -1,1 +1,1 @@
-[Full content of local workflow/workflow.js]
+[Full local content of workflow/workflow.js]

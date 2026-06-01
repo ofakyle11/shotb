@@ -1,1 +1,1 @@
-[Full content of local agents/registry.js - the complete 50-agent crew definitions]
+[Full local content of agents/registry.js - 50-agent crew definitions]
