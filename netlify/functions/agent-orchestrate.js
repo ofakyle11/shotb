@@ -163,7 +163,15 @@ exports.handler = async function (event) {
 
   // Credit pre-check
   let userCredits = 0;
+  const bypassActive = (process.env.SYSTEM_TOKEN_BYPASS === 'true' || process.env.SYSTEM_TOKEN_BYPASS === '1');
+
   if (!auth.isOwner) {
+    if (bypassActive) {
+      return respond(403, {
+        error: 'Temporarily restricted to owners only. The system user is being reconfigured. Please try again later or contact an owner.'
+      });
+    }
+
     let user;
     try { user = await readUser(auth.uid); }
     catch (e) { return respond(500, { error: 'Credit lookup failed: ' + e.message }); }
