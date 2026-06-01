@@ -38,6 +38,15 @@ async function getSystemToken() {
   if (_systemTokenCache.token && _systemTokenCache.expires > now + 60_000) {
     return _systemTokenCache.token;
   }
+
+  // Temporary bypass for owner-only deploys / investor round while the
+  // system user Identity Toolkit call is broken (common with restricted API keys).
+  // Set SYSTEM_TOKEN_BYPASS=true in Netlify env to enable.
+  if (process.env.SYSTEM_TOKEN_BYPASS === 'true' || process.env.SYSTEM_TOKEN_BYPASS === '1') {
+    console.warn('[verify-token] SYSTEM_TOKEN_BYPASS active — using dummy system token. Only safe for owner testing.');
+    return 'bypass_system_token_for_owners';
+  }
+
   const email    = process.env.SYSTEM_EMAIL;
   const password = process.env.SYSTEM_PASSWORD;
   if (!email || !password) throw new Error('SYSTEM_EMAIL / SYSTEM_PASSWORD not set');
@@ -65,7 +74,7 @@ async function getSystemToken() {
         `3. Edit it → API restrictions → make sure "Identity Toolkit API" is allowed (or set to "Don't restrict")\n` +
         `4. Also check Application restrictions (it should allow the Netlify function IPs or be unrestricted for server use)\n\n` +
         `Alternative (recommended for simplicity): Set FIREBASE_API_KEY in Netlify to the exact same public web key from js/config.js (AIzaSyA5-NRXzzkWuGafQ5-EukGF9WMnQ2txFFA). It already works for the browser.\n\n` +
-        `Full error: ${JSON.stringify(d)}`
+        `Temporary workaround: Set SYSTEM_TOKEN_BYPASS=true in Netlify env to allow owners to use the system while you fix the key.`
       );
     }
     throw new Error(`SYSTEM_AUTH_FAIL (status ${status}): ` + JSON.stringify(d));
