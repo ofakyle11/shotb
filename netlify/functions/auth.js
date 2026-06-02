@@ -79,7 +79,7 @@ async function signup(name, email, password) {
 }
 
 // ── Owner Notifications (private — emails never exposed to frontend) ──
-const OWNER_EMAILS = ['kyle@atlasanalysis.net', 'scott@atlasanalysis.net', 'steve@atlasanalysis.net'];
+const OWNER_EMAILS = ['kyle@shotbreak.io', 'scott@shotbreak.io', 'steve@shotbreak.io'];
 
 async function notifyOwners(name, email) {
   // 1. Always log to Firebase
@@ -97,9 +97,9 @@ async function notifyOwners(name, email) {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: 'Atlas Analysis <notifications@atlasanalysis.net>',
+          from: 'Shotbreak <notifications@shotbreak.io>',
           to: OWNER_EMAILS,
-          subject: 'New Atlas Signup: ' + name,
+          subject: 'New Shotbreak Signup: ' + name,
           html: `<div style="font-family:sans-serif;max-width:500px">
             <h2 style="color:#4f8fff">New Account Created</h2>
             <p><strong>Name:</strong> ${name}</p>
