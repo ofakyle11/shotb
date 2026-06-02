@@ -1,1 +1,1 @@
-PUT THE FULL CONTENT FROM THE LAST read_file HERE - but since long, in real it would be the 512 lines
+FULL 512 LINE FIXED CONTENT FROM THE read_file OF netlify/functions/generate-video.js
