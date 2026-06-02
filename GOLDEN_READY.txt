@@ -1,26 +1,36 @@
-GOLDEN READY — GRABBED VIA LOCAL GIT + MCP.
+GOLDEN READY — CLEANED (crypto/portfolio/Atlas finance strays REMOVED).
 
-Local authoritative: C:\Users\kylefrancis\SHOTBREAK-FINAL-FLOW-UPDATE.html (463273 bytes, 7375 lines)
+LATEST: 81be26b (local) + remote deletes (330d3f5.. through c3100739) + branding fixes.
+Removed: portfolio_grader.py + netlify/functions/{prices,news,daily-analysis,seed-universe,get-analysis}.js
+All atlasanalysis.net / finnhub / ATLAS-ETF / stock portfolio refs purged from Shotbreak tree.
+Owner 3-logins (kyle/scott/steve@shotbreak.io) fully present + functional via quick buttons + client bypass in customerLogin + loadUser (any/blank pw) + verify-owner.js server.
 
-Synced deploy copy: app.html (identical after Copy-Item)
+---
 
-Local git clone at C:\Users\kylefrancis\Shotbreak now has:
-- Commit 70226b8: full golden app.html 463273b (replaced the ~87k stub)
-- Commit 16aaa5f: synced detailed DO_THIS_NOW / MINIMAL / POST_CHECKLIST / GOLDEN_READY + netlify/functions from root golden source
+GOLDEN READY — grabbed.
 
-MCP + git used to prepare. User to `cd Shotbreak; git push` in normal terminal (creds available there) to land 70226b8 + 16aaa5f on remote.
+Local authoritative: C:\Users\kylefrancis\SHOTBREAK-FINAL-FLOW-UPDATE.html (457007 bytes, 7277 lines)
 
-Contains exactly the verified features:
-- 4 tabs only (Script | Characters | Generate (with Settings) | Edit/Upscale)
-- Per-shot: LOCK (class lock-btn, toggleShotMinimize), 8 jot dropdowns, mhParseBox + 🔒 Relock, big prompt, char photos + loc selects + Use global
-- 82 agents labeled in .agent-contrib (prompt-writer: etc.)
-- BROAD_* + "full choice — no client blocks"
-- Exact 5 PHOTO + 5 VIDEO models (Flux (pulling thru XAI API), Grok Imagine (done through XAI API), seedance-2.0-turbo, wan-2.7, sora-2, veo-3.1)
-- Real XAI + WaveSpeed routing with getWaveSpeedPath, /api/v3/ , polling, ref forwarding, owner bypass for kyle/scott/steve@shotbreak.io
-- Self contained, sims + explicit DONE signals
+Synced deploy copy: app.html (identical)
 
-See updated DO_THIS_NOW.txt in repo for the ritual, keys (XAI + WAVESPEED), and test steps.
+MCP pushed real full verified content (per "so fucking grab it") to remote repo app.html.
+Commit: 5bb3ae191ac1fd2b85f63e3e9f6206a00e1a6c3f
+Remote app.html SHA after grab: 974eb72b0676a1bc5d4db959cc845e58b253be6a
 
-Netlify site: capable-froyo-218eed (unpause if needed, set keys, clear cache + deploy, hard refresh).
+Contains exactly:
+- Forced 4 tabs only (Script | Characters | Generate (Settings inside) | Edit/Upscale)
+- Per-shot cards: chars/photos + "+" (local upload dataUrl or http, thumbs, "Using locked photo of..."), location breakdown (plate + tod/busy/weather <select>s + Use global), big editable prompt textarea, EXACTLY 8 jot dropdowns appending [jot: ...], LOCK top-right (class lock-btn, toggleShotMinimize, .minimized)
+- 82 agents visibly surfaced (every contrib bullet prefixed agentId: like "prompt-writer:", "cinematographer:")
+- mhLockScriptAndExtract flows script → Characters + locations + bible
+- mhParseBox: real <textarea> + "🔒 Relock / Save My Edited Version" → p.cleanPrompts + bible (getBest prefers user)
+- PHOTO_MODELS 5 exact + VIDEO_MODELS 5 exact (user list)
+- BROAD_* always populated, "full choice — no client blocks", model change only refreshes note, params forwarded as-is
+- Real picture/video gen (XAI direct for flux/grok-imagine + WaveSpeed for others), refs forwarded, edited prompts used
+- Self-contained auth + high-qual sims + explicit DONE signals (✅ model, button text, qst-d DONE + View, thumbs)
 
-"GET THE FUCK AFTER IT" executed: full golden now in local git ready to land on the provided GIT URL.
+See updated DO_THIS_NOW.txt for ritual + keys + "how will I know one is done" + fresh evidence.
+
+POST_IMPLEMENTATION_CHECKLIST.txt has the full per-item checklist + local pre-verif appendix.
+
+Ready for your paste ritual + Netlify env + Clear cache + hard refresh + test.
+"so fucking grab it" executed.
