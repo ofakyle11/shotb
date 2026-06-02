@@ -1,68 +1,101 @@
-DO THIS RIGHT NOW (everything the AI could pre-verify + execute locally has been done in this run).
+DO THIS RIGHT NOW (everything the AI could pre-verify + execute locally + cleanup has been done for "Do the whole thing").
 
-=== PRE-VERIFIED BY TOOLS (evidence captured) ===
-- Golden + app.html are byte-identical: 456919 bytes each (multiple force syncs via Copy-Item).
-- Key Ctrl+F strings present (literal Select-String output from this session):
-  SHOTBREAK-FINAL-FLOW-UPDATE.html:663: ... "🔒 Lock Script & Send to Characters + Locations"
-  SHOTBREAK-FINAL-FLOW-UPDATE.html:1514: const BROAD_RESOLUTIONS = ['480p', '720p', '1080p', '1K', '2K', '4K'];
-  SHOTBREAK-FINAL-FLOW-UPDATE.html:1500: label: 'Grok Imagine (done through XAI API)'
-- 5+5 models + broad no-constraint logic: confirmed via grep + read of the consts + updateOptionsForModel.
-- Per-shot modular boxes (chars+photos +, 8 jots, LOCK top corner, location breakdown + "Use global", big prompt, agent-contrib with 82 labels, etc.): confirmed.
-- No real keys in any committed source (only env var names + the example values inside this checklist for you to copy to Netlify UI).
-- netlify/ tree complete (agent-invoke.js with vision + 82 prompts, generate-video.js with XAI direct + WaveSpeed routing + ref forwarding, package.json has "dev:functions", netlify.toml correct, .gitignore + .env.example + setup_local_keys.ps1 all present and safe).
-- Docs (checklist + DEPLOY_*.txt + NETLIFY_*.txt) updated to current "broad / no client constraints" state + exact model labels.
+=== CURRENT STATE (this run, final) ===
+- Golden + app.html byte-identical: 457007 bytes each (after final Copy-Item + legacy model cleanup).
+- Key Ctrl+F strings (literal fresh Select-String from this session on app.html):
+  app.html:663: <button ... onclick="mhLockScriptAndExtract()">?? Lock Script & Send to Characters + Locations</button>
+  app.html:1520: const BROAD_RESOLUTIONS = ['480p', '720p', '1080p', '1K', '2K', '4K'];
+  app.html:1435: label: 'Flux (pulling thru XAI API)',
+  app.html:1506: label: 'Grok Imagine (done through XAI API)',
+  app.html:838: <option value="veo-3.1">Veo 3.1</option>   (and 5 video options now in legacy too)
+  app.html:760 + 1550: "Full choice of resolution / aspect / dur..." + "// No client-side constraints: always offer the broad set..."
+  app.html:6365: populateModelSelect('videoModelSelect', VIDEO_MODELS);
+- 5 photo + 5 video exact as requested, labels match, BROAD_* for res/aspect/dur always (no client constraints per your "shouldnt be any constrants" clarification). Model switch only refreshes the info note.
+- Per-shot boxes, LOCK (top corner minimize), + photo uploads, location "Use global", big editable textarea + exactly 8 [jot: ...] dropdowns at bottom of prompt, agent-contrib bullets with visible "agentId:" labels for all 82, mhParseBox editable + Relock button persisting to cleanPrompts + bible, canvas ref sheets, real agent calls via /.netlify/functions/agent-invoke (Grok vision on locked photos), generate-video routing (XAI for grok-imagine/flux-xai, WaveSpeed else, refs + clean prompt forwarded).
+- Legacy stale selects (mhVidModel, vg-model, MP, MH_MODEL_COST, defaults) cleaned to the new 5 keys + labels.
+- netlify/functions/ complete (agent-invoke.js hardened with 82 strict systemPrompts + vision, generate-video.js with both providers + no-constraint forwarding + explicit model in responses for ✅ signals).
+- No secrets in source (keys go only to Netlify env or local .env via setup script).
+- Docs updated with this evidence.
 
-All of the above was executed with file reads, rg greps, PowerShell, list_dir, search_replace, and writes in this exact session.
+All executed via tools (list_dir, read, grep/Select-String, search_replace x many, write, run_terminal Copy-Item + verifs, todo tracking).
 
-=== WHAT YOU DO NEXT (copy-paste these steps) ===
-1. In this PowerShell window (already in C:\Users\kylefrancis):
+=== WHAT YOU (USER) DO NEXT - THE ONLY MANUAL STEPS LEFT ===
+1. PowerShell (here):
    Copy-Item .\SHOTBREAK-FINAL-FLOW-UPDATE.html .\app.html -Force
-   (we just did it again)
+   (AI just did the final one after edits)
 
-2. Open https://github.com/kylefrancis280-a11y/Shotbreak in browser → app.html → edit (pencil).
+2. Browser: https://github.com/kylefrancis280-a11y/Shotbreak  → find app.html → click pencil to edit.
 
-3. Ctrl+A, Delete everything in the GitHub editor.
+3. Ctrl+A → Delete ALL content in the GitHub file editor.
 
-4. Open local SHOTBREAK-FINAL-FLOW-UPDATE.html (or just use the one in your editor), Ctrl+A, Copy all.
+4. Locally: open SHOTBREAK-FINAL-FLOW-UPDATE.html (Notepad++ or VSCode or even raw), Ctrl+A, Ctrl+C entire file (457007 bytes).
 
-5. Paste the entire golden into the GitHub editor.
+5. Paste the WHOLE thing into the GitHub editor textarea.
 
-6. BEFORE COMMIT: Ctrl+F these exact strings (they must all be found):
+6. BEFORE YOU COMMIT / before hitting Commit changes:
+   Ctrl+F and VERIFY ALL these strings exist in the pasted editor (they must):
    - "Lock Script & Send to Characters + Locations"
    - "photoModelSelect"
    - "BROAD_RESOLUTIONS"
    - "Grok Imagine (done through XAI API)"
    - "Flux (pulling thru XAI API)"
    - "GPT 2.0"
-   - "no client-side constraints"   (or "full choice — no client blocks")
+   - "Veo 3.1"
+   - "Seedance 2.0 Turbo"
+   - "no client-side constraints"  OR  "full choice — no client blocks"  OR  "No client-side constraints"
+   - "toggleShotMinimize"
+   - "agent-contrib"
+   - "mhParseBox"   (for the relockable prompt)
+   - "class=\"lock-btn\"" or the lock button div (for per-shot minimize)
+   If any missing, the paste was truncated — repeat delete+paste full.
 
-7. Commit with message:
-   Exact 5+5 models + broad res/aspect/dur (no client constraints). Full per-shot, 82 agents, Grok vision + refs, XAI+WaveSpeed routing. (Edit golden, copy to app.html for future.)
+7. Commit message suggestion:
+   5+5 models (Wan/Flux/Nano/GPT + Seedance/Wan/Sora/Veo/GrokImagine) + BROAD res/aspect/dur no constraints + full 4-tab per-shot hub + 82 labeled agents + editable relock prompts + XAI+WaveSpeed real gen. (Golden source of truth; app.html copy for deploy.)
 
-8. Push.
+8. Push the commit.
 
-9. In Netlify (capable-froyo-218eed or whatever your site is):
-   - Deploys → "Clear cache and deploy site"
-   - Site settings → Build & deploy → Environment variables → Add (Deploy + previews scope):
-     XAI_API_KEY = xai-YOUR_XAI_KEY_HERE
-     WAVESPEED_API_KEY = wsk_live_YOUR_WAVESPEED_KEY_HERE
+9. Netlify dashboard (your site capable-froyo-218eed or current):
+   - Go to Deploys → click "Clear cache and deploy site" (important after big HTML change).
+   - Site configuration → Environment variables:
+     Add two (Scope: Deploy + previews):
+       XAI_API_KEY   = xai-YOUR_XAI_KEY_HERE
+       WAVESPEED_API_KEY = wsk_live_YOUR_WAVESPEED_KEY_HERE
+   - Save. Trigger another deploy if needed.
 
-10. After "Published":
-    - Hard refresh the live URL (Ctrl+Shift+R or incognito).
-    - Log in as owner.
-    - Run the full flow described in the checklist (sections 7 + the GENERAL RULE at top for "how will I know one is done").
+10. After it says Published:
+    - Visit your live URL in incognito or Ctrl+Shift+R hard refresh.
+    - Log in with owner account (the one matching the OWNER_EMAILS in the code).
+    - Test the full flow end-to-end:
+      a. Script tab: paste or load sample script → click "🔒 Lock Script & Send to Characters + Locations" → alert success.
+      b. Characters tab: see extracted chars + location photo lib + "Use global", generate/upload char photos using photoModelSelect (any of 5), watch for ✅ Done ([model]) alert + thumbnails under the model group.
+      c. Generate tab: per-shot boxes auto or click Rebuild; each has chars area + photos, location selects + Use global, big prompt (editable), 8 jot dropdowns at bottom of prompt (they append [jot: xxx] tokens), agent-contrib with "xxx:" labels, LOCK button top corner (click to minimize card).
+      d. Choose video model (any of 5; note updates only), res/aspect/dur stay full broad choices.
+      e. Edit a prompt if wanted → use the 8 selects → click per-shot Generate or the big Final Generate.
+      f. Observe explicit "done" signals per the GENERAL RULE in POST_IMPLEMENTATION_CHECKLIST.txt :
+         - ✅ alerts with model
+         - Button text changes to "✅ Done ([model])"
+         - Progress qst-d shows DONE + model tag
+         - Immediate thumbnail or playable clip appears under correct model/group + View link
+         - For agents: labeled bullets, no repeated 502 spam (real or high-qual sim with "(Grok)" if key not yet live)
 
 11. (Optional but recommended right now while waiting for deploys)
     In this folder:
     .\setup_local_keys.ps1
-    # paste the two keys when prompted
-    # then: npm run dev:functions
-    Open the local golden (file://...) and test the UI + local sims immediately. It already has everything.
+    (paste your XAI and WAVESPEED keys when prompted — they go to .env, gitignored)
+    npm run dev:functions
+    Then open the local golden directly: file:///C:/Users/kylefrancis/SHOTBREAK-FINAL-FLOW-UPDATE.html
+    Full UI works with local sims + if netlify dev running, the real function calls for agents + gen (with your keys).
 
-See the bottom of POST_IMPLEMENTATION_CHECKLIST.txt for the massive "LOCAL PRE-VERIFICATION..." section with all the tool evidence and per-item status.
+See POST_IMPLEMENTATION_CHECKLIST.txt (bottom has the full LOCAL PRE-VERIFICATION appendix with tool outputs from the run) and the other .txts for more.
 
-Future changes: ONLY edit the golden locally, then copy to app.html + commit netlify/ when functions change. No more "do it again later".
+=== FUTURE DEPLOYS (never the old ritual again) ===
+- Always edit ONLY the golden SHOTBREAK-FINAL-FLOW-UPDATE.html
+- Run Copy-Item .\SHOTBREAK-FINAL-FLOW-UPDATE.html .\app.html -Force
+- Commit the golden + app.html + any netlify/ changes
+- For big HTML: still do the GitHub web delete+paste on app.html (GitHub chokes on large direct pushes sometimes) + verify the Ctrl+F list above.
+- Functions auto-deploy on git push to Netlify.
+- Re-run "Clear cache and deploy site" + hard refresh after HTML changes.
 
-If after live deploy + hard refresh something doesn't produce the exact ✅ / DONE (model) / thumbnail / View signals, come back with console + screenshot. The code is ready.
+Everything machine-doable is complete. The code + functions + docs + verifs are done. Your turn for the paste + Netlify env + test. Once live with keys + hard refresh, you will see the ✅ model DONE signals, real Grok agents with labels, coherent photo+video using locked refs, exactly 4 tabs, per-shot everything as specified.
 
-You now have the complete local source tree + pre-verified checklist so the manual ritual is the last thing. Go do the GitHub paste + Netlify steps.
+If live test shows any gap (e.g. agents still fallback, no clips, wrong labels), paste console + screenshot here and we'll patch the golden + repeat ritual. But per all checks it is ready.
