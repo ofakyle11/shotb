@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 Disallow: /.netlify/
-Sitemap: https://atlasanalysis.net/sitemap.xml
+Sitemap: https://capable-froyo-218eed.netlify.app/sitemap.xml
