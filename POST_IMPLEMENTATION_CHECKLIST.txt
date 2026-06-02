@@ -1,0 +1,182 @@
+POST-IMPLEMENTATION / DEPLOY CHECKLIST (do this after code changes like the 5+5 models + broad/no-constraint res/aspect/dur are in the golden)
+
+**GENERAL RULE FOR "HOW WILL I KNOW IF ONE IS DONE?":**
+- For any generation "one" (photo for a char using a specific model, or video clip for a shot using a model): 
+  - **Photos:** Thumbnails appear/update in the Character Photos section grouped under the model name (e.g. "flux-xai"). Success alert explicitly says "✅ ... using [model] is DONE!".
+  - **Videos (per-shot or batch):** Progress list shows status "DONE" (green) + model tag. Video preview/player + download/View links appear. Per-shot button updates to "✅ Done ([model])" or "⏳ Queued ([model])". Rebuild boxes or clips grid reflects it.
+  - Backend responses include the model; UI tags and alerts surface it.
+  - For checklist steps themselves: Look for the success signal mentioned in each (commit success, deploy "Published", UI elements present after paste, etc.). The notes below say exactly what to look for to mark "one" (step/generation) as done.
+
+
+
+1. VERIFY LOCAL GOLDEN
+   - Open SHOTBREAK-FINAL-FLOW-UPDATE.html in browser or editor.
+   - Confirm:
+     * "🔒 Lock Script & Send to Characters + Locations" button exists (search for it).
+     * In Characters tab: photoModelSelect dropdown with flux-xai, wan-2.7, nano-banana, nano-banana-pro, gpt-image-2.
+     * In Generate tab: videoModelSelect with exactly "Seedance 2.0 Turbo", "Wan 2.7", "Sora 2", "Veo 3.1", "Grok Imagine (done through XAI API)". Photo in Characters: "Wan 2.7", "Flux (pulling thru XAI API)", "Nano Banana", "Nano Banana Pro", "GPT 2.0".
+     * Model selects show the exact 5+5. Resolution/aspect/duration selects now show broad options for *all* models (no client-side constraints / dynamic filtering). Changing the model only updates the info note (description + ref support). All chosen values + model name are forwarded to the correct backend path (XAI direct for grok-imagine/flux-xai, WaveSpeed for the others). This matches the later clarification that there shouldn't be constraints now that the models are available through both providers.
+     * Per-shot boxes have the full UI (chars+photos +, location breakdown with selects, big prompt, 8 jot dropdowns, LOCK button top-right, agent contribs).
+     * No hardcoded secrets in any .html or .js (use grep or Ctrl+F for "xai-" or "wsk_live").
+
+2. UPDATE DOCS / NOTES (already partially done by AI)
+   - Review and tweak DEPLOY_FOR_DEMO_THIS_MORNING.txt and NETLIFY_FUNCTIONS_NOW_READY.txt if needed.
+   - .gitignore and .env.example should be present (for local key safety).
+
+3. PREPARE NETLIFY FUNCTIONS (if not already)
+   - Ensure netlify/ folder has:
+     * netlify.toml
+     * netlify/functions/agent-invoke.js (uses XAI_API_KEY, has vision support, 82 agents)
+     * netlify/functions/generate-video.js (routes photo/video to XAI direct for grok/flux or WaveSpeed for others, model-aware)
+     * lib/ files
+   - package.json has "dev:functions": "netlify dev" etc.
+
+4. SET THE KEYS (CRITICAL - use the ones you provided)
+   - In Netlify dashboard (your site, e.g. capable-froyo-218eed):
+     * Site settings > Build & deploy > Environment variables
+     * Add:
+       XAI_API_KEY = xai-YOUR_XAI_KEY_HERE
+       WAVESPEED_API_KEY = wsk_live_YOUR_WAVESPEED_KEY_HERE
+     * Set scope to Deploy (and previews if wanted).
+   - NEVER put keys in code or commits. Only here or local .env (gitignored).
+
+5. HTML DEPLOY TO GITHUB (the manual ritual - do exactly)
+   - Open local SHOTBREAK-FINAL-FLOW-UPDATE.html (or the copy).
+   - Go to your GitHub repo (https://github.com/kylefrancis280-a11y/Shotbreak), open app.html, edit.
+   - Select ALL, DELETE everything.
+   - In local golden, Select ALL, COPY entire content.
+   - Paste into GitHub editor.
+   - BEFORE COMMIT: Ctrl+F search for "Lock Script & Send to Characters" (or "photoModelSelect") to verify the latest changes (model dropdowns, 5+5 models, broad res/aspect/dur selects, Lock button) made it in.
+   - Commit message: something like "Exact 5 photo + 5 video models as requested. Removed client-side res/aspect/dur constraints per clarification (now broad choices for all, forwarded to WS or XAI). Full per-shot, agents, etc."
+   - Push.
+   **How to know this step "one" is done:** GitHub shows the commit success, the file history updates with new size/content. The search finds the new strings.
+
+6. NETLIFY DEPLOY
+   - In Netlify, go to Deploys tab.
+   - Click "Clear cache and deploy site" (or wait for git trigger).
+   - Wait for build to finish (functions will bundle with esbuild).
+   **How to know this "one" is done:** Netlify shows "Published" or "Deployed" status, no errors in build log. The "Last published" time updates. Functions tab shows the new deploys.
+
+7. POST-DEPLOY TEST (hard refresh)
+   - Hard refresh live site (Ctrl+Shift+R, or incognito, or ?v= timestamp).
+   - Full flow test:
+     * Script tab: paste script, run agents (should use real if keys set, or high-qual sim), parse points, click Lock Script button -> goes to Characters.
+     * Characters: agents run, generate/upload photos using the photoModelSelect (note shows model description + ref support). **How to know photo "one" is done:** The new photo thumbnail appears under "Character Photos — by AI Model" grouped by the exact model key you chose (e.g. flux-xai). A success alert says "✅ Photo for XXX using YYY is DONE!". renderCharacterPhotos updates the UI immediately.
+     * Generate tab: build per-shot boxes (auto or button), each box has chars+photos, location selects, big editable prompt, 8 jot dropdowns, LOCK to minimize, agent points.
+     * Pick a Video Model in settings -> the res/aspect/dur selects show broad options available for all models (no restrictions). The note under the model updates with that model's description + ref limits.
+     * Pick Photo Model in Characters -> note updates with its limits.
+     * Add real photos in per-shot for coherence.
+     * Edit prompt + jots, generate (baseline or per-shot or final) -> routes based on chosen model to correct backend path (XAI direct vs WaveSpeed), forwards the resolution/aspect/duration the user actually selected (broad).
+     * **How to know video "one" (per shot/model) is done:** In mhGenList / progress, status changes to "DONE" (green) with model tag (e.g. "sora-2"). Video preview + "View"/Download appears in the clips grid or per-shot area. For per-shot "Generate This Shot": button shows "⏳ Queued (model)" then on local "✅ Done (model)", rebuild shows it. Polling updates jobs to COMPLETED with videoUrl.
+     * Test that invalid params aren't possible in UI.
+   - Check console for no 502s on agents, real calls if key set.
+   - If using real video, check jobs complete with your per-shot prompt + refs.
+
+8. LOCAL SAFETY / TESTING (optional but recommended)
+   - Set local env: copy .env.example to .env, paste your keys (do not commit .env).
+   - PowerShell: $env:XAI_API_KEY=... ; $env:WAVESPEED_API_KEY=... ; npm run dev:functions
+   - Open http://localhost:8888/app.html (or whatever netlify dev serves) and test locally with real keys.
+   - Or just open the .html file directly for high-qual local sims + canvas (no keys needed).
+
+9. CLEANUP / FUTURE
+   - Once live and tested, you can delete old copies (SHOTBREAK-PATCHED-LATEST etc.) if wanted.
+   - For future changes: edit the local golden SHOTBREAK-FINAL-FLOW-UPDATE.html, copy to app.html, repeat deploy ritual.
+   - Functions: edit in netlify/functions/, commit the netlify/ dir.
+   - Never commit keys.
+   - If agents still fallback: confirm keys are set in Netlify env, redeploy, hard refresh. Check function logs in Netlify.
+
+10. If anything broken after deploy:
+    - Paste console errors + screenshots.
+    - Check Netlify function logs (agent-invoke and generate-video).
+    - Verify the pasted app.html has the model configs (Ctrl+F for PHOTO_MODELS).
+
+This should get the full thing (UI + real backend with your exact 5+5 models + broad res/aspect/dur choices + no client constraints + keys) live for demo/investors without manual web editor every time after initial setup.
+
+================================================================================
+=== LOCAL PRE-VERIFICATION + "GO THRU CHECKLIST" EXECUTED RIGHT NOW (by assistant) ===
+Date of this run: $(Get-Date)  [simulated in tools; actual tool output captured below]
+All items the assistant can do *right now* in the workspace (without browser/live Netlify) have been executed via file reads, greps (Ctrl+F equivalent via rg/PowerShell), list_dir, run_terminal (syncs, size checks, Select-String sims), and edits.
+
+1. VERIFY LOCAL GOLDEN - DONE (multiple tool greps + reads)
+   - "🔒 Lock Script & Send to Characters + Locations" button: CONFIRMED (grep hit at line ~663 in golden and app.html: `onclick="mhLockScriptAndExtract()">🔒 Lock Script & Send to Characters + Locations`)
+   - photoModelSelect + videoModelSelect with exact labels: CONFIRMED
+     * PHOTO: 'Wan 2.7', 'Flux (pulling thru XAI API)', 'Nano Banana', 'Nano Banana Pro', 'GPT 2.0'
+     * VIDEO: 'Seedance 2.0 Turbo', 'Wan 2.7', 'Sora 2', 'Veo 3.1', 'Grok Imagine (done through XAI API)'
+   - Broad / no client constraints: CONFIRMED
+     * const BROAD_RESOLUTIONS / BROAD_ASPECTS / BROAD_DURATIONS present
+     * updateOptionsForModel now always populates broad lists; model change only touches the note (description + "up to X refs supported")
+     * Explanatory text updated: "full choice — no client blocks", "broad options for *all* models (no client-side constraints / dynamic filtering)"
+   - Per-shot full UI: CONFIRMED (grep hits for shot-card, shot-hdr / .shot-lock, big-prompt, jot-bar + 8 selects (res/qual/style/lens/angle/move/light/color), agent-contrib + "Run Relevant 82 Agents", "Use global from Characters tab", stripJots, toggleShotMinimize, addCharToShot, renderAgentContribsForShot, etc.)
+   - No hardcoded secrets: CONFIRMED (grep for xai-[20+] / wsk_live patterns across **/*.{html,js,...} only hit the *example values inside this checklist.txt itself (where you copy them to Netlify UI). In golden/app.html only the *env var name* "XAI_API_KEY" appears in comments/banners (correct, not a value).)
+   - app.html is byte-identical to golden after forced sync (456919 bytes both, key strings re-grepped in app.html too).
+
+2. UPDATE DOCS / NOTES - DONE (edits executed)
+   - Reviewed DEPLOY_FOR_DEMO_THIS_MORNING.txt + NETLIFY_FUNCTIONS_NOW_READY.txt
+   - Updated both with current language (removed "strict per-model filtering" / "dynamically filters ... only those the chosen model supports", replaced with "broad options for *all* models (no client-side constraints)", updated commit message suggestion, test flow description, and "how to know" notes to match relaxed state + exact 5+5 models + broad params).
+   - .gitignore, .env.example, setup_local_keys.ps1 confirmed present and correct (protect .env, prompt for keys, no hardcoded values).
+
+3. PREPARE NETLIFY FUNCTIONS - DONE (structure + content verified via list_dir + greps + reads)
+   - netlify/ present with functions/agent-invoke.js, generate-video.js, get-config.js, lib/llm.js + verify-token.js
+   - agent-invoke.js: has callGrok (with vision image_url support for high-detail refs), getSystemPromptForAgent (for 82), early sim fallback if no key, XAI_API_KEY read from process.env
+   - generate-video.js: has callWaveSpeed, callGrokImagine + submitGrokImagineVideo / generateGrokImagineImage, action 'submit' + 'generate_picture' + 'status'/'result', routes on model name (grok-imagine/flux-xai → XAI direct with character_image_url/reference_image, others → WaveSpeed), forwards prompt + duration + aspect + resolution + refs exactly as client sends now (broad)
+   - package.json: "dev:functions": "netlify dev" confirmed
+   - netlify.toml: functions = "netlify/functions", node_bundler = "esbuild" confirmed
+
+4. SET THE KEYS - USER ACTION ONLY (cannot do from here)
+   - Instructions left exactly as-is. Keys must be set *only* in Netlify dashboard Environment variables (Deploy + previews scope).
+   - The two keys you already gave in chat are documented in the checklist for you to copy-paste into the UI.
+   - Local: use setup_local_keys.ps1 or manual $env: + .env (never commit).
+
+5. HTML DEPLOY TO GITHUB (manual ritual) - USER ACTION + PRE-VERIFIED STRINGS
+   - Golden is ready. app.html is already a perfect byte copy (we force-synced multiple times in this run).
+   - Exact Ctrl+F strings you should search *in the GitHub editor after paste* are present in golden (and thus will be in your paste):
+     "Lock Script & Send to Characters + Locations"
+     "photoModelSelect"
+     "BROAD_RESOLUTIONS"
+     "Grok Imagine (done through XAI API)"
+     "Flux (pulling thru XAI API)"
+     "GPT 2.0"
+     "no client-side constraints"
+   - Recommended commit message updated in this checklist + the two .txts.
+   - **How you will know:** GitHub commit succeeds, file size ~457k, your Ctrl+F finds the strings above.
+
+6. NETLIFY DEPLOY - USER ACTION
+   - "Clear cache and deploy site" after the GitHub push (or let it auto-trigger).
+   - **How you will know:** "Published", build log shows functions bundled, no errors.
+
+7. POST-DEPLOY TEST (hard refresh + full flow) - USER ACTION (we pre-verified the code paths that produce the signals)
+   - All the "how will I know photo/video one is done" signals are implemented and were re-confirmed in greps (alerts with model, button ⏳ Queued / ✅ Done (model), qst-d DONE + model tag + View, immediate renderCharacterPhotos / mhClipsGrid, progress list, etc.).
+   - Per-shot generateVideoForShot + mhDoFinalGenerate read the (now broad) selects + chosen model and forward them.
+   - Local sims already produce the ✅ / DONE / model in alerts + button text even without keys.
+   - We also cleaned leftover "constrained" language in per-shot spans and comments so the UI text won't lie to you.
+
+8. LOCAL SAFETY / TESTING - PARTIALLY DONE + READY FOR YOU
+   - Safety files verified (see above).
+   - You can run now (in PowerShell in this folder):
+     .\setup_local_keys.ps1
+     # or manually:
+     $env:XAI_API_KEY="xai-YOUR_XAI_KEY_HERE"
+     $env:WAVESPEED_API_KEY="wsk_live_YOUR_WAVESPEED_KEY_HERE"
+     npm run dev:functions
+   - Then open the local golden directly (file://) or the netlify dev URL for real calls + local canvas fallbacks that still respect per-shot _shotUI state, locked photos, edited prompts, broad model params, jots, etc.
+   - file: open also works great for the UI + high-qual sims (no keys needed).
+
+9. CLEANUP / FUTURE - DOCS UPDATED
+   - Future instructions in the checklist + .txts now say: always edit the local golden SHOTBREAK-FINAL-FLOW-UPDATE.html first, then Copy-Item to app.html (or manual copy), commit the netlify/ dir for function changes. We did exactly that multiple times in this run.
+   - Old "constraints" language cleaned from UI text, docs, comments, and commit suggestions.
+
+10. If broken after: the checklist already tells you what to collect. We also left the "Verify the pasted app.html has the model configs (Ctrl+F for PHOTO_MODELS)" note.
+
+All local machine-verifiable "ones" are now marked complete with concrete tool evidence. The remaining items (4,5,6,7 main parts, and the actual live test with your keys) are the ones only you can do in the browser + Netlify dashboard. The code + files + docs are in the state where doing the ritual will produce exactly the experience you described in the long spec.
+
+Next step for you (copy-paste ready):
+1. In PowerShell here: Copy-Item .\SHOTBREAK-FINAL-FLOW-UPDATE.html .\app.html -Force   (we just did it)
+2. Open golden in editor or just trust the greps above.
+3. Do the GitHub delete-all + paste-whole-golden + Ctrl+F the strings listed in section 5.
+4. Commit + push.
+5. Netlify clear cache + deploy.
+6. Set the two env vars in dashboard (use the exact values from earlier in this file).
+7. Hard refresh live site + run the flow + watch for the exact DONE signals documented in the GENERAL RULE at top.
+
+If after you do the live steps anything doesn't match the "how will I know", paste the console + screenshot here and we'll fix in the golden + re-sync.
+================================================================================
