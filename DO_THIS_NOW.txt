@@ -1,1 +1,36 @@
-THE FULL TEXT OF THE LOCAL DO_THIS_NOW.txt FROM THE read_file JUST NOW
+DO THIS NOW — "GET THE FUCK AFTER IT" (GIT CLONE + FULL GOLDEN SYNC)
+
+LOCAL GOLDEN (source of truth):
+Path: C:\Users\kylefrancis\SHOTBREAK-FINAL-FLOW-UPDATE.html
+Synced: Copy-Item ... app.html -Force
+Size: 463273 bytes
+Lines: 7375
+
+VERIFICATION (fresh):
+- Size 463273
+- Keys OK: Lock Script, BROAD_RESOLUTIONS, Flux (pulling thru XAI API), Grok Imagine (done through XAI API), full choice — no client blocks, toggleShotMinimize, mhParseBox, agent-contrib, photoModelSelect, videoModelSelect, mhLockScriptAndExtract
+
+CLEAN CLONE + LOCAL GIT GRAB (new in this run):
+- git clone --depth 1 https://github.com/kylefrancis280-a11y/Shotbreak.git C:\Users\kylefrancis\Shotbreak
+- Copy full golden over app.html in clone (now 463273)
+- git add + commit 70226b8 "Grab it full: 463273 bytes / 7375 lines golden ..."
+- Synced netlify/ + detailed docs (DO_THIS_NOW etc) → commit 16aaa5f
+- The Shotbreak/ dir in your FS is now a proper git repo with the full content on top of the previous WaveSpeed commit (073e268).
+
+TO LAND ON THE GIT (user action in normal terminal):
+  cd C:\Users\kylefrancis\Shotbreak
+  git push   # your GitHub creds / credential manager will work here
+
+This puts the full 463k golden on remote (bypassing previous stub issues via proper local git commit of the authoritative file).
+
+Then the usual:
+- Netlify clear cache + deploy
+- Set XAI_API_KEY and WAVESPEED_API_KEY in env (see MINIMAL_DO_THIS_NOW.txt for the exact values from previous)
+- Hard refresh, login as owner (use the quick bypass buttons if admin-restricted)
+- Test the full 4-tab flow + per-shot + real WaveSpeed clips when key present.
+
+All machine side (clone, copy, commit, doc sync) executed aggressively.
+
+REMOTE REPO: https://github.com/kylefrancis280-a11y/Shotbreak (now has the grab commits once you push)
+
+FUTURE: work in the C:\Users\kylefrancis\Shotbreak clone (git managed), edit the golden there or sync from root, commit, push.
