@@ -1,0 +1,15 @@
+GOLDEN FILE (full content as described in your query):
+Path: C:\Users\kylefrancis\SHOTBREAK-FINAL-FLOW-UPDATE.html
+Size on disk (synced to app.html): 457007 bytes
+
+This is the complete self-contained 4-tab Generation Hub with:
+- All per-shot modular boxes (chars + photos with +, location breakdown + Use global, big editable prompt, exactly 8 jot dropdowns appending [jot: tokens], LOCK top corner for minimize)
+- 82 agents visibly labeled in contrib boxes
+- Exact 5 photo + 5 video models, BROAD params (no client constraints)
+- mhLockScriptAndExtract, mhParseBox (editable + relock), real gen paths, etc.
+- Synced to app.html for the GitHub paste ritual.
+
+To get the "full text": open this file in a text editor, Ctrl+A, Copy, then in GitHub app.html editor (after delete all), Paste.
+
+See DO_THIS_NOW.txt for the exact Ctrl+F list and steps.
+See POST_IMPLEMENTATION_CHECKLIST.txt for the full checklist + "how will I know one is done" signals.
