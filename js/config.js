@@ -10,7 +10,14 @@
 //   - Firestore Security Rules (see firestore.rules)
 //   - Google Cloud API key restrictions (HTTP referrers + allowed APIs)
 //   - Netlify environment variables for all server-side secrets
-//   - OWNER_TOKEN_SECRET + short-lived HMAC owner tokens
+//   - OWNER_TOKEN_SECRET + short-lived HMAC owner tokens (only the 3 owners via /verify-owner)
+//
+// Owners get isOwner privileges (email match after real login, or valid HMAC token).
+// Current active for the 3 Shotbreak owners: original kyle/scott/steve + kyleF/steveC/scottD shorts (plain company emails not fully set up yet).
+// Client bypasses, demo "any token", nuclear any-user-owner removed. Only real logins or proper 4-part owner: tokens.
+// The shorts (kyleF/steveC/scottD) are used for /verify-owner (name + OWNER_PW_KYLEF etc).
+// Run Shotbreak/get-owner-token.ps1 (after setting the PW envs + clear-cache deploy) to get tokens easily.
+// If the actual emails for kyleF etc are on different domains, update the emails list here + the OWNER_NAME_TO_EMAIL map in the two netlify/.../verify-token.js files.
 //
 // ROTATION PROCEDURE (when key or owners change):
 //   1. Edit ONLY this file.
@@ -38,12 +45,20 @@
       emails: [
         'kyle@shotbreak.io',
         'scott@shotbreak.io',
-        'steve@shotbreak.io'
+        'steve@shotbreak.io',
+        // Current active shorts for the 3 owners (kyleF/steveC/scottD) — update these + the server map if using truly different (non-shotbreak) emails for the accounts
+        'kylef@shotbreak.io',
+        'stevec@shotbreak.io',
+        'scottd@shotbreak.io'
       ],
       meta: {
         kyle:  { name: 'Kyle',  color: '#d4a843' },
         scott: { name: 'Scott', color: '#60a5fa' },
-        steve: { name: 'Steve', color: '#a78bfa' }
+        steve: { name: 'Steve', color: '#a78bfa' },
+        // Metas for current active owner shorts (kyleF/steveC/scottD)
+        kylef:  { name: 'Kyle F',  color: '#d4a843' },
+        stevec: { name: 'Steve C', color: '#a78bfa' },
+        scottd: { name: 'Scott D', color: '#60a5fa' }
       }
     }
   };
@@ -57,4 +72,14 @@
 
   // Optional: expose a tiny helper
   window.getShotbreakFirebaseConfig = () => CFG.firebase;
+
+  // Clean any old 3-part bypass owner tokens (only 4-part from /verify-owner valid now)
+  try {
+    const tk = localStorage.getItem('SB_OWNER_TOKEN');
+    if (tk && tk.split(':').length !== 4) {
+      localStorage.removeItem('SB_OWNER_TOKEN');
+      localStorage.removeItem('SB_OWNER_NAME');
+      localStorage.removeItem('SB_OWNER_EXPIRES');
+    }
+  } catch(e) {}
 })();
