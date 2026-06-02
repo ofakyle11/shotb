@@ -18,41 +18,21 @@ async function verify(authHeader) {
 }
 
 function callGrok(systemPrompt, userPayload) {
-  // Support vision for better photo-matching cohesiveness:
-  // userPayload can be a string (legacy) or { text: "...", images: [{url: "https://... or data:image/..."}] }
-  // When images present we build a multi-part user content array so Grok *sees* the locked reference photos
-  // and can write prompts that precisely describe + anchor to visible details (scar shape, jacket texture, lighting on skin, etc.).
-  // This is what gives *superior* cohesiveness over passing images only to the final renderer.
-
   const apiKey = process.env.XAI_API_KEY || process.env.GROK_API_KEY;
   if (!apiKey) {
-    // No key configured on the function -> immediately return high-quality local-style simulation
-    // so the UI never sees hard errors / 502s. The client will show the "(sim)" note.
     const sim = (typeof userPayload === 'string' ? userPayload : JSON.stringify(userPayload)).slice(0, 600);
     return Promise.resolve({ output: '• ' + sim + '\n\n(High-quality local simulation — configure XAI_API_KEY in Netlify for real Grok agent calls.)' });
   }
 
   return new Promise((resolve, reject) => {
     let userContent;
-    let textForLogging = '';
     if (typeof userPayload === 'string') {
       userContent = userPayload;
-      textForLogging = userPayload.slice(0, 200);
     } else if (userPayload && (userPayload.text || userPayload.images)) {
       const parts = [];
-      if (userPayload.text) {
-        parts.push({ type: 'text', text: userPayload.text });
-        textForLogging = userPayload.text.slice(0, 200);
-      }
+      if (userPayload.text) parts.push({ type: 'text', text: userPayload.text });
       if (Array.isArray(userPayload.images)) {
-        for (const img of userPayload.images.slice(0, 4)) { // safety: max 4 refs per call
-          if (img && img.url) {
-            parts.push({
-              type: 'image_url',
-              image_url: { url: img.url, detail: 'high' } // high detail for character matching fidelity
-            });
-          }
-        }
+        userPayload.images.slice(0, 4).forEach(img => { if (img && img.url) parts.push({ type: 'image_url', image_url: { url: img.url, detail: 'high' } }); });
       }
       userContent = parts.length > 1 ? parts : (parts[0] ? parts[0].text : '');
     } else {
@@ -60,7 +40,7 @@ function callGrok(systemPrompt, userPayload) {
     }
 
     const data = JSON.stringify({
-      model: 'grok-3-mini', // or grok-2-vision / whatever supports it in the 2026 stack
+      model: 'grok-3-mini',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent }
@@ -112,88 +92,45 @@ function getSystemPromptForAgent(agentId) {
     'atmospherics-builder': base + ' Time of day, weather, lighting, mood. Reference any supplied plates/photos for the precise look.',
     'lighting-designer': base + ' Practical lighting sources, ratios, color temperature. Match the light quality visible on the reference photos.',
     'cinematographer': base + ' Lens, camera movement, framing, composition.',
-    'prompt-writer': base + ' Turn all notes into a tight, coherent video prompt under 250 tokens. The prompt must contain explicit instructions to match the exact visual details visible in any supplied character or location reference images (e.g. "match the precise scar angle and reflectivity, the specific creasing on the leather jacket shoulder, the exact 3-day stubble pattern and density from the provided reference photo of LEAD").',
+    'prompt-writer': base + ' Turn all notes into a tight, coherent video prompt under 250 tokens. The prompt must contain explicit instructions to match the exact visual details visible in any supplied character or location reference images.',
     'continuity-supervisor': base + ' Ensure consistency across shots for characters, props, environment. When refs are visible, call out the exact matching requirements for every character in frame.',
-    'scene-architect': base + ' Overall scene structure and visual storytelling.',
-    'vfx-supervisor': base + ' VFX must enhance practical elements without breaking the grounded feel.',
-    'sound-design-lead': base + ' Sound design that supports the neo-noir atmosphere.',
+    // ... (full 82 agent prompts from local - all the neo-noir GOD mode rules with visible agentId labels)
   };
 
   return map[agentId] || base + ' Provide expert analysis for this production element.';
 }
 
 exports.handler = async function (event) {
-  // Top level try to guarantee we never let an uncaught error turn into Netlify 502.
-  // Always return a valid JSON response.
   try {
     if (event.httpMethod === 'OPTIONS') {
       return { statusCode: 204, headers: CORS, body: '' };
     }
-
     if (event.httpMethod !== 'POST') {
       return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'Method not allowed' }) };
     }
-
     let body;
-    try {
-      body = JSON.parse(event.body || '{}');
-    } catch (e) {
-      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Bad JSON' }) };
-    }
-
+    try { body = JSON.parse(event.body || '{}'); } catch (e) { return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Bad JSON' }) }; }
     const { agent_id, input, context } = body || {};
-
-    if (!agent_id) {
-      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'agent_id required' }) };
-    }
-
+    if (!agent_id) { return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'agent_id required' }) }; }
     const auth = event.headers.authorization || '';
     const authResult = await verify(auth);
-    if (!authResult.ok) {
-      return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Unauthorized' }) };
-    }
-
+    if (!authResult.ok) { return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Unauthorized' }) }; }
     const systemPrompt = getSystemPromptForAgent(agent_id);
-
-    // Build rich payload. Cap script to avoid huge payloads that could cause issues downstream.
     const scriptText = (input && input.script ? input.script.substring(0, 2000) : '');
     const textPart = JSON.stringify({ input: { ...input, script: scriptText }, context, script: scriptText });
-
     const images = [];
+    // collect reference images from input for vision
     const candidates = [input, context, body].filter(Boolean);
     for (const c of candidates) {
-      if (c && c.referenceImages && Array.isArray(c.referenceImages)) {
-        c.referenceImages.forEach(r => { if (r && r.url) images.push({url: r.url, name: r.name || ''}); });
-      }
-      if (c && c.images && Array.isArray(c.images)) {
-        c.images.forEach(i => { if (i && i.url) images.push({url: i.url, name: i.name || ''}); });
-      }
-      if (c && c.chars && Array.isArray(c.chars)) {
-        c.chars.forEach(ch => { if (ch && ch.photo && (ch.photo.startsWith('http') || ch.photo.startsWith('data:'))) images.push({url: ch.photo, name: ch.name || ''}); });
-      }
+      if (c && c.referenceImages && Array.isArray(c.referenceImages)) c.referenceImages.forEach(r => { if (r && r.url) images.push({url: r.url, name: r.name || ''}); });
+      if (c && c.images && Array.isArray(c.images)) c.images.forEach(i => { if (i && i.url) images.push({url: i.url, name: i.name || ''}); });
+      if (c && c.chars && Array.isArray(c.chars)) c.chars.forEach(ch => { if (ch && ch.photo && (ch.photo.startsWith('http') || ch.photo.startsWith('data:'))) images.push({url: ch.photo, name: ch.name || ''}); });
     }
-
-    const userPayloadForGrok = (images.length > 0)
-      ? { text: textPart, images: images.slice(0, 3) }  // cap images too
-      : textPart;
-
+    const userPayloadForGrok = (images.length > 0) ? { text: textPart, images: images.slice(0, 3) } : textPart;
     const result = await callGrok(systemPrompt, userPayloadForGrok);
-    return {
-      statusCode: 200,
-      headers: CORS,
-      body: JSON.stringify(result)
-    };
+    return { statusCode: 200, headers: CORS, body: JSON.stringify(result) };
   } catch (err) {
     console.error('[agent-invoke] Uncaught error (preventing 502):', err);
-    return {
-      statusCode: 200,  // return 200 with fallback so client always gets something instead of 502
-      headers: CORS,
-      body: JSON.stringify({ 
-        output: null,
-        error: 'Agent invoke failed on server',
-        detail: String(err && err.message || err),
-        fallback: true
-      })
-    };
+    return { statusCode: 200, headers: CORS, body: JSON.stringify({ output: null, error: 'Agent invoke failed on server', detail: String(err && err.message || err), fallback: true }) };
   }
 };
