@@ -1,0 +1,38 @@
+URGENT: Netlify Functions are now in your local tree.
+
+Created:
+- netlify.toml (tells Netlify where functions live)
+- netlify/functions/agent-invoke.js (real Grok calls for all your 82 agents - uses XAI_API_KEY)
+- netlify/functions/generate-video.js (receives your per-shot prompt + character_image_url and calls WaveSpeed)
+- netlify/functions/lib/verify-token.js + llm.js (supporting auth/LLM)
+- package.json (for Netlify build)
+- app.html (copy of your golden for easy commits)
+
+For your morning demo:
+1. Do the HTML deploy using DEPLOY_FOR_DEMO_THIS_MORNING.txt (the UI with per-shot boxes, Lock button, jots, etc. must be live).
+2. Also add the netlify/functions/ directory to your GitHub repo (you can drag & drop the whole netlify folder in the GitHub web UI under the root, or use git if you have it configured).
+3. In Netlify dashboard for your site:
+   - Go to Site settings > Build & deploy > Environment variables
+   - Add:
+     XAI_API_KEY = [paste the real xai-... key you have]
+     WAVESPEED_API_KEY = your WaveSpeed key (if using real video)
+   - Make sure "Deploy" scope is selected.
+   - Trigger a new deploy (or git push the functions/ + golden will redeploy).
+   IMPORTANT: Never put the XAI_API_KEY value into any .html, .js, or committed file. Only in the Netlify UI env vars. The code already reads process.env.XAI_API_KEY in agent-invoke.js.
+
+After that, real agents will call Grok through the function (no more forced simulation if the key is set), and video generation will go through WaveSpeed (or XAI direct for grok-imagine/flux) with your per-shot prompt + photo refs for coherence.
+
+New: Exactly the 5 photo + 5 video models you listed (Wan 2.7, Flux (pulling thru XAI API), Nano Banana, Nano Banana Pro, GPT 2.0 for photos; Seedance 2.0 Turbo, Wan 2.7, Sora 2, Veo 3.1, Grok Imagine (done through XAI API) for video). The model dropdowns are the controlled list. Resolution/aspect/duration now show broad options for *all* models (no client-side constraints / dynamic filtering - per your clarification after the models were wired through both providers). Changing the model only refreshes the info note (description + ref support). Chosen values + model name are forwarded as-is. Backend routes grok-imagine/flux-xai direct via XAI (with image refs), everything else via WaveSpeed. Grok vision polish for coherence on refs.
+
+You will never have to manually paste functions again - just commit the netlify/ folder with your golden.
+
+Local testing with real agents:
+- A .gitignore and .env.example have been added to the workspace.
+- Copy .env.example to .env and put your XAI key in the local .env **only** (for `npm run dev:functions` / netlify dev).
+- In PowerShell for a session: $env:XAI_API_KEY="paste-your-xai-key"
+  Then: npm run dev:functions
+- For the live site: **ONLY** set XAI_API_KEY in the Netlify dashboard (never in any file you push).
+
+A .gitignore was created to protect .env etc.
+
+This finishes the "local stuff" so the full source (UI + real backend functions) lives together. Once the env var is set in Netlify, real 82 agents + Grok Imagine paths will work.
