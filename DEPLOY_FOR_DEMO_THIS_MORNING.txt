@@ -1,0 +1,12 @@
+URGENT DEMO DEPLOY INSTRUCTIONS FOR THIS MORNING
+1. Open the local SHOTBREAK-FINAL-FLOW-UPDATE.html (the one with all the latest per-shot, Lock Script button, canvas photo/video gen, high quality local agents, 8 jots, LOCK per shot, extraction to Characters).
+2. Go to GitHub repo, open app.html, click the edit pencil.
+3. Select all and DELETE EVERYTHING.
+4. In the local golden file, select all and COPY the ENTIRE content.
+5. Paste into the GitHub editor.
+6. BEFORE COMMITTING, use Ctrl+F in the GitHub editor and search for 'Lock Script & Send to Characters' (or 'photoModelSelect' or 'BROAD_RESOLUTIONS') to confirm the new button + current model setup made it into the paste.
+7. Commit with this exact message: Exact 5+5 models + broad res/aspect/dur (no client constraints per latest). Full per-shot boxes with char photos +, location breakdown, big editable prompt + 8 jot dropdowns, LOCK minimize per shot, 82 agents labeled, Grok vision + refs for coherence, XAI direct + WaveSpeed routing. Edit golden, copy to app.html for all future deploys.
+8. On Netlify, go to Deploys and click Clear cache and deploy site.
+9. After deploy finishes, hard refresh the live site (Ctrl+Shift+R or incognito) on https://shotbreak.io/app .
+10. Test the full flow for your demo: Script tab paste script, run agents (high quality local sim or real if keys+functions), parse, Lock Script button to Characters, generate/upload photos using photoModelSelect (note shows description + ref support), go to Generate, build per-shot boxes (auto often), each has chars+photos +, location breakdown (Use global), big editable prompt referencing everything, 8 jot dropdowns at bottom of prompt, LOCK top-right to minimize, pick any of the 5 Video Models (res/aspect/dur now show broad options for all - full choice, no auto-filter blocks), baseline or per-shot or final generate. Backend routes model name to XAI direct (grok-imagine/flux) or WaveSpeed for the others. Prompts + locked refs go through for coherence. Alerts, button text, progress, thumbs will show exact model + DONE signals.
+The local file has everything wired for the demo UI. For real video gen backend, the netlify functions need to be working, but the UI and local gen will be there for the demo.
