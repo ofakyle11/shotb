@@ -1277,7 +1277,7 @@ async function customerLogin(){
       } else if (vresp.status === 401 || (vdata && String(vdata.error || '').toLowerCase().includes('invalid'))) {
         // Specific guidance for the most common owner pw failure (missing/wrong OWNER_PW_* in Netlify)
         if (err) {
-          err.textContent = 'Owner pw invalid or not configured. Set OWNER_PW_KYLEF / OWNER_PW_STEVEC / OWNER_PW_SCOTTD (and originals) in Netlify env for BOTH Deploy and Preview scopes, then Clear cache and deploy. Falling back to Firebase login...';
+          err.textContent = 'Owner verify failed (wrong pw or OWNER_PW_* not in Netlify yet). For shorts use the long OWNER_PW_ from my-owner-pws.txt; for kylef@ / stevek@ use the Firebase pw you set (Shotbreak2026!). Set any missing OWNER_PW_STEVEK etc in Netlify (all 5 boxes same value) then Clear cache + deploy. Trying Firebase fallback...';
           err.style.display = 'block';
         }
         await new Promise(r => setTimeout(r, 650));
@@ -6639,7 +6639,7 @@ function renderCharacterPhotos(charName) {
   container.innerHTML = html;
 }
 
-function generateCharacterPhotoForBox(charName) {
+async function generateCharacterPhotoForBox(charName) {
   const p = projectLoad();
   if (!p || !p.script) { alert('Lock a script first.'); return; }
 
@@ -6855,7 +6855,7 @@ function generateCharacterPhotoForBox(charName) {
 
 // NEW: Location photo adder (for coherence matching, lives in Characters tab)
 // Now routes the plate prompt thru Grok (environment-builder / prompt-writer) so location refs are as intelligent/coherent as character + video work.
-function addLocationPhoto() {
+async function addLocationPhoto() {
   const p = projectLoad();
   if (!p) { alert('Load a project first.'); return; }
   if (!p.assets) p.assets = {};
