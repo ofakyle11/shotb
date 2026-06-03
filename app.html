@@ -225,9 +225,9 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
 
     <div id="tabLogin">
       <input type="email" id="loginEmail" placeholder="Email" autocomplete="email" autocapitalize="none" spellcheck="false">
-      <input type="password" id="loginPw" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')customerLogin()">
+      <input type="password" id="loginPw" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')safeSignIn()">
       <div id="loginErr" class="form-err" style="display:none"></div>
-      <button type="button" class="b b-gold b-big b-full" id="signInBtn">Sign In</button>
+      <button type="button" class="b b-gold b-big b-full" id="signInBtn" onclick="safeSignIn()">Sign In</button>
       <div style="text-align:center;margin-top:12px">
         <span class="form-link" onclick="showTab('forgot')">Forgot password?</span>
       </div>
@@ -1332,6 +1332,32 @@ async function customerLogin(){
     if (err) { err.textContent = msg; err.style.display = 'block'; }
   }
 }
+
+// Safe wrapper for the Sign In button (robust, always shows error in #loginErr if anything fails)
+function safeSignIn() {
+  try {
+    if (typeof customerLogin === 'function') {
+      customerLogin();
+    } else {
+      const err = document.getElementById('loginErr');
+      if (err) {
+        err.textContent = 'Login not ready yet — hard refresh the page (Ctrl + Shift + R).';
+        err.style.display = 'block';
+      }
+      console.error('customerLogin is not defined when safeSignIn was called');
+    }
+  } catch (e) {
+    console.error('safeSignIn error:', e);
+    const err = document.getElementById('loginErr');
+    if (err) {
+      err.textContent = 'Error: ' + (e && e.message ? e.message : e);
+      err.style.display = 'block';
+    }
+  }
+}
+
+// Also make it available on window for any inline calls
+window.safeSignIn = safeSignIn;
 
 // Customer register — plain button onclick
 async function customerRegister(){
