@@ -256,21 +256,11 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
       <a href="index.html" style="font-size:12px;color:var(--dim)">← Back to website</a>
     </div>
 
-    <!-- Setup note for owners (cleaned of old debug text per request) -->
+    <!-- Owner login note -->
     <div style="margin-top:18px; padding:12px 14px; background:#1a140a; border:1px solid #d4a84344; border-radius:8px; font-size:12px; line-height:1.35; color:#d4c8a8;">
-      <strong style="color:#f0d9a0">Owners log in with real Firebase email + password only (or proper owner: HMAC token from /verify-owner for shells).</strong><br><br>
-      Current active for the 3 Shotbreak owners: kyle@ / scott@ / steve@ + kyleF/steveC/scottD shorts (the plain company ones not all set up in Firebase yet). Use the shorts + OWNER_PW_KYLEF etc env values with the get-owner-token.ps1 helper (in the Shotbreak folder) to obtain proper 4-part tokens for shells or browser testing. No other ways in. All bypasses removed. Non-owners require valid subscription.
+      <strong style="color:#f0d9a0">Owners:</strong> In the Sign In form, enter short (kylef / stevec / scottd / kyle / scott / steve) + the matching OWNER_PW_* value from your Netlify env (or a real Firebase password if you created an account for the email). The login now routes owners through /verify-owner so the special passwords work directly in the UI (sets 4-part token + owner tier). ps1 helper still useful for shells/cURL. No bypasses. Non-owners require valid subscription.
     </div>
 
-    <!-- Netlify paused / usage limits notice -->
-    <div style="margin-top:12px; padding:10px 12px; background:#2a1a1a; border:1px solid #f87171; border-radius:8px; font-size:11px; line-height:1.3; color:#fecaca;">
-      <strong style="color:#fca5a5">If you see "Site not available - This site was paused as it reached its usage limits":</strong><br>
-      1. Log into your Netlify account (the one that owns capable-froyo-218eed).<br>
-      2. Go to the site dashboard → Billing / Usage / Plans.<br>
-      3. Upgrade to a paid plan (Starter/Pro) or pay overage to resume.<br>
-      4. Once unpaused: Clear cache and deploy site again.<br>
-      <strong>Workaround right now:</strong> Open this file locally in your browser (file://.../SHOTBREAK-FINAL-FLOW-UPDATE.html or app.html) for testing with local sims. Owners (current kyleF/steveC/scottD + originals) use real credentials or proper tokens even in local mode.
-    </div>
   </div>
 </div>
 </div>
@@ -661,7 +651,7 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
             <div style="margin-top:8px">
               <button class="b b-g b-s" onclick="mhLockScriptAndExtract()">🔒 Lock Script & Send to Characters + Locations</button>
             </div>
-            <div id="localModeNote" style="font-size:10px;color:#666;margin-top:4px;display:block">LOCAL MODE (live site paused - usage limits). Using high-quality agent simulations. Owners (current kyleF/steveC/scottD shorts + originals) use real credentials or proper tokens. Open this file directly for testing. To resume live: unpause in Netlify Billing → clear cache & deploy.</div>
+            <div id="localModeNote" style="font-size:10px;color:#666;margin-top:4px;display:block">LOCAL MODE (high-quality agent simulations for testing). Owners (kyleF/steveC/scottD shorts + originals) use real credentials or proper tokens from get-owner-token.ps1. Open this file directly for full flow testing.</div>
             <div id="mhScriptParsed" style="margin-top:8px;background:#111;border:1px solid var(--gold-border);padding:10px;font-size:13px;white-space:pre-wrap;display:none"></div>
           </div>
         </div>
@@ -1057,8 +1047,9 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
         const user = firebase.auth().currentUser;
         if (user) return await user.getIdToken();
       } catch (e) {}
-      // Owner token fallback (from localStorage, set during owner login)
-      if (window.SB_OWNER_TOKEN) return window.SB_OWNER_TOKEN;
+      // Owner token fallback ONLY if proper 4-part HMAC (from /verify-owner). Reject old bypass fakes.
+      const ot = window.SB_OWNER_TOKEN;
+      if (ot && ot.split(':').length === 4 && ot.startsWith('owner:')) return ot;
       return null;
     };
   }
@@ -1091,6 +1082,16 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
   );
 
   console.log('[Shotbreak] Owner emails loaded:', window.OWNER_EMAILS.size);
+
+  // Map shorts (kyleF etc) to full emails so owners can enter short in email field for UI login convenience
+  window.SHORT_TO_FULL_EMAIL = {
+    'kylef': 'kylef@shotbreak.io',
+    'stevec': 'stevec@shotbreak.io',
+    'scottd': 'scottd@shotbreak.io',
+    'kyle': 'kyle@shotbreak.io',
+    'scott': 'scott@shotbreak.io',
+    'steve': 'steve@shotbreak.io'
+  };
 
   // ===================== AUTH STATE (safe) =====================
   window.auth.onAuthStateChanged(async user => {
@@ -1200,6 +1201,11 @@ function showTab(t){
 }
 
 // Customer login — plain button onclick, no form submission chain
+// Supports owner passwords directly in the UI:
+//   - Enter short (kylef/stevec/scottd/kyle/scott/steve) + the OWNER_PW_* value from Netlify env → uses /verify-owner, gets 4-part token, owner tier (no Firebase user required for shorts).
+//   - Or full owner email + OWNER_PW value (auto-maps to short for verify).
+//   - Falls back to real Firebase signInWithEmailAndPassword (for non-owners or owners who set a separate Firebase pw on the email account).
+// This fixes "password doesnt work" when users paste the special owner pw into the login form.
 async function customerLogin(){
   const emailEl = document.getElementById('loginEmail');
   const pwEl = document.getElementById('loginPw');
@@ -1207,16 +1213,80 @@ async function customerLogin(){
   const pw = pwEl ? pwEl.value : '';
   const err = document.getElementById('loginErr'); if (err) err.style.display='none';
 
-  const emailLc = email.toLowerCase().trim();
-
-  // Normal path requires password (owners use their real Firebase password; no bypass)
   if (!email || !pw) {
     if (err) { err.textContent='Enter email and password'; err.style.display='block'; }
     return;
   }
 
+  const emailLc = email.toLowerCase().trim();
+
+  // Support entering short (kyleF) or full email for owner UI login
+  let loginEmail = email;
+  const short = emailLc.split('@')[0].replace(/[^a-z]/g, '');
+  if (window.SHORT_TO_FULL_EMAIL && window.SHORT_TO_FULL_EMAIL[short]) {
+    loginEmail = window.SHORT_TO_FULL_EMAIL[short];
+  }
+
+  // Check if this looks like an owner (so we can try the special OWNER_PW verify flow first — this is what makes the password field accept the env pw values)
+  const ownerEmails = window.OWNER_EMAILS || new Set();
+  const isOwnerAttempt = ownerEmails.has(loginEmail.toLowerCase()) || ownerEmails.has(emailLc) || !!(window.SHORT_TO_FULL_EMAIL && window.SHORT_TO_FULL_EMAIL[short]);
+
+  if (isOwnerAttempt) {
+    // Attempt verify-owner first with the short name (server expects 'kylef' etc, not the full email)
+    try {
+      const verifyName = short || emailLc.split('@')[0].replace(/[^a-z]/g, '');
+      const vresp = await fetch('/.netlify/functions/verify-owner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: verifyName, password: pw })
+      });
+      const vdata = await vresp.json().catch(() => ({}));
+      if (vresp.ok && vdata && vdata.token) {
+        // Owner pw accepted — mint and store the real 4-part HMAC token
+        const token = vdata.token;
+        const exp = vdata.expires || (Date.now() + 12 * 60 * 60 * 1000);
+        const nm = vdata.name || verifyName;
+        try {
+          localStorage.setItem('SB_OWNER_TOKEN', token);
+          localStorage.setItem('SB_OWNER_NAME', nm);
+          localStorage.setItem('SB_OWNER_EXPIRES', String(exp));
+        } catch (e) {}
+        window.SB_OWNER_TOKEN = token;
+        window.SB_OWNER_NAME = nm;
+        window.SB_OWNER_EXPIRES = exp;
+
+        // Synthesize owner session (bypass Firebase user for this path)
+        const metaKey = verifyName;
+        const ownerMeta = (window.OWNER_META && window.OWNER_META[metaKey]) || { name: nm, color: '#d4a843' };
+        curUser = {
+          name: ownerMeta.name,
+          email: loginEmail,
+          tier: 'owner',
+          isOwner: true,
+          uid: 'owner-' + verifyName,
+          color: ownerMeta.color,
+        };
+        if (err) err.style.display = 'none';
+        enterApp();
+        try { if (typeof window.showToast === 'function') window.showToast('Owner signed in', 'ok'); } catch (e) {}
+        return;
+      } else if (vresp.status === 401 || (vdata && String(vdata.error || '').toLowerCase().includes('invalid'))) {
+        // Specific guidance for the most common owner pw failure (missing/wrong OWNER_PW_* in Netlify)
+        if (err) {
+          err.textContent = 'Owner pw invalid or not configured. Set OWNER_PW_KYLEF / OWNER_PW_STEVEC / OWNER_PW_SCOTTD (and originals) in Netlify env for BOTH Deploy and Preview scopes, then Clear cache and deploy. Falling back to Firebase login...';
+          err.style.display = 'block';
+        }
+        await new Promise(r => setTimeout(r, 650));
+        if (err) err.style.display = 'none';
+      }
+    } catch (ve) {
+      console.warn('[Shotbreak] verify-owner attempt failed (will try Firebase fallback):', ve);
+    }
+  }
+
+  // Firebase path (non-owners, or owners with a real Firebase email+pw account)
   try {
-    await auth.signInWithEmailAndPassword(email, pw);
+    await auth.signInWithEmailAndPassword(loginEmail, pw);
     await loadUser(auth.currentUser);
   } catch(e) {
     let msg = 'Error: ' + (e.message || e.code || 'Login failed');
@@ -1324,17 +1394,13 @@ async function loadUser(fbUser){
     color:   isOwner ? ownerMeta.color : '#d4a843',
   };
 
-  // Owners (the authorized emails in config) get isOwner=true based on email match after successful real Firebase login.
-  // js/auth.js supports tokens from Firebase or the /verify-owner HMAC endpoint (proper owner pw flow).
-  // Stale tokens cleaned for non-owners.
+  // Owners (authorized in config) get isOwner solely from email match after real login. No client bypass fakes.
   if (!isOwner) {
     try {
       localStorage.removeItem('SB_OWNER_TOKEN');
       localStorage.removeItem('SB_OWNER_NAME');
       localStorage.removeItem('SB_OWNER_EXPIRES');
       window.SB_OWNER_TOKEN = null;
-      window.SB_OWNER_NAME = null;
-      window.SB_OWNER_EXPIRES = null;
     } catch (e) {}
   }
 
@@ -6568,7 +6634,7 @@ function renderCharacterPhotos(charName) {
   container.innerHTML = html;
 }
 
-function generateCharacterPhotoForBox(charName) {
+async function generateCharacterPhotoForBox(charName) {
   const p = projectLoad();
   if (!p || !p.script) { alert('Lock a script first.'); return; }
 
@@ -6784,7 +6850,7 @@ function generateCharacterPhotoForBox(charName) {
 
 // NEW: Location photo adder (for coherence matching, lives in Characters tab)
 // Now routes the plate prompt thru Grok (environment-builder / prompt-writer) so location refs are as intelligent/coherent as character + video work.
-function addLocationPhoto() {
+async function addLocationPhoto() {
   const p = projectLoad();
   if (!p) { alert('Load a project first.'); return; }
   if (!p.assets) p.assets = {};
