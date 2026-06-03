@@ -265,6 +265,31 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
 </div>
 </div>
 
+<!-- Ultra-early safe wrappers so inline onclick/onkeydown ALWAYS work even if the giant script has a parse error later -->
+<script>
+function safeSignIn() {
+  try {
+    if (typeof customerLogin === 'function') {
+      customerLogin();
+    } else {
+      var err = document.getElementById('loginErr');
+      if (err) { err.textContent = 'Login JS not loaded yet (the big script may have an error). Hard refresh (Ctrl+Shift+R). Check browser console (F12) for details.'; err.style.display = 'block'; }
+      console.error('customerLogin not defined at safeSignIn time');
+    }
+  } catch (e) {
+    console.error('safeSignIn caught:', e);
+    var err = document.getElementById('loginErr');
+    if (err) { err.textContent = 'Error during login: ' + (e && e.message ? e.message : e); err.style.display = 'block'; }
+  }
+}
+window.safeSignIn = safeSignIn;
+
+// Also safe for Enter key on password
+function safeLoginEnter(e) {
+  if (e.key === 'Enter') safeSignIn();
+}
+</script>
+
 <!-- APP -->
 <div class="screen" id="appScreen">
 <header><div class="container hdr">
