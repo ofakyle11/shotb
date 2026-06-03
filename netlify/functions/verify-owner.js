@@ -7,7 +7,16 @@
 //   OWNER_PW_KYLE
 //   OWNER_PW_SCOTT
 //   OWNER_PW_STEVE
+//   // Current active shorts for the 3 owners of Shotbreak (plain company emails not all set up yet):
+//   OWNER_PW_KYLEF
+//   OWNER_PW_STEVEC
+//   OWNER_PW_SCOTTD
+//   OWNER_PW_STEVEK
 //   OWNER_TOKEN_SECRET  (random 48+ char string)
+//
+// Helper script: Shotbreak/get-owner-token.ps1  (run it, it prompts for short + pw securely,
+// calls this endpoint, copies the resulting owner:xxx token to clipboard, and prints usage examples).
+// After setting the OWNER_PW_* in Netlify env + "Clear cache and deploy site", run the helper to get tokens.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const crypto = require("crypto");
@@ -71,6 +80,7 @@ exports.handler = async (event) => {
   const { name, password } = body;
   if (!name || !password) return respond(400, { error: "name and password required" });
 
+  // Accepts "kyleF", "steveC", "scottD", "steveK" (or lower) for the current 3 owners, plus originals.
   const nameLower = String(name).toLowerCase();
   const envVar = `OWNER_PW_${nameLower.toUpperCase()}`;
   const expected = process.env[envVar];
