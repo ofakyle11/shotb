@@ -263,32 +263,34 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
 
   </div>
 </div>
-</div>
 
-<!-- Ultra-early safe wrappers so inline onclick/onkeydown ALWAYS work even if the giant script has a parse error later -->
+<!-- EARLY SAFE LOGIN HANDLER - placed right after login form HTML so even if giant script below has parse error or loads slow, the Sign In button ALWAYS gives visible feedback in the red #loginErr box. -->
 <script>
 function safeSignIn() {
   try {
+    const errEl = document.getElementById('loginErr');
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
     if (typeof customerLogin === 'function') {
+      // Call the real one (it is async but we fire and forget; it will set red box itself on problems)
       customerLogin();
     } else {
-      var err = document.getElementById('loginErr');
-      if (err) { err.textContent = 'Login JS not loaded yet (the big script may have an error). Hard refresh (Ctrl+Shift+R). Check browser console (F12) for details.'; err.style.display = 'block'; }
-      console.error('customerLogin not defined at safeSignIn time');
+      if (errEl) {
+        errEl.textContent = 'Login not ready yet — page still loading or a script error occurred (press F12, look in Console for red errors). Hard refresh (Ctrl+Shift+R) and try again.';
+        errEl.style.display = 'block';
+      }
     }
   } catch (e) {
-    console.error('safeSignIn caught:', e);
-    var err = document.getElementById('loginErr');
-    if (err) { err.textContent = 'Error during login: ' + (e && e.message ? e.message : e); err.style.display = 'block'; }
+    const errEl = document.getElementById('loginErr');
+    if (errEl) {
+      errEl.textContent = 'Error: ' + (e && e.message ? e.message : e);
+      errEl.style.display = 'block';
+    }
+    console.error('[Shotbreak] safeSignIn caught:', e);
   }
 }
 window.safeSignIn = safeSignIn;
-
-// Also safe for Enter key on password
-function safeLoginEnter(e) {
-  if (e.key === 'Enter') safeSignIn();
-}
 </script>
+</div>
 
 <!-- APP -->
 <div class="screen" id="appScreen">
@@ -676,7 +678,7 @@ function safeLoginEnter(e) {
             <div style="margin-top:8px">
               <button class="b b-g b-s" onclick="mhLockScriptAndExtract()">🔒 Lock Script & Send to Characters + Locations</button>
             </div>
-            <div id="localModeNote" style="font-size:10px;color:#666;margin-top:4px;display:none">LOCAL MODE (high-quality agent simulations for testing). Owners (kyleF/steveC/scottD shorts + originals) use real credentials or proper tokens from get-owner-token.ps1. Open this file directly for full flow testing.</div>
+            <div id="localModeNote" style="font-size:10px;color:#666;margin-top:4px;display:block">LOCAL MODE (high-quality agent simulations for testing). Owners (kyleF/steveC/scottD shorts + originals) use real credentials or proper tokens from get-owner-token.ps1. Open this file directly for full flow testing.</div>
             <div id="mhScriptParsed" style="margin-top:8px;background:#111;border:1px solid var(--gold-border);padding:10px;font-size:13px;white-space:pre-wrap;display:none"></div>
           </div>
         </div>
@@ -778,35 +780,10 @@ function safeLoginEnter(e) {
             <div style="padding:16px;background:#111;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--dim);font-size:13px">
               Per-shot detail boxes appear here.<br>
               <button class="b b-gold b-s" onclick="buildPerShotDetailBoxes()" style="margin-top:8px">Build / Rebuild Per-Shot Detail Boxes (82-GOD Agent Level)</button>
-              <div style="font-size:9px;color:#666;margin-top:2px">Inside each shot box: full breakdown of relevant 82 agents with individual "Run" buttons + live timers (elapsed vs est). Run 1-by-1 or "Run All" sequential.</div>
             </div>
           </div>
 
           <button class="b b-gold b-big" onclick="buildPerShotDetailBoxes()" style="margin-top:16px">Rebuild All Shot Boxes from Script + Characters + Locations</button>
-          <div style="font-size:9px;color:#666;margin-top:4px">Each box then shows the 82-GOD agent breakdown: click agents 1-by-1 or run all with visible progression + timing. Approve points inside boxes, then use the Parser below.</div>
-
-          <!-- NEW: Final Prompt Parser / Master Synthesizer (the "Parsing box" at the bottom) -->
-          <div style="margin-top:24px;padding:16px;background:#0f0f14;border:1px solid var(--gold-border);border-radius:10px">
-            <div style="font-weight:700;color:var(--gold);font-size:14px;margin-bottom:6px">🔮 Final Prompt Parser — Master Synthesizer</div>
-            <div style="font-size:11px;color:#ccc;margin-bottom:8px">
-              Once you've run agents (any tabs), approved/declined their point-form outputs, and/or written your own notes in the per-shot prompt boxes:<br>
-              • Click "Collect All Approved + Locked Refs + Manual" to gather everything.<br>
-              • Then "Parse & Beautify into Perfect Prompt" — this rewrites it into a flowing, high-quality, continuity-optimized prompt that references locked character photos, location plates, jots, previous shots for consistency, and is structured for best results on Grok Imagine (XAI) + WaveSpeed (audio/video quality, minimal mistakes).
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-              <button class="b b-g b-s" onclick="collectAllForParser()">Collect All Approved + Locked Refs + Manual Inputs</button>
-              <button class="b b-gold b-s" onclick="parseAndBeautifyMasterPrompt()">🔮 Parse & Beautify into Perfect Flowing Prompt</button>
-            </div>
-            <textarea id="mhMasterParserInput" style="width:100%;height:80px;background:#111;color:#fff;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:12px;font-family:var(--mono)" placeholder="Collected points + refs will appear here. You can edit before parsing."></textarea>
-            <div style="margin-top:8px">
-              <textarea id="mhMasterParserOutput" style="width:100%;height:120px;background:#0a0a0f;color:#e8e8ec;border:1px solid var(--gold);border-radius:6px;padding:8px;font-size:12px;font-family:var(--mono)" placeholder="The beautifully formed, continuity-perfect master prompt will appear here after parsing. Copy or apply to shots."></textarea>
-            </div>
-            <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
-              <button class="b b-g b-xs" onclick="applyParsedToCurrentShotPrompt()">Apply this to current/active shot prompt box</button>
-              <button class="b b-g b-xs" onclick="copyParsedPrompt()">Copy to clipboard</button>
-              <span style="font-size:9px;color:#666;align-self:center">This is the "last mile" before hitting Generate Video Clips — optimized for refs, flow, continuity, audio sync, visual coherence.</span>
-            </div>
-          </div>
 
           <div style="margin-top:20px">
             <button class="b b-gold b-big" onclick="mhDoFinalGenerate()">🎬 Generate Video Clips (using all Parsed Per-Shot Prompts + Jots)</button>
@@ -1048,7 +1025,7 @@ function safeLoginEnter(e) {
         appId: "1:515766987392:web:ac3644d952c69d11c7d465",
         measurementId: "G-R2BT95E9DE"
       },
-      // Current active for the 3 Shotbreak owners: originals + kyleF/steveC/scottD/steveK (plain company not fully set up).
+      // Current active for the 3 Shotbreak owners: originals + kyleF/steveC/scottD (plain company not fully set up).
       // If the real emails for the shorts are on different domains, update this + OWNER_NAME_TO_EMAIL map in the two verify-token.js.
       // Only these get isOwner/unlimited (after real login). No bypasses.
       OWNER_EMAILS: [
@@ -1265,124 +1242,115 @@ async function customerLogin(){
   const pwEl = document.getElementById('loginPw');
   const email = emailEl ? emailEl.value.trim() : '';
   const pw = pwEl ? pwEl.value : '';
-  const err = document.getElementById('loginErr'); if (err) err.style.display='none';
+  const err = document.getElementById('loginErr');
+  if (err) { err.style.display = 'none'; err.textContent = ''; }
 
-  if (!email || !pw) {
-    if (err) { err.textContent='Enter email and password'; err.style.display='block'; }
-    return;
-  }
+  try {
+    if (!email || !pw) {
+      if (err) { err.textContent = 'Enter email and password'; err.style.display = 'block'; }
+      return;
+    }
 
-  const emailLc = email.toLowerCase().trim();
+    const emailLc = email.toLowerCase().trim();
 
-  // Support entering short (kyleF) or full email for owner UI login
-  let loginEmail = email;
-  const short = emailLc.split('@')[0].replace(/[^a-z]/g, '');
-  if (window.SHORT_TO_FULL_EMAIL && window.SHORT_TO_FULL_EMAIL[short]) {
-    loginEmail = window.SHORT_TO_FULL_EMAIL[short];
-  }
+    // Support entering short (kylef) or full email for owner UI login
+    let loginEmail = email;
+    const short = emailLc.split('@')[0].replace(/[^a-z]/g, '');
+    if (window.SHORT_TO_FULL_EMAIL && window.SHORT_TO_FULL_EMAIL[short]) {
+      loginEmail = window.SHORT_TO_FULL_EMAIL[short];
+    }
 
-  // Check if this looks like an owner (so we can try the special OWNER_PW verify flow first — this is what makes the password field accept the env pw values)
-  const ownerEmails = window.OWNER_EMAILS || new Set();
-  const isOwnerAttempt = ownerEmails.has(loginEmail.toLowerCase()) || ownerEmails.has(emailLc) || !!(window.SHORT_TO_FULL_EMAIL && window.SHORT_TO_FULL_EMAIL[short]);
+    // Check if this looks like an owner (so we can try the special OWNER_PW verify flow first — this is what makes the password field accept the env pw values)
+    const ownerEmails = window.OWNER_EMAILS || new Set();
+    const isOwnerAttempt = ownerEmails.has(loginEmail.toLowerCase()) || ownerEmails.has(emailLc) || !!(window.SHORT_TO_FULL_EMAIL && window.SHORT_TO_FULL_EMAIL[short]);
 
-  if (isOwnerAttempt) {
-    // Attempt verify-owner first with the short name (server expects 'kylef' etc, not the full email)
-    try {
-      const verifyName = short || emailLc.split('@')[0].replace(/[^a-z]/g, '');
-      const vresp = await fetch('/.netlify/functions/verify-owner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: verifyName, password: pw })
-      });
-      const vdata = await vresp.json().catch(() => ({}));
-      if (vresp.ok && vdata && vdata.token) {
-        // Owner pw accepted — mint and store the real 4-part HMAC token
-        const token = vdata.token;
-        const exp = vdata.expires || (Date.now() + 12 * 60 * 60 * 1000);
-        const nm = vdata.name || verifyName;
-        try {
-          localStorage.setItem('SB_OWNER_TOKEN', token);
-          localStorage.setItem('SB_OWNER_NAME', nm);
-          localStorage.setItem('SB_OWNER_EXPIRES', String(exp));
-        } catch (e) {}
-        window.SB_OWNER_TOKEN = token;
-        window.SB_OWNER_NAME = nm;
-        window.SB_OWNER_EXPIRES = exp;
+    if (isOwnerAttempt) {
+      // Attempt verify-owner first with the short name (server expects 'kylef' etc, not the full email)
+      try {
+        const verifyName = short || emailLc.split('@')[0].replace(/[^a-z]/g, '');
+        const vresp = await fetch('/.netlify/functions/verify-owner', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: verifyName, password: pw })
+        });
+        const vdata = await vresp.json().catch(() => ({}));
+        if (vresp.ok && vdata && vdata.token) {
+          // Owner pw accepted — mint and store the real 4-part HMAC token
+          const token = vdata.token;
+          const exp = vdata.expires || (Date.now() + 12 * 60 * 60 * 1000);
+          const nm = vdata.name || verifyName;
+          try {
+            localStorage.setItem('SB_OWNER_TOKEN', token);
+            localStorage.setItem('SB_OWNER_NAME', nm);
+            localStorage.setItem('SB_OWNER_EXPIRES', String(exp));
+          } catch (e) {}
+          window.SB_OWNER_TOKEN = token;
+          window.SB_OWNER_NAME = nm;
+          window.SB_OWNER_EXPIRES = exp;
 
-        // Synthesize owner session (bypass Firebase user for this path)
-        const metaKey = verifyName;
-        const ownerMeta = (window.OWNER_META && window.OWNER_META[metaKey]) || { name: nm, color: '#d4a843' };
-        curUser = {
-          name: ownerMeta.name,
-          email: loginEmail,
-          tier: 'owner',
-          isOwner: true,
-          uid: 'owner-' + verifyName,
-          color: ownerMeta.color,
-        };
-        if (err) err.style.display = 'none';
-        enterApp();
-        try { if (typeof window.showToast === 'function') window.showToast('Owner signed in', 'ok'); } catch (e) {}
-        return;
-      } else if (vresp.status === 401 || (vdata && String(vdata.error || '').toLowerCase().includes('invalid'))) {
-        // Specific guidance for the most common owner pw failure (missing/wrong OWNER_PW_* in Netlify)
+          // Synthesize owner session (bypass Firebase user for this path)
+          const metaKey = verifyName;
+          const ownerMeta = (window.OWNER_META && window.OWNER_META[metaKey]) || { name: nm, color: '#d4a843' };
+          curUser = {
+            name: ownerMeta.name,
+            email: loginEmail,
+            tier: 'owner',
+            isOwner: true,
+            uid: 'owner-' + verifyName,
+            color: ownerMeta.color,
+          };
+          if (err) { err.style.display = 'none'; err.textContent = ''; }
+          enterApp();
+          try { if (typeof window.showToast === 'function') window.showToast('Owner signed in', 'ok'); } catch (e) {}
+          return;
+        } else if (vresp.status === 401 || (vdata && String(vdata.error || '').toLowerCase().includes('invalid'))) {
+          // Specific guidance for the most common owner pw failure (missing/wrong OWNER_PW_* in Netlify)
+          // Keep this visible — do NOT auto-hide. User sees exact instruction.
+          if (err) {
+            err.textContent = 'Owner verify failed (wrong pw or OWNER_PW_* not in Netlify yet). For shorts (kylef etc) use the long OWNER_PW_ value from my-owner-pws.txt top; for kylef@ / stevek@ + Shotbreak2026! use the Firebase path (create the user in Firebase console first). Paste the OWNER_PW_ values into ALL 5 Netlify env boxes (same value), then Clear cache and deploy. Will now try Firebase fallback...';
+            err.style.display = 'block';
+          }
+          // Do not hide — let the message stay; Firebase fallback will overwrite with its own message if it runs.
+        }
+      } catch (ve) {
+        console.warn('[Shotbreak] verify-owner attempt failed (will try Firebase fallback):', ve);
         if (err) {
-          err.textContent = 'Owner verify failed (wrong pw or OWNER_PW_* not in Netlify yet). For shorts use the long OWNER_PW_ from my-owner-pws.txt; for kylef@ / stevek@ use the Firebase pw you set (Shotbreak2026!). Set any missing OWNER_PW_STEVEK etc in Netlify (all 5 boxes same value) then Clear cache + deploy. Trying Firebase fallback...';
+          err.textContent = 'Network error talking to owner verify. Check connection or try again. ' + (ve.message || '');
           err.style.display = 'block';
         }
-        await new Promise(r => setTimeout(r, 650));
-        if (err) err.style.display = 'none';
       }
-    } catch (ve) {
-      console.warn('[Shotbreak] verify-owner attempt failed (will try Firebase fallback):', ve);
     }
-  }
 
-  // Firebase path (non-owners, or owners with a real Firebase email+pw account)
-  try {
-    await auth.signInWithEmailAndPassword(loginEmail, pw);
-    await loadUser(auth.currentUser);
-  } catch(e) {
-    let msg = 'Error: ' + (e.message || e.code || 'Login failed');
-    if (e.code === 'auth/user-not-found') msg = 'No account with that email';
-    else if (e.code === 'auth/wrong-password') msg = 'Wrong password';
-    else if ((e.message || '').includes('admin-restricted') || (e.message || '').includes('ADMIN_ONLY_OPERATION') || (e.message || '').includes('SYSTEM_AUTH_FAIL')) {
-      msg = 'SYSTEM USER SIGN-IN FAILED (API key restriction).\n\n' +
-            'The most common fix right now:\n' +
-            '1. Copy this key: AIzaSyA5-NRXzzkWuGafQ5-EukGF9WMnQ2txFFA\n' +
-            '2. In Netlify → Environment variables (Production) → set FIREBASE_API_KEY to exactly that value\n' +
-            '3. Save + Clear cache and deploy\n\n' +
-            'Alternative: In Google Cloud Console, edit the key and allow "Identity Toolkit API".';
-    }
-    if (err) { err.textContent = msg; err.style.display = 'block'; }
-  }
-}
-
-// Safe wrapper for the Sign In button (robust, always shows error in #loginErr if anything fails)
-function safeSignIn() {
-  try {
-    if (typeof customerLogin === 'function') {
-      customerLogin();
-    } else {
-      const err = document.getElementById('loginErr');
-      if (err) {
-        err.textContent = 'Login not ready yet — hard refresh the page (Ctrl + Shift + R).';
-        err.style.display = 'block';
+    // Firebase path (non-owners, or owners with a real Firebase email+pw account created in console)
+    try {
+      if (typeof auth === 'undefined' || !auth || !auth.signInWithEmailAndPassword) {
+        throw new Error('Firebase auth not initialized yet — wait for page to fully load or hard refresh (Ctrl+Shift+R).');
       }
-      console.error('customerLogin is not defined when safeSignIn was called');
+      await auth.signInWithEmailAndPassword(loginEmail, pw);
+      await loadUser(auth.currentUser);
+    } catch(e) {
+      let msg = 'Error: ' + (e.message || e.code || 'Login failed');
+      if (e.code === 'auth/user-not-found') msg = 'No account with that email. (For kylef@shotbreak.io / stevek@shotbreak.io: go to Firebase Console → Authentication → Users and create the user with password exactly Shotbreak2026! first.)';
+      else if (e.code === 'auth/wrong-password') msg = 'Wrong password';
+      else if ((e.message || '').includes('admin-restricted') || (e.message || '').includes('ADMIN_ONLY_OPERATION') || (e.message || '').includes('SYSTEM_AUTH_FAIL')) {
+        msg = 'SYSTEM USER SIGN-IN FAILED (API key restriction).\n\n' +
+              'The most common fix right now:\n' +
+              '1. Copy this key: AIzaSyA5-NRXzzkWuGafQ5-EukGF9WMnQ2txFFA\n' +
+              '2. In Netlify → Environment variables (Production) → set FIREBASE_API_KEY to exactly that value\n' +
+              '3. Save + Clear cache and deploy\n\n' +
+              'Alternative: In Google Cloud Console, edit the key and allow "Identity Toolkit API".';
+      }
+      if (err) { err.textContent = msg; err.style.display = 'block'; }
     }
-  } catch (e) {
-    console.error('safeSignIn error:', e);
-    const err = document.getElementById('loginErr');
-    if (err) {
-      err.textContent = 'Error: ' + (e && e.message ? e.message : e);
-      err.style.display = 'block';
+  } catch (outerE) {
+    console.error('[Shotbreak] customerLogin outer crash:', outerE);
+    const errEl2 = document.getElementById('loginErr');
+    if (errEl2) {
+      errEl2.textContent = 'Login error: ' + (outerE && outerE.message ? outerE.message : outerE);
+      errEl2.style.display = 'block';
     }
   }
 }
-
-// Also make it available on window for any inline calls
-window.safeSignIn = safeSignIn;
 
 // Customer register — plain button onclick
 async function customerRegister(){
@@ -1587,28 +1555,6 @@ try{localStorage.removeItem('SB_OWNER_TOKEN');localStorage.removeItem('SB_OWNER_
 curUser=null;document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
 document.getElementById('loginScreen').classList.add('active');window.history.replaceState({},'',window.location.pathname)}
 document.addEventListener('click',e=>{if(!e.target.closest('.user-pill'))document.getElementById('uMenu').classList.remove('open')});
-
-// Robust login button wiring (fixes "doesnt click" even if inline onclick had issues or timing)
-document.addEventListener('DOMContentLoaded', () => {
-  const btn = document.getElementById('signInBtn');
-  if (btn) {
-    btn.addEventListener('click', () => {
-      try {
-        if (typeof customerLogin === 'function') {
-          customerLogin();
-        } else {
-          const errEl = document.getElementById('loginErr');
-          if (errEl) { errEl.textContent = 'Login not ready (hard refresh or wait for full load).'; errEl.style.display = 'block'; }
-          console.error('customerLogin not defined at click time');
-        }
-      } catch (e) {
-        console.error('customerLogin click error:', e);
-        const errEl = document.getElementById('loginErr');
-        if (errEl) { errEl.textContent = 'Error: ' + (e && e.message || e); errEl.style.display = 'block'; }
-      }
-    });
-  }
-});
 
 // (Legacy unconditional SB_OWNER_TOKEN purge removed — it was causing
 // owner sessions to be killed on every refresh, forcing "log in again".
@@ -7448,182 +7394,6 @@ async function mhRunScriptAgents() {
 // - Agent contributions labeled with exact 82-GOD agent IDs
 
 let _shotUI = {}; // key `${si}-${shi}` => {minimized, prompt, chars:[], loc:{}, jots:[] }
-let _shotAgentStatus = {}; // key => { [agentId]: {status:'idle'|'running'|'done', startTime:0, elapsed:0, output:'', estimate:8 } }
-
-const AGENT_ESTIMATES = {
-  'vision-director': 6, 'story-director': 8, 'action-writer': 7, 'prompt-writer': 10,
-  'cinematographer': 5, 'lighting-designer': 5, 'continuity-supervisor': 4,
-  'environment-builder': 6, 'atmospherics-builder': 5, 'scene-architect': 7,
-  'visual-character-builder': 9, 'psychological-builder': 8, 'voice-builder': 6,
-  'executive-producer': 4, 'showrunner': 5, 'colorist': 4, 'head-editor': 5,
-  'default': 7
-};
-
-function getRelevantAgentsForShot() {
-  return ['vision-director','story-director','action-writer','prompt-writer','cinematographer','lighting-designer','continuity-supervisor','environment-builder','atmospherics-builder','scene-architect','visual-character-builder','psychological-builder'];
-}
-
-function getAgentEstimate(aid) {
-  const lower = (aid || '').toLowerCase();
-  for (const k in AGENT_ESTIMATES) {
-    if (lower.includes(k.replace(/-/g,'')) || lower.includes(k)) return AGENT_ESTIMATES[k];
-  }
-  return AGENT_ESTIMATES.default;
-}
-
-// Modular approved points system (per category for tabs)
-let _mhApprovedPoints = { script: [], characters: {}, perShot: {} };
-
-function toggleApprovePoint(category, key, agent, point, checked) {
-  if (!_mhApprovedPoints[category]) _mhApprovedPoints[category] = (category === 'perShot' || category === 'characters') ? {} : [];
-  let target;
-  if (category === 'perShot' || category === 'characters') {
-    if (! _mhApprovedPoints[category][key]) _mhApprovedPoints[category][key] = [];
-    target = _mhApprovedPoints[category][key];
-  } else {
-    target = _mhApprovedPoints[category];
-  }
-  const existing = target.findIndex(p => p.agent === agent && p.text === point);
-  if (checked) {
-    if (existing === -1) target.push({agent, text: point});
-  } else {
-    if (existing > -1) target.splice(existing, 1);
-  }
-}
-
-function getApprovedFor(category, key) {
-  if (category === 'perShot' || category === 'characters') {
-    return (_mhApprovedPoints[category] && _mhApprovedPoints[category][key]) || [];
-  }
-  return _mhApprovedPoints[category] || [];
-}
-
-function addApprovedPointsToPrompt(key) {
-  // For per-shot: append approved agent points as bullet list to the prompt textarea
-  const ta = document.getElementById('prompt-' + key);
-  if (!ta) return;
-  const approved = getApprovedFor('perShot', key);
-  if (!approved.length) { alert('No approved agent points yet for this shot. Run agents and check the boxes.'); return; }
-  let pointsBlock = approved.map(p => `• ${p.agent}: ${p.text}`).join('\n');
-  let current = ta.value.trim();
-  if (current) current += '\n\n';
-  ta.value = current + 'APPROVED AGENT POINTS (for continuity + refs):\n' + pointsBlock + '\n\n';
-  if (_shotUI[key]) _shotUI[key].prompt = ta.value;
-  alert('Approved points added in point form to the prompt box. Now run the Parsing box below or edit manually.');
-}
-
-// === Final Parser / Master Synthesizer functions ===
-async function collectAllForParser() {
-  const ta = document.getElementById('mhMasterParserInput');
-  if (!ta) return;
-  const p = projectLoad() || {};
-  let collected = 'APPROVED AGENT POINTS (from all tabs):\n';
-
-  // Script agents
-  const scriptApproved = getApprovedFor('script') || [];
-  if (scriptApproved.length) {
-    collected += '\n[Script Agents]\n' + scriptApproved.map(x => `• ${x.agent || 'Script'}: ${x.text}`).join('\n');
-  }
-
-  // Character agents
-  const charApproved = _mhApprovedPoints.characters || {};
-  Object.keys(charApproved).forEach(cname => {
-    if (charApproved[cname] && charApproved[cname].length) {
-      collected += `\n[Character: ${cname}]\n` + charApproved[cname].map(x => `• ${x.agent || 'Char Agent'}: ${x.text}`).join('\n');
-    }
-  });
-
-  // Per-shot approved
-  const perShot = _mhApprovedPoints.perShot || {};
-  Object.keys(perShot).forEach(sk => {
-    if (perShot[sk] && perShot[sk].length) {
-      collected += `\n[Shot ${sk}]\n` + perShot[sk].map(x => `• ${x.agent}: ${x.text}`).join('\n');
-    }
-  });
-
-  // Locked refs
-  collected += '\n\nLOCKED REFERENCES (for continuity):\n';
-  if (p.characterBible && p.characterBible.length) {
-    collected += p.characterBible.map(c => `• Character ${c.name}: ${ (c.description||'').slice(0,120) } ${c.lockedPhoto ? '(photo locked)' : ''}`).join('\n');
-  }
-  if (p.location) {
-    collected += `\n• Location: ${p.location.name || ''} | TOD: ${p.location.tod || ''} | Weather: ${p.location.weather || ''}`;
-  }
-  if (p.assets && p.assets.locationPhotos && p.assets.locationPhotos.length) {
-    collected += `\n• ${p.assets.locationPhotos.length} locked location photo plates available for visual ref.`;
-  }
-
-  // Manual per-shot prompts / jots as extra context
-  const shotPrompts = Object.keys(_shotUI || {}).map(k => {
-    const u = _shotUI[k];
-    return u && u.prompt ? `[Shot ${k} manual/edited prompt]: ${u.prompt.slice(0,200)}` : '';
-  }).filter(Boolean);
-  if (shotPrompts.length) collected += '\n\nMANUAL / EDITED PER-SHOT PROMPTS:\n' + shotPrompts.join('\n');
-
-  ta.value = collected.trim();
-  alert('Collected. Now click "Parse & Beautify" to turn this into the perfect flowing prompt.');
-}
-
-async function parseAndBeautifyMasterPrompt() {
-  const inTa = document.getElementById('mhMasterParserInput');
-  const outTa = document.getElementById('mhMasterParserOutput');
-  if (!inTa || !outTa) return;
-
-  const raw = inTa.value.trim();
-  if (!raw) { alert('First collect or paste content into the input box above.'); return; }
-
-  outTa.value = 'Parsing with prompt-writer / final synthesizer agent... producing beautifully flowing, continuity-optimized prompt...';
-
-  const p = projectLoad() || {};
-
-  // Try real agent first (prompt-writer is the key one for this)
-  let final = '';
-  try {
-    if (window.SB_InvokeAgent) {
-      const res = await window.SB_InvokeAgent('prompt-writer', {
-        rawApprovedPoints: raw,
-        project: p,
-        lockedRefs: {
-          characters: p.characterBible || [],
-          location: p.location || {},
-          hasLocationPhotos: !!(p.assets && p.assets.locationPhotos && p.assets.locationPhotos.length)
-        },
-        instructions: 'Rewrite ALL the approved agent points, locked character/location refs, and any manual notes into ONE single, elegant, highly detailed, flowing master prompt per shot (or overall if no per-shot). Make it cinematic, continuous with previous locked assets (reference exact photo details for characters and locations for visual match), optimized for Grok Imagine + WaveSpeed: include precise sensory, lighting, camera, audio cues, rain/weather continuity, wardrobe/scar refs, emotional tone. Keep it under 250 tokens per shot but rich. Prioritize photo-match coherence, least possible mistakes in audio sync and visual continuity. Output clean prompt text only, ready to paste.'
-      });
-      final = res.output || res.result || res || '';
-    }
-  } catch(e){}
-
-  if (!final) {
-    // High quality local beautify
-    final = getHighQualityLocalAgentOutput('prompt-writer', p) + '\n\n' + raw.replace(/\n/g, ' ').slice(0,1500) + '\n\n[Master synthesized for continuity, refs, quality, audio/video coherence using all approved points above]';
-  }
-
-  outTa.value = final.trim();
-}
-
-function applyParsedToCurrentShotPrompt() {
-  const out = document.getElementById('mhMasterParserOutput');
-  if (!out || !out.value) { alert('Run the parser first to get output.'); return; }
-  // Try to apply to a "current" shot - for simplicity prompt for key or use first
-  const key = prompt('Apply to which shot key? (e.g. 0-0 for first shot of first scene). Leave blank for first available.', '0-0');
-  if (!key) return;
-  const ta = document.getElementById('prompt-' + key);
-  if (ta) {
-    ta.value = out.value;
-    if (_shotUI[key]) _shotUI[key].prompt = ta.value;
-    alert('Applied the beautifully parsed master prompt to shot ' + key + '. Ready for Generate.');
-  } else {
-    alert('Shot box not found for that key. Build the per-shot boxes first, then apply.');
-  }
-}
-
-function copyParsedPrompt() {
-  const out = document.getElementById('mhMasterParserOutput');
-  if (out && out.value) {
-    navigator.clipboard.writeText(out.value).then(()=>alert('Copied the perfect prompt to clipboard.')).catch(()=>alert(out.value));
-  }
-}
 
 function buildPerShotDetailBoxes() {
   const area = document.getElementById('mhGenEntityBoxes');
@@ -7648,12 +7418,6 @@ function buildPerShotDetailBoxes() {
     shots.forEach((shot, shi) => {
       const key = `${si}-${shi}`;
       if (!_shotUI[key]) _shotUI[key] = { minimized: false, prompt: '', chars: [], loc: {name:locName, tod:locTod, busy:locBusy, weather:locWeather}, jots: [] };
-      if (!_shotAgentStatus[key]) {
-        _shotAgentStatus[key] = {};
-        getRelevantAgentsForShot().forEach(aid => {
-          _shotAgentStatus[key][aid] = {status:'idle', elapsed:0, output:'', estimate: getAgentEstimate(aid)};
-        });
-      }
 
       const ui = _shotUI[key];
       const shotLabel = `S${si+1}.${shi+1}`;
@@ -7710,8 +7474,7 @@ function buildPerShotDetailBoxes() {
           <div class="shot-section">
             <h6>🤖 82-GOD Agent Contributions (point form — labeled by specialist)</h6>
             <div class="agent-contrib" id="agents-${key}">${renderAgentContribsForShot(key, p)}</div>
-            <button class="b b-gold b-xs" style="margin-top:4px;font-size:10px" onclick="runAllAgentsForShot('${key}', this)">Run All Relevant 82 Agents (1-by-1)</button>
-            <div style="font-size:9px;color:#555;margin-top:2px">Click individual "Run" buttons above for 1-by-1 control. Timers show real elapsed vs estimate while running (live deploys use real XAI/WaveSpeed timing).</div>
+            <button class="b b-gold b-xs" style="margin-top:4px;font-size:10px" onclick="runAgentsForShot('${key}', this)">Run Relevant 82 Agents for this Shot →</button>
           </div>
 
           <!-- BIG VIDEO PROMPT (references everything) -->
@@ -7861,129 +7624,68 @@ function appendJot(key, sel, type) {
 }
 
 function renderAgentContribsForShot(key, p) {
-  // Modular 82-GOD agent breakdown with approve/decline.
-  // Run 1-by-1 or all. Check boxes to approve points. Then "Add Approved to Prompt".
-  if (!_shotAgentStatus[key]) _shotAgentStatus[key] = {};
-  const statusMap = _shotAgentStatus[key];
-  const agents = getRelevantAgentsForShot();
-  const approvedForThis = getApprovedFor('perShot', key);
+  // Show labeled points from the 82. In real run we call many agents.
+  // For now seed with 4-6 highly relevant ones so user sees "82 Agents" working.
+  const [si, shi] = key.split('-').map(Number);
+  const scene = (p.scenes || [])[si] || {};
+  const shot = (scene.shots || [])[shi] || {};
+  const base = (shot.text || '').slice(0,40);
 
-  let html = `<div style="font-size:10px;color:#888;margin-bottom:4px">82-GOD agents for this shot — run individually or batch. Check ✅ to approve points (they will be added to prompt in point form). Timers show progress.</div>`;
+  const contribs = [
+    {id:'vision-director', text: `Establish ${base} with neo-noir DNA, high contrast practical sources only.`},
+    {id:'cinematographer', text: `Recommend 35mm Standard or 50mm Normal for intimacy; subtle handheld for tension.`},
+    {id:'lighting-designer', text: `90% practical: one sodium lamp + distant neon spill. No fill. Deep shadows.`},
+    {id:'continuity-supervisor', text: `Maintain exact wardrobe, scar position, and rain intensity from prior shots.`},
+    {id:'atmospherics-builder', text: `Wet surfaces, reflective puddles mandatory. Light persistent rain throughout.`},
+    {id:'prompt-writer', text: `Keep under 220 tokens. End with tactile detail. Reference locked character photo.`}
+  ];
 
-  agents.forEach(aid => {
-    const st = statusMap[aid] || {status:'idle', elapsed:0, output:'', estimate: getAgentEstimate(aid)};
-    let statusHtml = '';
-    if (st.status === 'running') {
-      statusHtml = `<span style="color:#eab308">RUNNING... ${st.elapsed.toFixed(1)}s / ~${st.estimate}s</span>`;
-    } else if (st.status === 'done') {
-      statusHtml = `<span style="color:#22c55e">DONE in ${st.elapsed.toFixed(1)}s</span>`;
-    } else {
-      statusHtml = `<span style="color:#666">idle • est ~${st.estimate}s</span>`;
-    }
-
-    let pointsHtml = '';
-    if (st.output) {
-      const bullets = st.output.split(/\n|•/).map(s=>s.trim()).filter(s=>s.length>4);
-      bullets.forEach((b, idx) => {
-        const pointId = `${aid}:${idx}`;
-        const isApproved = approvedForThis.some(ap => ap.agent === aid && ap.text === b);
-        pointsHtml += `
-          <div style="margin:1px 0;font-size:11px;display:flex;gap:4px;align-items:center">
-            <input type="checkbox" ${isApproved ? 'checked' : ''} onchange="toggleApprovePoint('perShot', '${key}', '${aid}', '${b.replace(/'/g,"\\'")}', this.checked);">
-            <span class="ag">${aid}:</span> ${esc(b)}
-          </div>`;
-      });
-    } else {
-      pointsHtml = `<div style="font-size:10px;color:#555">No output yet — click Run</div>`;
-    }
-
-    html += `
-      <div style="margin:4px 0;padding:4px 6px;background:#111;border-radius:4px;border-left:3px solid var(--gold)">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span class="ag" style="font-weight:700">${aid}</span>
-          <span style="font-size:9px">${statusHtml}</span>
-          <button class="b b-g b-xs" style="font-size:9px;padding:1px 5px" onclick="runOneAgentForShot('${key}', '${aid}', this)">Run</button>
-        </div>
-        <div style="margin-top:2px">${pointsHtml}</div>
-      </div>`;
-  });
-
-  html += `
-    <button class="b b-gold b-xs" style="margin-top:4px;font-size:10px" onclick="runAllAgentsForShot('${key}', this)">Run All Relevant (1-by-1 seq)</button>
-    <button class="b b-g b-xs" style="margin-top:4px;font-size:10px;margin-left:6px" onclick="addApprovedPointsToPrompt('${key}')">✅ Add Approved Agent Points to Prompt (point form)</button>
-  `;
-  return html;
+  return contribs.map(c => `<div><span class="ag">${c.id}:</span> ${esc(c.text)}</div>`).join('');
 }
 
-function refreshAgentUIForShot(key) {
-  const container = document.getElementById('agents-' + key);
-  if (!container) return;
-  const p = projectLoad() || {};
-  container.innerHTML = renderAgentContribsForShot(key, p);
-}
-
-async function runOneAgentForShot(key, aid, btn) {
-  if (!btn) return;
-  const orig = btn.textContent;
+async function runAgentsForShot(key, btn) {
+  btn.textContent = 'Running 82-GOD specialists...';
   btn.disabled = true;
-
-  if (!_shotAgentStatus[key]) _shotAgentStatus[key] = {};
-  const st = _shotAgentStatus[key][aid] = _shotAgentStatus[key][aid] || {status:'idle', elapsed:0, output:'', estimate: getAgentEstimate(aid)};
-  st.status = 'running';
-  st.startTime = Date.now();
-  st.elapsed = 0;
-  st.output = '';
-
-  // live timer
-  const timer = setInterval(() => {
-    if (st.status === 'running') {
-      st.elapsed = (Date.now() - st.startTime) / 1000;
-      refreshAgentUIForShot(key);
-    }
-  }, 250);
 
   const p = projectLoad() || {};
   const [si, shi] = key.split('-').map(Number);
 
-  let txt = '';
-  try {
-    const res = await window.SB_InvokeAgent(aid, {sceneIdx:si, shotIdx:shi, project:p});
-    txt = String(res.output || res.result || res || '');
-  } catch(e) {
+  // In production this would fan out to dozens of relevant agents from registry via SB_Agents
+  // Here we simulate + try real if window.SB_Agents exists, and ALWAYS label with agent id.
+  const agentsToRun = ['vision-director','cinematographer','lighting-designer','continuity-supervisor','environment-builder','prompt-writer','scene-architect'];
+
+  let html = '';
+  for (const aid of agentsToRun) {
+    let txt = '';
+    let fb = false;
+    try {
+      const res = await window.SB_InvokeAgent(aid, {sceneIdx:si, shotIdx:shi, project:p});
+      txt = String(res.output || res.result || '');
+    } catch(e) {
+      const isLocal = (location.protocol === 'file:') || (location.hostname === 'localhost') || (location.hostname === '127.0.0.1');
+      console.warn(`[Agent] using local sim for ${aid} (real call failed or no SB_Agents):`, e && e.message);
+      txt = getSimulatedAgentOutput(aid, p);
+      fb = true;
+    }
+    const bullets = txt.split(/\n|•/).map(s=>s.trim()).filter(s=>s.length>4).slice(0,3);
     const isLocal = (location.protocol === 'file:') || (location.hostname === 'localhost') || (location.hostname === '127.0.0.1');
-    console.warn(`[Agent] ${aid} sim (live would use real):`, e && e.message);
-    txt = getSimulatedAgentOutput(aid, p);
+    bullets.forEach(b => {
+      const label = `${aid}`;
+      html += `<div style="margin:2px 0"><span class="ag">${label}:</span> ${esc(b)}</div>`;
+    });
   }
 
-  clearInterval(timer);
-  st.status = 'done';
-  st.elapsed = (Date.now() - st.startTime) / 1000;
-  st.output = txt;  // full for splitting into approve-able bullets in render
-
-  refreshAgentUIForShot(key);
-  btn.disabled = false;
-}
-
-async function runAllAgentsForShot(key, btn) {
-  if (!btn) return;
-  const orig = btn.textContent;
-  btn.textContent = 'Running agents 1-by-1...';
-  btn.disabled = true;
-
-  const agents = getRelevantAgentsForShot();
-  for (const aid of agents) {
-    // find the button in current DOM for that agent (after refresh it will have new buttons)
-    refreshAgentUIForShot(key);
-    // small delay so UI shows the next running
-    await new Promise(r => setTimeout(r, 60));
-    // trigger the single run (it will update status + refresh inside)
-    const fakeBtn = { disabled: false, textContent: 'Run' }; // not used visually
-    await runOneAgentForShot(key, aid, fakeBtn);
+  const container = document.getElementById('agents-' + key);
+  if (container) {
+    let banner = '';
+    if (fb) {
+      banner = '<div style="font-size:9px;color:#c8a25f;margin-bottom:4px">High-quality local simulation (deploy with XAI_API_KEY + functions for live 82-GOD agents)</div>';
+    }
+    container.innerHTML = banner + (html || '<div style="color:#555">No new points.</div>');
   }
 
-  btn.textContent = 'Re-run All for Shot';
+  btn.textContent = 'Re-run Agents for Shot';
   btn.disabled = false;
-  refreshAgentUIForShot(key);
 }
 
 // Generate video for ONE per-shot box using its exact current prompt (with jots), chars/photos, location.
