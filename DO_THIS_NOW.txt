@@ -11,7 +11,7 @@ DO THIS NOW — SHOTBREAK ONLY (CLEANED — ALL CRYPTO/PORTFOLIO/ATLAS STRAYS RE
 - These were stock/portfolio/Finnhub/ATLAS-ETF code from other projects.
 - Fixed last branding leaks: sitemap.xml, robots.txt, auth.js (now pure shotbreak.io owners everywhere).
 - Updated core files from authoritative golden (js/config.js + js/auth.js now have strict 4-part owner tokens only + shorts kylef etc; agent-invoke/gen-clip/gen-portrait now use lib/verify-token strict auth; generate-video etc latest WaveSpeed + Grok Imagine wiring).
-- Local commits: 81be26b (main clean removal + branding) + 4b5d4dc (GOLDEN_READY update).
+- Local commits: 79a8b6a (merge of PAT restore ca1fa76 + clean + owner helpers polish with new get-owner-token.ps1 and OWNER_LOGIN.md).
 - Remote: MCP deletes created clean commits (330d3f5..c3100739), then create_or_update for branding + js/ + gen-* fns + GOLDEN_READY + DO_THIS_NOW.
 - No more atlas/finnhub/portfolio/crypto refs in the entire Shotbreak tree.
 - Owner 3-logins + bypass fully confirmed and hardened (only 4-part tokens, no old fakes).
