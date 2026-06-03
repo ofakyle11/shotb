@@ -1,6 +1,6 @@
 GOLDEN READY — CLEANED (crypto/portfolio/Atlas finance strays REMOVED).
 
-LATEST: 79a8b6a (local merge of PAT restore ca1fa76 + clean + owner helpers) + remote MCP content push dd87254 for helpers and docs. Strays removed, owner system with shorts and token helper fully in.
+LATEST: 49863f6 (synced clean master to clone app.html + removed hardcoded Netlify paused/usage limits red warning box from login, since now on paid Pro with credits). Strays removed, owner system fully in. Red box fix applied to sources.
 Removed: portfolio_grader.py + netlify/functions/{prices,news,daily-analysis,seed-universe,get-analysis}.js
 All atlasanalysis.net / finnhub / ATLAS-ETF / stock portfolio refs purged from Shotbreak tree.
 Owners (current active kyleF/steveC/scottD shorts for the 3 Shotbreak owners + originals) present. Strict real Firebase login or proper 4-part HMAC /verify-owner only. All bypasses (quick buttons, any-pw, client mocks, nuclear) removed from active sources. Old debug text cleaned. Use get-owner-token.ps1 helper with the OWNER_PW_* env values.
