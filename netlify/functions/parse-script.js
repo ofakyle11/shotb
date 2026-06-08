@@ -1,20 +1,28 @@
+const { requireAuth } = require('./lib/verify-token');
+const { corsHeaders } = require('./lib/http');
+const { wrapUserContent, UNTRUSTED_RULE, validateScriptBreakdown } = require('./lib/sanitize-prompt');
+
 exports.handler = async (event) => {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type'
-  };
+  const headers = corsHeaders(event);
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
 
-  const key = process.env.GROK_API_KEY;
+  try {
+    await requireAuth(event);
+  } catch (e) {
+    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
+  }
+
+  const key = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
   if (!key) return { statusCode: 500, headers, body: JSON.stringify({ error: 'GROK_API_KEY not set' }) };
 
   let script = '';
   try { script = JSON.parse(event.body).script || ''; } catch(e) {}
   if (!script.trim()) return { statusCode: 400, headers, body: JSON.stringify({ error: 'No script provided' }) };
 
-  const prompt = `You are a professional film production supervisor and script breakdown expert.
+  const prompt = `${UNTRUSTED_RULE}
+
+You are a professional film production supervisor and script breakdown expert.
 
 Analyze the following script and break it down into PRODUCTION SCENES.
 
@@ -25,8 +33,8 @@ Rules:
 - For each scene, extract ALL production details: characters present, their wardrobe, location details, props, atmosphere.
 - For each character in a scene, provide their name, role/function in the scene, physical description, and wardrobe.
 - For each shot, include a "characters" array listing ONLY the character names that actually appear in that specific shot. Leave it empty [] for establishing shots, cutaways, or shots with no named characters.
-- CRITICAL — shot descriptions: Each shot "description" must describe ONLY what the camera sees in THAT single shot. Do NOT combine multiple shots into one description. One shot = one discrete camera setup = one description. Example: S1.1 "Wide shot of jet touching down on runway" and S1.2 "Street level view of two buses waiting at terminal" are SEPARATE shots with SEPARATE descriptions. Never write "Jet landing then camera lowers to show buses" — that is two shots, not one.
-- Keep each shot description under 15 words. Be specific and visual. No narrative transitions between shots.
+- CRITICAL — shot descriptions: Each shot "description" must describe ONLY what the camera sees in THAT single shot. Do NOT combine multiple shots into one description.
+- Keep each shot description under 15 words. Be specific and visual.
 
 Return ONLY valid JSON in this exact format, no markdown, no explanation:
 {
@@ -34,34 +42,22 @@ Return ONLY valid JSON in this exact format, no markdown, no explanation:
   "scenes": [
     {
       "id": "S1",
-      "name": "Brief location name (e.g. London Airport - Arrivals)",
+      "name": "Brief location name",
       "description": "One sentence describing what happens here",
       "intExt": "INT" or "EXT",
-      "locationDesc": "Detailed description of the physical location and set dressing",
-      "timePeriod": "e.g. Day, Night, Dawn, Dusk, or specific era",
-      "atmosphere": "Mood and tone of the scene (e.g. tense, warm, chaotic)",
-      "props": "Comma-separated list of key props needed",
-      "characters": [
-        {
-          "name": "CHARACTER NAME",
-          "role": "Their function in this scene (e.g. Protagonist, Detective, Bystander)",
-          "physicalDesc": "Age, build, distinguishing features",
-          "wardrobe": "What they are wearing in this scene",
-          "makeup": "Any notable makeup or hair notes"
-        }
-      ],
-      "shots": [
-        { "id": "S1.1", "type": "Wide", "description": "Establishing shot of arrivals hall", "characters": [] },
-        { "id": "S1.2", "type": "Medium", "description": "Character walks through crowd", "characters": ["CHARACTER NAME"] }
-      ]
+      "locationDesc": "Detailed description of the physical location",
+      "timePeriod": "e.g. Day, Night",
+      "atmosphere": "Mood and tone",
+      "props": "Comma-separated list of key props",
+      "characters": [{ "name": "CHARACTER NAME", "role": "...", "physicalDesc": "...", "wardrobe": "...", "makeup": "..." }],
+      "shots": [{ "id": "S1.1", "type": "Wide", "description": "...", "characters": [] }]
     }
   ],
-  "characters": ["CHARACTER NAME 1", "CHARACTER NAME 2"],
+  "characters": ["CHARACTER NAME 1"],
   "totalShots": 12
 }
 
-SCRIPT:
-${script.substring(0,8000)}`;
+${wrapUserContent('script', script, 8000)}`;
 
   try {
     const resp = await fetch('https://api.x.ai/v1/chat/completions', {
@@ -76,8 +72,7 @@ ${script.substring(0,8000)}`;
     });
 
     if (!resp.ok) {
-      const err = await resp.text();
-      return { statusCode: 502, headers, body: JSON.stringify({ error: 'Grok API error: ' + err }) };
+      return { statusCode: 502, headers, body: JSON.stringify({ error: 'Grok API error' }) };
     }
 
     const data = await resp.json();
@@ -85,8 +80,12 @@ ${script.substring(0,8000)}`;
     const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
     const parsed = JSON.parse(cleaned);
 
+    if (!validateScriptBreakdown(parsed)) {
+      return { statusCode: 422, headers, body: JSON.stringify({ error: 'Invalid breakdown structure from model' }) };
+    }
+
     return { statusCode: 200, headers, body: JSON.stringify(parsed) };
   } catch(e) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Parse failed' }) };
   }
 };

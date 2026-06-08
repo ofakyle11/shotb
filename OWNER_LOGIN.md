@@ -1,70 +1,46 @@
-**Important:** After the env vars (OWNER_PW_*) are set in Netlify + Clear cache + deploy, the **UI login form password field now accepts the OWNER_PW values directly** when you type the short in email (kylef + your OWNER_PW_KYLEF value etc). This is the fix for "the fucking password doesnt fucking work".
+# Owner Login (Shotbreak)
 
-The ps1 script and token path still work for shells.
+**Credentials live only in Netlify environment variables — never in this repo or on the public site.**
 
-## 1. UI Login (easiest for browser)
+## 1. Browser login (easiest)
 
-In the Login tab of the sign-in screen, just type the **short** (kylef / stevec / scottd / stevek / kyle / scott / steve) in the email field and paste the matching **OWNER_PW_*** value (from the env / my-owner-pws.txt) into the Password field. Hit Sign In.
+On the app Sign In screen:
 
-- The form now calls /verify-owner under the hood for owner shorts/fulls.
-- On success you get the real 4-part `owner:...` token stored, owner tier, unlimited, special UI.
+1. Enter your **short** in the email field: `kylef`, `stevec`, `scottd`, `stevek`, or `kyle` / `scott` / `steve`
+2. Enter the matching **OWNER_PW_*** value from Netlify env in the password field
+3. Sign In — the app calls `/verify-owner` and stores a 4-part HMAC owner token
 
-Supported owner shorts right now:
-- kylef (→ kylef@shotbreak.io)
-- stevec (→ stevec@shotbreak.io)
-- scottd (→ scottd@shotbreak.io)
-- stevek (→ stevek@shotbreak.io)
-- plus the originals kyle / scott / steve
+Supported shorts:
 
-If the real emails end up on different domains, the SHORT_TO_FULL_EMAIL map + server OWNER_NAME_TO_EMAIL will need the update (tell me the exact addresses).
+- `kylef` → kylef@shotbreak.io
+- `stevec` → stevec@shotbreak.io
+- `scottd` → scottd@shotbreak.io
+- `stevek` → stevek@shotbreak.io
+- `kyle` / `scott` / `steve` → @shotbreak.io originals
 
-## 2. Token-based Owner Access (for scripts, shells, or quick browser testing without Firebase sign-in)
+## 2. Token helper (scripts / PowerShell)
 
-Use the get-owner-token.ps1 (or the RUN_ME_FOR_* .bat files) after putting the OWNER_PW_* into Netlify.
-
-Supported:
-- kyleF   (for the kylef@... identity)
-- steveC
-- scottD
-- steveK (new for stevek@)
-
-See the local file my-owner-pws.txt (in C:\Users\kylefrancis) for the exact long random strings to use.
-
-It contains:
-
-```
-OWNER_PW_KYLEF=6V&3{j7D[Lmy8Md(bscV@D.R
-OWNER_PW_STEVEC=SB}LKs,=.(d(MMXi=Z4^JKfJ
-OWNER_PW_SCOTTD=sbLx(,yBbHC:Pvw!i=?QCS4W
-OWNER_PW_STEVEK=LHu&-;$Bj8$yzG!pIX^u&0Gt$w*-
-```
-
-Then, in PowerShell (your prompt showed `PS C:\Users\kylefrancis>` so use this):
+After setting `OWNER_PW_*` and `OWNER_TOKEN_SECRET` in Netlify and redeploying:
 
 ```powershell
-# Exact command from C:\Users\kylefrancis>
-.\Shotbreak\get-owner-token.ps1
+.\Shotbreak\get-owner-token.ps1 -Name kyleF
 ```
 
-**Even easier (new launcher added for your exact situation):** 
-Double-click `run-get-owner-token.bat` (in C:\Users\kylefrancis) or run:
-```powershell
-.\run-get-owner-token.bat
-```
+Paste the password when prompted (never hardcode it in scripts).
 
-Or for a specific one:
-- Double click RUN_ME_FOR_STEVEK_TOKEN.bat (new!)
+## 3. Firebase fallback
 
-This will:
-- Auto load the pw from my-owner-pws.txt
-- Call the verify-owner endpoint
-- Give you a fresh `owner:stevek:1234567890:longhmac...` token
-- Copy the token to your clipboard
-- Print exact commands for using it
+Owners can also use full email + Firebase password if the account exists in Firebase Auth Console.
 
-## Firebase email+pw for the full emails (kylef@ , stevek@ etc)
+## Required Netlify env vars
 
-Create the users in Firebase Auth console with password Shotbreak2026! (for the two requested).
-Then in app login use full email stevek@shotbreak.io + Shotbreak2026!  (falls back to Firebase if verify pw not matching the OWNER_PW one).
+- `OWNER_TOKEN_SECRET`
+- `OWNER_PW_KYLEF`, `OWNER_PW_STEVEC`, `OWNER_PW_SCOTTD`, `OWNER_PW_STEVEK`
+- `XAI_API_KEY`, `WAVESPEED_API_KEY` (server-side only)
+- `FIREBASE_DB_SECRET`, `STRIPE_WEBHOOK_SECRET`
 
-After any change to these files or env, always: Clear cache and deploy site in Netlify.
+After any env change: **Clear cache and deploy site**.
+
+## Security note
+
+If passwords were ever committed to git, rotate all `OWNER_PW_*` values and `OWNER_TOKEN_SECRET` immediately.

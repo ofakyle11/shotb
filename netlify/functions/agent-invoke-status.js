@@ -5,46 +5,39 @@
 
 const { callLLM } = require('./lib/llm');
 const { getAgent } = require('../../agents/registry');
-const { verifyToken } = require('./lib/verify-token');
+const { requireAuth } = require('./lib/verify-token');
+const { corsHeaders } = require('./lib/http');
 
 // Import the job store from the start function (simple shared module pattern for MVP)
 const startModule = require('./agent-invoke-start');
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Content-Type': 'application/json',
-};
-
-function respond(statusCode, body) {
-  return { statusCode, headers: CORS, body: JSON.stringify(body) };
+function respond(event, statusCode, body) {
+  return { statusCode, headers: corsHeaders(event), body: JSON.stringify(body) };
 }
 
 exports.handler = async function (event) {
-  if (event.httpMethod === 'OPTIONS') return respond(204, {});
+  if (event.httpMethod === 'OPTIONS') return respond(event, 204, {});
 
   const jobId = (event.queryStringParameters && event.queryStringParameters.job_id) ||
                 (event.body && JSON.parse(event.body || '{}').job_id);
 
-  if (!jobId) return respond(400, { error: 'job_id required' });
+  if (!jobId) return respond(event, 400, { error: 'job_id required' });
 
   let auth;
   try {
-    auth = await verifyToken(event);
+    auth = await requireAuth(event);
   } catch (e) {
-    return respond(401, { error: e.message || 'AUTH_FAIL' });
+    return respond(event, 401, { error: 'Unauthorized' });
   }
 
   let job = startModule.getJob ? startModule.getJob(jobId) : null;
 
   if (!job) {
-    return respond(404, { error: 'Job not found or expired' });
+    return respond(event, 404, { error: 'Job not found or expired' });
   }
 
-  // Simple ownership check (basic)
   if (!job.isOwner && job.uid !== auth.uid) {
-    return respond(403, { error: 'Not authorized for this job' });
+    return respond(event, 403, { error: 'Not authorized for this job' });
   }
 
   // If still pending, run the actual work now (MVP approach)
@@ -73,7 +66,7 @@ exports.handler = async function (event) {
     }
   }
 
-  return respond(200, {
+  return respond(event, 200, {
     jobId,
     status: job.status,
     result: job.result || null,

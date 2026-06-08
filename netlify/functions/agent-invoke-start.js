@@ -5,17 +5,11 @@
 'use strict';
 
 const { getAgent } = require('../../agents/registry');
-const { verifyToken } = require('./lib/verify-token');
+const { requireAuth } = require('./lib/verify-token');
+const { corsHeaders } = require('./lib/http');
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Content-Type': 'application/json',
-};
-
-function respond(statusCode, body) {
-  return { statusCode, headers: CORS, body: JSON.stringify(body) };
+function respond(event, statusCode, body) {
+  return { statusCode, headers: corsHeaders(event), body: JSON.stringify(body) };
 }
 
 // Simple in-memory job store (resets on cold start — fine for MVP).
@@ -23,31 +17,31 @@ function respond(statusCode, body) {
 const jobs = new Map();
 
 exports.handler = async function (event) {
-  if (event.httpMethod === 'OPTIONS') return respond(204, {});
-  if (event.httpMethod !== 'POST') return respond(405, { error: 'POST only' });
+  if (event.httpMethod === 'OPTIONS') return respond(event, 204, {});
+  if (event.httpMethod !== 'POST') return respond(event, 405, { error: 'POST only' });
 
   let auth;
   try {
-    auth = await verifyToken(event);
+    auth = await requireAuth(event);
   } catch (e) {
-    return respond(401, { error: e.message || 'AUTH_FAIL' });
+    return respond(event, 401, { error: 'Unauthorized' });
   }
 
   let payload;
   try {
     payload = JSON.parse(event.body || '{}');
   } catch {
-    return respond(400, { error: 'Invalid JSON' });
+    return respond(event, 400, { error: 'Invalid JSON' });
   }
 
   const { agent_id, input, context } = payload;
-  if (!agent_id) return respond(400, { error: 'agent_id required' });
+  if (!agent_id) return respond(event, 400, { error: 'agent_id required' });
 
   let agent;
   try {
     agent = getAgent(agent_id);
   } catch (e) {
-    return respond(404, { error: e.message });
+    return respond(event, 404, { error: e.message });
   }
 
   const jobId = 'job_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
@@ -70,7 +64,7 @@ exports.handler = async function (event) {
   // (e.g. via another function or a queue). For now the status endpoint
   // can run the work on first poll if still pending.
 
-  return respond(200, {
+  return respond(event, 200, {
     jobId,
     status: 'pending',
   });

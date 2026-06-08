@@ -61,7 +61,11 @@ async function updateByCustomer(customerId, updates) {
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'POST only' };
   const sig = event.headers['stripe-signature'];
-  if (STRIPE_WEBHOOK_SECRET && !verifySig(event.body, sig)) return { statusCode: 400, body: 'Bad signature' };
+  if (!STRIPE_WEBHOOK_SECRET) {
+    console.error('[stripe-webhook] STRIPE_WEBHOOK_SECRET not configured');
+    return { statusCode: 500, body: 'Webhook secret not configured' };
+  }
+  if (!verifySig(event.body, sig)) return { statusCode: 400, body: 'Bad signature' };
   
   try {
     const ev = JSON.parse(event.body);

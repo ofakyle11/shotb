@@ -38,7 +38,7 @@ Run these checks on the live site:
 - View source on app.html / workflow / editor — you should see `<script src="js/config.js">`
 - The old long `firebase.initializeApp({ apiKey: "AIzaSyA5-..." ... })` literal should eventually disappear after Commit 2
 - Login still works
-- Owner accounts (kyle@shotbreak.io etc.) still get the special UI/behavior
+- Owner accounts (current kyleF/steveC/scottD shorts + originals) still get the special UI/behavior (via real Firebase login or proper /verify-owner tokens only). Use Shotbreak/get-owner-token.ps1 after setting the OWNER_PW_* envs.
 - No console errors about missing `SHOTBREAK_CONFIG` or Firebase init
 
 ## Rollback (if anything feels off)

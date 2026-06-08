@@ -63,7 +63,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/tutorial/tutorial.css" />
+<!-- tutorial css removed (tutorial system intentionally stripped to prevent load errors and login blocking) -->
 <style>
   :root {
     --bg: #050507;
@@ -410,8 +410,8 @@
     </p>
     <div class="hero-cta-row reveal">
       <a href="#pricing" class="btn btn-gold btn-lg">Start 7-day trial →</a>
-      <button class="btn btn-ghost btn-lg" onclick="SB_Tutorial.playWalkthrough('script_to_breakdown', { force: true })">▶ Play walkthrough (90s)</button>
-      <button class="btn btn-ghost btn-lg" onclick="SB_Tutorial.startTour('home_intro', { force: true })">Take the tour</button>
+      <button class="btn btn-ghost btn-lg" onclick="alert('Tutorial/walkthrough was removed (it was blocking the login screen). Double-click the local app.html to explore the full 4-tab app!')">▶ Play walkthrough (90s)</button>
+      <button class="btn btn-ghost btn-lg" onclick="alert('Tutorial/walkthrough was removed (it was blocking the login screen). Double-click the local app.html to explore the full 4-tab app!')">Take the tour</button>
     </div>
     <div class="hero-stats reveal">
       <div class="stat"><div class="stat-num">50</div><div class="stat-label">AI Agents</div></div>
@@ -764,22 +764,18 @@ weapons drawn.</pre>
   }, 1200);
 </script>
 
-<!-- Tutorial system -->
-<script src="/tutorial/tours.js"></script>
-<script src="/tutorial/tutorial.js"></script>
+<!-- Tutorial system intentionally removed (was blocking login and causing ReferenceErrors).
+     The landing page buttons above now explain and point to the real app.
+     Stub kept for any stray old code. -->
 <script>
-  // First-visit intro tour (auto-fires once, dismissible). Help FAB always visible.
-  window.addEventListener('load', () => {
-    SB_Tutorial.installHelpButton('home');
-    // Install homepage coachmarks after demo has rendered
-    setTimeout(() => {
-      if (window.SB_Tours && window.SB_Tours.coachmarks && window.SB_Tours.coachmarks.home) {
-        SB_Tutorial.installCoachmarks(SB_Tours.coachmarks.home);
-      }
-    }, 800);
-    // Auto-fire intro the first time only (seen flag prevents re-firing)
-    setTimeout(() => SB_Tutorial.startTour('home_intro'), 1400);
-  });
+  window.SB_Tutorial = window.SB_Tutorial || {
+    installHelpButton: function(){},
+    startTour: function(){},
+    installCoachmarks: function(){},
+    playWalkthrough: function(){}
+  };
+  window.SB_Tours = window.SB_Tours || { coachmarks: {} };
+  // No auto tour or help button on landing to avoid errors. Full experience is in app.html
 </script>
 </body>
 </html>

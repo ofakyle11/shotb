@@ -1,0 +1,16 @@
+# Secrets and local ops (never publish)
+my-owner-pws.txt
+*.latest-backup
+.env
+.env.*
+
+# Internal AI tooling (not part of the site)
+.grok/
+
+# Private ops docs (credentials live in Netlify env only)
+docs/private/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log

@@ -1,13 +1,19 @@
+const { requireAuth } = require('./lib/verify-token');
+const { corsHeaders } = require('./lib/http');
+const { wrapUserContent, sanitizeField, UNTRUSTED_RULE, validatePromptRewrite } = require('./lib/sanitize-prompt');
+
 exports.handler = async (event) => {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type'
-  };
+  const headers = corsHeaders(event);
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
 
-  const key = process.env.GROK_API_KEY;
+  try {
+    await requireAuth(event);
+  } catch (e) {
+    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
+  }
+
+  const key = process.env.GROK_API_KEY || process.env.XAI_API_KEY;
   if (!key) return { statusCode: 500, headers, body: JSON.stringify({ error: 'GROK_API_KEY not set' }) };
 
   let currentPrompt, fields, changedField, changedValue, agentName;
@@ -22,32 +28,27 @@ exports.handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid body' }) };
   }
 
-  // Build a context summary of all current fields
   const fieldSummary = Object.entries(fields)
     .filter(([k, v]) => v && String(v).trim())
-    .map(([k, v]) => `${k}: ${v}`)
+    .map(([k, v]) => `${k}: ${sanitizeField(v, 500)}`)
     .join('\n');
 
-  const prompt = `You are a professional screenplay and production prompt writer.
+  const prompt = `${UNTRUSTED_RULE}
 
-A shot's production data has just been updated by the ${agentName}.
+You are a professional screenplay and production prompt writer.
 
-CURRENT ACTION LINE (Script):
-${currentPrompt || '(empty)'}
+A shot's production data has just been updated by the ${sanitizeField(agentName, 100)}.
 
-ALL CURRENT SHOT FIELDS:
-${fieldSummary || '(none)'}
+${wrapUserContent('action_line', currentPrompt || '(empty)', 2000)}
+
+${wrapUserContent('fields', fieldSummary || '(none)', 3000)}
 
 CHANGE JUST APPLIED:
-Field: ${changedField}
-New value: ${changedValue}
+Field: ${sanitizeField(changedField, 100)}
+New value: ${sanitizeField(changedValue, 1000)}
 
-Your task: Rewrite the action line (Script field) to naturally incorporate this change while keeping all the other production details accurate and coherent. The action line should read like a professional screenplay action line — present tense, vivid, specific, production-ready. It should reflect the character, location, atmosphere, and any other relevant fields.
-
-Return ONLY valid JSON, no markdown:
-{ "prompt": "The rewritten action line here" }
-
-Keep it to 1-3 sentences. Make it cinematic and specific.`;
+Rewrite the action line to incorporate this change. Return ONLY valid JSON:
+{ "prompt": "The rewritten action line here" }`;
 
   try {
     const resp = await fetch('https://api.x.ai/v1/chat/completions', {
@@ -62,8 +63,7 @@ Keep it to 1-3 sentences. Make it cinematic and specific.`;
     });
 
     if (!resp.ok) {
-      const err = await resp.text();
-      return { statusCode: 502, headers, body: JSON.stringify({ error: 'Grok API error: ' + err }) };
+      return { statusCode: 502, headers, body: JSON.stringify({ error: 'Grok API error' }) };
     }
 
     const data = await resp.json();
@@ -71,8 +71,12 @@ Keep it to 1-3 sentences. Make it cinematic and specific.`;
     const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
     const parsed = JSON.parse(cleaned);
 
+    if (!validatePromptRewrite(parsed)) {
+      return { statusCode: 422, headers, body: JSON.stringify({ error: 'Invalid rewrite structure' }) };
+    }
+
     return { statusCode: 200, headers, body: JSON.stringify({ prompt: parsed.prompt || '' }) };
   } catch(e) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Rewrite failed' }) };
   }
 };

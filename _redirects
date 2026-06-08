@@ -1,1 +1,13 @@
-# API proxying handled by Netlify Functions
+# Block internal/ops files from public web access
+/OWNER_LOGIN.md /404.html 404
+/MINIMAL_DO_THIS_NOW.txt /404.html 404
+/POST_IMPLEMENTATION_CHECKLIST.txt /404.html 404
+/DO_THIS_NOW.txt /404.html 404
+/GOLDEN_READY.txt /404.html 404
+/DEPLOY_FOR_DEMO_THIS_MORNING.txt /404.html 404
+/NETLIFY_FUNCTIONS_NOW_READY.txt /404.html 404
+/get-owner-token.ps1 /404.html 404
+/.grok/* /404.html 404
+/docs/* /404.html 404
+/DEPLOY-INSTRUCTIONS.md /404.html 404
+/README.md /404.html 404

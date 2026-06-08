@@ -51,14 +51,6 @@ firebase.initializeApp(window.SHOTBREAK_CONFIG.firebase);
 <script src="/agents/prompt_enricher.js?v=85"></script>
 <script src="/workflow/workflow.js?v=85"></script>
 
-<link rel="stylesheet" href="/tutorial/tutorial.css" />
-<script src="/tutorial/tours.js"></script>
-<script src="/tutorial/tutorial.js"></script>
-<script>
-  window.addEventListener('load', () => {
-    if (window.SB_Tutorial) SB_Tutorial.installHelpButton('workflow');
-    setTimeout(() => { if (window.SB_Tutorial) SB_Tutorial.startTour('workflow_dropin'); }, 1000);
-  });
-</script>
+<!-- tutorial includes removed (system intentionally stripped; guarded calls below do nothing) -->
 </body>
 </html>

@@ -1,14 +1,11 @@
 const https = require('https');
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Content-Type': 'application/json',
-};
 
-// Use the shared proper verifier (no demo allows, strict owner email check only)
+
 const { verify } = require('./lib/verify-token');
+const { corsHeaders } = require('./lib/http');
+const { wrapUserContent, sanitizeField, UNTRUSTED_RULE } = require('./lib/sanitize-prompt');
+const { isSafeUrl } = require('./lib/safe-url');
 
 function callGrok(systemPrompt, userPayload) {
   // Support vision for better photo-matching cohesiveness:
@@ -116,8 +113,7 @@ function getSystemPromptForAgent(agentId) {
 }
 
 exports.handler = async function (event) {
-  // Top level try to guarantee we never let an uncaught error turn into Netlify 502.
-  // Always return a valid JSON response.
+  const CORS = corsHeaders(event);
   try {
     if (event.httpMethod === 'OPTIONS') {
       return { statusCode: 204, headers: CORS, body: '' };
@@ -146,23 +142,22 @@ exports.handler = async function (event) {
       return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Unauthorized' }) };
     }
 
-    const systemPrompt = getSystemPromptForAgent(agent_id);
+    const systemPrompt = UNTRUSTED_RULE + '\n' + getSystemPromptForAgent(agent_id);
 
-    // Build rich payload. Cap script to avoid huge payloads that could cause issues downstream.
-    const scriptText = (input && input.script ? input.script.substring(0, 2000) : '');
-    const textPart = JSON.stringify({ input: { ...input, script: scriptText }, context, script: scriptText });
+    const scriptText = sanitizeField(input && input.script ? input.script : '', 2000);
+    const textPart = wrapUserContent('agent_input', JSON.stringify({ input: { ...input, script: scriptText }, context, script: scriptText }), 6000);
 
     const images = [];
     const candidates = [input, context, body].filter(Boolean);
     for (const c of candidates) {
       if (c && c.referenceImages && Array.isArray(c.referenceImages)) {
-        c.referenceImages.forEach(r => { if (r && r.url) images.push({url: r.url, name: r.name || ''}); });
+        c.referenceImages.forEach(r => { if (r && r.url && isSafeUrl(r.url)) images.push({url: r.url, name: sanitizeField(r.name || '', 100)}); });
       }
       if (c && c.images && Array.isArray(c.images)) {
-        c.images.forEach(i => { if (i && i.url) images.push({url: i.url, name: i.name || ''}); });
+        c.images.forEach(i => { if (i && i.url && isSafeUrl(i.url)) images.push({url: i.url, name: sanitizeField(i.name || '', 100)}); });
       }
       if (c && c.chars && Array.isArray(c.chars)) {
-        c.chars.forEach(ch => { if (ch && ch.photo && (ch.photo.startsWith('http') || ch.photo.startsWith('data:'))) images.push({url: ch.photo, name: ch.name || ''}); });
+        c.chars.forEach(ch => { if (ch && ch.photo && isSafeUrl(ch.photo)) images.push({url: ch.photo, name: sanitizeField(ch.name || '', 100)}); });
       }
     }
 

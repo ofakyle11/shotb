@@ -1,11 +1,17 @@
-const https = require('https');
+﻿const https = require('https');
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Content-Type': 'application/json',
-};
+const { requireAuth } = require('./lib/verify-token');
+const { corsHeaders } = require('./lib/http');
+const { wrapUserContent, sanitizeField, UNTRUSTED_RULE } = require('./lib/sanitize-prompt');
+const { isSafeUrl } = require('./lib/safe-url');
+
+function jsonResponse(event, statusCode, body) {
+  return {
+    statusCode,
+    headers: corsHeaders(event),
+    body: typeof body === 'string' ? body : JSON.stringify(body),
+  };
+}
 
 function callWaveSpeed(path, body, method = 'POST') {
   return new Promise((resolve, reject) => {
@@ -224,6 +230,8 @@ function callGrok(systemPrompt, userPayload) {
 }
 
 exports.handler = async function (event) {
+  const CORS = corsHeaders(event);
+
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: CORS, body: '' };
   }
@@ -241,8 +249,13 @@ exports.handler = async function (event) {
 
   const { action, model, prompt, duration, aspect_ratio, request_id, character_image_url, shotKey, location, type, name, desc, points } = body;
 
-  // Basic auth passthrough (expand with verify-token in real prod)
-  const auth = event.headers.authorization || '';
+  let authResult;
+  try {
+    authResult = await requireAuth(event);
+  } catch (e) {
+    return jsonResponse(event, 401, { error: 'Unauthorized - login required' });
+  }
+  const isOwner = !!authResult.isOwner;
 
   // === PICTURE GEN - model aware routing with constraints enforced on client
   // Models (exact user list): wan-2.7, flux-xai (XAI direct "Flux (pulling thru XAI API)"), nano-banana, nano-banana-pro, gpt-image-2 "GPT 2.0" (via WaveSpeed)
@@ -253,14 +266,21 @@ exports.handler = async function (event) {
     const hasWsKey = !!process.env.WAVESPEED_API_KEY;
 
     // Always run the intelligence / vision prompt enrichment first (our strength)
-    const sys = 'You are a world-class cinematic still photographer and prompt engineer for film reference photos (character portraits and location plates). Produce an ultra-specific, coherent prompt that will be used either for an image model or as a detailed caption for local rendering. When reference images are provided, describe and lock to the exact visible details (face structure, scar, fabric texture, light falloff, reflections, weather on surfaces). Output ONLY the prompt text, 1-3 tight paragraphs, no intro.';
-    const textPayload = JSON.stringify({ type: type || 'character', name: name || 'subject', desc: desc || prompt || '', points: points || [], location: location || {}, shotKey: shotKey || '' });
+    const sys = UNTRUSTED_RULE + ' You are a world-class cinematic still photographer and prompt engineer for film reference photos. When reference images are provided, describe visible details precisely. Output ONLY the prompt text, 1-3 tight paragraphs, no intro.';
+    const textPayload = JSON.stringify({
+      type: sanitizeField(type || 'character', 64),
+      name: sanitizeField(name || 'subject', 200),
+      desc: sanitizeField(desc || prompt || '', 2000),
+      points: Array.isArray(points) ? points.slice(0, 20).map(p => sanitizeField(p, 500)) : [],
+      location: location || {},
+      shotKey: sanitizeField(shotKey || '', 200),
+    });
 
     const picImages = [];
-    if (body.referenceImages && Array.isArray(body.referenceImages)) body.referenceImages.forEach(r => r && r.url && picImages.push({url:r.url}));
-    if (body.images && Array.isArray(body.images)) body.images.forEach(i => i && i.url && picImages.push({url:i.url}));
-    if (body.charPhoto) picImages.push({url: body.charPhoto});
-    if (body.locationPhoto) picImages.push({url: body.locationPhoto});
+    if (body.referenceImages && Array.isArray(body.referenceImages)) body.referenceImages.forEach(r => { if (r && r.url && isSafeUrl(r.url)) picImages.push({url:r.url}); });
+    if (body.images && Array.isArray(body.images)) body.images.forEach(i => { if (i && i.url && isSafeUrl(i.url)) picImages.push({url:i.url}); });
+    if (body.charPhoto && isSafeUrl(body.charPhoto)) picImages.push({url: body.charPhoto});
+    if (body.locationPhoto && isSafeUrl(body.locationPhoto)) picImages.push({url: body.locationPhoto});
 
     const userForGrok = picImages.length ? { text: textPayload, images: picImages } : textPayload;
 
@@ -390,10 +410,10 @@ exports.handler = async function (event) {
       let finalPrompt = prompt;
 
       // Always do the final vision polish if we have refs + Grok key (intelligence layer is shared)
-      if (character_image_url && hasGrokKey) {
+      if (character_image_url && isSafeUrl(character_image_url) && hasGrokKey) {
         try {
-          const polishSys = 'You are the final prompt polish pass for a film. You are given a draft video prompt and a reference image of the main character(s) or location. Rewrite the prompt (keep it under ~280 tokens) so it contains *explicit, precise instructions* to visually match the supplied reference image exactly (specific facial details, scar, wardrobe texture/wear, lighting on skin, proportions, etc.). Do not add new story. Output only the improved prompt text.';
-          const polishPayload = { text: `Draft prompt: ${prompt}\n\nShot key: ${shotKey || ''}\nLocation: ${JSON.stringify(location || {})}`, images: [{url: character_image_url}] };
+          const polishSys = UNTRUSTED_RULE + ' You are the final prompt polish pass for a film. Rewrite the draft to match the reference image visually. Output only the improved prompt text (max ~280 tokens).';
+          const polishPayload = { text: wrapUserContent('draft', sanitizeField(prompt, 2000) + '\nShot key: ' + sanitizeField(shotKey || '', 200)), images: [{url: character_image_url}] };
           const polish = await callGrok(polishSys, polishPayload);
           if (polish && polish.output && polish.output.length > 30) finalPrompt = polish.output.trim();
         } catch (e) { /* non-fatal */ }

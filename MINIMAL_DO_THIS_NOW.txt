@@ -1,0 +1,47 @@
+MINIMAL STEPS — ONLY THE 4 THINGS YOU HAVE TO DO RIGHT NOW
+(Full details + "how will I know" + evidence in DO_THIS_NOW.txt and POST_IMPLEMENTATION_CHECKLIST.txt)
+
+Local state right now (verified):
+- SHOTBREAK-FINAL-FLOW-UPDATE.html + app.html = 457007 bytes, 7277 lines
+- All per-shot LOCK, 8 jots, labeled agents, BROAD no-constraint 5+5 models, mhParseBox relock, etc. are in the file.
+
+1. COPY (in this PowerShell)
+   Copy-Item .\SHOTBREAK-FINAL-FLOW-UPDATE.html .\app.html -Force
+
+2. GITHUB PASTE RITUAL (this is why there's a list — the 457k file has stubbed on auto-pushes before)
+   - Open exactly this: https://github.com/kylefrancis280-a11y/Shotbreak/edit/main/app.html
+   - Ctrl+A, DELETE ALL content in the editor.
+   - Open local golden (SHOTBREAK-FINAL-FLOW-UPDATE.html), Ctrl+A, COPY ALL.
+   - Paste into GitHub.
+   - BEFORE COMMIT Ctrl+F these (must find):
+     "Lock Script & Send to Characters"
+     "BROAD_RESOLUTIONS"
+     "Flux (pulling thru XAI API)"
+     "Grok Imagine (done through XAI API)"
+     "toggleShotMinimize"
+     "mhParseBox"
+     "no client-side constraints"
+   - Commit message: "full golden 457007 bytes + per-shot + 5+5 models + BROAD"
+   - Push.
+
+3. NETLIFY
+   - Dashboard → Deploys → "Clear cache and deploy site" → wait Published.
+   - Site config → Environment variables (Deploy + previews scope):
+     XAI_API_KEY = xai-YOUR_XAI_KEY_HERE
+     WAVESPEED_API_KEY = wsk_live_YOUR_WAVESPEED_KEY_HERE
+
+4. TEST
+   - Hard refresh live URL (Ctrl+Shift+R).
+   - Login.
+   - Run: Script → Lock Script button → Characters (gen photos with any of the 5 models) → Generate tab.
+   - Watch for: button becomes "✅ Done ([model])", alerts say "using [model] is DONE!", thumbnails appear, clips playable, agent points have labels like "cinematographer:", LOCK button minimizes cards, prompt is editable + relock button works, resolution etc. show full broad options no matter which model.
+
+That's it for the manual part.
+
+Why the long version before? You asked "go thru the full list you gave me" multiple times + "how will ik if one is done?" for every generation and step. The other .txt files have the complete ritual + signals + evidence from the tool runs that did all the code/MCP side.
+
+Future: only edit the local golden, copy to app.html, repeat step 2 + clear cache. Functions just need git push on the netlify/ folder.
+
+Do steps 1-4. Mark the todos as you finish them. Tell me the result after the paste + deploy (e.g. "Ctrl+F all good, published, keys set").
+
+Open this file or the todos for the short version anytime.

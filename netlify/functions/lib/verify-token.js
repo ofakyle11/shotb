@@ -103,3 +103,23 @@ exports.verify = async function (authHeader) {
 };
 
 exports.verifyToken = exports.verify; // compat for older callers expecting verifyToken name
+
+const { getAuthHeader } = require('./http');
+
+exports.requireAuth = async function requireAuth(eventOrHeader) {
+  const header = typeof eventOrHeader === 'string'
+    ? eventOrHeader
+    : getAuthHeader(eventOrHeader);
+  const result = await exports.verify(header);
+  if (!result.ok) {
+    const err = new Error('Unauthorized');
+    err.statusCode = 401;
+    throw err;
+  }
+  return {
+    ok: true,
+    isOwner: !!result.isOwner,
+    uid: result.user && result.user.uid,
+    user: result.user,
+  };
+};

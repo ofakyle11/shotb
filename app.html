@@ -1307,7 +1307,7 @@ async function customerLogin(){
           // Specific guidance for the most common owner pw failure (missing/wrong OWNER_PW_* in Netlify)
           // Keep this visible — do NOT auto-hide. User sees exact instruction.
           if (err) {
-            err.textContent = 'Owner verify failed (wrong pw or OWNER_PW_* not in Netlify yet). For shorts (kylef etc) use the long OWNER_PW_ value from my-owner-pws.txt top; for kylef@ / stevek@ + Shotbreak2026! use the Firebase path (create the user in Firebase console first). Paste the OWNER_PW_ values into ALL 5 Netlify env boxes (same value), then Clear cache and deploy. Will now try Firebase fallback...';
+            err.textContent = 'Owner verify failed (wrong password or OWNER_PW_* not set in Netlify yet). Set OWNER_PW_* env vars, clear cache and deploy, then retry. Will now try Firebase fallback...';
             err.style.display = 'block';
           }
           // Do not hide — let the message stay; Firebase fallback will overwrite with its own message if it runs.
@@ -1330,7 +1330,7 @@ async function customerLogin(){
       await loadUser(auth.currentUser);
     } catch(e) {
       let msg = 'Error: ' + (e.message || e.code || 'Login failed');
-      if (e.code === 'auth/user-not-found') msg = 'No account with that email. (For kylef@shotbreak.io / stevek@shotbreak.io: go to Firebase Console → Authentication → Users and create the user with password exactly Shotbreak2026! first.)';
+      if (e.code === 'auth/user-not-found') msg = 'No account with that email. Create the user in Firebase Console → Authentication → Users first, or use owner short + OWNER_PW from Netlify env.';
       else if (e.code === 'auth/wrong-password') msg = 'Wrong password';
       else if ((e.message || '').includes('admin-restricted') || (e.message || '').includes('ADMIN_ONLY_OPERATION') || (e.message || '').includes('SYSTEM_AUTH_FAIL')) {
         msg = 'SYSTEM USER SIGN-IN FAILED (API key restriction).\n\n' +
@@ -2390,7 +2390,7 @@ V._updateUI=function(){
     const col=cls==="d"?"var(--green)":cls==="f"?"var(--red)":cls==="p"?"var(--amber)":"var(--muted)";
     const label=s==="COMPLETED"?"✓ Ready":s==="FAILED"?"✗ Failed":s==="IN_PROGRESS"?"⚙ Rendering...":"⏳ Queued — waiting for GPU";
     let h='<span class="vg-dot vg-dot-'+cls+'"></span><span style="color:'+col+';font-weight:600">'+label+'</span>';
-    if(job.charLock)h+=' <span style="color:var(--green);font-size:9px;font-weight:700;margin-left:6px">🔒 '+job.charLock+'</span>';
+    if(job.charLock)h+=' <span style="color:var(--green);font-size:9px;font-weight:700;margin-left:6px">🔒 '+esc(job.charLock)+'</span>';
     if(job.videoUrl)h+=' <a href="'+job.videoUrl+'" download="SC'+job.scene+'_SH'+job.shot+'.mp4" style="color:var(--gold);font-size:10px;text-decoration:none;margin-left:6px">⬇ Download</a>';
     el.innerHTML=h;
     const pvEl=document.getElementById("vg-pv-"+job.scene+"-"+job.shot);
@@ -2803,7 +2803,7 @@ V._openStitch=function(){
     h+='<div style="margin-bottom:18px"><div style="font-family:var(--display);font-weight:700;color:var(--gold);font-size:13px;margin-bottom:8px">SCENE '+sceneNum+' — '+scene.length+' clip'+(scene.length===1?'':'s')+'</div>';
     h+='<div class="vg-grid">';
     scene.forEach(j=>{
-      h+='<div class="vg-card"><video src="'+j.videoUrl+'" preload="metadata" muted></video><div class="vg-card-info"><strong>Shot '+j.shot+'</strong>'+(j.charLock?' · 🔒 '+j.charLock:'')+'</div></div>';
+      h+='<div class="vg-card"><video src="'+esc(j.videoUrl)+'" preload="metadata" muted></video><div class="vg-card-info"><strong>Shot '+j.shot+'</strong>'+(j.charLock?' · 🔒 '+esc(j.charLock):'')+'</div></div>';
     });
     h+='</div></div>';
   });

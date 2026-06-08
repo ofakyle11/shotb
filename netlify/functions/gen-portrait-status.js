@@ -1,10 +1,15 @@
+const { requireAuth } = require('./lib/verify-token');
+const { corsHeaders } = require('./lib/http');
+
 exports.handler = async (event) => {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type'
-  };
+  const headers = corsHeaders(event);
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+
+  try {
+    await requireAuth(event);
+  } catch (e) {
+    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
+  }
 
   const key = process.env.WAVESPEED_API_KEY;
   if (!key) return { statusCode: 500, headers, body: JSON.stringify({ error: 'WAVESPEED_API_KEY not set' }) };
@@ -22,12 +27,10 @@ exports.handler = async (event) => {
     } finally { clearTimeout(tmo); }
 
     const rawText = await pollRes.text();
-    console.log('gen-portrait-status raw:', pollRes.status, rawText.slice(0, 400));
-
     let pollData;
     try { pollData = JSON.parse(rawText); }
     catch(e) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: 'Non-JSON response', raw: rawText.slice(0, 200) }) };
+      return { statusCode: 500, headers, body: JSON.stringify({ error: 'Non-JSON response' }) };
     }
 
     const data = pollData.data || {};
@@ -38,9 +41,8 @@ exports.handler = async (event) => {
     const firstOutput = outputs[0];
     const imageUrl = (firstOutput && typeof firstOutput === 'object' ? firstOutput.url : firstOutput) || null;
     const error = data.error || null;
-    console.log('gen-portrait-status:', { rawStatus, status, imageUrl });
     return { statusCode: 200, headers, body: JSON.stringify({ status, imageUrl, error }) };
   } catch(e) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Status check failed' }) };
   }
 };
