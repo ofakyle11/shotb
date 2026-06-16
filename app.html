@@ -1246,11 +1246,19 @@ window.SB_Agents = window.SB_Agents || {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + ( (window.SB_OWNER_TOKEN && window.SB_OWNER_TOKEN.split(':').length===4 && window.SB_OWNER_TOKEN.startsWith('owner:')) ? window.SB_OWNER_TOKEN : (localStorage.getItem('sb_token') || '') )
       }));
-      const r = await fetch('/.netlify/functions/agent-invoke', {
-        method: 'POST',
-        headers: h,
-        body: JSON.stringify({ agent_id: agentId, input: input || {} })
-      });
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 90000);
+      let r;
+      try {
+        r = await fetch('/.netlify/functions/agent-invoke', {
+          method: 'POST',
+          headers: h,
+          body: JSON.stringify({ agent_id: agentId, input: input || {} }),
+          signal: ctrl.signal
+        });
+      } finally {
+        clearTimeout(timer);
+      }
       if (!r.ok) {
         const txt = await r.text().catch(() => '');
         if (r.status === 401) {
@@ -7388,6 +7396,51 @@ function mhToggleScriptSuggestion(idx, checked) {
   mhRefreshPointList('script');
 }
 
+function mhExtractBullets(txt, maxN) {
+  const raw = String(txt || '').trim();
+  if (!raw) return [];
+  const max = maxN || 4;
+  const bullets = [];
+  const lines = raw.split(/\n+/);
+  for (const line of lines) {
+    let b = line.trim();
+    if (!b) continue;
+    b = b.replace(/^[-•–]\s+/, '');
+    b = b.replace(/^\*\*([^*]+)\*\*:?\s*/, '$1: ');
+    b = b.replace(/\*\*/g, '');
+    b = b.trim();
+    if (b.length > 3) bullets.push(b);
+    if (bullets.length >= max) break;
+  }
+  if (!bullets.length && raw.length > 3) {
+    bullets.push(raw.replace(/\*\*/g, '').slice(0, 600));
+  }
+  return bullets;
+}
+
+function mhRenderScriptSuggestions(box, all, usedFallback, isLocal) {
+  let html = '';
+  if (usedFallback && !isLocal) {
+    html += `<div style="background:#2a2410;border:1px solid #c8a25f;color:#c8a25f;padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Some agents used fallback/sim output — hard refresh (Ctrl+Shift+R) and ensure you are signed in. Real Grok bullets are tagged (live).</div>`;
+  } else if (usedFallback && isLocal) {
+    html += `<div style="background:#1a1408;border:1px solid var(--gold-border);color:var(--gold);padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Local demo sims — deploy to shotbreak.io + sign in for live Grok agents.</div>`;
+  } else if (!usedFallback && all.length) {
+    html += `<div style="background:#0f1a12;border:1px solid #22c55e;color:#86efac;padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Live Grok agents completed (${all.length} bullets). Parse Approved Points next.</div>`;
+  }
+  window._mhScriptSuggestionItems = [];
+  all.forEach((item, i) => {
+    const id = 'scr_' + i;
+    window._mhScriptSuggestionItems.push(item);
+    const fbNote = item.fallback ? (isLocal ? ' <span style="color:#666;font-size:9px;">(local demo)</span>' : ' <span style="color:#c8a25f;font-size:9px;">(sim)</span>') : ' <span style="color:#22c55e;font-size:9px;">(live)</span>';
+    const agentLabel = item.agent ? `<span class="ag" style="margin-right:4px">${item.agent}:</span>` : '';
+    html += `<div class="suggestion-item"><input type="checkbox" id="${id}" checked onchange="mhToggleScriptSuggestion(${i}, this.checked)"><label for="${id}">${agentLabel}${esc(item.text)}${fbNote}</label></div>`;
+  });
+  box.innerHTML = html || '<div style="color:#666">No suggestions returned — try again or check console (F12).</div>';
+  if (!_mhApprovedPoints) window._mhApprovedPoints = { script: [], characters: {}, generate: {} };
+  _mhApprovedPoints.script = all.map(item => item.text).filter(Boolean);
+  mhRefreshPointList('script');
+}
+
 async function mhRunScriptAgents() {
   const box = document.getElementById('mhScriptSuggestions');
   if (!box) return;
@@ -7416,58 +7469,45 @@ async function mhRunScriptAgents() {
 
   let all = [];
   let usedFallback = false;
-  window._mhScriptSuggestionItems = [];
 
-  for (let i = 0; i < agents.length; i++) {
-    const a = agents[i];
-    box.innerHTML = `<div style="color:var(--dim)">Running <strong>${a}</strong> (${i + 1}/${agents.length})...</div>` +
-      (all.length ? '<div style="font-size:10px;color:#555;margin-top:6px">' + all.length + ' bullets so far</div>' : '');
+  try {
+    for (let i = 0; i < agents.length; i++) {
+      const a = agents[i];
+      box.innerHTML = `<div style="color:var(--dim)">Running <strong>${a}</strong> (${i + 1}/${agents.length})...</div>` +
+        (all.length ? `<div style="font-size:10px;color:#555;margin-top:6px">${all.length} bullets ready so far</div>` : '');
 
-    let txt = getSimulatedAgentOutput(a, p);
-    let fallback = true;
-    if (!isLocal && window.SB_InvokeAgent) {
-      try {
-        const r = await window.SB_InvokeAgent(a, { script: script });
-        if (r && r.fallback) {
+      let txt = getSimulatedAgentOutput(a, p);
+      let fallback = true;
+      if (!isLocal && window.SB_InvokeAgent) {
+        try {
+          const r = await window.SB_InvokeAgent(a, { script: script });
+          if (r && r.fallback) {
+            fallback = true;
+            txt = (r.output || r.detail || txt).toString();
+          } else if (r && (r.output || r.result)) {
+            txt = String(r.output || r.result);
+            fallback = false;
+          }
+        } catch (e) {
+          console.warn('Script agent failed', a, e);
           fallback = true;
-          txt = (r.output || r.detail || txt).toString();
-        } else if (r && (r.output || r.result)) {
-          txt = String(r.output || r.result);
-          fallback = false;
         }
-      } catch (e) {
-        console.warn('Script agent failed', a, e);
+      } else if (isLocal) {
         fallback = true;
       }
-    } else if (isLocal) {
-      fallback = true;
+
+      if (fallback) usedFallback = true;
+      const bullets = mhExtractBullets(txt, 4);
+      bullets.forEach(b => all.push({ text: b, fallback, agent: a }));
     }
 
-    if (fallback) usedFallback = true;
-    const bullets = txt.split(/\n|•|\*/).map(s => s.replace(/^[-–]\s*/, '').trim()).filter(s => s.length > 3).slice(0, 4);
-    bullets.forEach(b => all.push({ text: b, fallback, agent: a }));
+    mhRenderScriptSuggestions(box, all, usedFallback, isLocal);
+  } catch (err) {
+    console.error('[mhRunScriptAgents]', err);
+    box.innerHTML = `<div style="color:#f87171">Script agents error: ${esc(err && err.message ? err.message : String(err))}</div>` +
+      (all.length ? '<div style="margin-top:8px;color:#888">Partial results below:</div>' : '');
+    if (all.length) mhRenderScriptSuggestions(box, all, true, isLocal);
   }
-
-  let html = '';
-  if (usedFallback && !isLocal) {
-    html += `<div style="background:#2a2410;border:1px solid #c8a25f;color:#c8a25f;padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Some agents used fallback/sim output — hard refresh (Ctrl+Shift+R) and ensure you are signed in. Real Grok bullets have no (sim) tag.</div>`;
-  } else if (usedFallback && isLocal) {
-    html += `<div style="background:#1a1408;border:1px solid var(--gold-border);color:var(--gold);padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Local demo sims — deploy to shotbreak.io + sign in for live Grok agents.</div>`;
-  } else if (!usedFallback) {
-    html += `<div style="background:#0f1a12;border:1px solid #22c55e;color:#86efac;padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Live Grok agents completed. Check bullets below, then Parse Approved Points.</div>`;
-  }
-
-  all.forEach((item, i) => {
-    const id = 'scr_' + i;
-    window._mhScriptSuggestionItems.push(item);
-    const fbNote = item.fallback ? (isLocal ? ' <span style="color:#666;font-size:9px;">(local demo)</span>' : ' <span style="color:#c8a25f;font-size:9px;">(sim)</span>') : ' <span style="color:#22c55e;font-size:9px;">(live)</span>';
-    const agentLabel = item.agent ? `<span class="ag" style="margin-right:4px">${item.agent}:</span>` : '';
-    html += `<div class="suggestion-item"><input type="checkbox" id="${id}" checked onchange="mhToggleScriptSuggestion(${i}, this.checked)"><label for="${id}">${agentLabel}${esc(item.text)}${fbNote}</label></div>`;
-  });
-  box.innerHTML = html || '<div style="color:#666">No suggestions returned.</div>';
-
-  _mhApprovedPoints.script = all.map(item => item.text).filter(Boolean);
-  mhRefreshPointList('script');
 }
 
 // ========== NEW PER-SHOT MODULAR BOXES (exact user spec) ==========
