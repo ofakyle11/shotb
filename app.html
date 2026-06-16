@@ -7462,12 +7462,16 @@ function mhExtractBullets(txt, maxN) {
 
 function mhRenderScriptSuggestions(box, all, usedFallback, isLocal) {
   let html = '';
-  if (usedFallback && !isLocal) {
-    html += `<div style="background:#2a2410;border:1px solid #c8a25f;color:#c8a25f;padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Some agents used fallback/sim output — hard refresh (Ctrl+Shift+R) and ensure you are signed in. Real Grok bullets are tagged (live).</div>`;
-  } else if (usedFallback && isLocal) {
-    html += `<div style="background:#1a1408;border:1px solid var(--gold-border);color:var(--gold);padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Local demo sims — deploy to shotbreak.io + sign in for live Grok agents.</div>`;
-  } else if (!usedFallback && all.length) {
-    html += `<div style="background:#0f1a12;border:1px solid #22c55e;color:#86efac;padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Live Grok agents completed (${all.length} bullets). Parse Approved Points next.</div>`;
+  const liveN = (all || []).filter(x => !x.fallback).length;
+  const simN = (all || []).filter(x => x.fallback).length;
+  if (isLocal) {
+    html += `<div style="background:#1a1408;border:1px solid var(--gold-border);color:var(--gold);padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Local demo sims — use shotbreak.io + sign in for live Grok.</div>`;
+  } else if (liveN > 0 && simN === 0) {
+    html += `<div style="background:#0f1a12;border:1px solid #22c55e;color:#86efac;padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Live Grok agents completed (${liveN} bullets). Parse Approved Points, then open Generate for per-shot video prompts.</div>`;
+  } else if (liveN > 0 && simN > 0) {
+    html += `<div style="background:#0f1a12;border:1px solid #22c55e;color:#86efac;padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">${liveN} live + ${simN} sim bullets (tagged below). Your script is fine — partial sim usually means one agent timed out; re-run if needed.</div>`;
+  } else if (simN > 0) {
+    html += `<div style="background:#2a2410;border:1px solid #c8a25f;color:#c8a25f;padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">All ${simN} bullets are sim/fallback — hard refresh (Ctrl+Shift+R) and confirm you are signed in as kylef.</div>`;
   }
   window._mhScriptSuggestionItems = [];
   all.forEach((item, i) => {
@@ -7547,9 +7551,14 @@ async function mhRunScriptAgents() {
     mhRenderScriptSuggestions(box, all, usedFallback, isLocal);
     if ((p.script || '').trim()) {
       mhSyncScenesFromScript(p);
-      const n = (projectLoad().scenes || []).reduce((a, s) => a + (s.shots || []).length, 0);
+      const pp = projectLoad() || {};
+      const n = (pp.scenes || []).reduce((a, s) => a + (s.shots || []).length, 0);
+      if (typeof buildPerShotDetailBoxes === 'function') buildPerShotDetailBoxes();
       if (n > 0) {
-        box.innerHTML += `<div style="margin-top:10px;padding:8px;background:#0f1a12;border:1px solid #22c55e;border-radius:6px;font-size:11px;color:#86efac">✅ ${n} shot(s) parsed from your script. Open the <strong>Generate</strong> tab to see per-shot video prompts — or click Lock Script to extract characters too.</div>`;
+        box.innerHTML += `<div style="margin-top:10px;padding:10px;background:#0f1a12;border:1px solid #22c55e;border-radius:6px;font-size:11px;color:#86efac">
+          ✅ Your script is loaded — ${n} shot(s) ready with per-shot video prompts on the <strong>Generate</strong> tab.
+          <button class="b b-gold b-s" style="margin-top:8px;display:block" onclick="mhSwitchTab('generate')">Open Generate → see shots &amp; prompts</button>
+        </div>`;
       }
     }
   } catch (err) {
@@ -7601,7 +7610,14 @@ function mhSyncScenesFromScript(p, opts) {
       background: { description: '', locked: false, cinematography: {} }
     }));
   } else {
-    const chunks = text.split(/\n\s*\n+/).filter(c => c.trim().length > 8);
+    // Prose / narrative scripts (no INT./EXT.): split on blank lines, scene markers, or › blocks
+    let chunks = text.split(/\n\s*\n+/).map(c => c.trim()).filter(c => c.length > 8);
+    if (chunks.length <= 1) {
+      chunks = text.split(/\n(?=[›•\-]\s*)/).map(c => c.trim()).filter(c => c.length > 8);
+    }
+    if (chunks.length <= 1) {
+      chunks = text.split(/\n(?=(?:SCENE|Scene|CUT TO|FADE)\b)/i).map(c => c.trim()).filter(c => c.length > 8);
+    }
     const blocks = chunks.length ? chunks : [text];
     scenes = [{
       id: 'scene_0',
