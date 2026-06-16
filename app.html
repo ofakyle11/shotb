@@ -6665,17 +6665,15 @@ function mhSwitchTab(tab) {
   }
 
   if (tab === 'generate') {
-    // Auto-build the rich per-shot detail boxes (the exact modular UI with chars+photos, location breakdown, big prompt + 8 jots, LOCK, per-shot Generate, agent points) 
-    // so the user doesn't have to hunt for the "Build" button. This makes "Generate tab" just work after Characters.
-    const boxes = document.getElementById('mhGenEntityBoxes');
+    // Auto-parse script → shots → per-shot prompt boxes so Generate tab works without extra clicks.
     const p = projectLoad() || {};
-    const hasScenes = (p.scenes || []).length > 0;
-    const hasCards = boxes && boxes.querySelector('.shot-card');
-    if (hasScenes && !hasCards) {
-      setTimeout(() => {
-        if (typeof buildPerShotDetailBoxes === 'function') buildPerShotDetailBoxes();
-      }, 30);
+    if ((p.script || '').trim()) {
+      mhSyncScenesFromScript(p);
     }
+    mhRefreshBaselineShotSelect(projectLoad());
+    setTimeout(() => {
+      if (typeof buildPerShotDetailBoxes === 'function') buildPerShotDetailBoxes();
+    }, 30);
     // Populate video model select (the 5 models). Resolution/aspect/duration are broad choices (no client-side model filtering).
     setTimeout(() => {
       const vidSel = document.getElementById('videoModelSelect');
@@ -7163,6 +7161,9 @@ function mhRenderParsedPromptBox(outEl, entityBoxId, bodyText, meta) {
     }
     if (entityBoxId === 'script') {
       p.synthesizedPrompt = edited;
+      mhSyncScenesFromScript(p, { force: false });
+      mhRefreshBaselineShotSelect(p);
+      setTimeout(() => { if (typeof buildPerShotDetailBoxes === 'function') buildPerShotDetailBoxes(); }, 50);
     }
     projectSave(p);
 
@@ -7328,6 +7329,8 @@ function mhLockScriptAndExtract(){
   });
 
   projectSave(p);
+  mhRefreshBaselineShotSelect(p);
+  buildPerShotDetailBoxes();
 
   // Now switch to Characters tab and rebuild so user sees the parsed data immediately
   if(typeof mhSwitchTab === 'function'){
@@ -7342,8 +7345,8 @@ function mhLockScriptAndExtract(){
     }
   }, 150);
 
-  // Clear visual feedback
-  alert('✅ Script locked + characters & location extracted from your script.\n\nCheck the Characters tab — you should now see real character names and the location from your scene headings.');
+  const shotCount = (p.scenes || []).reduce((a, s) => a + (s.shots || []).length, 0);
+  alert(`✅ Script locked — ${shotCount} shot(s), characters & location extracted.\n\nCharacters tab: names + location.\nGenerate tab: per-shot video prompts are ready.`);
 }
 
 // Helper: extract locations from standard scene headings
@@ -7542,6 +7545,13 @@ async function mhRunScriptAgents() {
     }
 
     mhRenderScriptSuggestions(box, all, usedFallback, isLocal);
+    if ((p.script || '').trim()) {
+      mhSyncScenesFromScript(p);
+      const n = (projectLoad().scenes || []).reduce((a, s) => a + (s.shots || []).length, 0);
+      if (n > 0) {
+        box.innerHTML += `<div style="margin-top:10px;padding:8px;background:#0f1a12;border:1px solid #22c55e;border-radius:6px;font-size:11px;color:#86efac">✅ ${n} shot(s) parsed from your script. Open the <strong>Generate</strong> tab to see per-shot video prompts — or click Lock Script to extract characters too.</div>`;
+      }
+    }
   } catch (err) {
     console.error('[mhRunScriptAgents]', err);
     box.innerHTML = `<div style="color:#f87171">Script agents error: ${esc(err && err.message ? err.message : String(err))}</div>` +
@@ -7561,15 +7571,96 @@ async function mhRunScriptAgents() {
 
 let _shotUI = {}; // key `${si}-${shi}` => {minimized, prompt, chars:[], loc:{}, jots:[] }
 
+function mhGetMasterScriptPrompt(p) {
+  const proj = p || projectLoad() || {};
+  return (proj.cleanPrompts && proj.cleanPrompts.script) || proj.synthesizedPrompt || '';
+}
+
+function mhSyncScenesFromScript(p, opts) {
+  const proj = p || projectLoad() || {};
+  const text = (proj.script || '').trim();
+  if (!text) return { ok: false, reason: 'no_script' };
+  if ((proj.scenes || []).length && !(opts && opts.force)) {
+    return { ok: true, scenes: proj.scenes };
+  }
+  const parsed = parseScript(text);
+  let scenes = [];
+  if (parsed.scenes && parsed.scenes.length) {
+    scenes = parsed.scenes.map((sc, si) => ({
+      id: 'scene_' + si,
+      heading: sc.heading || 'Scene ' + (si + 1),
+      body: sc.body || '',
+      shots: (sc.shots || []).map((sh, shi) => ({
+        id: 'shot_' + si + '_' + shi,
+        num: shi + 1,
+        text: sh.text || sh,
+        characters_in_frame: [],
+        cine: {}
+      })),
+      characterNames: [],
+      background: { description: '', locked: false, cinematography: {} }
+    }));
+  } else {
+    const chunks = text.split(/\n\s*\n+/).filter(c => c.trim().length > 8);
+    const blocks = chunks.length ? chunks : [text];
+    scenes = [{
+      id: 'scene_0',
+      heading: 'PARSED SCRIPT',
+      body: text,
+      shots: blocks.map((block, shi) => ({
+        id: 'shot_0_' + shi,
+        num: shi + 1,
+        text: block.trim().slice(0, 2000),
+        characters_in_frame: [],
+        cine: {}
+      })),
+      characterNames: [],
+      background: { description: '', locked: false, cinematography: {} }
+    }];
+  }
+  proj.scenes = scenes;
+  projectSave(proj);
+  console.log('[Shotbreak] Synced', scenes.reduce((a, s) => a + (s.shots || []).length, 0), 'shots from script');
+  return { ok: true, scenes };
+}
+
+function mhRefreshBaselineShotSelect(p) {
+  const sel = document.getElementById('baselineSceneShot');
+  if (!sel) return;
+  const scenes = ((p || projectLoad()) && (p || projectLoad()).scenes) || [];
+  if (!scenes.length) {
+    sel.innerHTML = '<option value="">No shots yet — paste script on Script tab</option>';
+    return;
+  }
+  let html = '';
+  scenes.forEach((sc, si) => {
+    (sc.shots || []).forEach((sh, shi) => {
+      const label = (sh.text || '').trim().slice(0, 40).replace(/\s+/g, ' ');
+      html += `<option value="scene${si + 1}_shot${shi + 1}">Scene ${si + 1} - Shot ${shi + 1}${label ? ' — ' + esc(label) : ''}</option>`;
+    });
+  });
+  sel.innerHTML = html;
+}
+
 function buildPerShotDetailBoxes() {
   const area = document.getElementById('mhGenEntityBoxes');
   if (!area) return;
-  const p = projectLoad() || {};
+  let p = projectLoad() || {};
+  if (!(p.scenes || []).length && (p.script || '').trim()) {
+    mhSyncScenesFromScript(p);
+    p = projectLoad() || {};
+  }
+  mhRefreshBaselineShotSelect(p);
   const scenes = p.scenes || [];
   if (!scenes.length) {
-    area.innerHTML = '<div style="color:var(--red);padding:12px">Lock a script first (Script tab) so we have shots to build detail for.</div>';
+    area.innerHTML = `<div style="padding:16px;background:#1a0a0a;border:1px solid var(--red-border);border-radius:8px">
+      <div style="color:var(--red);font-weight:700;margin-bottom:8px">No shots yet — you need a script first</div>
+      <div style="font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:12px">Go to the <strong>Script</strong> tab → paste your screenplay → run agents → click <strong>Lock Script</strong>. Then come back here — shots and video prompts will appear automatically.</div>
+      <button class="b b-gold b-s" onclick="mhSwitchTab('script')">Go to Script tab →</button>
+    </div>`;
     return;
   }
+  const masterPrompt = mhGetMasterScriptPrompt(p);
 
   // Seed global loc defaults from Characters tab if present
   const locName = (document.getElementById('locName')||{}).value || 'Primary location from script';
@@ -7589,16 +7680,26 @@ function buildPerShotDetailBoxes() {
       const shotLabel = `S${si+1}.${shi+1}`;
       const action = esc((shot.text || shot.description || shot.action || '').substring(0,90));
 
-      // Seed a strong starting prompt that references characters + location
-      if (!ui.prompt) {
+      // Seed prompt from parsed script prompt + shot action + chars/location
+      const shotAction = (shot.text || shot.description || shot.action || '').trim();
+      if (!ui.prompt || (masterPrompt && !ui.prompt.includes(masterPrompt.slice(0, 80)))) {
         const firstChar = (p.characterBible && p.characterBible[0]) ? p.characterBible[0] : null;
         const bestDesc = firstChar ? getBestCharPrompt(firstChar.name, p) : '';
-        const charRef = firstChar ? `Using locked photo of ${firstChar.name} as ${ (bestDesc||firstChar.description||'').slice(0,80) }` : 'Using locked character references';
+        const charRef = firstChar ? `Using locked photo of ${firstChar.name} as ${(bestDesc || firstChar.description || '').slice(0, 80)}` : 'Using locked character references';
         let locRef = `Location plate: ${ui.loc.name}`;
         if (p.assets && p.assets.locationPhotos && p.assets.locationPhotos.length) {
           locRef += ' (using locked location plate photo for coherence)';
         }
-        ui.prompt = `${charRef}. ${locRef}. Time: ${ui.loc.tod}. ${ui.loc.weather}, ${ui.loc.busy}. ${action}. Cinematic lighting, coherent with all prior locked assets.`;
+        const shotBlock = shotAction ? `SHOT ${shotLabel}: ${shotAction}` : `SHOT ${shotLabel}`;
+        const masterBlock = masterPrompt ? masterPrompt.replace(/^Clean script prompt:\s*/i, '').trim().slice(0, 900) : '';
+        ui.prompt = [
+          masterBlock,
+          charRef,
+          locRef,
+          `Time: ${ui.loc.tod}. ${ui.loc.weather}, ${ui.loc.busy}.`,
+          shotBlock,
+          'Cinematic lighting, coherent with all prior locked assets.'
+        ].filter(Boolean).join('\n\n');
       }
 
       const minCls = ui.minimized ? ' minimized' : '';
@@ -8114,8 +8215,11 @@ function renderVideoClipsForEntity(entity) {
 }
 
 function generateBaselineVideo() {
-  const p = projectLoad();
-  if (!p || !p.script) { alert('Script must be locked first.'); return; }
+  let p = projectLoad();
+  if (!p || !p.script) { alert('Paste your script on the Script tab first.'); return; }
+  if (!(p.scenes || []).length) mhSyncScenesFromScript(p);
+  p = projectLoad();
+  buildPerShotDetailBoxes();
 
   const sceneShot = document.getElementById('baselineSceneShot').value || 'scene1_shot1';
   const model = (document.getElementById('videoModelSelect') ? document.getElementById('videoModelSelect').value : 'seedance-2.0-turbo');
