@@ -7260,25 +7260,13 @@ function mhLockScriptAndExtract(){
   const text = (ta.value || '').trim();
   if(!text){ alert('Paste your script in the box first.'); return; }
 
-  const p = projectLoad() || {};
+  let p = projectLoad() || {};
   p.script = text;
+  projectSave(p);
 
-  // Basic scene parse for structure (so Characters/Generate have something)
-  const parsed = parseScript(text);
-  p.scenes = (parsed.scenes || []).map((sc, si) => ({
-    id: 'scene_'+si,
-    heading: sc.heading || 'Scene '+(si+1),
-    body: sc.body || '',
-    shots: (sc.shots || []).map((sh, shi) => ({
-      id: 'shot_'+si+'_'+shi,
-      num: shi+1,
-      text: sh.text || sh,
-      characters_in_frame: [],
-      cine: {}
-    })),
-    characterNames: [],
-    background: {description:'', locked:false, cinematography:{}}
-  }));
+  // Screenplay INT./EXT. + prose/narrative fallbacks (Cut to SC1, bullets, sentence groups)
+  mhSyncScenesFromScript(p, { force: true });
+  p = projectLoad() || p;
 
   // Extract character names from the full script (ALL CAPS in action lines)
   const charNames = extractCharacterNames(text);
@@ -7583,17 +7571,44 @@ function mhGetMasterScriptPrompt(p) {
   return (proj.cleanPrompts && proj.cleanPrompts.script) || proj.synthesizedPrompt || '';
 }
 
-function mhSyncScenesFromScript(p, opts) {
-  const proj = p || projectLoad() || {};
-  const text = (proj.script || '').trim();
-  if (!text) return { ok: false, reason: 'no_script' };
-  if ((proj.scenes || []).length && !(opts && opts.force)) {
-    return { ok: true, scenes: proj.scenes };
+function mhSplitProseIntoShotChunks(text) {
+  const t = (text || '').trim();
+  if (!t) return [];
+  let chunks = t.split(/\n\s*\n+/).map(c => c.trim()).filter(c => c.length > 8);
+  if (chunks.length <= 1) {
+    chunks = t.split(/\n(?=[›•\-]\s*)/).map(c => c.trim()).filter(c => c.length > 8);
   }
+  if (chunks.length <= 1) {
+    chunks = t.split(/\n(?=(?:SCENE|Scene|CUT TO|FADE)\b)/i).map(c => c.trim()).filter(c => c.length > 8);
+  }
+  if (chunks.length <= 1) {
+    chunks = t.split(/\s*(?=(?:Cut to|CUT TO)\s+(?:SC?\d+|[A-Z]))/i).map(c => c.trim()).filter(c => c.length > 8);
+  }
+  if (chunks.length <= 1) {
+    chunks = t.split(/\s*(?=SC\d+\s*[:.\-])/i).map(c => c.trim()).filter(c => c.length > 8);
+  }
+  if (chunks.length <= 1 && t.length > 500) {
+    const sentences = t.match(/[^.!?]+[.!?]+/g) || [t];
+    const grouped = [];
+    let buf = '';
+    sentences.forEach(s => {
+      if (buf.length + s.length > 700 && buf.length > 80) {
+        grouped.push(buf.trim());
+        buf = s;
+      } else {
+        buf += (buf ? ' ' : '') + s.trim();
+      }
+    });
+    if (buf.trim().length > 8) grouped.push(buf.trim());
+    if (grouped.length > 1) chunks = grouped;
+  }
+  return chunks.length ? chunks : [t];
+}
+
+function mhBuildScenesFromScriptText(text) {
   const parsed = parseScript(text);
-  let scenes = [];
   if (parsed.scenes && parsed.scenes.length) {
-    scenes = parsed.scenes.map((sc, si) => ({
+    return parsed.scenes.map((sc, si) => ({
       id: 'scene_' + si,
       heading: sc.heading || 'Scene ' + (si + 1),
       body: sc.body || '',
@@ -7607,31 +7622,32 @@ function mhSyncScenesFromScript(p, opts) {
       characterNames: [],
       background: { description: '', locked: false, cinematography: {} }
     }));
-  } else {
-    // Prose / narrative scripts (no INT./EXT.): split on blank lines, scene markers, or › blocks
-    let chunks = text.split(/\n\s*\n+/).map(c => c.trim()).filter(c => c.length > 8);
-    if (chunks.length <= 1) {
-      chunks = text.split(/\n(?=[›•\-]\s*)/).map(c => c.trim()).filter(c => c.length > 8);
-    }
-    if (chunks.length <= 1) {
-      chunks = text.split(/\n(?=(?:SCENE|Scene|CUT TO|FADE)\b)/i).map(c => c.trim()).filter(c => c.length > 8);
-    }
-    const blocks = chunks.length ? chunks : [text];
-    scenes = [{
-      id: 'scene_0',
-      heading: 'PARSED SCRIPT',
-      body: text,
-      shots: blocks.map((block, shi) => ({
-        id: 'shot_0_' + shi,
-        num: shi + 1,
-        text: block.trim().slice(0, 2000),
-        characters_in_frame: [],
-        cine: {}
-      })),
-      characterNames: [],
-      background: { description: '', locked: false, cinematography: {} }
-    }];
   }
+  const blocks = mhSplitProseIntoShotChunks(text);
+  return [{
+    id: 'scene_0',
+    heading: 'PARSED SCRIPT',
+    body: text,
+    shots: blocks.map((block, shi) => ({
+      id: 'shot_0_' + shi,
+      num: shi + 1,
+      text: block.trim().slice(0, 2000),
+      characters_in_frame: [],
+      cine: {}
+    })),
+    characterNames: [],
+    background: { description: '', locked: false, cinematography: {} }
+  }];
+}
+
+function mhSyncScenesFromScript(p, opts) {
+  const proj = p || projectLoad() || {};
+  const text = (proj.script || '').trim();
+  if (!text) return { ok: false, reason: 'no_script' };
+  if ((proj.scenes || []).length && !(opts && opts.force)) {
+    return { ok: true, scenes: proj.scenes };
+  }
+  const scenes = mhBuildScenesFromScriptText(text);
   proj.scenes = scenes;
   projectSave(proj);
   console.log('[Shotbreak] Synced', scenes.reduce((a, s) => a + (s.shots || []).length, 0), 'shots from script');
