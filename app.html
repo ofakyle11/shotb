@@ -28,6 +28,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
 <script src="js/config.js?v=20260616"></script>
+<script src="js/auth.js?v=20260616"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Anybody:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -1214,6 +1215,9 @@ window.SB_InvokeAgent = async function(agentId, input, maxRetries = 2) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const res = await window.SB_Agents.invoke(agentId, input);
+      if (res && res.fallback) {
+        throw new Error(res.detail || res.error || 'Agent fallback on server');
+      }
       if (res && res.error && !res.output && !res.result) {
         throw new Error(res.detail || res.error || 'Agent failed on server');
       }
@@ -1255,7 +1259,7 @@ window.SB_Agents = window.SB_Agents || {
         throw new Error('agent-invoke ' + r.status + ' ' + txt);
       }
       const data = await r.json();
-      if (data && data.fallback && !data.output) {
+      if (data && data.fallback) {
         throw new Error(data.detail || data.error || 'Agent fallback — server error');
       }
       return data;
@@ -6415,7 +6419,7 @@ async function mhSynthesizeFinalPrompts(){
   try{
     p.synthesizedPrompt = finalText;
     p.agentPoints = _mhAgentPointsData;
-    localStorage.setItem('SB_CurrentProject', JSON.stringify(p));
+    projectSave(p);
   }catch(e){}
 }
 
@@ -6568,7 +6572,7 @@ function sendFwdToMediaHubAgents(){
     updatedAt: Date.now()
   };
 
-  try { localStorage.setItem('SB_CurrentProject', JSON.stringify(proj)); } catch(e){}
+  projectSave(proj);
 
   // Open Generation Hub and force the agent point-form builder + final prose experience
   openMediaHubGenerate();
@@ -7316,8 +7320,7 @@ function wireScriptTab(){
   ta.addEventListener('input', () => {
     const p = projectLoad() || {};
     p.script = ta.value;
-    // light save (debounce not critical here)
-    try{ localStorage.setItem('SB_CurrentProject', JSON.stringify(p)); }catch(e){}
+    projectSave(p);
   });
   // If project has script but ta is empty, prefill (already done elsewhere, but safe)
   const p = projectLoad();
@@ -7349,58 +7352,119 @@ function populateLocationUIFromProject(){
       if(todEl) pp.location.tod = todEl.value;
       if(busyEl) pp.location.busy = busyEl.value;
       if(weatherEl) pp.location.weather = weatherEl.value;
-      try{ localStorage.setItem('SB_CurrentProject', JSON.stringify(pp)); }catch(e){}
+      projectSave(pp);
     });
   });
+}
+
+async function mhWaitForAuthToken(maxMs) {
+  const deadline = Date.now() + (maxMs || 10000);
+  while (Date.now() < deadline) {
+    try {
+      const t = window.getToken ? await window.getToken() : null;
+      if (t) return t;
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 300));
+  }
+  return null;
+}
+
+function mhScriptFromUI(p) {
+  const ta = document.getElementById('mhScriptMain');
+  const fromTa = ta && ta.value ? ta.value.trim() : '';
+  const fromProj = (p && p.script) ? String(p.script).trim() : '';
+  return fromTa || fromProj;
+}
+
+function mhToggleScriptSuggestion(idx, checked) {
+  const item = (window._mhScriptSuggestionItems || [])[idx];
+  if (!item) return;
+  if (!_mhApprovedPoints.script) _mhApprovedPoints.script = [];
+  if (checked) {
+    if (!_mhApprovedPoints.script.includes(item.text)) _mhApprovedPoints.script.push(item.text);
+  } else {
+    _mhApprovedPoints.script = _mhApprovedPoints.script.filter(t => t !== item.text);
+  }
+  mhRefreshPointList('script');
 }
 
 async function mhRunScriptAgents() {
   const box = document.getElementById('mhScriptSuggestions');
   if (!box) return;
-  box.innerHTML = '<div style="color:var(--dim)">Running Vision Director, Story, Action, Dialogue, Prompt agents...</div>';
 
-  // For demo we use the simulated + real agents if available
   const p = projectLoad() || {};
+  const script = mhScriptFromUI(p);
+  if (!script) {
+    alert('Paste your script in the box first (or click Lock Script).');
+    return;
+  }
+  p.script = script;
+  projectSave(p);
+
+  const isLocal = (location.protocol === 'file:') || (location.hostname === 'localhost') || (location.hostname === '127.0.0.1');
+  if (!isLocal) {
+    box.innerHTML = '<div style="color:var(--dim)">Checking sign-in...</div>';
+    const token = await mhWaitForAuthToken(12000);
+    if (!token) {
+      box.innerHTML = '<div style="color:#f87171">Not signed in. Use Sign In (kylef + owner password) then try again.</div>';
+      return;
+    }
+  }
+
   const agents = ['vision-director', 'story-director', 'action-writer', 'prompt-writer', 'animation-smoother'];
+  box.innerHTML = '<div style="color:var(--dim)">Running 5 script agents (~30s)...</div>';
 
   let all = [];
   let usedFallback = false;
-  for (const a of agents) {
+  window._mhScriptSuggestionItems = [];
+
+  for (let i = 0; i < agents.length; i++) {
+    const a = agents[i];
+    box.innerHTML = `<div style="color:var(--dim)">Running <strong>${a}</strong> (${i + 1}/${agents.length})...</div>` +
+      (all.length ? '<div style="font-size:10px;color:#555;margin-top:6px">' + all.length + ' bullets so far</div>' : '');
+
     let txt = getSimulatedAgentOutput(a, p);
     let fallback = true;
-    if (window.SB_Agents) {
+    if (!isLocal && window.SB_InvokeAgent) {
       try {
-        const r = await window.SB_Agents.invoke(a, {script: p.script});
-        if (r.output) {
-          txt = r.output.toString();
+        const r = await window.SB_InvokeAgent(a, { script: script });
+        if (r && r.fallback) {
+          fallback = true;
+          txt = (r.output || r.detail || txt).toString();
+        } else if (r && (r.output || r.result)) {
+          txt = String(r.output || r.result);
           fallback = false;
         }
-      } catch(e){
+      } catch (e) {
         console.warn('Script agent failed', a, e);
         fallback = true;
       }
+    } else if (isLocal) {
+      fallback = true;
     }
+
     if (fallback) usedFallback = true;
-    const bullets = txt.split(/\n|•/).map(s=>s.trim()).filter(Boolean).slice(0,4);
-    bullets.forEach(b => all.push({text: b, fallback, agent: a}));
+    const bullets = txt.split(/\n|•|\*/).map(s => s.replace(/^[-–]\s*/, '').trim()).filter(s => s.length > 3).slice(0, 4);
+    bullets.forEach(b => all.push({ text: b, fallback, agent: a }));
   }
 
   let html = '';
-  if (usedFallback) {
-    const isLocal = (location.protocol === 'file:') || (location.hostname === 'localhost') || (location.hostname === '127.0.0.1');
-    const banner = isLocal 
-      ? `<div style="background:#1a1408;border:1px solid var(--gold-border);color:var(--gold);padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Local Demo Mode — High-quality simulations. Real agents require the live site + XAI key.</div>`
-      : `<div style="background:#2a2410;border:1px solid #c8a25f;color:#c8a25f;padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Using high-quality local sims for agents (deploy functions + set XAI_API_KEY for live).</div>`;
-    html += banner;
+  if (usedFallback && !isLocal) {
+    html += `<div style="background:#2a2410;border:1px solid #c8a25f;color:#c8a25f;padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Some agents used fallback/sim output — hard refresh (Ctrl+Shift+R) and ensure you are signed in. Real Grok bullets have no (sim) tag.</div>`;
+  } else if (usedFallback && isLocal) {
+    html += `<div style="background:#1a1408;border:1px solid var(--gold-border);color:var(--gold);padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Local demo sims — deploy to shotbreak.io + sign in for live Grok agents.</div>`;
+  } else if (!usedFallback) {
+    html += `<div style="background:#0f1a12;border:1px solid #22c55e;color:#86efac;padding:6px 8px;border-radius:4px;font-size:11px;margin-bottom:8px;">Live Grok agents completed. Check bullets below, then Parse Approved Points.</div>`;
   }
-  all.forEach((item,i) => {
+
+  all.forEach((item, i) => {
     const id = 'scr_' + i;
-    const isLocal = (location.protocol === 'file:') || (location.hostname === 'localhost') || (location.hostname === '127.0.0.1');
-    const fbNote = item.fallback ? (isLocal ? ' <span style="color:#666;font-size:9px;">(local demo)</span>' : ' <span style="color:#c8a25f;font-size:9px;">(sim)</span>') : '';
+    window._mhScriptSuggestionItems.push(item);
+    const fbNote = item.fallback ? (isLocal ? ' <span style="color:#666;font-size:9px;">(local demo)</span>' : ' <span style="color:#c8a25f;font-size:9px;">(sim)</span>') : ' <span style="color:#22c55e;font-size:9px;">(live)</span>';
     const agentLabel = item.agent ? `<span class="ag" style="margin-right:4px">${item.agent}:</span>` : '';
-    html += `<div class="suggestion-item"><input type="checkbox" id="${id}" checked onchange="mhToggleSuggestion(this, 'script', '${esc(item.text)}')"><label for="${id}">${agentLabel}${esc(item.text)}${fbNote}</label></div>`;
+    html += `<div class="suggestion-item"><input type="checkbox" id="${id}" checked onchange="mhToggleScriptSuggestion(${i}, this.checked)"><label for="${id}">${agentLabel}${esc(item.text)}${fbNote}</label></div>`;
   });
-  box.innerHTML = html || 'No suggestions.';
+  box.innerHTML = html || '<div style="color:#666">No suggestions returned.</div>';
 
   _mhApprovedPoints.script = all.map(item => item.text).filter(Boolean);
   mhRefreshPointList('script');
