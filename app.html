@@ -7439,6 +7439,7 @@ function mhRenderScriptSuggestions(box, all, usedFallback, isLocal) {
   if (!_mhApprovedPoints) window._mhApprovedPoints = { script: [], characters: {}, generate: {} };
   _mhApprovedPoints.script = all.map(item => item.text).filter(Boolean);
   mhRefreshPointList('script');
+  console.log('[Shotbreak] Script agents done:', all.length, 'bullets, build 7a31dae');
 }
 
 async function mhRunScriptAgents() {
