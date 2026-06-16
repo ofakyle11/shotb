@@ -1,0 +1,53 @@
+SHOTBREAK — FIX EVERYTHING (local + web)
+=========================================
+
+PART A — NETLIFY ENV VARS (Site settings → Environment variables)
+Set scope: Production + Deploy previews for ALL of these:
+
+  XAI_API_KEY              = xai-...        (Grok agents + Imagine images/video)
+  WAVESPEED_API_KEY        = wsk_live_...   (wan/seedance/sora/veo models)
+  FIREBASE_API_KEY         = AIzaSyA5-NRXzzkWuGafQ5-EukGF9WMnQ2txFFA
+  OWNER_TOKEN_SECRET       = (long random string)
+  OWNER_PW_KYLEF           = (from my-owner-pws.txt)
+  OWNER_PW_STEVEC          = (from my-owner-pws.txt)
+  OWNER_PW_SCOTTD          = (from my-owner-pws.txt)
+
+Then: Deploys → Trigger deploy → Clear cache and deploy site
+
+PART B — PUSH THESE FILES (git push OR Netlify manual upload)
+  app.html                          (parse fix, agent errors, hostname detection)
+  js/config.js                      (localOnly only on localhost)
+  netlify/functions/agent-invoke.js (never empty output, Grok HTTP errors)
+  local-backend/server.py           (upload_image, API bridge)
+  local-backend/api_bridge.py
+  local-backend/.env                (DO NOT commit — local only, already gitignored)
+
+PART C — WEB (shotbreak.io)
+  1. Deploy Part B
+  2. Clear cache + deploy
+  3. Hard refresh https://shotbreak.io/app (Ctrl+Shift+R)
+  4. Sign in: email kylef + OWNER_PW_KYLEF password (or Firebase password)
+  5. Script tab → Run Script Agents → should get real Grok bullets (not empty)
+  6. Parse Approved Points → should show editable clean prompt
+  7. Generate tab → video uses /.netlify/functions/generate-video (not localhost)
+
+PART D — LOCAL (your PC)
+  1. local-backend/.env has XAI_API_KEY + WAVESPEED_API_KEY
+  2. Run START_LOCAL.bat (bridge :3456 + UI :8080)
+  3. Open http://localhost:8080/app.html
+  4. Health: http://localhost:3456/health → api.ready: true
+  5. Cloud gen routes to xAI/WaveSpeed; no login needed (localOnly auto-session)
+
+PART E — CONSOLE WARNINGS (safe to ignore)
+  • Tracking Prevention + jszip (Edge privacy) — zip export still works
+  • favicon 404 — cosmetic
+  • "Using embedded fallback config" — goes away once js/config.js deploys
+
+PART F — IF AGENTS STILL FAIL ON WEB
+  • F12 → Network → agent-invoke → check Response body
+  • Should now show fallback text with Grok error detail (not output:null)
+  • Fix: re-check XAI_API_KEY in Netlify, billing, clear cache redeploy
+
+PART G — SECURITY
+  • Rotate keys in POST_IMPLEMENTATION_CHECKLIST.txt / my-owner-pws.txt if ever shared
+  • Never commit local-backend/.env

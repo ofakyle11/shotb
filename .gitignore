@@ -3,6 +3,14 @@ my-owner-pws.txt
 *.latest-backup
 .env
 .env.*
+!.env.example
+local-backend/.env
+local-backend/output/*
+!local-backend/output/.gitkeep
+local-backend/images/*
+!local-backend/images/.gitkeep
+local-backend/uploads/
+local-backend/__pycache__/
 
 # Internal AI tooling (not part of the site)
 .grok/

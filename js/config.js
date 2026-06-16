@@ -32,6 +32,15 @@
 (function () {
   'use strict';
 
+  const IS_LOCAL_HOST = (function () {
+    try {
+      const h = location.hostname;
+      return h === 'localhost' || h === '127.0.0.1' || location.protocol === 'file:';
+    } catch (e) {
+      return false;
+    }
+  })();
+
   const CFG = {
     firebase: {
       apiKey: "AIzaSyA5-NRXzzkWuGafQ5-EukGF9WMnQ2txFFA",
@@ -40,6 +49,16 @@
       storageBucket: "shotbreak-9f342.firebasestorage.app",
       messagingSenderId: "515766987392",
       appId: "1:515766987392:web:ac3644d952c69d11c7d465"
+    },
+    localOnly: IS_LOCAL_HOST,
+    localGeneration: IS_LOCAL_HOST ? {
+      enabled: true,
+      videoProxy: 'http://localhost:3456/generate-video',
+      healthUrl: 'http://localhost:3456/health',
+      comfyHost: 'http://127.0.0.1:8188',
+      maxPollSec: 1800
+    } : {
+      enabled: false
     },
     owners: {
       emails: [

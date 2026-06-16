@@ -35,7 +35,7 @@
     { id: 'atmospherics-builder',    name: 'The Atmospherics Builder',    wing: 'settings',   tier: 1, credits: 50, manages: ['lighting-designer','weather-coordinator','sound-designer'] },
     { id: 'dressing-builder',        name: 'The Dressing Builder',        wing: 'settings',   tier: 1, credits: 50, manages: ['props-master','set-dresser','vfx-supervisor'] },
     { id: 'timeline-editor',         name: 'The Timeline Editor',         wing: 'editors',    tier: 1, credits: 50, manages: ['editor','transition-designer'] },
-    { id: 'pacing-editor',           name: 'The Pacing Editor',           wing: 'editors',    tier: 1, credits: 50, manages: ['pacing-doctor','runtime-calculator'] },
+    { id: 'pacing-editor',           name: 'The Pacing Editor',           wing: 'editors',    tier: 1, credits: 50, manages: ['pacing-doctor','runtime-calculator'] },  // see also desktop grok_video_editor.py: Agent #6 (Pacing, Rhythm & Beat Sync) for ffprobe/thumbnail algorithmic activity scoring + optimize IN/OUT (complements LLM pacing-doctor)
     { id: 'assembly-editor',         name: 'The Assembly Editor',         wing: 'editors',    tier: 1, credits: 50, manages: ['trailer-cutter','polish-pass','music-supervisor'] },
 
     // ── TIER 2 — SPECIALISTS (35) ──
@@ -63,6 +63,7 @@
     { id: 'architecture-designer',   name: 'Architecture Designer',   wing: 'settings',   tier: 2, manager: 'environment-builder',       credits: 5  },
     { id: 'lighting-designer',       name: 'Lighting Designer',       wing: 'settings',   tier: 2, manager: 'atmospherics-builder',      credits: 15 },
     { id: 'weather-coordinator',     name: 'Weather Coordinator',     wing: 'settings',   tier: 2, manager: 'atmospherics-builder',      credits: 5  },
+    { id: 'wind-physics-expert',     name: 'Wind & Physics Expert',   wing: 'settings',   tier: 2, manager: 'atmospherics-builder',      credits: 10 },
     { id: 'sound-designer',          name: 'Sound Designer',          wing: 'settings',   tier: 2, manager: 'atmospherics-builder',      credits: 15 },
     { id: 'props-master',            name: 'Props Master',            wing: 'settings',   tier: 2, manager: 'dressing-builder',          credits: 5  },
     { id: 'set-dresser',             name: 'Set Dresser',             wing: 'settings',   tier: 2, manager: 'dressing-builder',          credits: 5  },

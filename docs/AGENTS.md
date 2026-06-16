@@ -77,4 +77,6 @@ As of the current deploy:
 
 **Note:** The actual detailed instructions for each agent live in `agents/registry.js`. The prompts are quite long and specific — this document is the high-level map.
 
+**Wind & Physics Expert (added to sub-stack):** Specialist for cold wind effects on hair/jackets/clothing (specific fluttering, billowing, snapping, lag phrases), interaction with forcing actions (collar grabs, struggles), and realistic balance/posture/weight shifts on natural rocky uneven terrain near cliff edges. Outputs exact prompt insertion blocks for 6s clips enforcing natural non-stiff physics (inertia, secondary motion, gust variation, footing reactions). Integrated into video prompt construction for cliff scenes (e.g. Brant/Ramsey confrontation).
+
 Generated during the Grok Max Power unification pass.

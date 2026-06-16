@@ -1,0 +1,14 @@
+Cloud API bridge (local-backend)
+================================
+
+1. Copy .env.example to .env in this folder.
+2. Add XAI_API_KEY (Grok Imagine) and/or WAVESPEED_API_KEY.
+3. config.json has "prefer_api": true — with keys, images + video route to cloud first.
+4. Without keys, fallback chain: ComfyUI → CPU SD 1.5 → Pillow/ffmpeg.
+
+Health: http://localhost:3456/health  (check "api" and "modes")
+
+Reference images: localhost URLs are auto-converted to data: URLs for XAI.
+WaveSpeed needs public https refs for I2V — use data URLs or hosted images.
+
+Restart: run START_LOCAL.bat or: py server.py

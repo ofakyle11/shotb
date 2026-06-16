@@ -4,7 +4,10 @@
   "description": "Shotbreak Generation Hub - full per-shot UI with 82 agents, photo/video coherence",
   "main": "SHOTBREAK-FINAL-FLOW-UPDATE.html",
   "scripts": {
-    "dev": "npx http-server . -p 8080 -c-1",
+    "dev": "py local-server.py",
+    "dev:bridge": "py local-backend/server.py",
+    "dev:local": "START_LOCAL.bat",
+    "dev:ui-legacy": "npx http-server . -p 8080 -c-1",
     "dev:functions": "netlify dev",
     "deploy": "netlify deploy --prod"
   },

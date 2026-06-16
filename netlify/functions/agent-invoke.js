@@ -75,12 +75,22 @@ function callGrok(systemPrompt, userPayload) {
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
+        if (res.statusCode >= 400) {
+          reject(new Error('Grok API HTTP ' + res.statusCode + ': ' + body.slice(0, 600)));
+          return;
+        }
         try {
           const json = JSON.parse(body);
           const content = json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content;
-          resolve({ output: content || JSON.stringify(json) });
+          const out = (content && String(content).trim()) ? content : '';
+          if (out) {
+            resolve({ output: out });
+            return;
+          }
+          const errMsg = json.error && (json.error.message || json.error);
+          reject(new Error(errMsg ? String(errMsg) : ('Grok returned empty content: ' + body.slice(0, 400))));
         } catch (e) {
-          reject(new Error('Failed to parse Grok response: ' + body));
+          reject(new Error('Failed to parse Grok response: ' + body.slice(0, 400)));
         }
       });
     });
@@ -99,17 +109,35 @@ function getSystemPromptForAgent(agentId) {
     'psychological-builder': base + ' Deep dive into motivation, flaws, emotional through-line.',
     'voice-builder': base + ' Dialogue style, speech patterns, subtext.',
     'environment-builder': base + ' World building, location details, atmosphere. When location plates are supplied, describe their exact surfaces, light, and weather so every shot prompt can match them.',
-    'atmospherics-builder': base + ' Time of day, weather, lighting, mood. Reference any supplied plates/photos for the precise look.',
-    'lighting-designer': base + ' Practical lighting sources, ratios, color temperature. Match the light quality visible on the reference photos.',
+    'atmospherics-builder': base + ' Time of day, weather, lighting, mood — specialize in cold rainy night atmospheres with harsh overhead lights, wet reflective ground, and a strong sense of discipline and purpose to match cinematic departure scenes. Reference any supplied plates/photos for the precise look, reflections in puddles/slick surfaces, and light interactions on wet ground.',
+    'lighting-designer': base + ' Practical lighting sources, ratios, color temperature with focus on harsh overhead lights slicing through cold rain onto wet reflective ground. Design lighting that conveys iron discipline, resolve, and purposeful departure. Match the exact harsh quality, beam character, color temperature, and ground reflections visible on the reference photos.',
     'cinematographer': base + ' Lens, camera movement, framing, composition.',
-    'prompt-writer': base + ' Turn all notes into a tight, coherent video prompt under 250 tokens. The prompt must contain explicit instructions to match the exact visual details visible in any supplied character or location reference images (e.g. "match the precise scar angle and reflectivity, the specific creasing on the leather jacket shoulder, the exact 3-day stubble pattern and density from the provided reference photo of LEAD").',
+    'prompt-writer': base + ' Turn all notes into a tight, coherent video prompt under 250 tokens. The prompt must contain explicit instructions to match the exact visual details visible in any supplied character or location reference images (e.g. "match the precise scar angle and reflectivity, the specific creasing on the leather jacket shoulder, the exact 3-day stubble pattern and density from the provided reference photo of LEAD"). For Clip 8 (or any clip using a previous clip reference), also include strong explicit language directing the video model to use the attached previous clip / reference video as PRIMARY STRONG VISUAL REFERENCE for characters, lighting, rain, wet ground, and style, ensuring perfect continuity (see Continuity Expert language: match exact character likenesses/wet jacket details/nametags from prev end-state, rain droplet physics, wet tarmac/puddles/sheen/ripples/reflections, lighting temperature/beams/speculars, overall cinematic style/atmosphere with zero visual reset; end state of prev clip = start state of this clip).',
     'continuity-supervisor': base + ' Ensure consistency across shots for characters, props, environment. When refs are visible, call out the exact matching requirements for every character in frame.',
     'scene-architect': base + ' Overall scene structure and visual storytelling.',
     'vfx-supervisor': base + ' VFX must enhance practical elements without breaking the grounded feel.',
     'sound-design-lead': base + ' Sound design that supports the neo-noir atmosphere.',
+    'vision-director': base + ' Vision ref discipline — precise visual matching language for reference photos, scan angles, wardrobe wear, stubble, light fall.',
+    'story-director': base + ' Story structure, scene purpose, character arcs, and narrative continuity from the script.',
+    'action-writer': base + ' Physical action beats, blocking, and kinetic clarity for each scene.',
+    'dialogue-writer': base + ' Dialogue authenticity, subtext, and voice per character.',
+    'animation-smoother': base + ' Motion continuity notes — smooth transitions, no visual resets between shots.',
   };
 
   return map[agentId] || base + ' Provide expert analysis for this production element.';
+}
+
+function fallbackAgentOutput(agentId, input, err) {
+  const script = (input && input.script) ? String(input.script).slice(0, 500) : '';
+  const detail = err && err.message ? err.message : String(err || 'unknown error');
+  return {
+    output: '• Neo-noir continuity note for ' + agentId + ': anchor to locked refs, rain as emotional punctuation, practical lighting only.\n'
+      + (script ? '• Script anchor: ' + script.slice(0, 220) + '...\n' : '')
+      + '\n(Server fallback — Grok call failed: ' + detail + '. Verify XAI_API_KEY in Netlify env and redeploy.)',
+    fallback: true,
+    error: 'Agent invoke failed on server',
+    detail
+  };
 }
 
 exports.handler = async function (event) {
@@ -136,7 +164,7 @@ exports.handler = async function (event) {
       return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'agent_id required' }) };
     }
 
-    const auth = event.headers.authorization || '';
+    const auth = (event.headers && (event.headers.authorization || event.headers.Authorization)) || '';
     const authResult = await verify(auth);
     if (!authResult.ok) {
       return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Unauthorized' }) };
@@ -173,15 +201,13 @@ exports.handler = async function (event) {
     };
   } catch (err) {
     console.error('[agent-invoke] Uncaught error (preventing 502):', err);
+    let parsed = {};
+    try { parsed = JSON.parse(event.body || '{}'); } catch (e) {}
+    const fb = fallbackAgentOutput(parsed.agent_id || 'agent', parsed.input || {}, err);
     return {
-      statusCode: 200,  // return 200 with fallback so client always gets something instead of 502
+      statusCode: 200,
       headers: CORS,
-      body: JSON.stringify({ 
-        output: null,
-        error: 'Agent invoke failed on server',
-        detail: String(err && err.message || err),
-        fallback: true
-      })
+      body: JSON.stringify(fb)
     };
   }
 };

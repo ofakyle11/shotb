@@ -1,0 +1,44 @@
+{
+  "bridge_port": 3456,
+  "comfy_host": "http://127.0.0.1:8188",
+  "comfy_output_dir": "",
+  "output_dir": "output",
+  "uploads_dir": "uploads",
+  "images_dir": "images",
+  "poll_interval_sec": 2,
+  "max_wait_sec": 1800,
+  "workflows_dir": "workflows",
+  "default_workflow": "wan_i2v.api.json",
+  "default_image_workflow": "txt2img.api.json",
+  "model_workflows": {
+    "wan-2.7": "wan_i2v.api.json",
+    "grok-imagine": "quality_i2v.api.json",
+    "seedance-2.0-turbo": "svd_xt.api.json",
+    "sora-2": "quality_i2v.api.json",
+    "veo-3.1": "quality_i2v.api.json"
+  },
+  "model_image_workflows": {
+    "flux-xai": "txt2img.api.json",
+    "wan-2.7": "txt2img.api.json",
+    "nano-banana": "txt2img.api.json",
+    "nano-banana-pro": "txt2img.api.json",
+    "gpt-image-2": "txt2img.api.json"
+  },
+  "export": {
+    "container": "mp4",
+    "video_codec": "libx264",
+    "crf": 18,
+    "preset": "medium",
+    "default_fps": 24,
+    "default_resolution": "1280x720"
+  },
+  "fallback_ffmpeg_when_comfy_offline": true,
+  "prefer_api": true,
+  "use_local_gpu": true,
+  "gpu": {
+    "model": "runwayml/stable-diffusion-v1-5",
+    "max_side": 512,
+    "steps": 20,
+    "device_preference": "cpu"
+  }
+}

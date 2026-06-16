@@ -27,7 +27,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
-<!-- js/config.js intentionally removed here — we have a strong embedded fallback below so the single HTML file works after big deploys -->
+<script src="js/config.js?v=20260616"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Anybody:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -650,6 +650,7 @@ window.safeSignIn = safeSignIn;
       <div><span style="font-family:var(--display);font-size:22px;font-weight:800">🎬 Generation Hub</span></div>
       <div id="mhProjInfo" style="font-size:12px;color:var(--dim)"></div>
     </div>
+    <div id="sbLocalStatus" style="display:none;font-size:11px;color:var(--dim);padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-bottom:10px;font-family:var(--mono);line-height:1.45"></div>
 
     <!-- Just the 4 options - the modular building blocks for your movie. Extremely modular. -->
     <div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap;background:var(--surface);padding:6px;border-radius:10px;border:1px solid var(--gold-border)">
@@ -672,6 +673,7 @@ window.safeSignIn = safeSignIn;
             <textarea id="mhScriptMain" rows="8" style="width:100%;background:#0a0a0f;border:1px solid var(--border);color:#fff;padding:12px;font-family:var(--mono);font-size:13px" placeholder="Paste or lock your script here..."></textarea>
             <button class="b b-gold b-s" onclick="mhRunScriptAgents()" style="margin-top:8px">Run Script Agents → Point Form Suggestions</button>
             <div id="mhScriptSuggestions" style="margin-top:12px"></div>
+            <div class="point-list" id="points_script" style="display:none;margin-top:8px"></div>
             <div style="margin-top:8px">
               <button class="b b-gold" onclick="mhParseBox('script')" style="font-size:12px">Parse Approved Points → Clean Prompt</button>
             </div>
@@ -679,6 +681,7 @@ window.safeSignIn = safeSignIn;
               <button class="b b-g b-s" onclick="mhLockScriptAndExtract()">🔒 Lock Script & Send to Characters + Locations</button>
             </div>
             <div id="localModeNote" style="font-size:10px;color:#666;margin-top:4px;display:block">HIGH-QUALITY LOCAL SIMS for all 82-GOD agents (detailed point-form, photo-anchored, continuity-aware). Owners use real tokens or set XAI_API_KEY + deploy functions for live Grok agents on https://shotbreak.io/app. File: or localhost = sims by design.</div>
+            <div id="parsed_script"></div>
             <div id="mhScriptParsed" style="margin-top:8px;background:#111;border:1px solid var(--gold-border);padding:10px;font-size:13px;white-space:pre-wrap;display:none"></div>
           </div>
         </div>
@@ -1011,6 +1014,13 @@ window.safeSignIn = safeSignIn;
 // const analytics = getAnalytics(app);
 
 (function() {
+  const IS_LOCAL_HOST = (function () {
+    try {
+      const h = location.hostname;
+      return h === 'localhost' || h === '127.0.0.1' || location.protocol === 'file:';
+    } catch (e) { return false; }
+  })();
+
   // 1. Firebase config fallback (edit the values below with your real Shotbreak Firebase project)
   if (!window.SHOTBREAK_CONFIG || !window.SHOTBREAK_CONFIG.firebase) {
     console.warn('[Shotbreak] Using embedded fallback config (js/config.js missing after deploy)');
@@ -1041,7 +1051,33 @@ window.safeSignIn = safeSignIn;
         stevec: { name: "Steve C", color: "#a78bfa" },
         scottd: { name: "Scott D", color: "#60a5fa" },
         stevek: { name: "Steve K", color: "#a78bfa" }
-      }
+      },
+      localOnly: IS_LOCAL_HOST,
+      localGeneration: IS_LOCAL_HOST ? {
+        enabled: true,
+        videoProxy: 'http://localhost:3456/generate-video',
+        healthUrl: 'http://localhost:3456/health',
+        comfyHost: 'http://127.0.0.1:8188',
+        maxPollSec: 1800
+      } : { enabled: false }
+    };
+  }
+
+  // Safety: never treat production hostnames as local-only even if config was wrong
+  if (!IS_LOCAL_HOST && window.SHOTBREAK_CONFIG) {
+    window.SHOTBREAK_CONFIG.localOnly = false;
+    if (window.SHOTBREAK_CONFIG.localGeneration) {
+      window.SHOTBREAK_CONFIG.localGeneration.enabled = false;
+    }
+  }
+
+  if (window.SHOTBREAK_CONFIG && window.SHOTBREAK_CONFIG.localOnly && !window.SHOTBREAK_CONFIG.localGeneration) {
+    window.SHOTBREAK_CONFIG.localGeneration = {
+      enabled: true,
+      videoProxy: 'http://localhost:3456/generate-video',
+      healthUrl: 'http://localhost:3456/health',
+      comfyHost: 'http://127.0.0.1:8188',
+      maxPollSec: 1800
     };
   }
 
@@ -1178,10 +1214,14 @@ window.SB_InvokeAgent = async function(agentId, input, maxRetries = 2) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const res = await window.SB_Agents.invoke(agentId, input);
-      if (res && (res.output || res.result)) {
+      if (res && res.error && !res.output && !res.result) {
+        throw new Error(res.detail || res.error || 'Agent failed on server');
+      }
+      const out = res && (res.output != null ? res.output : res.result);
+      if (out != null && String(out).trim()) {
         return res;
       }
-      throw new Error('Agent returned empty response');
+      throw new Error('Agent returned empty response — sign in as owner or check XAI_API_KEY on Netlify');
     } catch (e) {
       lastError = e;
       console.warn(`[Agent] ${agentId} attempt ${attempt + 1} failed:`, e.message || e);
@@ -1209,9 +1249,16 @@ window.SB_Agents = window.SB_Agents || {
       });
       if (!r.ok) {
         const txt = await r.text().catch(() => '');
+        if (r.status === 401) {
+          throw new Error('Not signed in — use Sign In with owner short (kylef) + OWNER_PW from Netlify env');
+        }
         throw new Error('agent-invoke ' + r.status + ' ' + txt);
       }
-      return await r.json();
+      const data = await r.json();
+      if (data && data.fallback && !data.output) {
+        throw new Error(data.detail || data.error || 'Agent fallback — server error');
+      }
+      return data;
     } catch (e) {
       // Let the caller (SB_InvokeAgent) catch and fall back to the high-quality local sim
       throw e;
@@ -1221,6 +1268,109 @@ window.SB_Agents = window.SB_Agents || {
 
 // ===================== AUTH STATE (minimal) =====================
 let curUser = null; // {name,email,tier,isOwner,uid,color}
+
+function isLocalOnly() {
+  return !!(window.SHOTBREAK_CONFIG && window.SHOTBREAK_CONFIG.localOnly);
+}
+function hasStudioAccess() {
+  if (isLocalOnly()) return true;
+  return !!(curUser && (curUser.isOwner || ['studio', 'production', 'enterprise', 'owner'].includes(curUser.tier)));
+}
+function sbVideoProxy() {
+  const cfg = window.SHOTBREAK_CONFIG || {};
+  if (cfg.localGeneration && cfg.localGeneration.enabled && cfg.localGeneration.videoProxy) {
+    return cfg.localGeneration.videoProxy;
+  }
+  return '/.netlify/functions/generate-video';
+}
+function sbHealthUrl() {
+  const cfg = window.SHOTBREAK_CONFIG || {};
+  if (cfg.localGeneration && cfg.localGeneration.healthUrl) return cfg.localGeneration.healthUrl;
+  const proxy = sbVideoProxy();
+  if (proxy.includes('/generate-video')) return proxy.replace('/generate-video', '/health');
+  return 'http://localhost:3456/health';
+}
+function sbMaxPollMs() {
+  if (window._sbLocalHealth && window._sbLocalHealth.max_wait_sec) {
+    return window._sbLocalHealth.max_wait_sec * 1000;
+  }
+  const cfg = window.SHOTBREAK_CONFIG || {};
+  if (cfg.localGeneration && cfg.localGeneration.maxPollSec) {
+    return cfg.localGeneration.maxPollSec * 1000;
+  }
+  return isLocalOnly() ? (30 * 60 * 1000) : (8 * 60 * 1000);
+}
+const SB_PROVIDER_LABELS = {
+  'xai-imagine': { label: 'Grok Imagine', color: '#a78bfa', tip: 'Real pixels via XAI Grok Imagine API' },
+  'wavespeed': { label: 'WaveSpeed', color: '#38bdf8', tip: 'Cloud video/image via WaveSpeed API' },
+  'grok-imagine': { label: 'Grok Imagine', color: '#a78bfa', tip: 'Grok Imagine (legacy label)' },
+  'comfyui-local': { label: 'ComfyUI', color: '#4ade80', tip: 'Real AI from ComfyUI on GPU' },
+  'diffusers-local': { label: 'SD 1.5 GPU', color: '#4ade80', tip: 'Stable Diffusion 1.5 on your AMD GPU (DirectML) — real pixels' },
+  'pillow-local': { label: 'Ref card', color: '#f4a261', tip: 'Pillow reference card — run install-local-gpu.bat for real SD 1.5' },
+  'ffmpeg-local': { label: 'Placeholder', color: '#f4a261', tip: 'Solid ffmpeg clip — run install-local-gpu.bat for AI still + motion video' },
+  'shotbreak-local': { label: 'Local', color: '#60a5fa', tip: 'Shotbreak local bridge' }
+};
+function sbProviderBadge(provider) {
+  if (!provider) return '';
+  const p = SB_PROVIDER_LABELS[provider] || { label: provider, color: '#888', tip: provider };
+  return '<span title="'+esc(p.tip)+'" style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:#1a1a1a;color:'+p.color+';border:1px solid '+p.color+';margin-left:4px;white-space:nowrap">'+esc(p.label)+'</span>';
+}
+function sbPollTimeoutMsg(scene, shot) {
+  const maxMin = Math.round(sbMaxPollMs() / 60000);
+  if (isLocalOnly()) {
+    return 'Shot '+scene+'.'+shot+' timed out after '+maxMin+' min. Bridge may still be processing — check http://localhost:3456/health or refresh.';
+  }
+  return 'Shot '+scene+'.'+shot+' timed out after '+maxMin+' min. Provider may still be processing — refresh in a few minutes.';
+}
+async function sbRefreshLocalStatus() {
+  if (!isLocalOnly()) return;
+  const el = document.getElementById('sbLocalStatus');
+  if (!el) return;
+  el.style.display = 'block';
+  try {
+    const r = await fetch(sbHealthUrl(), { cache: 'no-store' });
+    const h = await r.json();
+    window._sbLocalHealth = h;
+    const comfy = h.comfy;
+    const comfyTxt = comfy ? 'ComfyUI online' : 'ComfyUI offline';
+    const comfyCol = comfy ? 'var(--green)' : 'var(--amber)';
+    const imgMode = (h.modes && h.modes.image) || (comfy ? 'comfyui-local' : 'pillow-local');
+    const vidMode = (h.modes && h.modes.video) || (comfy ? 'comfyui-local' : 'ffmpeg-local');
+    const gpu = h.gpu || {};
+    const gpuTxt = gpu.packages ? (gpu.ready ? ('GPU ready ('+(gpu.device||'SD 1.5')+')') : 'GPU packages installed (loads on first gen)') : 'GPU: run install-local-gpu.bat';
+    const gpuCol = gpu.packages ? 'var(--green)' : 'var(--amber)';
+    const wf = ((h.workflows && h.workflows.video) || []).join(', ') || 'none';
+    const maxMin = Math.round(sbMaxPollMs() / 60000);
+    const api = h.api || {};
+    const apiTxt = api.ready ? ('API keys: XAI='+(api.xai?'yes':'no')+' · WS='+(api.wavespeed?'yes':'no')) : 'API: copy local-backend/.env.example → .env';
+    const apiCol = api.ready ? 'var(--green)' : 'var(--amber)';
+    el.innerHTML = '<strong style="color:var(--gold)">Local stack</strong> · Bridge <span style="color:var(--green)">online</span> · <span style="color:'+apiCol+'">'+apiTxt+'</span> · <span style="color:'+comfyCol+'">'+comfyTxt+'</span> · <span style="color:'+gpuCol+'">'+gpuTxt+'</span> · Images: '+sbProviderBadge(imgMode)+' · Video: '+sbProviderBadge(vidMode)+' · Timeout: '+maxMin+' min · Workflows: '+esc(wf);
+  } catch (e) {
+    window._sbLocalHealth = null;
+    el.innerHTML = '<strong style="color:var(--red)">Bridge offline</strong> — run <strong>START_LOCAL.bat</strong> or <code>py server.py</code> in <code>local-backend</code>. Image + video generation will fail until the bridge is up.';
+  }
+}
+function sbInitLocalStatus() {
+  if (!isLocalOnly()) return;
+  sbRefreshLocalStatus();
+  if (!window._sbLocalStatusIv) {
+    window._sbLocalStatusIv = setInterval(sbRefreshLocalStatus, 30000);
+  }
+}
+function bootstrapLocalSession() {
+  if (!isLocalOnly() || curUser) return;
+  curUser = {
+    name: 'Local',
+    email: 'local@shotbreak.local',
+    tier: 'studio',
+    isOwner: true,
+    uid: 'local-user',
+    color: '#d4a843'
+  };
+  console.log('[Shotbreak] Local-only mode — auto session, proxy:', sbVideoProxy());
+  enterApp();
+  setTimeout(sbInitLocalStatus, 100);
+}
 
 // Tab switching (no more Team tab)
 function showTab(t){
@@ -1519,6 +1669,7 @@ function enterApp(){
   }
   // No other sides — always enter the Generation Hub (4 tabs only)
   showMode('media');
+  if (isLocalOnly()) setTimeout(sbInitLocalStatus, 100);
 }
 
 function showDash(){
@@ -1566,6 +1717,7 @@ auth.onAuthStateChanged(async user=>{if(user&&!curUser)await loadUser(user)});
 
 // ===================== TIER CHECKS =====================
 function canUse(feature){
+  if(isLocalOnly())return true;
   if(!curUser)return false;
   if(curUser.isOwner||curUser.tier==='creator'||curUser.tier==='studio'||curUser.tier==='production')return true;
   if(curUser.tier==='free'){
@@ -1948,7 +2100,7 @@ function uChImg(n){
       const ot = window.SB_OWNER_TOKEN; const tk = (ot && ot.split(':').length===4 && ot.startsWith('owner:')) ? ot : (firebase.auth().currentUser ? await firebase.auth().currentUser.getIdToken() : null);
       if(!tk){alert('Please log in first.');return}
       // POST to backend
-      const r=await fetch('/.netlify/functions/generate-video',{
+      const r=await fetch(sbVideoProxy(),{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+tk},
         body:JSON.stringify({action:'upload_image',image_data_url:dataUrl,filename:f.name})
@@ -2084,7 +2236,7 @@ function dL(n,c,t){const a=document.createElement('a');a.href=c instanceof Blob?
 (function(){
 "use strict";
 // ─── SHOTBREAK Video Module v5 (WaveSpeedAI-aware, verbose logging) ───
-const PROXY="/.netlify/functions/generate-video",BATCH="/.netlify/functions/batch-generate";
+const PROXY=sbVideoProxy(),BATCH="/.netlify/functions/batch-generate";
 const MP={"seedance-2.0-turbo":{l:"Seedance 2.0 Turbo",c:60},"wan-2.7":{l:"Wan 2.7",c:80},"sora-2":{l:"Sora 2",c:120},"veo-3.1":{l:"Veo 3.1",c:150},"grok-imagine":{l:"Grok Imagine (XAI)",c:90}};
 const V=window.SBVideo={model:"seedance-2.0-turbo",jobs:new Map(),polls:new Map(),balance:0,tier:"free"};
 
@@ -2270,16 +2422,16 @@ V._onBatch=async function(){
 // Polls every 5s. Always also tries to fetch video_url — sometimes the
 // status endpoint says IN_PROGRESS while result already has the URL.
 // On COMPLETED, retries result fetch up to 3 times before giving up.
-// Hard timeout: 8 minutes per shot (longer than any model's max render time).
+// Poll timeout synced with bridge max_wait_sec (30 min local, 8 min cloud default).
 V._startPoll=function(rid,model){
   if(V.polls.has(rid))return;
   vlog("Starting poll for",rid);
   const startTime=Date.now();
-  const MAX_POLL_MS=8*60*1000; // 8 minutes
+  const MAX_POLL_MS=sbMaxPollMs();
   const iv=setInterval(async()=>{
     if(Date.now()-startTime>MAX_POLL_MS){
       clearInterval(iv);V.polls.delete(rid);
-      const job=V.jobs.get(rid);if(job){job.status="FAILED";V._showErr("Shot "+job.scene+"."+job.shot+" timed out after 8 min. WaveSpeed may still be processing — refresh in a few minutes.");V._updateUI()}
+      const job=V.jobs.get(rid);if(job){job.status="FAILED";V._showErr(sbPollTimeoutMsg(job.scene,job.shot));V._updateUI()}
       return;
     }
     try{
@@ -2293,6 +2445,7 @@ V._startPoll=function(rid,model){
       vlog("Poll",rid.slice(0,8),"status:",st,"url:",url?"yes":"no");
       if(url){
         job.videoUrl=url;job.status="COMPLETED";
+        if(d.provider)job.provider=d.provider;
         // ── Expose to the Editor (/editor/) — push to both window.SB_Generated
         //    and localStorage so the editor page can auto-pull the clip.
         try{
@@ -2304,6 +2457,7 @@ V._startPoll=function(rid,model){
             thumb:null,
             scene:job.scene,shot:job.shot,
             model:job.model||V.model,
+            provider:job.provider||null,
             createdAt:Date.now()
           };
           window.SB_Generated=Array.isArray(window.SB_Generated)?window.SB_Generated:[];
@@ -2388,8 +2542,9 @@ V._updateUI=function(){
     const s=job.status||"PENDING";
     const cls=s==="COMPLETED"?"d":s==="FAILED"?"f":s==="IN_PROGRESS"?"p":"q";
     const col=cls==="d"?"var(--green)":cls==="f"?"var(--red)":cls==="p"?"var(--amber)":"var(--muted)";
-    const label=s==="COMPLETED"?"✓ Ready":s==="FAILED"?"✗ Failed":s==="IN_PROGRESS"?"⚙ Rendering...":"⏳ Queued — waiting for GPU";
+    const label=s==="COMPLETED"?"✓ Ready":s==="FAILED"?"✗ Failed":s==="IN_PROGRESS"?"⚙ Rendering...":(isLocalOnly()?"⏳ Queued — local bridge":"⏳ Queued — waiting for GPU");
     let h='<span class="vg-dot vg-dot-'+cls+'"></span><span style="color:'+col+';font-weight:600">'+label+'</span>';
+    if(job.provider)h+=sbProviderBadge(job.provider);
     if(job.charLock)h+=' <span style="color:var(--green);font-size:9px;font-weight:700;margin-left:6px">🔒 '+esc(job.charLock)+'</span>';
     if(job.videoUrl)h+=' <a href="'+job.videoUrl+'" download="SC'+job.scene+'_SH'+job.shot+'.mp4" style="color:var(--gold);font-size:10px;text-decoration:none;margin-left:6px">⬇ Download</a>';
     el.innerHTML=h;
@@ -2760,7 +2915,7 @@ V._groupClipsByScene=function(){
 
 V._openStitch=function(){
   // Tier gate: Studio+ only (matches video generation)
-  if(!curUser.isOwner && !['studio','production','enterprise'].includes(curUser.tier)){
+  if(!hasStudioAccess()){
     if(confirm("🎬 Stitch & Edit is a Studio+ feature.\n\nUpgrade your plan to unlock unlimited in-browser video editing with crossfade transitions.\n\nGo to pricing page now?")){
       window.location.href="/index.html#pricing";
     }
@@ -4955,10 +5110,10 @@ function mhSynthesizeCharDescription(name,proj,breakdownDesc){
   // Assemble final prompt.
   if(!parts.length){
     // Nothing at all — give them an editable starter.
-    return'Character reference sheet for '+name+'. [The script didn\'t include explicit physical details — edit this with: age, build, hair, wardrobe, notable features.] Full body, neutral studio lighting, white seamless background, multiple angles (front, side, 3/4 view). Photorealistic.';
+    return'Character reference sheet for '+name+'. [The script didn\'t include explicit physical details — edit this with: age, build, hair, wardrobe, notable features.] Full body, neutral studio lighting, white seamless background, multiple angles (front, side, 3/4 view). Photorealistic live-action with balanced authentic subsurface scattering (moderately increased for hyper realism; controlled to avoid excessive glow or red hands by balancing SSS levels), natural skin texture, visible pores and lifelike translucency.';
   }
   const body=parts.filter(Boolean).join('. ').replace(/\s+/g,' ').replace(/\.\s*\./g,'.').trim();
-  return'Character reference sheet for '+name+': '+body+'. Full body, neutral studio lighting, white seamless background, multiple angles (front, side, 3/4 view). Photorealistic.';
+  return'Character reference sheet for '+name+': '+body+'. Full body, neutral studio lighting, white seamless background, multiple angles (front, side, 3/4 view). Photorealistic live-action with balanced authentic subsurface scattering (moderately increased for hyper realism; controlled to avoid excessive glow or red hands by balancing SSS levels), natural skin texture, visible pores and lifelike translucency.';
 }
 
 // User-facing "re-extract from script" button for when they want to rebuild the bible
@@ -5033,7 +5188,7 @@ async function mhCharGenerate(idx){
   try{
     const h=await window.hdrs();
     // Build rich prompt: full body reference sheet with multi-angle framing
-    const prompt='Full body character reference sheet. '+c.name+': '+c.description+'. Neutral studio lighting, white seamless background, multiple angles showing front, side, and 3/4 view. Highly detailed, photorealistic.';
+    const prompt='Full body character reference sheet. '+c.name+': '+c.description+'. Neutral studio lighting, white seamless background, multiple angles showing front, side, and 3/4 view. Highly detailed photorealistic live-action, balanced authentic subsurface scattering on skin (moderately increased for hyper realism; controlled to avoid excessive glow or red hands by balancing SSS levels), realistic skin texture, pores, natural translucency and micro-details.';
     const r=await fetch('/.netlify/functions/generate-character',{method:'POST',headers:h,body:JSON.stringify({action:'generate',model,prompt,aspect_ratio:'1:1'})});
     const d=await r.json();
     if(!r.ok){
@@ -5068,8 +5223,8 @@ function mhGetBibleCharacters(){
 const MH_MODEL_COST={'seedance-2.0-turbo':60,'wan-2.7':80,'sora-2':120,'veo-3.1':150,'grok-imagine':90};
 function mhRenderGenerate(){
   const p=projectLoad();if(!p)return;
-  // Tier gate — video generation requires Studio+
-  const tierOK=curUser&&(curUser.isOwner||['studio','production','enterprise'].includes(curUser.tier));
+  // Tier gate — video generation requires Studio+ (unlocked in local-only mode)
+  const tierOK=hasStudioAccess();
   const genBtn=document.getElementById('mhGenerateBtn');
   if(!tierOK){
     const list=document.getElementById('mhShotQueue');
@@ -5146,9 +5301,8 @@ async function mhGenerateShot(si,shi){
   _mhInflight.add(key);
   try{
     const p=projectLoad();if(!p||!p.scenes[si]||!p.scenes[si].shots[shi])return;
-    if(!curUser){alert('Not logged in.');return}
-    const tierOK=curUser.isOwner||['studio','production','enterprise'].includes(curUser.tier);
-    if(!tierOK){alert('Video generation requires Studio ($29.99/mo) or above.');return}
+    if(!curUser && !isLocalOnly()){alert('Not logged in.');return}
+    if(!hasStudioAccess()){alert('Video generation requires Studio ($29.99/mo) or above.');return}
     const model=document.getElementById('mhVidModel').value;
     const scene=p.scenes[si], shot=p.scenes[si].shots[shi];
     const bibleCharacters=mhGetBibleCharacters();
@@ -5163,8 +5317,8 @@ async function mhGenerateShot(si,shi){
     const shotKeyUI = `${si}-${shi}`;
     if (window._shotUI && _shotUI[shotKeyUI] && _shotUI[shotKeyUI].chars && _shotUI[shotKeyUI].chars.length) {
       const firstPhoto = _shotUI[shotKeyUI].chars[0].photo;
-      if (firstPhoto && firstPhoto.startsWith('http')) {
-        j.character_image_url = firstPhoto;  // backend can use this for WaveSpeed I2V
+      if (firstPhoto && (firstPhoto.startsWith('http') || firstPhoto.startsWith('data:'))) {
+        j.character_image_url = firstPhoto;
       }
     }
     document.getElementById('mhGenProgress').style.display='block';
@@ -5182,8 +5336,7 @@ async function mhGenerateShot(si,shi){
 async function mhGenerateScene(si){
   const p=projectLoad();if(!p||!p.scenes[si])return;
   if(!curUser){alert('Not logged in.');return}
-  const tierOK=curUser.isOwner||['studio','production','enterprise'].includes(curUser.tier);
-  if(!tierOK){alert('Video generation requires Studio ($29.99/mo) or above.');return}
+  if(!hasStudioAccess()){alert('Video generation requires Studio ($29.99/mo) or above.');return}
   const model=document.getElementById('mhVidModel').value;
   const scene=p.scenes[si];
   const shots=scene.shots||[];
@@ -5224,7 +5377,7 @@ async function mhRunSingleJob(j,model){
     // Submit — short, fast request. Returns a request_id for polling.
     const submitBody={action:'submit',model,prompt:j.prompt,duration:6,aspect_ratio:'16:9'};
     if (j.character_image_url) submitBody.character_image_url = j.character_image_url;
-    const r=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify(submitBody)});
+    const r=await fetch(sbVideoProxy(),{method:'POST',headers:h,body:JSON.stringify(submitBody)});
     let d;try{d=await r.json()}catch(e){d={error:'Bad JSON: '+e.message}}
     if(!r.ok||!d.request_id){
       j.status='fail';
@@ -5233,20 +5386,21 @@ async function mhRunSingleJob(j,model){
       mhRenderGenProgress();return;
     }
     j.requestId=d.request_id;j.status='poll';mhRenderGenProgress();
-    // Poll loop — runs independently. Check status every 5s, max 8 minutes.
+    // Poll loop — synced with bridge max_wait_sec (30 min local).
     const started=Date.now();
-    const MAX_WAIT=8*60*1000;
+    const MAX_WAIT=sbMaxPollMs();
     while(Date.now()-started<MAX_WAIT){
       await new Promise(res=>setTimeout(res,5000));
       try{
-        const pr=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify({action:'status',request_id:j.requestId})});
+        const pr=await fetch(sbVideoProxy(),{method:'POST',headers:h,body:JSON.stringify({action:'status',request_id:j.requestId})});
         const pd=await pr.json();
         const stat=(pd.status||pd.state||'').toUpperCase();
         if(stat==='COMPLETED'||stat==='SUCCESS'||stat==='SUCCEEDED'){
           // Fetch result
-          const rr=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify({action:'result',request_id:j.requestId})});
+          const rr=await fetch(sbVideoProxy(),{method:'POST',headers:h,body:JSON.stringify({action:'result',request_id:j.requestId})});
           const rd=await rr.json();
           j.videoUrl=rd.video_url||rd.url||(rd.video&&rd.video.url);
+          if(rd.provider)j.provider=rd.provider;
           if(j.videoUrl){
             j.status='done';mhPersistClips();
             // Expose to the Editor — push to window.SB_Generated + localStorage.
@@ -5258,6 +5412,7 @@ async function mhRunSingleJob(j,model){
                 duration:6,
                 thumb:null,
                 source:'media-hub',
+                provider:j.provider||null,
                 createdAt:Date.now()
               };
               window.SB_Generated=Array.isArray(window.SB_Generated)?window.SB_Generated:[];
@@ -5284,7 +5439,7 @@ async function mhRunSingleJob(j,model){
         // Continue polling — transient errors shouldn't kill the job
       }
     }
-    j.status='fail';j.error='timed out after 8 min';mhRenderGenProgress();
+    j.status='fail';j.error=sbPollTimeoutMsg(j.sceneIdx+1,j.shotIdx+1);mhRenderGenProgress();
   }catch(e){
     console.error('[mh job exception]',e);
     j.status='fail';j.error=e.message||String(e);mhRenderGenProgress();
@@ -5380,9 +5535,8 @@ function mhBuildPrompt(p,sceneIdx,shotIdx,bibleCharacters,projCharDescs){
 let _mhGenState={running:false,jobs:[]};
 async function mhStartGeneration(){
   const p=projectLoad();if(!p){alert('No project loaded.');return}
-  if(!curUser){alert('Please log in first.');return}
-  const tierOK=curUser.isOwner||['studio','production','enterprise'].includes(curUser.tier);
-  if(!tierOK){alert('Video generation requires Studio ($29.99/mo) or above.');return}
+  if(!curUser && !isLocalOnly()){alert('Please log in first.');return}
+  if(!hasStudioAccess()){alert('Video generation requires Studio ($29.99/mo) or above.');return}
   if(_mhGenState.running){alert('Already running.');return}
   const model = (document.getElementById('videoModelSelect') ? document.getElementById('videoModelSelect').value : document.getElementById('mhVidModel').value);
   const stitchMode=document.getElementById('mhStitchMode').value;
@@ -5441,7 +5595,8 @@ function mhRenderGenProgress(){
   for(const j of _mhGenState.jobs){
     const st={queue:['qst-q','QUEUE'],submit:['qst-p','SUBMITTING'],poll:['qst-p','GENERATING'],done:['qst-d','DONE'],fail:['qst-f','FAILED']}[j.status];
     const modelTag = j.model ? ' <span style="font-size:9px;background:#222;padding:1px 4px;border-radius:3px">'+j.model+'</span>' : '';
-    h+='<div class="gen-queue-item"><span class="qst '+st[0]+'">'+st[1]+'</span><span style="color:var(--gold);font-weight:700">S'+(j.sceneIdx+1)+'.'+(j.shotIdx+1)+'</span>'+modelTag+'<span style="flex:1;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(j.prompt.substring(0,80))+'</span>';
+    const provTag = j.provider ? sbProviderBadge(j.provider) : '';
+    h+='<div class="gen-queue-item"><span class="qst '+st[0]+'">'+st[1]+'</span><span style="color:var(--gold);font-weight:700">S'+(j.sceneIdx+1)+'.'+(j.shotIdx+1)+'</span>'+modelTag+provTag+'<span style="flex:1;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(j.prompt.substring(0,80))+'</span>';
     if(j.videoUrl)h+='<a href="'+j.videoUrl+'" target="_blank" class="b b-g b-xs">View</a>';
     if(j.error)h+='<span style="font-size:10px;color:var(--red)" title="'+esc(j.error)+'">⚠</span>';
     h+='</div>';
@@ -5463,7 +5618,7 @@ function mhRenderClipsGrid(){
     const label='S'+(j.sceneIdx+1)+'.'+(j.shotIdx+1);
     h+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden">';
     h+='<video src="'+j.videoUrl+'" controls style="width:100%;display:block;background:#000"></video>';
-    h+='<div style="padding:10px"><div style="color:var(--gold);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px">'+label+'</div>';
+    h+='<div style="padding:10px"><div style="color:var(--gold);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px">'+label+(j.provider?sbProviderBadge(j.provider):'')+'</div>';
     h+='<div style="color:var(--dim);font-size:12px;line-height:1.3;max-height:48px;overflow:hidden">'+esc(j.prompt.substring(0,100))+'...</div>';
     h+='<div style="margin-top:8px;display:flex;gap:4px"><a href="'+j.videoUrl+'" download="shotbreak_'+label+'.mp4" class="b b-g b-xs">⬇ Download</a><button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\''+label+'\')">+ Editor</button></div>';
     h+='</div></div>';
@@ -6083,6 +6238,7 @@ async function mhRunAgentPromptBuilder(){
     {id:'vfx-supervisor',           label:'VFX Supervisor (GOD)'},
     {id:'sound-design-lead',        label:'Sound Design Lead (GOD)'},
     {id:'prompt-writer',            label:'Prompt Writer (GOD)'},
+    {id:'animation-smoother',       label:'Animation Smoother (GOD - realistic motion & vehicle physics for Clip 8 bus departure: doors close both, pull away sep., merge traffic, cam track to Montreal skyline)'},
     {id:'scene-architect',          label:'Scene Architect (GOD)'},
     {id:'executive-producer',       label:'Executive Producer (GOD - final gate)'},
     {id:'showrunner',               label:'Showrunner (GOD - orchestrator)'},
@@ -6156,7 +6312,7 @@ function getHighQualityLocalAgentOutput(agentId, proj) {
 
   // Incorporate approved script points + locked assets for superior local coherence
   if (window._mhApprovedPoints && window._mhApprovedPoints.script && window._mhApprovedPoints.script.length) {
-    const scriptPoints = window._mhApprovedPoints.script.slice(0,3).map(p => p.text || p).join(' | ');
+    const scriptPoints = mhNormalizePoints(window._mhApprovedPoints.script).slice(0, 3).join(' | ');
     base += ` | Script lock: ${scriptPoints}.`;
   }
   const chars = (proj && proj.characterBible) ? proj.characterBible.map(c => c.name).join(', ') : 'the main characters';
@@ -6176,23 +6332,27 @@ function getHighQualityLocalAgentOutput(agentId, proj) {
   }
 
   if (lower.includes('environment') || lower.includes('atmospherics') || lower.includes('environment-builder') || lower.includes('production-designer')) {
-    return `• ${base}\n• Location grammar for ${loc}: brutalist concrete, rusted metal, one working sodium lamp, constant thin rain or mist. Every frame contains at least one strong reflective surface (puddle, wet car hood, glass) to sell isolation and depth — match exact surfaces from any locked location plate photo.\n• Spatial + tactile layer: Rain on leather, steam rising from grates, boots on metal stairs, distant train/traffic hum. Wet surfaces must reflect the exact practical light sources visible in reference photos.\n• Neo-noir DNA: The environment is hostile but honest — it doesn't lie like the characters do. Recurring motifs (reflections, rain as punctuation) must be consistent with prior shots and locked assets.\n• When location plates supplied: every new description must acknowledge the precise light temperature, surface wear, puddle placement, and neon bleed visible in the photo.`;
+    return `• ${base}\n• Location grammar for ${loc}: cold rainy night on wet reflective ground under harsh overhead lights. Brutalist concrete, rusted metal; the slick mirror-like tarmac, puddles and ground sheen reflect stark overhead illumination and figures departing with disciplined purpose. Every frame contains strong reflective wet surfaces (puddles, slick asphalt, glass) to sell the cinematic departure atmosphere and sense of resolve — match exact surfaces, puddle geometry, ground reflectivity, and light reflections from any locked location plate photo.\n• Spatial + tactile layer (Environmental Interaction Specialist enhanced for hyper-realism): Cold rain streaking faces/gear with visible individual droplet impact and run-off physics, boots splashing through shallow water films on pavement producing accurate upward water spray plumes, mist, and secondary droplet arcs with real-world momentum and gravity; fine rain visible as light-refracting streaks and particles in air; water beading, coalescing into rivulets and absorbing into fabric causing precise wet-darkening, clinging and specular highlight roll-off on clothing/gear; deep hyper-realistic reflections on wet pavement — rippled/distorted mirror images of figures, lights and structures with correct perspective, anisotropic wet sheen, propagating concentric ripples and wakes from every footstep/boot impact and tire roll, caustics and light scatter in varying puddle depths, debris/leaf interaction in water; vapor/mist rising where rain meets warmer surfaces or breath under harsh lights. Wet surfaces must reflect the exact harsh overhead practical light sources and disciplined silhouettes visible in reference photos with optical fidelity.\n• Cinematic departure DNA: Atmosphere of cold, unyielding resolve. Rain and harsh lights underscore discipline and forward intent; no hesitation, only departure into the night with clear purpose. Recurring motifs (reflections in wet ground as mirrors of determination, rain as rhythmic punctuation to the march) must be consistent with prior shots and locked assets.\n• When location plates supplied: every new description must acknowledge the precise cold light temperature, harsh overhead source quality, surface wetness/reflectivity, puddle placement, and ground texture visible in the photo.`;
   }
 
   if (lower.includes('lighting') || lower.includes('cinematographer') || lower.includes('lighting-designer') || lower.includes('dolly')) {
-    return `• ${base}\n• Lighting ratio: 85-90% practical only. One bare bulb, distant billboard spill, occasional passing car headlights. Match the exact quality and color temperature of light falling on characters from any supplied reference photos.\n• Color war: Cold teal practicals constantly fighting warm sodium/orange practicals. No gelled beauty lights. Skin tones slightly crushed; highlights clip only on practical sources.\n• Shadow as character: Faces are half-hidden on purpose. Highlights only exist to deliver story information (a gun, a scar, a key). No fill light — the darkness is the point. Reference photo lighting signature must be preserved.\n• Camera: subtle, motivated — slow push when tension rises, handheld for intimacy or unease. 35mm or 50mm for intimacy; avoid showy moves. The camera is a participant.`;
+    return `• ${base}\n• Lighting ratio: 85-90% practical only. Harsh overhead lights (cold, stark, industrial) cutting sharp beams through the cold rainy night onto wet reflective ground, creating high-contrast pools, long shadows, and bright specular reflections of lights and departing figures in puddles and slick surfaces. Match the exact harsh quality, beam spread, color temperature, and ground reflection interactions of light falling on characters from any supplied reference photos.\n• Color war: Cold steely blues, harsh whites, desaturated tones; minimal warm if any. No gelled beauty lights or soft diffusion. Skin tones rendered cool and stark; highlights clip sharply on the overhead sources and their mirror reflections in the wet ground. Lighting projects discipline, order, and unemotional purpose.\n• Shadow and reflection as character: Faces half-hidden or glinted by harsh overhead glare and rain; body language/gait convey strong discipline and singular purpose of departure. The wet reflective ground acts as a second plane mirroring the resolve. No fill light — the harsh overheads and voids between define the cinematic mood. Reference photo lighting signature (overhead harshness + ground reflections) must be preserved exactly.\n• Camera: subtle, motivated — slow tracking or push following purposeful departure, angles emphasizing ground reflections and stature. 35mm or 50mm; steady, disciplined camera moves that echo the characters' resolve. The camera observes the cold purpose atmosphere.`;
   }
 
   if (lower.includes('prompt-writer') || lower.includes('vision-director') || lower.includes('scene-architect') || lower.includes('executive') || lower.includes('showrunner')) {
     return `• ${base}\n• Token discipline: Under 220 tokens per shot prompt. Every word must justify its existence. End every shot description with one concrete, tactile detail (temperature on skin, smell of wet concrete, sound of rain on metal).\n• DNA lock: Maintain the established neo-noir rules — moral gray, practical sources only, rain as recurring emotional punctuation, no clean resolutions. Reference at least one locked anchor (character scar from photo, location reflection, color grade) in every new prompt.\n• Vision ref discipline (when photos supplied): The prompt MUST contain precise visual matching language for the *exact* details visible in the reference images (e.g. "match the precise scar angle and reflectivity from the provided photo of LEAD, the specific creasing and wear on the leather jacket left shoulder, the exact 3-day stubble pattern and density visible on the cheekbones in the reference, the exact light fall on skin from the location plate"). Per-shot edited prompts + char photos + location breakdown are primary source of truth.\n• Sensory + story: Every beat must deliver one piece of story information through light, weather, or a locked physical detail.`;
   }
 
+  if (lower.includes('animation') || lower.includes('smoother') || lower.includes('motion') || lower.includes('physics')) {
+    return `• ${base}\n• ANIMATION SMOOTHER (Clip 8 London Calling bus departure focus - TECHNICAL & QUALITY MANDATORY): Enforce EXACTLY 6 seconds duration. Perfectly smooth natural motion with realistic bus physics. ${BUS_PHYSICS_INSTRUCTION || 'BUS PHYSICS INSTRUCTION (STRICT REALISM FOR TWO SEPARATE WHITE BUSES - BUS PHYSICS EXPERT & PHYSICS VALIDATOR MANDATE - CLIP 8): EXACTLY TWO SEPARATE DISTINCT IDENTICAL white airport shuttle buses (real 12m coach proportions), never merge/overlap/interpenetrate at any time or in reflections/parallax, maintain clear separation + independent rigid-body physics/parallax/speed/trajectory. Hyper-realistic 8K bus with obsessive perfect detail on both (micro-scratches, metallic flecks, rivets/bolts with shadows, panel gaps, chrome Fresnel + layered reflections incl. skyline/other bus, multi-pane glass with refraction/birefringence/rain micro-droplets/streaks with accurate IOR and double views of interior+exterior, tires deep tread + realistic sidewall flex/bulge/deformation under load + correct rotation, lights with caustics, decals sharp). DOORS CLOSE PROPERLY first on BOTH before any movement: perfect mechanical fidelity (roof/floor pneumatics with visible rods/actuators, heavy dual-panel plug/folding on exact hinges/arcs with true kinematics, non-linear damped speed curve, thick black rubber weatherstripping + gaskets visibly compressing/deforming + extruding micro water droplets, zero gaps/light leaks, sub-mm linkages/latches engaging with final clunk + resonant chassis vibration + body micro-settle). Only THEN gradual realistic acceleration (torque ramp overcoming inertia, only after full seal on that bus), correct wheel RPM match to velocity no slip, multi-axle suspension weight transfer/compression/rebound/lean on turns with accurate grip on wet, Newtonian tire spray (rooster-tails, side plumes, mist, droplet arcs, wakes, tracks). Extremely detailed independent dynamic wet pavement reflections of EACH bus separately + lights + passengers + skyline on tarmac/puddles (ripples/wakes/caustics/anisotropic sheen from tire contact). Use attached previous clip as STRONGEST primary visual reference for exact style/continuity: match end-state of buses (wetting, reflections, positioning), rain droplet physics/behavior/streaks, wet ground sheen/puddles/ripples exactly; seamless no-reset evolution. End motion reveals hyper-detailed accurate Montreal skyline (Place Ville Marie cross/sloped profile + beacon, 1000 de La Gauchetière cruciform tallest, high-rises correct fenestration/HVAC/antennas/strobes, proper haze/aerial perspective/glints, skyline reflected correctly on bus glass/chrome). All motion obeys real-world mass/momentum/inertia/wet friction/damping for heavy vehicles; 6s exact smooth continuous unbroken fluid take. ADDITIONAL VALIDATION: buses hyper-real 8K photoreal indistinguishable from live footage of real YUL shuttles; doors full 3D volume no artifacts; skyline correctly scaled distant with haze; previous clip rain/wet/lighting/bus state locked 1:1.'} TWO CLEARLY SEPARATE BUSES must be visible, distinct and physically independent AT ALL TIMES — never merge, overlap, interpenetrate or reduce to one vehicle; maintain accurate spatial separation, independent wheel/steering/suspension physics and parallax between the pair in every single frame. Hyper-realistic 8K detail required throughout. Logical scene progression ONLY for the departure: doors visibly and fully closing on BOTH buses first (complete seal action on each), THEN the two buses pull away separately from the curb with realistic gradual acceleration (torque ramp, subtle engine, wheel spin-up, suspension compression/bounce on tarmac), THEN buses merge into traffic. Medium-wide tracking shot: starting focused on the buses as doors close, smoothly tracking both buses pulling away and merging (keeping them separate and visible), ending with wider view to Montreal skyline. One smooth continuous shot with natural motion. All vehicles, visible passengers, background traffic and elements follow real-world mass, momentum, inertia and occlusion rules. STRICTLY one unbroken fluid cinematic take over exact 6s duration. Hyper-realistic 8K photorealism, physically accurate separate bus dynamics for the two buses enforced at every moment. Match any locked refs for bus livery, wet surfaces, reflections, passenger silhouettes. CONTINUITY AND REFERENCE MATCHER + REFERENCE VIDEO INTEGRATOR: Use the attached previous clip as strong visual reference for characters, lighting, rain, wet ground, and style. ADDITIONAL MOTION SMOOTHER PHRASES (CLIP 8 - MONTREAL SKYLINE BUS DEPARTURE): ADDITIONAL MOTION CONTINUITY FOR 6S CLIP: The entire sequence exhibits perfect frame-to-frame temporal coherence and velocity continuity across all 6 seconds — bus bodies, door mechanisms, wheels, suspension, rain elements, reflections, and camera position/angle all follow smooth, physically-plausible, continuous trajectories with no pops, jumps, stutters, velocity discontinuities, or element teleportation between frames; motion is governed by real inertia, momentum, and damping for heavy vehicles on wet surface; camera tracking is one unbroken motivated move with consistent speed profile and natural optical breathing. PREVIOUS CLIP STYLE REFERENCE: Use the attached previous clip as the primary style and continuity reference — match exactly the photoreal rendering quality, rain droplet physics and distribution, wet tarmac reflection intensity and ripple propagation, bus surface water beading and sheen response to light, character uniform wet fabric behavior and micro-motions, harsh overhead lighting temperature and specular bloom, overall cinematic atmosphere and color grading for seamless logical flow and no visual reset at clip start or during the departure progression. SKYLINE REVEAL MOTION: As the medium-wide tracking shot smoothly widens to the Montreal skyline at the end of the 6s clip, the iconic buildings (Place Ville Marie with its precise cross/sloped roof profile, 1000 de La Gauchetière's cruciform massing, surrounding glass high-rises with accurate fenestration patterns, rooftop HVAC units, antennas and mechanical equipment) are revealed with perfect continuous perspective shift, consistent atmospheric haze and aerial perspective that scales naturally with camera movement, window glints and reflections that update continuously without popping or artificial sharpening; no distortion, no toy-like scaling, full 8K detail fidelity maintained on skyline elements throughout the continuous take with correct parallax relative to the independently moving buses in foreground. HYPER-REALISTIC BUS WITH PERFECT DETAIL IN MOTION: The two separate white airport buses render with obsessive hyper-realistic 8K detail on every component under dynamic motion: body panels show micro-scratches, metallic flecks, grime, clearcoat depth and orange-peel that catch and move light accurately with rigid body translation/rotation; every rivet and fastener casts moving cast shadows and speculars; multi-pane safety glass exhibits accurate evolving refractions of interior (seats, men silhouettes) and exterior (skyline, rain, lights) as viewpoint and bus orientation change continuously; tires demonstrate precise tread bite, sidewall flex, load deformation, and continuous rotation matching speed with no slip or stutter; chrome trim and mirrors provide layered, curvature-correct, motion-updating environmental reflections including of the other bus, men, skyline and wet ground. BUS DOORS CLOSING WITH PERFECT MECHANICAL AND MOTION FIDELITY: Doors on both buses close with flawless non-linear physics-accurate motion curves (inertia-overcoming slow start, mid acceleration, damped deceleration to stop), sub-millimeter alignment of panels at closure with no gaps, light leaks, interpenetration or floating; gaskets compress and recover elastically with visible uniform deformation and micro-droplet expulsion that evolves frame-by-frame realistically; all linkages, actuators, pivots show correct rigid body kinematics and parallax from the tracking camera; seal completion and latch clunk produce a single natural chassis vibration that damps smoothly into the subsequent pull-away acceleration without any artifact or discontinuity. CONTINUOUS LOGICAL FLOW AND SEPARATE BUS PHYSICS: Strict causal order — both buses' doors reach full visible sealed and latched state before either begins any forward motion or acceleration; the two buses remain distinctly separate physical objects with constant safe lateral separation, independent suspension responses, wheel speeds, trajectories and parallax at all times; pull-aways are gradual realistic torque-driven with natural weight transfer and wet surface interaction; merge into traffic is smooth with believable inertia; no merging of buses, no speed pops, no camera cuts — one fluid 6-second cinematic take. ters, lighting, rain, wet ground, and style. SPECIFIC LANGUAGE FOR PROMPT: exact match to characters (faces, hair, sunglasses, expressions, proportions, dark blue jackets' wet fabric texture/cling/sway/ribbing/reflections/nametags as seen at end of previous clip); lighting (color temperature, source quality, shadows, speculars exactly from previous); rain (density, angle, droplet physics, surface interactions identical); wet ground (sheen, puddle geometry and reflections of buses/figures/lights/sky, water physics, disturbances matching previous clip); buses/surfaces (streaks, beading, reflections); style (photoreal cinematic, lens, DOF, grade, grain, atmosphere). Action continues seamlessly with no state reset from previous clip's final visuals. Weight previous clip ref frame highest when using reference_to_video or i2v refs. — explicitly reference and match the previous clip's characters (appearances, details), lighting, rain, wet ground (reflections/sheen/puddles), and style/grading/atmosphere 1:1 in the output for perfect continuity.`;
+  }
+
   if (lower.includes('continuity') || lower.includes('continuity-supervisor') || lower.includes('head-editor')) {
-    return `• ${base}\n• Wardrobe and scar continuity across all scenes with ${chars}: exact position, wear, and light interaction on the scar and jacket must match every prior locked shot and reference photo.\n• Rain intensity, lighting temperature, and reflective surface placement must match the previous beat unless a clear time jump is stated in the script (and even then, carry forward the core anchors).\n• No accidental full-face reveals or location details that contradict previous locked assets. Time of day, weather, and busy level must be consistent unless explicitly jumped.\n• Editor note: Suggest cuts that preserve practical lighting, rain motifs, and tactile details (hands on wet jacket, reflections in puddles) to sell isolation. Pace tense — hold on micro-expressions and practical sources.`;
+    return `• ${base}\n• Wardrobe and scar continuity across all scenes with ${chars}: exact position, wear, and light interaction on the scar and jacket must match every prior locked shot and reference photo.\n• Rain intensity, lighting temperature, and reflective surface placement must match the previous beat unless a clear time jump is stated in the script (and even then, carry forward the core anchors). • For Clip 8 specifically (using attached previous clip): enforce use of previous clip as strong visual reference locking exact characters, lighting, rain, wet ground (puddles/reflections/sheen), and style with the detailed continuity language from Continuity Expert + Style Matcher sub-agent: VORSANGER CONSISTENCY INSTRUCTION (CHARACTER DNA LOCK - VORSANGER & IDENTICAL MEN): 90 men identical clones (Vorsanger same face/hair/build/clothing/sunglasses as others, only prominent white "VORSANGER" nametag as leader); no drift even through windows/boarding complete/skyline focus. characters (exact likenesses, wet dark blue jacket fabric cling/sway/stretch, German nametags e.g. Vorsanger from prev end state), lighting (harsh overhead beams through rain, speculars, color temp), rain physics (droplets, beading, spray, wind angle), wet tarmac/puddles/sheen/ripples/reflectivity exactly, overall cinematic style/atmosphere; match previous clip for hyper-detailed Montreal skyline (Place Ville Marie cross roof profile, 1000 de La Gauchetière cruciform, high-rises fenestration/HVAC/antennas with haze/aerial perspective/glints, accurate reflections in bus glass/puddles), bus hyper-realism with perfect detail (paint, glass, tires, rivets, suspension, rain beading/caustics), and bus doors closing properly (dual-panel plug/folding with pneumatic actuators, visible linkages, rubber gaskets compressing to perfect zero-gap seal, latch clunk, chassis vibration, synchronized on both buses before pull-away); seamless evolution of the departure action (doors close both buses first, pull away sep., merge, skyline) without any visual reset. End visual state of prev clip = precise start state of this clip. \n• No accidental full-face reveals or location details that contradict previous locked assets. Time of day, weather, and busy level must be consistent unless explicitly jumped.\n• Editor note: Suggest cuts that preserve practical lighting, rain motifs, and tactile details (hands on wet jacket, reflections in puddles) to sell isolation. Pace tense — hold on micro-expressions and practical sources.`;
   }
 
   if (lower.includes('colorist') || lower.includes('color')) {
-    return `• ${base}\n• Grade locked to cold teal practicals vs warm sodium practicals across the entire sequence. Skin tones slightly crushed; highlights allowed to clip on practical sources only.\n• Rain and wet surfaces get a subtle blue-green lift to sell the isolation and depth — match the exact wetness and reflection quality from locked location plates.\n• No teal-orange Hollywood look — this is meaner, more grounded, and photo-anchored. Preserve the exact color temperature visible on character skin and environment in the reference photos.`;
+    return `• ${base}\n• Grade locked to cold steely tones under harsh overhead lights, desaturated cool palette with sharp specular highlights on wet reflective ground for the cinematic departure. Skin tones slightly crushed and cool; highlights clip on the harsh overhead sources and their mirror-like reflections in puddles and slick tarmac only.\n• Rain and wet reflective ground get a subtle cold blue-white lift to sell the chill of the night and the purposeful reflections — match the exact wetness, ground reflectivity, and light bounce from locked location plates.\n• No Hollywood teal-orange or romantic rain — this is mean, disciplined, grounded neo-noir for departure scenes. Preserve the exact harsh color temperature, stark contrast, and reflective ground interactions visible on character skin, gear, and environment in the reference photos.`;
   }
 
   if (lower.includes('vfx-supervisor') || lower.includes('fx-artist')) {
@@ -6208,7 +6368,7 @@ function getHighQualityLocalAgentOutput(agentId, proj) {
   }
 
   // Strong generic high-quality fallback for any other of the 82
-  return `• ${base}\n• ${loc} and ${chars} must feel connected through recurring visual motifs (reflections in wet surfaces, practical light signatures, rain as emotional punctuation) that match any supplied reference photos and prior locked shots exactly.\n• Every beat must deliver one clear piece of story or character information through light, weather, texture, or a locked physical detail (scar, jacket crease, specific surface wear).\n• Maintain the tone: neo-noir, practical-only sources, emotionally cold but visually rich and photo-anchored. No generic "cinematic" language. When reference photos exist, every output must call out precise matching requirements for visible details in those images.`;
+  return `• ${base}\n• ${loc} and ${chars} must feel connected through recurring visual motifs (reflections in wet reflective ground under harsh overheads, practical light signatures, cold rain as emotional punctuation of purpose) that match any supplied reference photos and prior locked shots exactly.\n• Every beat must deliver one clear piece of story or character information through light, weather, texture, or a locked physical detail (scar, jacket crease, specific surface wear). For departure beats, emphasize cold rainy night atmosphere, wet ground reflections, and strong sense of discipline and purpose.\n• Maintain the tone: neo-noir, practical-only sources, emotionally cold but visually rich and photo-anchored with cinematic departure resolve. No generic "cinematic" language. When reference photos exist, every output must call out precise matching requirements for visible details in those images.`;
 }
 
 async function mhSynthesizeFinalPrompts(){
@@ -6243,7 +6403,7 @@ async function mhSynthesizeFinalPrompts(){
       const out = res.output || res.result || '';
       finalText = (typeof out === 'string') ? out : JSON.stringify(out);
     }else{
-      finalText = `The ${tod.toLowerCase()} rain slicks the cracked concrete of the old riverside warehouse district. ${mood} sodium light bleeds across wet asphalt while a single bare bulb swings inside the cavernous space, throwing long shadows that feel like accusations.\n\n${cam} — the camera stays tight on our lead, catching the micro-tension in his jaw, the way his eyes never stop scanning the reflective puddles for movement. Every practical source is motivated; nothing is pretty for its own sake.`;
+      finalText = `Cold rain falls steadily on the wet reflective ground of the departure zone under harsh overhead lights. The slick tarmac and puddles mirror the stark beams and the disciplined figures moving with singular purpose and resolve into the cinematic night. Cold, unyielding atmosphere of departure — every reflection and rain streak underscores iron discipline and forward intent. Hyper-realistic rain details: fine droplets streaking through the harsh overhead glow with visible refraction, water spray from purposeful footsteps on the reflective ground creating transient mist, hyper-detailed reflections on wet pavement showing rippled distorted images of the overhead lights and departing figures with realistic ripple dynamics, water beading and running on surfaces with accurate physics.\n\n${cam} — the camera tracks the purposeful strides across the mirror-like ground, catching rain on collars, the hard set of jaws under harsh light, and the doubled silhouettes in the wet reflections. Every practical source is motivated; the lighting and reflections sell the discipline and forward intent. Nothing soft, nothing wasted.`;
     }
   }catch(e){
     finalText = 'Agent synthesis unavailable right now. Using strong fallback based on your points.\n\n' + pointsBlock.slice(0,800);
@@ -6380,7 +6540,7 @@ function openMediaHubGenerate(){
         const banner = document.createElement('div');
         banner.id = 'localDemoBanner';
         banner.style.cssText = 'background:#1a1408;border:1px solid var(--gold-border);color:var(--gold);padding:4px 10px;border-radius:4px;font-size:11px;margin-top:6px;display:inline-block;';
-        banner.textContent = 'Local Demo Mode — High-quality agent simulations. Real agents require live deploy.';
+        banner.textContent = 'Local-Only Mode — parse, edit prompts, generate via local bridge (ComfyUI/ffmpeg), stitch & export MP4.';
         header.appendChild(banner);
       }
     }
@@ -6624,7 +6784,7 @@ function mhRebuildCharAgentBoxes() {
       const note = document.createElement('div');
       note.id = 'charLocalNote';
       note.style.cssText = 'font-size:10px;color:#666;margin:8px 0;padding:4px;background:#1a1408;border:1px solid var(--gold-border);border-radius:4px;';
-      note.textContent = 'Local Demo: Character data extracted from script text. Real photo gen and agents require live deploy.';
+      note.textContent = 'Local mode: agents use sims. Photos + video go through the local bridge (Pillow/ffmpeg placeholders until ComfyUI on your GPU box is connected). Status banner above shows bridge + ComfyUI state.';
       area.insertBefore(note, area.firstChild);
     }
   }
@@ -6644,7 +6804,8 @@ function renderCharacterPhotos(charName) {
   Object.keys(photosByModel).forEach(model => {
     html += `<div style="margin:4px 0;"><strong style="color:#aaa;">${esc(model)}</strong><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">`;
     photosByModel[model].forEach(photo => {
-      html += `<div style="width:72px;text-align:center;"><img src="${photo.url}" style="width:70px;height:70px;object-fit:cover;border-radius:4px;border:1px solid var(--border);" /><div style="font-size:9px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;">${esc((photo.prompt||'').slice(0,20))}</div></div>`;
+      const prov = photo.provider ? sbProviderBadge(photo.provider) : '';
+      html += `<div style="width:72px;text-align:center;"><img src="${photo.url}" style="width:70px;height:70px;object-fit:cover;border-radius:4px;border:1px solid var(--border);" /><div style="font-size:9px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;">${esc((photo.prompt||'').slice(0,20))}</div>${prov}</div>`;
     });
     html += `</div></div>`;
   });
@@ -6689,147 +6850,11 @@ async function generateCharacterPhotoForBox(charName) {
     }
   } catch(e){ /* non-fatal */ }
 
-  // Local "generation": create a *character-specific* reference sheet (multi-angle) so the pictures actually make sense for photo-matching.
-  // We parse key visual cues from the bible desc + agent points (scar, jacket, military, weathered, leather, etc.) and draw a consistent person.
-  // This replaces the generic stick-figure that didn't match the character at all.
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 512;
-  const ctx = canvas.getContext('2d');
-
-  // Background - subtle cinematic
-  ctx.fillStyle = '#0a0a0f';
-  ctx.fillRect(0, 0, 512, 512);
-  // Subtle vignette / film look
-  const grad = ctx.createRadialGradient(256, 256, 180, 256, 256, 280);
-  grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(1, 'rgba(0,0,0,0.4)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 512, 512);
-
-  // Determine visual traits from description
-  const descLower = (baseDesc + ' ' + promptUsed).toLowerCase();
-  const jacketColor = descLower.includes('leather') || descLower.includes('jacket') ? '#2f2a22' : '#1f2a3a';
-  const skinTone = descLower.includes('weathered') ? '#c9a88a' : '#d2b48c';
-  const hasScar = descLower.includes('scar');
-  const isMilitary = descLower.includes('military') || descLower.includes('ex-military') || descLower.includes('soldier');
-
-  ctx.strokeStyle = '#f4a261';
-  ctx.lineWidth = 2.5;
-
-  // Helper to draw one angle of the character
-  function drawCharacter(x, y, scale, angle) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(scale, scale);
-    if (angle === 'side') ctx.scale(-0.9, 1); // flip for side
-
-    // Head
-    ctx.fillStyle = skinTone;
-    ctx.beginPath();
-    ctx.arc(0, 0, 28, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    // Scar if present (over left eye area)
-    if (hasScar) {
-      ctx.strokeStyle = '#8b0000';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(-8, -6);
-      ctx.lineTo(6, -12);
-      ctx.stroke();
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = '#f4a261';
-    }
-
-    // Eyes (simple)
-    ctx.fillStyle = '#222';
-    ctx.fillRect(-12, -4, 6, 3);
-    ctx.fillRect(6, -4, 6, 3);
-
-    // Mouth
-    ctx.beginPath();
-    ctx.moveTo(-6, 10);
-    ctx.lineTo(6, 10);
-    ctx.stroke();
-
-    // Torso / jacket
-    ctx.fillStyle = jacketColor;
-    ctx.fillRect(-22, 22, 44, 55);
-    ctx.strokeRect(-22, 22, 44, 55);
-
-    // Collar / lapels hint
-    ctx.strokeStyle = '#111';
-    ctx.beginPath();
-    ctx.moveTo(-10, 24);
-    ctx.lineTo(0, 32);
-    ctx.lineTo(10, 24);
-    ctx.stroke();
-    ctx.strokeStyle = '#f4a261';
-
-    // Arms (simple)
-    ctx.beginPath();
-    ctx.moveTo(-22, 28);
-    ctx.lineTo(-38, 55);
-    ctx.moveTo(22, 28);
-    ctx.lineTo(38, 55);
-    ctx.stroke();
-
-    // If military hint - belt or straps
-    if (isMilitary) {
-      ctx.fillStyle = '#111';
-      ctx.fillRect(-20, 55, 40, 6);
-    }
-
-    // Legs / boots
-    ctx.fillStyle = '#111';
-    ctx.fillRect(-16, 77, 12, 28);
-    ctx.fillRect(4, 77, 12, 28);
-
-    ctx.restore();
-  }
-
-  // FRONT view (center left)
-  drawCharacter(110, 200, 1.1, 'front');
-  // 3/4 view
-  drawCharacter(260, 200, 1.0, 'front');
-  // Side / profile
-  drawCharacter(400, 200, 0.95, 'side');
-
-  // Labels
-  ctx.fillStyle = '#f4a261';
-  ctx.font = '11px monospace';
-  ctx.fillText('FRONT', 85, 285);
-  ctx.fillText('3/4', 245, 285);
-  ctx.fillText('PROFILE', 375, 285);
-
-  // Header
-  ctx.fillStyle = '#ddd';
-  ctx.font = '13px monospace';
-  ctx.fillText('GROK-DIRECTED CHARACTER REFERENCE: ' + charName.toUpperCase(), 18, 26);
-
-  // Key traits line at bottom (from the prompt)
-  ctx.font = '10px sans-serif';
-  ctx.fillStyle = '#aaa';
-  const traitLine = (promptUsed || baseDesc).replace(/\|/g, '•').slice(0, 95) + '...';
-  ctx.fillText(traitLine, 18, 470);
-
-  // Border for "photo" feel
-  ctx.strokeStyle = '#444';
-  ctx.lineWidth = 8;
-  ctx.strokeRect(4, 4, 504, 504);
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = '#f4a261';
-  ctx.strokeRect(12, 12, 488, 488);
-
-  const localUrl = canvas.toDataURL('image/png');
-
-  // Call the unified asset endpoint for pictures too (supports both Grok Imagine for real pixels and WaveSpeed/demo path).
-  // Provider choice (from the Generate tab control) lets you pick which service does the actual picture render.
-  let finalPhotoUrl = localUrl;
+  // Local bridge generates images (ComfyUI T2I when GPU available, else Pillow reference cards).
+  let finalPhotoUrl = null;
   let finalPromptForPhoto = promptUsed;
-  const picProvider = (document.getElementById('mhProvider') ? document.getElementById('mhProvider').value : 'grok-imagine');
+  let picProvider = 'shotbreak-local';
+  const picProviderSel = (document.getElementById('mhProvider') ? document.getElementById('mhProvider').value : 'grok-imagine');
   try {
     const h = (window.hdrs ? await window.hdrs() : {'Content-Type': 'application/json'});
     const picPayload = {
@@ -6837,19 +6862,25 @@ async function generateCharacterPhotoForBox(charName) {
       type: 'character',
       name: charName,
       desc: baseDesc,
+      prompt: promptUsed,
       points: charPoints,
       location: p.location || {},
       referenceImages: refImgsForPic,
-      model: model,  // chosen photo model from select (e.g. flux-xai, wan-2.7, nano-banana-pro) — sent to XAI direct or WaveSpeed
+      model: model,
       aspect_ratio: photoAspect,
       resolution: photoRes,
-      provider: picProvider
+      provider: picProviderSel
     };
-    const r = await fetch('/.netlify/functions/generate-video', {method: 'POST', headers: h, body: JSON.stringify(picPayload)});
+    const r = await fetch(sbVideoProxy(), {method: 'POST', headers: h, body: JSON.stringify(picPayload)});
     const d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.error || ('HTTP ' + r.status));
     if (d && d.prompt) finalPromptForPhoto = d.prompt;
     if (d && (d.url || d.demo_url)) finalPhotoUrl = d.url || d.demo_url;
-  } catch(e){ /* keep the local canvas */ }
+    if (d && d.provider) picProvider = d.provider;
+  } catch(e) {
+    alert('Image generation failed: ' + (e.message || e) + '\nIs the local bridge running on port 3456?');
+    return;
+  }
 
   addCharacterPhoto(charName, model, {
     url: finalPhotoUrl,
@@ -6858,11 +6889,12 @@ async function generateCharacterPhotoForBox(charName) {
     usedPoints: charPoints,
     localGenerated: isLocal,
     grokDirected: true,
-    visionUsed: refImgsForPic.length > 0
+    visionUsed: refImgsForPic.length > 0,
+    provider: picProvider
   });
 
   renderCharacterPhotos(charName);
-  alert('✅ Photo for ' + charName + ' using ' + model + ' is DONE!\nThumbnail updated in the "Character Photos — by AI Model" section below.\n(Used the model\'s supported settings for resolution/aspect/refs. Check the note on the model selector for details.)');
+  alert('✅ Photo for ' + charName + ' using ' + model + ' is DONE!\nProvider: ' + picProvider + (picProvider === 'comfyui-local' ? ' (real ComfyUI T2I)' : ' (reference card — connect ComfyUI for real pixels)') + '\nThumbnail updated below.');
 }
 
 // NEW: Location photo adder (for coherence matching, lives in Characters tab)
@@ -6888,36 +6920,15 @@ async function addLocationPhoto() {
     }
   } catch(e){}
 
-  // Local canvas plate for coherence matching (Grok-directed label)
-  const canvas = document.createElement('canvas');
-  canvas.width = 640;
-  canvas.height = 360;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#0a0a0f';
-  ctx.fillRect(0, 0, 640, 360);
-  ctx.fillStyle = '#e9c46a';
-  ctx.font = '16px monospace';
-  ctx.fillText('GROK-DIRECTED LOCATION PLATE', 20, 30);
-  ctx.font = '12px sans-serif';
-  const dlines = desc.match(/.{1,50}(\s|$)/g) || [desc];
-  dlines.slice(0,5).forEach((l,i) => ctx.fillText(l.trim(), 20, 60 + i*16));
-  ctx.strokeStyle = '#f4a261';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(50, 100, 540, 200);
-  ctx.beginPath(); ctx.arc(200, 150, 30, 0, Math.PI*2); ctx.stroke();
-  ctx.fillText('GROK + ' + (p.location ? p.location.weather : 'ATMOSPHERE'), 20, 330);
+  const locProviderSel = (document.getElementById('mhProvider') ? document.getElementById('mhProvider').value : 'grok-imagine');
+  const locModel = (document.getElementById('photoModelSelect') ? document.getElementById('photoModelSelect').value : 'wan-2.7');
+  const lCfg = PHOTO_MODELS[locModel] || PHOTO_MODELS['wan-2.7'];
 
-  const localUrl = canvas.toDataURL('image/png');
-
-  const locProvider = (document.getElementById('mhProvider') ? document.getElementById('mhProvider').value : 'grok-imagine');
-
-  // Try unified backend for location pictures as well (Grok Imagine can produce real plates when key is set; falls back gracefully)
-  let finalLocUrl = localUrl;
+  let finalLocUrl = null;
   let finalLocPrompt = desc;
+  let locProvider = 'shotbreak-local';
   try {
     const h = (window.hdrs ? await window.hdrs() : {'Content-Type': 'application/json'});
-    const locModel = (document.getElementById('photoModelSelect') ? document.getElementById('photoModelSelect').value : 'wan-2.7');
-    const lCfg = PHOTO_MODELS[locModel] || PHOTO_MODELS['wan-2.7'];
     const locPayload = {
       action: 'generate_picture',
       type: 'location',
@@ -6927,19 +6938,24 @@ async function addLocationPhoto() {
       model: locModel,
       aspect_ratio: lCfg.aspectRatios[0],
       resolution: lCfg.resolutions[0],
-      provider: locProvider
+      provider: locProviderSel
     };
-    const r = await fetch('/.netlify/functions/generate-video', {method:'POST', headers:h, body:JSON.stringify(locPayload)});
+    const r = await fetch(sbVideoProxy(), {method:'POST', headers:h, body:JSON.stringify(locPayload)});
     const d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.error || ('HTTP ' + r.status));
     if (d && d.prompt) finalLocPrompt = d.prompt;
     if (d && (d.url || d.demo_url)) finalLocUrl = d.url || d.demo_url;
-  } catch(e){}
+    if (d && d.provider) locProvider = d.provider;
+  } catch(e) {
+    alert('Location plate failed: ' + (e.message || e) + '\nIs the local bridge running on port 3456?');
+    return;
+  }
 
-  p.assets.locationPhotos.push({ url: finalLocUrl, prompt: finalLocPrompt, model, ts: Date.now(), localGenerated: !finalLocUrl || finalLocUrl === localUrl, grokDirected: true, provider: locProvider });
+  p.assets.locationPhotos.push({ url: finalLocUrl, prompt: finalLocPrompt, model: locModel, ts: Date.now(), localGenerated: isLocal, grokDirected: true, provider: locProvider });
   try { localStorage.setItem('sb_project', JSON.stringify(p)); } catch(e){}
 
   renderLocationPhotos();
-  alert('✅ Location plate generated using ' + locModel + ' is DONE!\nIt appears in the Location Photo Library.\n(Only used settings valid for that model. See the photo model selector note.)');
+  alert('✅ Location plate generated using ' + locModel + ' is DONE!\nProvider: ' + locProvider + (locProvider === 'comfyui-local' ? ' (real ComfyUI T2I)' : ' (reference card — connect ComfyUI for real pixels)') + '\nIt appears in the Location Photo Library.');
 }
 
 function renderLocationPhotos() {
@@ -6955,6 +6971,7 @@ function renderLocationPhotos() {
     <div style="width:110px;text-align:center;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#111">
       <img src="${ph.url}" style="width:100%;height:62px;object-fit:cover;display:block" />
       <div style="font-size:9px;padding:3px 4px;color:#aaa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((ph.prompt||'').slice(0,28))}</div>
+      ${ph.provider ? sbProviderBadge(ph.provider) : ''}
     </div>`).join('');
 }
 
@@ -6969,7 +6986,7 @@ async function mhRunEntityAgents(kind, entityKey, btn) {
   const p = projectLoad() || {};
   const relevantAgents = (kind === 'character')
     ? ['visual-character-builder', 'psychological-builder', 'voice-builder']
-    : ['environment-builder', 'atmospherics-builder', 'prompt-writer'];
+    : ['environment-builder', 'atmospherics-builder', 'prompt-writer', 'animation-smoother'];
 
   let suggestions = [];
   let usedFallback = false;
@@ -7029,6 +7046,26 @@ async function mhRunEntityAgents(kind, entityKey, btn) {
 }
 
 function mhToggleSuggestion(checkbox, entityKey, text) {
+  if (entityKey === 'script') {
+    if (!_mhApprovedPoints.script) _mhApprovedPoints.script = [];
+    if (checkbox.checked) {
+      if (!_mhApprovedPoints.script.includes(text)) _mhApprovedPoints.script.push(text);
+    } else {
+      _mhApprovedPoints.script = _mhApprovedPoints.script.filter(t => t !== text);
+    }
+    mhRefreshPointList('script');
+    return;
+  }
+  if (entityKey === 'generate') {
+    if (!_mhApprovedPoints.generate) _mhApprovedPoints.generate = [];
+    if (checkbox.checked) {
+      if (!_mhApprovedPoints.generate.includes(text)) _mhApprovedPoints.generate.push(text);
+    } else {
+      _mhApprovedPoints.generate = _mhApprovedPoints.generate.filter(t => t !== text);
+    }
+    mhRefreshPointList('generate');
+    return;
+  }
   if (!_mhApprovedPoints.characters) _mhApprovedPoints.characters = {};
   if (!_mhApprovedPoints.characters[entityKey]) _mhApprovedPoints.characters[entityKey] = [];
 
@@ -7040,7 +7077,6 @@ function mhToggleSuggestion(checkbox, entityKey, text) {
     _mhApprovedPoints.characters[entityKey] = _mhApprovedPoints.characters[entityKey].filter(t => t !== text);
   }
 
-  // Live update the point list
   mhRefreshPointList('char_' + entityKey);
 }
 
@@ -7067,9 +7103,20 @@ function mhRefreshPointList(entityBoxId) {
   listEl.style.display = 'block';
 }
 
+function mhNormalizePoints(raw) {
+  return (raw || []).map(p => {
+    if (typeof p === 'string') return p.trim();
+    if (p && typeof p.text === 'string') return p.text.trim();
+    return String(p || '').trim();
+  }).filter(Boolean);
+}
+
 function mhParseBox(entityBoxId) {
   const listEl = document.getElementById('points_' + entityBoxId);
-  if (!listEl) return;
+  if (!listEl) {
+    alert('Parse UI not ready for ' + entityBoxId + '. Refresh the page and try again.');
+    return;
+  }
 
   let points = [];
   if (entityBoxId.startsWith('char_')) {
@@ -7077,10 +7124,13 @@ function mhParseBox(entityBoxId) {
     points = (_mhApprovedPoints.characters && _mhApprovedPoints.characters[key]) || [];
   } else if (entityBoxId === 'script') {
     points = _mhApprovedPoints.script || [];
+  } else if (entityBoxId === 'generate') {
+    points = _mhApprovedPoints.generate || [];
   }
+  points = mhNormalizePoints(points);
 
   if (points.length === 0) {
-    alert('No approved points yet for this box.');
+    alert('No approved points yet for this box. Run the agents first and keep at least one checkbox checked.');
     return;
   }
 
@@ -7093,13 +7143,17 @@ function mhParseBox(entityBoxId) {
     listEl.parentNode.appendChild(outEl);
   }
 
+  outEl.style.display = 'block';
   outEl.innerHTML = 'Final prose agent is turning these points into a clean, continuity-safe prompt...';
+  outEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   // Call the existing synthesizer logic but scoped
   setTimeout(() => {
-    const baseClean = points.join(' | ') + 
+    const baseClean = points.join(' | ') +
       `\n\n(Continuity-safe, no character bleed, location and time locked from the approved points above.)`;
-    const header = `Clean prompt for ${entityBoxId}:`;
+    const header = entityBoxId === 'script'
+      ? 'Clean script prompt:'
+      : `Clean prompt for ${entityBoxId}:`;
 
     // Make it editable + relockable as requested.
     // User can tweak the synthesized prompt (fix grammar, add personal direction, adjust length) then relock to use their version downstream.
@@ -7307,7 +7361,7 @@ async function mhRunScriptAgents() {
 
   // For demo we use the simulated + real agents if available
   const p = projectLoad() || {};
-  const agents = ['vision-director', 'story-director', 'action-writer', 'prompt-writer'];
+  const agents = ['vision-director', 'story-director', 'action-writer', 'prompt-writer', 'animation-smoother'];
 
   let all = [];
   let usedFallback = false;
@@ -7348,7 +7402,7 @@ async function mhRunScriptAgents() {
   });
   box.innerHTML = html || 'No suggestions.';
 
-  _mhApprovedPoints.script = all;
+  _mhApprovedPoints.script = all.map(item => item.text).filter(Boolean);
   mhRefreshPointList('script');
 }
 
@@ -7523,7 +7577,7 @@ function addCharToShot(key) {
         // Best-effort: upload via the unified asset endpoint so we can forward a stable ref to video (and Grok if vision added later)
         try {
           const h = (window.hdrs ? await window.hdrs() : {'Content-Type':'application/json'});
-          const up = await fetch('/.netlify/functions/generate-video', {
+          const up = await fetch(sbVideoProxy(), {
             method:'POST', headers:h,
             body: JSON.stringify({action:'upload_image', image_data_url: photo, filename: (name||'char')+'.jpg'})
           });
@@ -7600,7 +7654,7 @@ function renderAgentContribsForShot(key, p) {
   const base = (shot.text || '').slice(0,40);
 
   // Use the high-quality local simulator for 6-8 relevant specialists (the full 82 registry is available via Run All).
-  const agentsToShow = ['vision-director','cinematographer','lighting-designer','continuity-supervisor','environment-builder','prompt-writer','atmospherics-builder','scene-architect'];
+  const agentsToShow = ['vision-director','cinematographer','lighting-designer','continuity-supervisor','environment-builder','prompt-writer','animation-smoother','atmospherics-builder','scene-architect'];
   let html = '';
   agentsToShow.forEach(aid => {
     const txt = getSimulatedAgentOutput(aid, p);
@@ -7624,7 +7678,7 @@ async function runAgentsForShot(key, btn) {
 
   // In production this would fan out to dozens of relevant agents from registry via SB_Agents
   // Here we simulate + try real if window.SB_Agents exists, and ALWAYS label with agent id.
-  const agentsToRun = ['vision-director','cinematographer','lighting-designer','continuity-supervisor','environment-builder','prompt-writer','scene-architect'];
+  const agentsToRun = ['vision-director','cinematographer','lighting-designer','continuity-supervisor','environment-builder','prompt-writer','animation-smoother','scene-architect'];
 
   let html = '';
   for (const aid of agentsToRun) {
@@ -7727,6 +7781,74 @@ async function generateVideoForShot(key, btn) {
     console.warn('[generateVideoForShot] Grok enrich failed, using raw cleaned prompt:', e.message || e);
   }
 
+  // === ANIMATION SMOOTHER (specialist for realistic video gen, esp. Clip 8 London Calling bus sequence) ===
+  // This is the Animation Smoother role: post-process / augment the prompt to guarantee smooth natural motion,
+  // realistic vehicle physics, no jumps, and logical action flow for the 6s clip per scene progression:
+  // doors closing on both buses, then buses pulling away separately, merging into traffic, camera tracking smoothly to wider Montreal skyline view.
+  try {
+    const isClip8 = key && (key.endsWith('-8') || key.includes('.8') || key.includes('-8') || /clip.?8| S8|shot.?8/i.test(key));
+    const hasVehicleAction = /bus|double.?decker|door|clos|depart|pull|away|accelerat|turn|corner|drive|vehicle|car|truck/i.test((cleanPrompt + ' ' + rawPrompt + ' ' + (ui.loc && ui.loc.name || '')).toLowerCase());
+    if (isClip8 || hasVehicleAction) {
+      const smootherSim = (typeof getSimulatedAgentOutput === 'function') ? getSimulatedAgentOutput('animation-smoother', p) : '';
+      const clip8Note = isClip8 ? ' [CLIP 8 - LONDON CALLING BUS DEPARTURE - MONTREAL SKYLINE WIDE - PRIORITY SMOOTHING]' : '';
+      const BUS_PHYSICS_INSTRUCTION = `BUS PHYSICS INSTRUCTION (STRICT REALISM FOR TWO SEPARATE WHITE BUSES - BUS PHYSICS EXPERT & DOOR MECHANICS EXPERT MANDATE - CLIP 8 LONDON CALLING): EXACTLY TWO SEPARATE, DISTINCT, IDENTICAL white airport shuttle buses that remain 100% physically independent and spatially separated at all times (clear visible lateral clearance and gap between them in every frame; independent trajectories, speeds if offset, wheel/door/suspension actions, and true binocular parallax). They must NEVER visually merge, fuse, overlap, clip, interpenetrate, reduce to one vehicle, or show any distortion/glitching between the pair — enforce accurate real-world physical separation, independent rigid-body dynamics, and differential motion for the pair of buses throughout the entire 6-second clip. 
+
+HYPER-REALISTIC BUS WITH PERFECT 8K DETAIL (for both white buses independently): obsessive photoreal surface and mechanical fidelity — white exterior paint with micro-scratches, embedded metallic particle flecks, road dust/grime accumulation, deep clearcoat layering, authentic orange-peel texture, and dynamic specular highlights varying with wet rain film and viewing angle; precise body panel gaps and alignment with consistent crisp shadow lines; individual rivets, bolts, and fastener heads with realistic bevels, wear, cast shadows, and paint chipping; chrome bumpers, grilles, trim, and side mirrors exhibiting true Fresnel effects, layered environmental reflections (skyline, terminal, rain, lights, other bus), and polished metal micro-imperfections; multi-pane laminated safety glass windows with accurate optical refraction, birefringence, internal reflections, faint manufacturing waves/distortion, cleaning streaks, smudges and water beading; rain-on-glass micro-physics: individual droplets of varying sizes adhere, coalesce, streak downward or horizontally under combined gravity + vehicle acceleration + aerodynamic shear (thicker/slower on lee side of bus, thinner/faster on windward leading edges), each producing complex double-refraction (exterior scene + layered cabin interior visible through), plus secondary reflections of the rain itself and the bus's own chrome/paint; subtle water sheeting at window bases; black rubber tires with deep aggressive tread grooves, realistic sidewall flex/bulge under heavy load, scuff marks, embedded road grit, manufacturer sidewall markings, and physically correct deformation + rotation during all phases of motion; headlights/taillights with multi-layer glass lenses, internal reflector bowls, filament/LED detail, realistic caustics, bloom, and light falloff; destination signs, route numbers, fleet decals, and license plates with crisp legible micro-detail even under rain and motion; undercarriage, brake components, suspension arms, and wheel wells with accurate mechanical detail visible during motion and compression.
+
+- REALISTIC DOOR CLOSING PROPERLY (Bus Door and Mechanics Expert - absolute priority, both buses): For the two separate white buses, doors close fully and visibly with perfect mechanical fidelity BEFORE any pull-away begins on that bus. Dual-panel plug/folding (or plug-style) doors of substantial mass, each with large safety-glass windows. Actuated by roof- and floor-mounted pneumatic cylinders with visible polished stainless actuator rods, pivots, bellcranks, and linkages exhibiting true rigid-body kinematics, exact hinge radii/arcs, and realistic damped non-linear motion curves. Sequence per bus (synchronized phase-matched across both for the 6s take, or tiny natural human-timed offset for organic realism): starts with faint metallic valve click and audible building air pressure; doors begin to swing/fold inward on their precise arcs with slow heavy start (overcoming inertia of heavy panels); accelerate smoothly to mid-closing speed then ease to controlled stop under damping; thick multi-lip black rubber weatherstripping and bulb-style gaskets compress and visibly deform uniformly and elastically against the mating white body frame and opposing panel, squeezing out micro water droplets that bead and run down vertical surfaces; achieve perfect continuous dark seal with ZERO gaps, ZERO light leaks, and accurate elastic recovery at full 8K resolution; internal linkages, rollers, guides, and latch hardware articulate with sub-millimeter fidelity and correct perspective/parallax as camera tracks; final seating produces solid mechanical lock. Implied authentic sound design for video realism: sustained low-level pneumatic hiss during actuation, rubber compression squeak/scrape, culminating in soft final 'thunk' of panels mating followed by sharp but damped metallic clunk of latch pins/strikers engaging with over-center lock and subtle resonant vibration propagating through the bus chassis and body panels. Subtle suspension reaction on each bus: faint body settle + micro-bounce on air-ride suspension as door mass shifts and the latched structure rigidifies the side. Window rain streaks, interior passenger silhouettes/views, and all reflections update continuously and naturally with door motion and final seal. Seal must be visibly complete and final on BOTH buses (full close + latch + no gaps) with no premature movement.
+
+- SUSPENSION: Accurate heavy-vehicle suspension physics (air-ride preferred for airport shuttles) on both buses independently. As doors close and latch: visible chassis micro-settle, compression, and faint rebound/micro-bounce from the shift in door mass and structural rigidification. As each bus accelerates from standstill on wet pavement: realistic longitudinal weight transfer (slight nose dip or drive-axle squat), lateral load transfer during any steering, subtle rocking or pitching over pavement joints/puddles, damped rebound after initial compression; body line and wheel-well clearances show the compression/settle naturally. No floating or rigid body motion.
+
+- WHEEL MOVEMENT: Physically correct wheel rotation for each bus independently — rotational speed (RPM) and direction exactly match the instantaneous linear velocity and acceleration of that bus at every frame (no wheel slip unless brief realistic wet-traction breakaway, no locked wheels, no incorrect rates or sliding). Deep tread patterns roll and bite visibly into the wet surface; rubber deforms and sidewall flexes/bulges under the bus's full loaded weight and dynamic cornering/accel loads; accurate steering geometry (including any Ackermann effect) during directional changes or slight arcing paths; visible brake rotors/drums, calipers, and suspension components in the wells articulate correctly with wheel motion and body compression. Tires leave temporary disturbed tracks in the water film.
+
+- ACCELERATION: Strictly after full door close, seal, and latch confirmation on THAT specific bus only. Gradual, torque-driven, inertia-respecting pull-away from the curb on wet tarmac: natural slow initial ramp-up (overcoming the enormous static inertia and friction of a heavily loaded large bus), building speed smoothly and believably with implied diesel/electric drive effort visible only through motion subtlety; slight initial tire scrub or spray initiation on the slick surface as drive wheels overcome grip threshold. Independent per bus. No sudden lurch, no instant velocity jump, no teleporting, no unnatural curves.
+
+- TURNING: Smooth, inertia-consistent arcing or gentle turning paths for the buses (as they pull away and merge into traffic) with believable yaw and real-world vehicle dynamics. Slight realistic body lean/roll into the direction of turn via outer/inner suspension compression; tires maintain plausible grip with visible slip-angle feedback on wet pavement (subtle scrubbing, no cartoonish over-skid or instantaneous grip loss/pops); continuous, fluid trajectory without positional or angular discontinuities or jumps. The pair of buses maintain their strict separation and independent but coordinated paths during any merge/turn phase.
+
+- RAIN AND WATER SPRAY FROM TIRES: As the buses move across the wet reflective pavement in steady cold drizzle/rain, tires dynamically displace standing water and surface film with accurate Newtonian physics. Prominent realistic dynamic spray: lateral side sprays fanning from tire contact patches, prominent rear rooster-tail water plumes and dense fine mist clouds kicked upward and rearward by the rear tires (volumetric, with correct momentum, gravity drop-off, air resistance, and speed/density matching the bus velocity); secondary splashes and mist from undercarriage interaction and tire wake; individual droplets and droplet arcs refract light realistically, catch specular highlights from overhead lights and sky, and dissipate in air consistent with cold wet conditions and vehicle speed. Spray must interact with bus wheel wells, lower body panels, and the road surface. Tire passage creates visible disturbed wakes, ripples, and temporary cleared tracks in the water film that alter local reflections. Consistent across both buses independently.
+
+- WET PAVEMENT REFLECTIONS: Extremely detailed, photorealistic, dynamic, and perspective-accurate reflections of BOTH buses (treated as fully separate entities) on the slick tarmac and in all puddles — full bus forms, headlights/taillights, multi-pane windows, chrome trim, paint sheen, passenger silhouettes inside if visible, overhead practical lights, terminal architecture, and the Montreal skyline elements. Reflections move independently with each bus's position, speed, and angle (true parallax and differential motion); exhibit realistic ripple/wake distortion and surface disturbance exactly where tires contact and spray lands; anisotropic wet-surface sheen that intensifies at grazing angles; correct caustics, subsurface light scatter, and refraction through thin water films and puddle depths. Bus body surfaces themselves (wet white paint, chrome, glass) carry accurate moving reflections of the environment, rain, other bus, and lights that update continuously with motion and changing rain streaks/droplets. Disturbed water from tires shows authentic surface tension recovery and reflection breakup.
+
+Emphasize throughout: every element of bus motion, doors, wheels, suspension, and water interaction strictly obeys real-world physics of large heavy vehicles — mass, momentum, friction (significantly reduced on wet road), inertia, damping, and tire/road contact mechanics. No artifacts of any kind, no unnatural timing/speed curves, no discontinuous or floating animations for any mechanical component. All updates are continuous, coherent, and hyper-detailed at 8K native fidelity. 
+
+REFERENCE STYLE & CONTINUITY FROM PREVIOUS CLIP: Use the attached previous clip (the prior S1 clip or locked reference video for this London Calling sequence) as the PRIMARY and strongest visual reference for exact style, continuity, and photorealism. Precisely match the appearance and end-state of the two white buses (exact livery/weathering/wet water beading on paint and glass, any residual loading details, chrome condition, lighting response on surfaces), rain droplet size/density/behavior/physics, wet tarmac and puddle geometry/sheen/ripples/disturbance/reflectivity, harsh overhead lighting cutting through rain, cold late-February Pierre Trudeau airport atmosphere and color temperature, disciplined passenger silhouettes inside, and overall cinematic live-action photoreal style. Ensure seamless evolution of the departure action directly continuing from the exact end state of the previous clip with zero visual reset, discontinuity, or lighting/pop mismatch.
+
+MONTREAL SKYLINE FOCUS (hyper-detailed reveal as camera tracks wider at end of motion): As the smooth tracking shot progresses and widens during/after the buses' pull-away and merge, prominently and accurately reveal the hyper-detailed photorealistic Montreal skyline in the background and distance with perfect 8K fidelity and scale. Accurate low-angle perspective from arrivals curb level: iconic Place Ville Marie with its characteristic cross/sloped roof profile and massing, the distinctive cruciform tower form of 1000 de La Gauchetière, surrounding glass-and-steel high-rises with correct fenestration density/patterns, rooftop HVAC equipment, antennas, mechanical penthouses, and aircraft warning lights; proper atmospheric haze, aerial perspective, subtle cool color shift and reduced contrast/falloff with distance, realistic glints and speculars on distant wet or glazed windows from overcast/rainy daylight and terminal lights; no distortion, no toy-like miniaturization or flattening. Physically accurate multi-layered reflections and refractions of the skyline, terminal building, jet elements, rain, lights, and the two separate departing buses on ALL bus glass (both exterior and faint interior transmission), chrome, paint, and side mirrors — with correct curvature-induced distortion, double-bounce reflections, and environmental integration. The skyline must read as a real, distant, massive urban environment anchoring the Montreal/Pierre Trudeau location.
+
+ADDITIONAL BUS PHYSICS & HYPER-REALISM VALIDATION (Physics Validator sub-agent - Clip 8 London Calling - STRICT): The buses must appear as genuine live-action 8K captures of real heavy airport shuttle coaches (accurate real-world proportions for 12m-class white transit/coach shuttles common at YUL: correct overall length/height/width, wheelbase, roofline curvature, window beltline, front mask/grille treatment, bumper design, side mirror placement and shape). Every surface and mechanism holds obsessive perfect detail under all motion and lighting: paint exhibits true metallic flake and clearcoat depth with rain sheeting that flows and beads at physically correct rates (faster on angled/leading surfaces under velocity); every rivet, seam, and panel line casts accurate moving hard/soft shadows and speculars that shift with bus attitude, camera track, and rain; glass has real thickness, edge seals, and optical properties producing correct perspective distortion and light bending of cabin contents + receding skyline/terminal as viewpoint changes; tires show load-appropriate sidewall bulge, tread block deformation and water displacement at the contact patch that evolves frame-to-frame with speed/steering/suspension travel. Doors close properly with full 3D mechanical fidelity: panels have volume and thickness, hinges and actuators have correct occlusion and pivot geometry with no clipping/stretching/floating; rubber gaskets compress with visible elastic deformation and micro-droplet expulsion without interpenetration or gaps at seal; final latch produces visible micro body shake through the entire side structure. Suspension and wheels obey heavy-vehicle dynamics exactly: multi-axle (steer + drive + tag) with independent but linked motion; visible brake/suspension components move in correct relation to body compression and wheel rotation; no wheel spin or speed mismatch. Spray and water interaction follows real fluid dynamics (droplet size, velocity, gravity, drag, secondary atomization) without disappearing, popping, or non-physical arcs. Two buses maintain independent rigid-body integrity, accurate inter-bus parallax (differential distance and angle as camera moves), and safe separation at all times including during merge phase. As framing widens to skyline, buses recede with correct perspective scaling, motion blur coherence, and diminishing but still sharp detail while skyline elements (Place Ville Marie beacon housing if visible, 1000 de La Gauchetière copper roof elements, window grids, rooftop arrays, strobes) remain razor-resolved with proper distance haze and no scale error. All reflections (pavement, bus glass/chrome, puddles) incorporate the skyline, the other bus, rain, lights, and terminal with multi-surface bounces and correct distortion from water surface tension/wakes. Previous clip reference integration (style lock): rain intensity/droplet physics/streaks/beading on bus and ground, wet tarmac anisotropic reflection and ripple response, harsh overhead light beams and specular quality, cold desaturated palette, disciplined passenger micro-movements and wet jacket behavior, exact bus surface wetting/weathering state, and overall photoreal cinematic quality must continue identically and seamlessly from the precise end-frame visual state of the attached previous clip (e.g. S1.6 or latest London Calling prior clip) with zero reset, lighting pop, or continuity break. The finished clip must deliver indistinguishable-from-reality hyper-realistic buses, perfectly executed door closures, accurate independent bus physics, and a compelling, correctly scaled, haze-and-detail-rich Montreal skyline reveal.`;
+      const motionRules = ` ANIMATION SMOOTHER DIRECTIVE${clip8Note} - CRITICAL TECHNICAL REQUIREMENTS (STRICTLY ENFORCE FOR QUALITY): This is EXACTLY a 6-second clip. MUST deliver perfectly smooth natural motion and realistic bus physics. ${BUS_PHYSICS_INSTRUCTION} TWO CLEARLY SEPARATE BUSES must remain clearly distinct, visible and physically independent AT ALL TIMES in every frame — no merging, no overlapping, no interpenetration, no collapse to single bus; preserve accurate distance, independent realistic suspension/steering/wheel rotation/speed/trajectory and parallax for both buses throughout the entire clip. Hyper-realistic 8K ultra-detailed photorealism enforced. 6-second clip must exhibit perfectly smooth, continuous, natural motion with no jumps, pops, stutters, or sudden changes in speed/position/framing. Logical progression: doors must visibly and fully close first on BOTH buses as the start of action (complete close and seal visible on each); only THEN do the buses begin to pull away separately from the curb with realistic gradual acceleration (torque ramp, engine note implied, suspension settle, wheel rotation physics). Buses then merge smoothly into traffic. CAMERA (exact for medium-wide tracking shot in Clip 8 - Continuous Shot & Camera Tracking Expert): Exactly 6-second one smooth, continuous, unbroken fluid take with perfectly smooth natural motion, no jumping, no pops, no stutters, no framing jumps, no speed pops, no element discontinuities or teleporting. Medium-wide tracking shot starting tightly focused on the two separate white airport shuttle buses at curb level as their doors visibly and fully close on both vehicles. Camera then executes a single fluid, motivated tracking movement in perfect synchronization with the buses' realistic gradual acceleration and independent paths: smoothly follows both buses as they pull away separately from the curb (preserving strict visible lateral separation with clear gap between the two distinct buses in every frame, true binocular parallax, independent wheel rotation, suspension, and trajectories at all times), continuing the track as the buses arc and merge smoothly into traffic while keeping both buses fully in frame, distinctly separate and visible without cropping or overlap throughout the entire duration. Framing changes are gradual and continuous: initial medium-wide composition centered on the buses and closing doors; as buses depart and merge over the middle portion of the clip the camera performs a slow, steady, natural widening (subtle continuous dolly/crane-back combined with slight upward angle adjustment or natural perspective shift from subject recession) at a constant deliberate cinematic pace matched to the vehicles' speed, progressively revealing more of the distant hyper-detailed Montreal skyline in the background without any abrupt reframing. By the final 1.5-2 seconds the composition naturally shifts emphasis to end on a wider skyline view, with the two separate buses smaller but still clearly visible, separate, and in the lower third/foreground as they continue departing into the distance, the skyline now dominating the upper and middle frame with accurate scale, haze, and architectural detail. All camera motion obeys real-world inertia and smoothness; logical action progression timed precisely for 6 seconds total with door closures completing before significant bus movement begins; one single continuous shot only. Match any locked refs for exact bus livery, wet surfaces, reflections, passenger silhouettes inside. REFERENCE VIDEO INTEGRATOR (Continuity Expert for Clip 8): Use the attached previous clip as strong visual reference for characters, lighting, rain, wet ground, and style. ADDITIONAL MOTION SMOOTHER PHRASES (CLIP 8 - MONTREAL SKYLINE BUS DEPARTURE): ADDITIONAL MOTION CONTINUITY FOR 6S CLIP: The entire sequence exhibits perfect frame-to-frame temporal coherence and velocity continuity across all 6 seconds — bus bodies, door mechanisms, wheels, suspension, rain elements, reflections, and camera position/angle all follow smooth, physically-plausible, continuous trajectories with no pops, jumps, stutters, velocity discontinuities, or element teleportation between frames; motion is governed by real inertia, momentum, and damping for heavy vehicles on wet surface; camera tracking is one unbroken motivated move with consistent speed profile and natural optical breathing. PREVIOUS CLIP STYLE REFERENCE: Use the attached previous clip as the primary style and continuity reference — match exactly the photoreal rendering quality, rain droplet physics and distribution, wet tarmac reflection intensity and ripple propagation, bus surface water beading and sheen response to light, character uniform wet fabric behavior and micro-motions, harsh overhead lighting temperature and specular bloom, overall cinematic atmosphere and color grading for seamless logical flow and no visual reset at clip start or during the departure progression. SKYLINE REVEAL MOTION: As the medium-wide tracking shot smoothly widens to the Montreal skyline at the end of the 6s clip, the iconic buildings (Place Ville Marie with its precise cross/sloped roof profile, 1000 de La Gauchetière's cruciform massing, surrounding glass high-rises with accurate fenestration patterns, rooftop HVAC units, antennas and mechanical equipment) are revealed with perfect continuous perspective shift, consistent atmospheric haze and aerial perspective that scales naturally with camera movement, window glints and reflections that update continuously without popping or artificial sharpening; no distortion, no toy-like scaling, full 8K detail fidelity maintained on skyline elements throughout the continuous take with correct parallax relative to the independently moving buses in foreground. HYPER-REALISTIC BUS WITH PERFECT DETAIL IN MOTION: The two separate white airport buses render with obsessive hyper-realistic 8K detail on every component under dynamic motion: body panels show micro-scratches, metallic flecks, grime, clearcoat depth and orange-peel that catch and move light accurately with rigid body translation/rotation; every rivet and fastener casts moving cast shadows and speculars; multi-pane safety glass exhibits accurate evolving refractions of interior (seats, men silhouettes) and exterior (skyline, rain, lights) as viewpoint and bus orientation change continuously; tires demonstrate precise tread bite, sidewall flex, load deformation, and continuous rotation matching speed with no slip or stutter; chrome trim and mirrors provide layered, curvature-correct, motion-updating environmental reflections including of the other bus, men, skyline and wet ground. BUS DOORS CLOSING WITH PERFECT MECHANICAL AND MOTION FIDELITY: Doors on both buses close with flawless non-linear physics-accurate motion curves (inertia-overcoming slow start, mid acceleration, damped deceleration to stop), sub-millimeter alignment of panels at closure with no gaps, light leaks, interpenetration or floating; gaskets compress and recover elastically with visible uniform deformation and micro-droplet expulsion that evolves frame-by-frame realistically; all linkages, actuators, pivots show correct rigid body kinematics and parallax from the tracking camera; seal completion and latch clunk produce a single natural chassis vibration that damps smoothly into the subsequent pull-away acceleration without any artifact or discontinuity. CONTINUOUS LOGICAL FLOW AND SEPARATE BUS PHYSICS: Strict causal order — both buses' doors reach full visible sealed and latched state before either begins any forward motion or acceleration; the two buses remain distinctly separate physical objects with constant safe lateral separation, independent suspension responses, wheel speeds, trajectories and parallax at all times; pull-aways are gradual realistic torque-driven with natural weight transfer and wet surface interaction; merge into traffic is smooth with believable inertia; no merging of buses, no speed pops, no camera cuts — one fluid 6-second cinematic take. d previous clip as the STRONGEST PRIMARY VISUAL REFERENCE for characters, lighting, rain, wet ground, and style, ensuring PERFECT CONTINUITY with the previous clip. Match exact character likenesses (90 men, dark blue jackets, nametags e.g. Vorsanger, wet fabric), lighting (harsh overhead through rain, speculars on wet ground), rain physics and behavior (droplets, beading, spray), wet ground (tarmac sheen, puddle geometry/ripples/reflectivity) and overall cinematic style/atmosphere exactly from the previous clip so action evolves seamlessly with no visual reset. End state of previous clip (rain, wetness, characters, lights, ground) is the exact start state here.  REFERENCE VIDEO INTEGRATION (PREVIOUS CLIP) + CONTINUITY AND REFERENCE MATCHER (Clip 8 MANDATORY): Use the attached previous clip as a STRONG VISUAL REFERENCE for characters (exact likenesses, expressions, posture, wardrobe details and micro-movements), lighting (quality, direction, harsh overheads, specular highlights, color temperature), rain (intensity, droplet physics, streaking, spray, mist and interactions with surfaces), wet ground (puddles, reflections, sheen, ripples from footsteps/tires, tarmac wetness and specular response), and overall style (cinematic neo-noir treatment, color grading, atmosphere, camera language, photoreal fidelity). SPECIFIC CONTINUITY LANGUAGE TO ENFORCE PERFECT MATCH FROM PREVIOUS CLIP: exact character continuity (faces, haircuts, sunglasses with reflections, disciplined expressions, body proportions, dark blue jacket wet fabric cling/sway/stretch/ribbing/stitching/reflections/nametags exactly as they appear at the conclusion of the attached previous clip); lighting continuity (precise match to color temperature, intensity, practical overhead and ambient sources, shadow softness, specular quality on wet surfaces from the prior clip); rain continuity (identical drizzle density, fall angle and velocity, droplet size and physics, beading on fabric/glass/chrome, spray/mist interactions); wet ground continuity (exact wetness sheen and saturation level, specific puddle locations shapes and water depth, reflection fidelity and mirrored content (buses, men, skyline, lights) with correct distortion/ripples/wakes, tire and foot interaction physics); bus and environment (wet paint streaks, water droplets/beading, accurate updating reflections on body and glass); style continuity (identical photoreal live-action cinematic look, 35mm lens with breathing, shallow DOF, motion characteristics, color grade, film grain, overall cold late-February airport atmosphere and mood). Zero visual discontinuity or reset between clips — the bus door closing and departure must pick up as a direct, seamless continuation in time, space, weather state, ground condition, lighting, and character appearance from the final frame/visual state of the attached previous clip. When a frame or reference derived from the previous clip is available for reference_to_video or as i2v input, use it as the highest-priority anchor for all listed elements.. Explicitly match and transfer the visual details, lighting signature, rain behavior, ground wetness/reflectivity, character consistency, and stylistic elements 1:1 from the provided reference previous clip for seamless visual continuity across the sequence. ADDITIONAL QUALITY EMPHASIS: hyper-realistic 8K textures and fidelity on buses, wet surfaces, motion; zero tolerance for any violation of the two separate buses rule or non-smooth physics.`;
+      finalPromptForVideo = (finalPromptForVideo || cleanPrompt) + ' ' + smootherSim + motionRules;
+    } else if (typeof getSimulatedAgentOutput === 'function') {
+      // Always lightly apply animation smoother rules to all clips for general quality
+      const smootherSim = getSimulatedAgentOutput('animation-smoother', p);
+      if (smootherSim && smootherSim.length > 20) {
+        finalPromptForVideo = (finalPromptForVideo || cleanPrompt) + ' ' + smootherSim;
+      }
+    }
+
+    // === WIND, HAIR, CLOTHING & LEATHER DETAIL EXPERT (20-agent team specialist - Clip 12 London Calling clifftop continuation) ===
+    // Strong cold wind blows throughout. Natural wind on hair and clothing. Hyper-detailed leather, realistic fabric movement.
+    // From refs: warriors in heavy leather vests/cuts with patches, chains, boots, jeans; Ramsey and Brant in rugged jackets.
+    // Current keyframe 48.jpg shows strong wind already (hair flying wildly on all, especially Ramsey center and warriors).
+    // For image_edit: instructions to preserve/enhance the exact wind snapshot at the start of Clip 12 (direction, intensity on specific hair strands, jacket/vest flaps, collar, pants) matching end of Clip 11 video, while ensuring it continues consistently and intensifies naturally if needed during the knee action in video.
+    // For image_to_video prompt: detailed wind behavior over 6s - constant strong cold wind gusting, hair whipping, leather creasing and shifting with body movement and wind, clothing reacting to the knee force + wind, dust/particles kicked up by impact also affected by wind. Hyper realistic individual strands, fabric physics.
+    // Ensures natural, non-stiff movement. Applied automatically for cliff/Brant/Ramsey/rocky/knee strike shots (set duration ~6s). Uses end-state of Clip 11 + keyframe 48.jpg + refs/clip11/* for continuity.
+    const hasCliffAction = /cliff|rocky|clifftop|brant|ramsey|warrior#|edge of the cliff|launches from the cliff|grabs him by his collar|forcing|rocky terrain|clifftop.*night|knee strike|knee action/i.test((cleanPrompt + ' ' + rawPrompt + ' ' + (ui.loc && ui.loc.name || '') + ' ' + (p.script || '')).toLowerCase());
+    if (hasCliffAction) {
+      const WIND_PHYSICS_INSTRUCTION = `WIND & PHYSICS INSTRUCTION (WIND, HAIR, CLOTHING & LEATHER DETAIL EXPERT - STRICT REALISM MANDATE FOR 6S CLIFF EDGE CONFRONTATION CLIP 12 - COLD WIND ON ROCKY TERRAIN - CONTINUITY FROM CLIP 11 END STATE + KEYFRAME 48.jpg): Strong cold wind blows constantly throughout the entire clip. Natural wind on hair and clothing. Hyper-detailed leather, realistic fabric movement. From character refs: warriors in heavy leather vests/cuts with patches, chains, boots, jeans; Ramsey and Brant in rugged jackets. Current keyframe 48.jpg shows strong wind already (hair flying wildly on all, especially Ramsey center and warriors) — this exact wind snapshot must be the precise starting state.
+
+IMAGE_EDIT WIND SNAPSHOT PRESERVATION & ENHANCEMENT INSTRUCTIONS (pasteable for image_edit on keyframe 48.jpg to produce starting frame for Clip 12 video): Preserve and enhance the EXACT wind snapshot at the start of Clip 12 exactly as visible in keyframe 48.jpg (direction, intensity, specific effects on individual hair strands — especially the wildly flying hair on Ramsey in center and on the warriors — jacket/vest flaps, collars, pants, leather creases and folds). Match 1:1 the wind state from the very end of Clip 11 video for perfect seamless continuity (use Clip 11 end frame + refs/clip11/michael_ramsey.jpg, brant.jpg, warrior1.jpg, warrior2.jpg, prev_ref_00*.jpg as absolute visual lock for wind direction, hair positions/strands, flap angles, collar lift, fabric tension, leather detail at this instant). Do NOT change the core wind direction, gust intensity, specific strand positions, flap states, or overall snapshot from 48.jpg — only enhance hyper-detail and photorealism: render individual hyper-realistic hair strands with correct light interaction and chaotic flutter; hyper-detailed leather textures, wear, patches, chains, stitching, creases and subtle shifts on heavy warrior vests/cuts and rugged jackets; realistic fabric movement and physics on jeans, pants, collars, hems, boots. Maintain exact character appearances, poses, framing, lighting, and rocky terrain from the keyframe. The enhanced output must support consistent continuation of this precise wind state into the 6s video, allowing natural intensification or variation only as driven by the knee action/force, body struggles, and gusts during the clip. Hyper-realistic photoreal leather, cold wind on all clothing elements, maximum fabric and strand fidelity. No alteration to wind snapshot baseline.
+
+IMAGE_TO_VIDEO WIND/CLOTHING/LEATHER SECTIONS (detailed 6s wind behavior - pasteable text for wind/clothing sections of the image_to_video prompt, append after base action description and keyframe lock): Strong cold wind blows constantly throughout the entire 6 seconds with natural gusting. Natural wind on hair and clothing. Hyper-detailed leather, realistic fabric movement and physics. The exact wind snapshot (direction, intensity on specific hair strands, jacket/vest flaps, collar, pants) from the input starting keyframe image (enhanced 48.jpg matching Clip 11 end) continues consistently at the start and evolves naturally. Constant strong cold wind gusting across the high rocky clifftop at night in late February; wind compounds every action and secondary motion. Hair whipping: individual hyper-realistic strands on all characters (especially wildly flying on Ramsey center and both warriors) continuously lift, whip, lash, and flutter chaotically across faces, temples, foreheads, eyes with realistic inertia, air resistance, lag behind head/body turns/struggles/knee force; loose strands and fine vellus hairs on necks, sideburns, hairlines blow visibly and independently, catching light; hair blown into eyes/mouths intermittently prompting natural head tilts/squints/shakes. Leather creasing and shifting: hyper-detailed leather on warriors' heavy vests/cuts (with patches, chains) and rugged jackets on Ramsey and Brant creases, stretches, shifts, ripples and reacts with every body movement, wind pressure, and physical force (collar grips, shoves, knee strike impact); realistic leather weight, stiffness, folding, surface texture and wear visible under dynamic tension and gusts. Clothing reacting to the knee force + wind: during the knee action/strike and struggles, fabric on jackets, vests, jeans, pants, collars and hems billows, snaps, flaps sharply (leeward ballooning and windward taut creases/tension lines), tugs and ripples; secondary fabric and leather motions lag correctly after primary knee force/body impacts with correct mass/air resistance/inertia; wind adds tangible resistance making movements, grips and balance require extra effort and realistic bracing. Dust/particles kicked up by impact: fine dirt, dust, small rock particles and debris from footwork, knee strike, scuffle and rocky terrain are visibly kicked up and immediately affected/carried by the strong cold wind, blowing in consistent direction with realistic particle trajectories, dispersion, velocity matching gusts, and interaction with clothing/hair/light. All primary actions (collar grab, dragging steps, knee strike, punch, wild struggle, launch shove) drive immediate but lagged secondary wind-reactive motions in every strand of hair and every fold/crease of clothing and leather. Wind intensity remains strong and constant with organic subtle building gusts, momentary lulls and variations for lifelike feel, intensifying naturally where driven by the knee action and struggle dynamics. Warriors' heavy leather vests/cuts/patches/chains, boots, jeans and Ramsey/Brant's rugged jackets all exhibit authentic hyper-detailed fabric/leather physics and aerodynamics interacting with wind + body + terrain. Hyper realistic individual hair strands, hyper-detailed leather textures and creasing, authentic fabric physics on all elements at every frame. On natural uneven rocky terrain: every step, stance change, knee impact and balance correction shows visible grip reactions, foot pressure digs, center-of-mass shifts countering combined wind + footing + physical conflict — completely non-stiff, alive, physically believable. Wind effects match exactly the preserved snapshot from the input keyframe at start and continue without reset or discontinuity.
+
+WIND EFFECTS ON THE FORCING ACTION, STRUGGLE AND BALANCE ON ROCKS (integrated): The cold wind compounds every aspect of the forcing and confrontation — gusts push laterally against bodies and billowing clothing, forcing characters to actively brace, lean into the wind or widen stances to maintain equilibrium on the narrow, uneven rocky clifftop inches from the fatal edge; as Ramsey grabs Brant by the collar and walks/drags the resisting chief back toward the drop, both exhibit continuous realistic compensatory posture and balance physics: knees and hips flexing over irregular rock surfaces, ankles rolling or digging for purchase on loose stones and dirt, subtle forward/backward and side-to-side sways as wind torque combines with the opponent's resistance and ground slope plus knee force; Brant's older frame shows more pronounced wind-induced sway and jacket/hair/leather flare while being manhandled, requiring Ramsey to adjust his powerful grip and footing constantly; Ramsey maintains control with planted wide stance on more stable rock, jacket/vest and hair whipping but core and legs countering the wind load plus Brant's wild struggles and the knee action; the two warriors (when visible) hold their own wind-battered postures with minimal interference, heavy leather vests/cuts/patches/chains/clothing and hair reacting while they shift weight and apply force on the terrain. During knee strike and impacts: clothing, leather and hair react instantly to the combined force + wind with visible creasing, flapping, strand whipping and particle blow. On the natural rocky terrain: every step and stance change shows visible grip reactions, small corrective foot placements, toe/heel pressure digs into stone and soil, and center-of-mass shifts to recover from combined wind gusts + uneven footing + physical conflict + knee impact — completely non-stiff and alive. During the final launch/push: wind catches and dramatically flares the chief's clothing, leather and hair as he is propelled over the edge, adding authentic chaotic air resistance and trajectory nuance consistent with real momentum, mass and aerodynamics; the scream and falling arc integrate the wind effect naturally.
+
+Throughout the full 6s clip enforce (WIND, HAIR, CLOTHING & LEATHER DETAIL EXPERT): primary actions (collar grab, dragging steps, knee strike, punch, wild struggle, launch shove) drive immediate but lagged secondary wind-reactive motions in every strand of hair and every fold of clothing/leather with correct fabric/leather mass, air resistance and inertia; wind intensity varies organically with subtle building gusts and momentary lulls for lifelike feel while staying strong cold constant overall; all four characters (and any visible background elements) maintain authentic age/build-appropriate balance and posture while countering wind + terrain + opponent near the cliff edge. Hyper-detailed photoreal fabric dynamics, individual hair strand physics, hyper-detailed leather creasing/shifting/wear on vests/jackets (patches, chains), rock surface interaction, weight transfer, dust particle wind interaction and micro-posture corrections at 8K fidelity in every frame. Natural, non-stiff, physically believable human behavior only. Use the starting keyframe (48.jpg enhanced via image_edit preserving exact wind snapshot from Clip 11 end) as the authoritative visual reference for initial wind state, hair positions, clothing flap/crease states, leather details — evolve from there without reset.`;
+
+      finalPromptForVideo = (finalPromptForVideo || cleanPrompt) + ' ' + WIND_PHYSICS_INSTRUCTION;
+    }
+  } catch (e) { /* non fatal smoother */ }
+
   btn.textContent = 'Submitting video...';
 
   // Build payload with the chosen video model + the resolution/aspect/duration the user picked in the settings grid (no pre-filtering)
@@ -7744,14 +7866,14 @@ async function generateVideoForShot(key, btn) {
     aspect_ratio: aspSel ? aspSel.value : '16:9',
     resolution: resSel ? resSel.value : '720p',
     shotKey: key,
-    character_image_url: (charRefUrl && charRefUrl.startsWith('http')) ? charRefUrl : null,
+    character_image_url: (charRefUrl && (charRefUrl.startsWith('http') || charRefUrl.startsWith('data:'))) ? charRefUrl : null,
     location: ui.loc
   };
 
   let usedReal = false;
   try {
     const h = (window.hdrs ? await window.hdrs() : {'Content-Type':'application/json'});
-    const r = await fetch('/.netlify/functions/generate-video', {method:'POST', headers:h, body:JSON.stringify(payload)});
+    const r = await fetch(sbVideoProxy(), {method:'POST', headers:h, body:JSON.stringify(payload)});
     const d = await r.json();
     if (r.ok && (d.request_id || d.video_url)) {
       usedReal = true;
@@ -7989,6 +8111,12 @@ setTimeout(() => {
   // Storage event: refresh if another tab changes projects
   window.addEventListener('storage', e => { if (e.key === 'SB_Projects_v1') renderDashProjects(); });
 })();
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrapLocalSession);
+} else {
+  setTimeout(bootstrapLocalSession, 0);
+}
 </script>
 <!-- Tutorial system removed from app.html — it was blocking clicks on the
      login screen and nothing about it is worth that. The workflow page still
