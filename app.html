@@ -1685,6 +1685,7 @@ function enterApp(){
   // No other sides — always enter the Generation Hub (4 tabs only)
   showMode('media');
   if (isLocalOnly()) setTimeout(sbInitLocalStatus, 100);
+  mhWirePhotoRemoveHandlers();
 }
 
 function showDash(){
@@ -3163,14 +3164,155 @@ function projectClear(){if(!confirm('Clear the active project? This deletes your
 
 function ensureProjectAssets(p) {
   if (!p) return p;
-  if (!p.assets) p.assets = { characterPhotos: {}, videos: {} };
+  if (!p.assets) p.assets = { characterPhotos: {}, videos: {}, locationPhotos: [] };
   if (!p.assets.characterPhotos) p.assets.characterPhotos = {};
   if (!p.assets.videos) p.assets.videos = {};
+  if (!p.assets.locationPhotos) p.assets.locationPhotos = [];
   return p;
 }
 
+function mhCharPhotosDomId(charName) {
+  return 'char-photos-' + String(charName || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function mhResolveCharPhotoStore(p, charName) {
+  const store = (p.assets && p.assets.characterPhotos) || {};
+  if (store[charName]) return { store, key: charName };
+  const target = String(charName || '').toUpperCase();
+  for (const k of Object.keys(store)) {
+    if (String(k).toUpperCase() === target) return { store, key: k };
+  }
+  return null;
+}
+
+function mhFindCharPhotosContainer(charName) {
+  const containers = document.querySelectorAll('.char-photos-container[data-char-photos-for]');
+  const target = String(charName || '').toUpperCase();
+  for (const el of containers) {
+    if (String(el.getAttribute('data-char-photos-for') || '').toUpperCase() === target) return el;
+  }
+  return document.getElementById(mhCharPhotosDomId(charName))
+    || document.getElementById('char-photos-' + charName);
+}
+
+function mhUrlsMatch(a, b) {
+  if (!a || !b) return false;
+  const sa = String(a);
+  const sb = String(b);
+  return sa === sb || sa.split('?')[0] === sb.split('?')[0];
+}
+
+function mhPurgePhotoUrlFromProject(p, removedUrl, opts) {
+  opts = opts || {};
+  if (!removedUrl || !p) return;
+  const match = (u) => mhUrlsMatch(u, removedUrl);
+
+  (p.characterBible || []).forEach(c => {
+    if (match(c.imageUrl)) {
+      c.imageUrl = null;
+      if (c.locked) c.locked = false;
+    }
+    if (match(c.lockedPhoto)) c.lockedPhoto = null;
+  });
+
+  if (p.characterImages) {
+    Object.keys(p.characterImages).forEach(name => {
+      if (match(p.characterImages[name])) delete p.characterImages[name];
+    });
+  }
+
+  (p.scenes || []).forEach(sc => {
+    (sc.shots || []).forEach(sh => {
+      if (match(sh.character_image_url)) sh.character_image_url = null;
+    });
+  });
+
+  if (window._shotUI) {
+    Object.keys(_shotUI).forEach(k => {
+      const ui = _shotUI[k];
+      if (!ui) return;
+      if (ui.chars) ui.chars = ui.chars.filter(c => !match(c.photo));
+      if (ui.prompt && ui.prompt.indexOf(removedUrl) >= 0) {
+        ui.prompt = ui.prompt.split(removedUrl).join('').replace(/\s{2,}/g, ' ').trim();
+      }
+      if (ui.loc && match(ui.loc.photo)) delete ui.loc.photo;
+    });
+  }
+
+  if (window._mhGenState && _mhGenState.jobs) {
+    _mhGenState.jobs.forEach(j => {
+      if (match(j.character_image_url)) j.character_image_url = null;
+    });
+  }
+
+  if (window.rD && rD.characterImages) {
+    Object.keys(rD.characterImages).forEach(name => {
+      if (match(rD.characterImages[name])) delete rD.characterImages[name];
+    });
+  }
+
+  if (window.csLocked && Array.isArray(csLocked)) {
+    for (let i = csLocked.length - 1; i >= 0; i--) {
+      if (match(csLocked[i].imageUrl)) csLocked.splice(i, 1);
+    }
+    window.SB_LOCKED_CHARACTERS = csLocked;
+  }
+
+  if (opts.isLocation && window._shotUI) {
+    Object.keys(_shotUI).forEach(k => {
+      const ui = _shotUI[k];
+      if (!ui || !ui.prompt) return;
+      ui.prompt = ui.prompt
+        .replace(/\(using locked location plate photo for coherence\)/gi, '')
+        .replace(/locked location plate photo/gi, '')
+        .replace(/\s{2,}/g, ' ').trim();
+    });
+  }
+}
+
+function mhRefreshAllPhotoUIs() {
+  const p = projectLoad() || {};
+  (p.characterBible || []).forEach((c, idx) => {
+    renderCharacterPhotos(c.name || ('char' + idx));
+  });
+  renderLocationPhotos();
+  if (typeof mhRenderCharacters === 'function') mhRenderCharacters();
+  if (typeof csRenderLocked === 'function') csRenderLocked();
+  if (typeof csRenderResults === 'function') csRenderResults();
+  if (typeof buildPerShotDetailBoxes === 'function') buildPerShotDetailBoxes();
+  if (typeof mhRenderGenerate === 'function') mhRenderGenerate();
+  if (typeof mhRenderGenProgress === 'function') mhRenderGenProgress();
+  if (typeof render === 'function' && window.rD) render();
+}
+
+function mhWirePhotoRemoveHandlers() {
+  if (window._mhPhotoRemoveWired) return;
+  window._mhPhotoRemoveWired = true;
+  const onRemoveClick = (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('.ref-photo-remove') : null;
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (btn.dataset.locIndex !== undefined) {
+      removeLocationPhoto(btn.dataset.locIndex);
+      return;
+    }
+    const cn = btn.getAttribute('data-char-name');
+    const model = btn.getAttribute('data-model');
+    const idx = btn.getAttribute('data-photo-index');
+    if (cn != null && model != null && idx != null) {
+      removeCharacterPhoto(cn, model, idx);
+    }
+  };
+  const charArea = document.getElementById('mhCharAgentArea');
+  if (charArea) charArea.addEventListener('click', onRemoveClick);
+  const locArea = document.getElementById('mhLocPhotoArea');
+  if (locArea) locArea.addEventListener('click', onRemoveClick);
+}
+
 function addCharacterPhoto(charName, model, photoData) {
-  const p = projectLoad(); if (!p) return;
+  let p = projectLoad(); if (!p) return;
+  p = ensureProjectAssets(p);
   if (!p.assets.characterPhotos[charName]) p.assets.characterPhotos[charName] = {};
   if (!p.assets.characterPhotos[charName][model]) p.assets.characterPhotos[charName][model] = [];
   p.assets.characterPhotos[charName][model].push({
@@ -3184,32 +3326,38 @@ function addCharacterPhoto(charName, model, photoData) {
 }
 
 function removeCharacterPhoto(charName, model, photoIndex) {
-  const p = projectLoad();
-  if (!p || !p.assets || !p.assets.characterPhotos) return;
-  const byModel = p.assets.characterPhotos[charName];
-  if (!byModel || !byModel[model]) return;
-  const arr = byModel[model];
+  let p = projectLoad();
+  if (!p) { console.warn('[removeCharacterPhoto] no project loaded'); return; }
+  p = ensureProjectAssets(p);
+  const resolved = mhResolveCharPhotoStore(p, charName);
+  if (!resolved || !resolved.store[resolved.key][model]) {
+    console.warn('[removeCharacterPhoto] not found', charName, model);
+    return;
+  }
+  const arr = resolved.store[resolved.key][model];
   const idx = parseInt(photoIndex, 10);
   if (isNaN(idx) || idx < 0 || idx >= arr.length) return;
   const removedUrl = arr[idx].url;
   arr.splice(idx, 1);
-  if (!arr.length) delete byModel[model];
-  if (!Object.keys(byModel).length) delete p.assets.characterPhotos[charName];
-  (p.characterBible || []).forEach(c => {
-    if ((c.name || '') === charName && c.imageUrl === removedUrl) c.imageUrl = null;
-  });
-  projectSave(p);
-  renderCharacterPhotos(charName);
+  if (!arr.length) delete resolved.store[resolved.key][model];
+  if (!Object.keys(resolved.store[resolved.key]).length) delete resolved.store[resolved.key];
+  mhPurgePhotoUrlFromProject(p, removedUrl);
+  if (!projectSave(p)) return;
+  mhRefreshAllPhotoUIs();
 }
 
 function removeLocationPhoto(index) {
-  const p = projectLoad();
-  if (!p || !p.assets || !p.assets.locationPhotos) return;
+  let p = projectLoad();
+  if (!p) { console.warn('[removeLocationPhoto] no project loaded'); return; }
+  p = ensureProjectAssets(p);
+  const photos = p.assets.locationPhotos;
   const i = parseInt(index, 10);
-  if (isNaN(i) || i < 0 || i >= p.assets.locationPhotos.length) return;
-  p.assets.locationPhotos.splice(i, 1);
-  projectSave(p);
-  renderLocationPhotos();
+  if (isNaN(i) || i < 0 || i >= photos.length) return;
+  const removedUrl = photos[i].url;
+  photos.splice(i, 1);
+  mhPurgePhotoUrlFromProject(p, removedUrl, { isLocation: true });
+  if (!projectSave(p)) return;
+  mhRefreshAllPhotoUIs();
 }
 window.removeCharacterPhoto = removeCharacterPhoto;
 window.removeLocationPhoto = removeLocationPhoto;
@@ -6871,7 +7019,7 @@ function mhRebuildCharAgentBoxes() {
         <!-- CHARACTER PHOTOS: organized by AI model first, then the character (per user spec) -->
         <div style="margin-top:14px;border-top:1px dashed var(--border);padding-top:8px;">
           <strong style="font-size:12px;color:var(--gold);">Character Photos — by AI Model</strong>
-          <div id="char-photos-${key}" style="margin-top:6px;font-size:12px;"></div>
+          <div class="char-photos-container" data-char-photos-for="${esc(key)}" id="${mhCharPhotosDomId(key)}" style="margin-top:6px;font-size:12px;"></div>
           <button class="b b-g b-s" onclick="generateCharacterPhotoForBox('${key}')" style="margin-top:6px;font-size:11px;">+ Generate Character Photo (baseline, script locked)</button>
         </div>
       </div>`;
@@ -6892,6 +7040,7 @@ function mhRebuildCharAgentBoxes() {
     }
   });
   renderLocationPhotos();
+  mhWirePhotoRemoveHandlers();
   // Make sure location breakdown fields reflect what was parsed from script
   if(typeof populateLocationUIFromProject === 'function'){
     populateLocationUIFromProject();
@@ -6912,10 +7061,11 @@ function mhRebuildCharAgentBoxes() {
 }
 
 function renderCharacterPhotos(charName) {
-  const container = document.getElementById('char-photos-' + charName);
+  const container = mhFindCharPhotosContainer(charName);
   if (!container) return;
   const p = projectLoad() || {};
-  const photosByModel = (p.assets && p.assets.characterPhotos && p.assets.characterPhotos[charName]) || {};
+  const resolved = mhResolveCharPhotoStore(p, charName);
+  const photosByModel = resolved ? resolved.store[resolved.key] : {};
   if (Object.keys(photosByModel).length === 0) {
     container.innerHTML = '<span style="color:var(--dim);font-size:11px;">No photos yet for this character.</span>';
     return;
@@ -6927,7 +7077,7 @@ function renderCharacterPhotos(charName) {
     photosByModel[model].forEach((photo, pi) => {
       const prov = photo.provider ? sbProviderBadge(photo.provider) : '';
       html += `<div class="ref-photo-wrap" style="width:72px;text-align:center;">
-        <button type="button" class="ref-photo-remove" title="Remove this reference" onclick="removeCharacterPhoto(${JSON.stringify(charName)}, ${JSON.stringify(model)}, ${pi})">✕</button>
+        <button type="button" class="ref-photo-remove" title="Remove this reference" data-char-name="${esc(charName)}" data-model="${esc(model)}" data-photo-index="${pi}">✕</button>
         <img src="${photo.url}" style="width:70px;height:70px;object-fit:cover;border-radius:4px;border:1px solid var(--border);" />
         <div style="font-size:9px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;">${esc((photo.prompt||'').slice(0,20))}</div>${prov}</div>`;
     });
@@ -7093,7 +7243,7 @@ function renderLocationPhotos() {
   }
   area.innerHTML = photos.map((ph, i) => `
     <div class="ref-photo-wrap" style="width:110px;text-align:center;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#111">
-      <button type="button" class="ref-photo-remove" title="Remove this location reference" onclick="removeLocationPhoto(${i})">✕</button>
+      <button type="button" class="ref-photo-remove" title="Remove this location reference" data-loc-index="${i}">✕</button>
       <img src="${ph.url}" style="width:100%;height:62px;object-fit:cover;display:block" />
       <div style="font-size:9px;padding:3px 4px;color:#aaa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((ph.prompt||'').slice(0,28))}</div>
       ${ph.provider ? sbProviderBadge(ph.provider) : ''}
