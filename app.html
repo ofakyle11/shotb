@@ -610,7 +610,7 @@ window.safeSignIn = safeSignIn;
 
 /* ===== NEW PER-SHOT MODULAR BOXES (user spec) ===== */
 /* Legacy stepper chrome is permanently suppressed — 4 tabs ONLY */
-#mhStep2, #mhStep3, #mhStep4, #mhStepper { display: none !important; }
+#mhStep2, #mhStep3, #mhStep4, #mhStep5, #mhStepper { display: none !important; }
 .shot-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; overflow: hidden; transition: all 0.2s ease; }
 .shot-card.minimized { opacity: 0.85; }
 .shot-card.minimized .shot-body { display: none; }
@@ -799,12 +799,102 @@ window.safeSignIn = safeSignIn;
         </div>
       </div>
 
-      <!-- EDIT / UPSCALE TAB -->
+      <!-- EDIT / UPSCALE TAB — full inline timeline editor (no extra "open editor" hop) -->
       <div id="mhTabPaneEdit" class="mh-tab-pane" style="display:none">
         <div class="mh-panel">
-          <button class="b b-gold b-big" onclick="mhGoto(5)">Open Full Editor →</button>
-          <div style="margin-top:12px">
+          <h3 style="margin:0 0 6px">Editor</h3>
+          <div class="sub" style="margin-bottom:14px">Arrange generated clips on the timeline. Upload MP4s, trim, crossfade, then export a single MP4. Quality tools are below the editor.</div>
+
+          <div id="mhEditorGate" style="display:none;padding:20px;background:var(--surface2);border-radius:8px;text-align:center;color:var(--dim)">
+            Generate some clips on the Generate tab first, or upload MP4s below.
+          </div>
+
+          <div id="mhEditorUI" style="display:none">
+            <div style="margin-bottom:16px">
+              <div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">📚 Clip Library</div>
+              <div id="mhEditLib" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:6px"></div>
+              <div style="font-size:11px;color:var(--muted);margin-top:6px">Click a clip to add it to the timeline →</div>
+            </div>
+
+            <div style="margin-bottom:16px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:0.08em;font-weight:700">🎞 Timeline</div>
+                <div style="font-size:11px;color:var(--muted);font-family:var(--mono)" id="mhEditTimelineMeta">0 clips · 0s</div>
+              </div>
+              <div id="mhEditTimeline" style="min-height:100px;background:var(--surface2);border:1px dashed var(--border);border-radius:8px;padding:10px;display:flex;gap:6px;overflow-x:auto;align-items:center"></div>
+            </div>
+
+            <div id="mhEditProps" style="display:none;padding:14px;background:var(--surface2);border:1px solid var(--gold-border);border-radius:8px;margin-bottom:16px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <div style="font-weight:700;color:var(--gold);font-size:13px" id="mhEditPropTitle">Clip</div>
+                <button class="b b-g b-xs" onclick="mhEditDeselect()">✕ Close</button>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;align-items:end">
+                <div>
+                  <label class="form-label">Trim Start (s)</label>
+                  <input type="number" id="mhEditTrimIn" step="0.1" min="0" value="0" style="width:100%;background:var(--bg);color:#fff;border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-family:inherit"/>
+                </div>
+                <div>
+                  <label class="form-label">Trim End (s from end)</label>
+                  <input type="number" id="mhEditTrimOut" step="0.1" min="0" value="0" style="width:100%;background:var(--bg);color:#fff;border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-family:inherit"/>
+                </div>
+                <div>
+                  <label class="form-label">Crossfade into Next (s)</label>
+                  <input type="number" id="mhEditFade" step="0.1" min="0" max="3" value="0" style="width:100%;background:var(--bg);color:#fff;border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-family:inherit"/>
+                </div>
+                <div style="display:flex;gap:6px">
+                  <button class="b b-g b-s" onclick="mhEditMoveSelected(-1)">← Move</button>
+                  <button class="b b-g b-s" onclick="mhEditMoveSelected(1)">Move →</button>
+                  <button class="b b-r b-s" onclick="mhEditRemoveSelected()">✕ Remove</button>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px">
+              <div>
+                <label class="form-label">Export Quality</label>
+                <select id="mhEditQuality" style="width:100%;background:var(--bg);color:#fff;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:inherit">
+                  <option value="fast" selected>Fast (copy codec)</option>
+                  <option value="hq">High Quality (re-encode)</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Transitions</label>
+                <select id="mhEditTransitions" style="width:100%;background:var(--bg);color:#fff;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:inherit">
+                  <option value="hard" selected>Hard cuts (no transitions)</option>
+                  <option value="fade">Use per-clip crossfades</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Audio</label>
+                <select id="mhEditAudio" style="width:100%;background:var(--bg);color:#fff;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:inherit">
+                  <option value="keep" selected>Keep clip audio</option>
+                  <option value="mute">Mute everything</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+              <button class="b b-g b-s" onclick="mhSwitchTab('generate')">← Back to Generate</button>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="b b-gold b-s" onclick="document.getElementById('mhEditUploadInput').click()" title="Upload MP4 video files from your computer">📁 Upload MP4s</button>
+                <input type="file" id="mhEditUploadInput" accept="video/mp4,video/*" multiple style="display:none" onchange="mhEditUploadFiles(this.files)"/>
+                <button class="b b-g b-s" onclick="mhEditImportFromJSON()" title="Paste JSON list of clips to restore a previous session">📥 Import URLs</button>
+                <button class="b b-g b-s" onclick="mhEditAddAll()">+ Add All Clips</button>
+                <button class="b b-g b-s" onclick="mhEditClear()">⌫ Clear Timeline</button>
+                <button class="b b-gold b-big" onclick="mhEditExport()">🎬 Export MP4</button>
+              </div>
+            </div>
+
+            <div id="mhEditExportStatus" style="display:none;margin-top:14px;padding:12px;background:var(--surface2);border-radius:8px">
+              <div style="font-size:12px;color:var(--muted);font-family:var(--mono)" id="mhEditExportLog">Preparing...</div>
+              <div id="mhEditExportResult" style="margin-top:10px"></div>
+            </div>
+          </div>
+
+          <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
             <button class="b b-g b-s" onclick="mhShowQualityPanel()">Open Quality • Upscale • Sizing • Download Panel</button>
+            <a href="/editor/" target="_blank" rel="noopener" class="b b-g b-s" style="margin-left:8px;text-decoration:none;display:inline-block">Open Full Timeline Editor (new tab) →</a>
           </div>
         </div>
       </div>
@@ -891,7 +981,7 @@ window.safeSignIn = safeSignIn;
           <h3 style="font-family:var(--display);font-size:16px;font-weight:800;margin-bottom:10px">Generated Clips</h3>
           <div id="mhClipsGridInner" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px"></div>
           <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
-            <button class="b b-gold b-big" onclick="mhGoto(5)">🎬 Open in Editor →</button>
+            <button class="b b-gold b-big" onclick="mhSwitchTab('edit')">🎬 Open in Editor →</button>
           </div>
         </div>
 
@@ -904,104 +994,8 @@ window.safeSignIn = safeSignIn;
       </div>
     </div>
 
-    <!-- STEP 5: Editor -->
-    <div id="mhStep5" style="display:none">
-      <div class="mh-panel">
-        <h3>Step 5 — Editor</h3>
-        <div class="sub">Arrange your generated clips on the timeline. Drag to reorder, trim start/end, add crossfades, then export a single MP4.</div>
-
-        <div id="mhEditorGate" style="display:none;padding:20px;background:var(--surface2);border-radius:8px;text-align:center;color:var(--dim)">
-          Generate some clips in Step 4 first. They'll appear here for editing.
-        </div>
-
-        <div id="mhEditorUI" style="display:none">
-          <!-- Clip library -->
-          <div style="margin-bottom:16px">
-            <div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">📚 Clip Library</div>
-            <div id="mhEditLib" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:6px"></div>
-            <div style="font-size:11px;color:var(--muted);margin-top:6px">Click a clip to add it to the timeline →</div>
-          </div>
-
-          <!-- Timeline -->
-          <div style="margin-bottom:16px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-              <div style="font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:0.08em;font-weight:700">🎞 Timeline</div>
-              <div style="font-size:11px;color:var(--muted);font-family:var(--mono)" id="mhEditTimelineMeta">0 clips · 0s</div>
-            </div>
-            <div id="mhEditTimeline" style="min-height:100px;background:var(--surface2);border:1px dashed var(--border);border-radius:8px;padding:10px;display:flex;gap:6px;overflow-x:auto;align-items:center"></div>
-          </div>
-
-          <!-- Clip properties (selected) -->
-          <div id="mhEditProps" style="display:none;padding:14px;background:var(--surface2);border:1px solid var(--gold-border);border-radius:8px;margin-bottom:16px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-              <div style="font-weight:700;color:var(--gold);font-size:13px" id="mhEditPropTitle">Clip</div>
-              <button class="b b-g b-xs" onclick="mhEditDeselect()">✕ Close</button>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;align-items:end">
-              <div>
-                <label class="form-label">Trim Start (s)</label>
-                <input type="number" id="mhEditTrimIn" step="0.1" min="0" value="0" style="width:100%;background:var(--bg);color:#fff;border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-family:inherit"/>
-              </div>
-              <div>
-                <label class="form-label">Trim End (s from end)</label>
-                <input type="number" id="mhEditTrimOut" step="0.1" min="0" value="0" style="width:100%;background:var(--bg);color:#fff;border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-family:inherit"/>
-              </div>
-              <div>
-                <label class="form-label">Crossfade into Next (s)</label>
-                <input type="number" id="mhEditFade" step="0.1" min="0" max="3" value="0" style="width:100%;background:var(--bg);color:#fff;border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-family:inherit"/>
-              </div>
-              <div style="display:flex;gap:6px">
-                <button class="b b-g b-s" onclick="mhEditMoveSelected(-1)">← Move</button>
-                <button class="b b-g b-s" onclick="mhEditMoveSelected(1)">Move →</button>
-                <button class="b b-r b-s" onclick="mhEditRemoveSelected()">✕ Remove</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Export controls -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px">
-            <div>
-              <label class="form-label">Export Quality</label>
-              <select id="mhEditQuality" style="width:100%;background:var(--bg);color:#fff;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:inherit">
-                <option value="fast" selected>Fast (copy codec)</option>
-                <option value="hq">High Quality (re-encode)</option>
-              </select>
-            </div>
-            <div>
-              <label class="form-label">Transitions</label>
-              <select id="mhEditTransitions" style="width:100%;background:var(--bg);color:#fff;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:inherit">
-                <option value="hard" selected>Hard cuts (no transitions)</option>
-                <option value="fade">Use per-clip crossfades</option>
-              </select>
-            </div>
-            <div>
-              <label class="form-label">Audio</label>
-              <select id="mhEditAudio" style="width:100%;background:var(--bg);color:#fff;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:inherit">
-                <option value="keep" selected>Keep clip audio</option>
-                <option value="mute">Mute everything</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
-            <button class="b b-g b-s" onclick="mhGoto(4)">← Back</button>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="b b-gold b-s" onclick="document.getElementById('mhEditUploadInput').click()" title="Upload MP4 video files from your computer">📁 Upload MP4s</button>
-              <input type="file" id="mhEditUploadInput" accept="video/mp4,video/*" multiple style="display:none" onchange="mhEditUploadFiles(this.files)"/>
-              <button class="b b-g b-s" onclick="mhEditImportFromJSON()" title="Paste JSON list of clips to restore a previous session">📥 Import URLs</button>
-              <button class="b b-g b-s" onclick="mhEditAddAll()">+ Add All Clips</button>
-              <button class="b b-g b-s" onclick="mhEditClear()">⌫ Clear Timeline</button>
-              <button class="b b-gold b-big" onclick="mhEditExport()">🎬 Export MP4</button>
-            </div>
-          </div>
-
-          <div id="mhEditExportStatus" style="display:none;margin-top:14px;padding:12px;background:var(--surface2);border-radius:8px">
-            <div style="font-size:12px;color:var(--muted);font-family:var(--mono)" id="mhEditExportLog">Preparing...</div>
-            <div id="mhEditExportResult" style="margin-top:10px"></div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Legacy step 5 shell — editor UI now lives in mhTabPaneEdit -->
+    <div id="mhStep5" style="display:none" aria-hidden="true"></div>
   </div>
 </div>
 
@@ -3743,7 +3737,8 @@ function mhCheckAutoExport(){
   _mhEditState.clips=payload.clips;
   _mhEditState.selected=null;
   setTimeout(()=>{
-    mhGoto(5);
+    if(typeof mhSwitchTab==='function')mhSwitchTab('edit');
+    else mhGoto(5);
     // Restore the export option dropdowns
     const q=document.getElementById('mhEditQuality');if(q&&payload.quality)q.value=payload.quality;
     const t=document.getElementById('mhEditTransitions');if(t&&payload.transitions)t.value=payload.transitions;
@@ -3795,7 +3790,10 @@ function mhGoto(step){
   if(step===2)mhRenderCharacters();
   if(step===3)mhRenderBackgrounds();
   if(step===4){mhLoadPersistedClips();mhRenderGenerate();mhRenderGenProgress();mhRenderClipsGrid()}
-  if(step===5){mhLoadPersistedClips();mhRenderEditor()}
+  if(step===5){
+    if(typeof mhSwitchTab==='function')mhSwitchTab('edit');
+    else{mhLoadPersistedClips();mhRenderEditor()}
+  }
 }
 
 // ───────── Script Tab (in 4-tab Generation Hub) ─────────
@@ -6030,7 +6028,8 @@ function mhEditAddClipByLabel(label){
   const j=(_mhGenState.jobs||[]).find(j=>j.videoUrl&&('S'+(j.sceneIdx+1)+'.'+(j.shotIdx+1))===label);
   if(!j)return;
   mhEditAddClip(label,j.videoUrl);
-  mhGoto(5);
+  if(typeof mhSwitchTab==='function')mhSwitchTab('edit');
+  else mhGoto(5);
 }
 function mhEditAddAll(){
   const jobs=(_mhGenState&&_mhGenState.jobs||[]).filter(j=>j.videoUrl);
@@ -7067,6 +7066,15 @@ function mhSwitchTab(tab) {
         updateVideoOptions();
       }
     }, 50);
+  }
+
+  if (tab === 'edit') {
+    mhLoadPersistedClips();
+    mhRenderEditor();
+    setTimeout(() => {
+      const pane = document.getElementById('mhTabPaneEdit');
+      if (pane) pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
   }
 }
 
