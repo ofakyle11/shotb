@@ -790,6 +790,7 @@ window.safeSignIn = safeSignIn;
 
           <div style="margin-top:20px">
             <button class="b b-gold b-big" id="mhBatchGenBtn" onclick="mhDoFinalGenerate()">🎬 Generate Video Clips (using all Parsed Per-Shot Prompts + Jots)</button>
+            <button class="b b-g b-s" id="mhBatchCancelBtn" style="display:none;margin-left:8px" onclick="mhCancelBatchGeneration()">✕ Cancel Generation</button>
             <div id="mhBatchGenStatus" style="display:none;margin-top:10px;padding:12px;background:#111;border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.5"></div>
             <div id="mhGenClipsGallery" style="display:none;margin-top:16px">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
@@ -973,6 +974,7 @@ window.safeSignIn = safeSignIn;
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <span id="mhCostEstimate" style="align-self:center;font-size:12px;color:var(--muted);font-family:var(--mono)"></span>
             <button class="b b-gold b-big" id="mhGenerateBtn" onclick="mhStartGeneration()">⚡ Generate All</button>
+            <button class="b b-g b-s" id="mhGenCancelBtn" style="display:none" onclick="mhCancelAllGenerations()">✕ Cancel</button>
           </div>
         </div>
         <div id="mhShotQueue" style="margin-top:12px;max-height:400px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:10px"></div>
@@ -2595,12 +2597,21 @@ V._onBatch=async function(){
 // status endpoint says IN_PROGRESS while result already has the URL.
 // On COMPLETED, retries result fetch up to 3 times before giving up.
 // Poll timeout synced with bridge max_wait_sec (30 min local; cloud model-aware — Kling up to 60 min).
+V._cancelPoll=function(rid){
+  const iv=V.polls.get(rid);
+  if(iv){clearInterval(iv);V.polls.delete(rid);}
+  const job=V.jobs.get(rid);
+  if(job){job.status='CANCELLED';}
+  V._updateUI();
+};
 V._startPoll=function(rid,model){
   if(V.polls.has(rid))return;
   vlog("Starting poll for",rid);
   const startTime=Date.now();
   const MAX_POLL_MS=sbMaxPollMs(model);
   const iv=setInterval(async()=>{
+    const job=V.jobs.get(rid);
+    if(!job||job.status==='CANCELLED'){clearInterval(iv);V.polls.delete(rid);return;}
     if(Date.now()-startTime>MAX_POLL_MS){
       clearInterval(iv);V.polls.delete(rid);
       const job=V.jobs.get(rid);if(job){job.status="PROCESSING";V._showErr(sbPollTimeoutMsg(job.scene,job.shot,model));V._updateUI()}
@@ -5871,11 +5882,21 @@ async function mhRunSingleJob(j,model){
       mhRenderGenProgress();return;
     }
     j.requestId=d.request_id;j.status='poll';j.model=model;j.startedAt=Date.now();mhPersistPendingJobs();mhRenderGenProgress();
+    const jobKey=j.sceneIdx+'-'+j.shotIdx;
+    mhRegisterGenCancel(jobKey,j.requestId);
+    mhUpdateShotCancelButton(jobKey,true);
     // Poll loop — model-aware (Kling up to 60 min on cloud).
     const started=Date.now();
     const MAX_WAIT=sbMaxPollMs(model);
     while(Date.now()-started<MAX_WAIT){
-      await new Promise(res=>setTimeout(res,5000));
+      if(mhIsGenCancelled(jobKey)||window._mhGenCancelAll){
+        const rid=j.requestId;
+        j.status='cancelled';j.error='Cancelled by user';j.requestId=null;
+        mhPersistPendingJobs();mhUpdateShotCancelButton(jobKey,false);mhRenderGenProgress();
+        if(rid)mhRequestProviderCancel(rid,model);
+        return;
+      }
+      await mhSleepWhilePolling(5000,jobKey);
       try{
         const pr=await fetch(sbVideoProxy(),{method:'POST',headers:h,body:JSON.stringify({action:'status',request_id:j.requestId})});
         const pd=await pr.json();
@@ -6039,14 +6060,17 @@ async function mhStartGeneration(){
     });
   }));
   _mhGenState={running:true,jobs,model,stitchMode,project:p};
+  window._mhGenCancelAll=false;
   document.getElementById('mhGenerateBtn').disabled=true;
   document.getElementById('mhGenerateBtn').textContent='Running...';
+  mhToggleGlobalCancelButtons(true);
   document.getElementById('mhGenProgress').style.display='block';
   mhRenderGenProgress();
   // Run with parallelism — up to 8 submits/polls at once. Each job is independent.
   await mhRunJobsConcurrently(jobs,model,3);
   document.getElementById('mhGenerateBtn').disabled=false;
   document.getElementById('mhGenerateBtn').textContent='⚡ Generate All';
+  mhToggleGlobalCancelButtons(false);
   _mhGenState.running=false;
   const p2=projectLoad();
   if(p2){
@@ -6064,6 +6088,7 @@ async function mhRunJobsConcurrently(jobs,model,maxParallel){
   for(let w=0;w<Math.min(maxParallel,jobs.length);w++){
     workers.push((async()=>{
       while(true){
+        if(window._mhGenCancelAll)break;
         const i=idx++;
         if(i>=jobs.length)break;
         await mhRunSingleJob(jobs[i],model);
@@ -6079,7 +6104,7 @@ function mhRenderGenProgress(){
   if(!list)return;
   let h='';
   for(const j of _mhGenState.jobs){
-    const st={queue:['qst-q','QUEUE'],submit:['qst-p','SUBMITTING'],poll:['qst-p','GENERATING'],done:['qst-d','DONE'],fail:['qst-f','FAILED']}[j.status];
+    const st={queue:['qst-q','QUEUE'],submit:['qst-p','SUBMITTING'],poll:['qst-p','GENERATING'],done:['qst-d','DONE'],fail:['qst-f','FAILED'],cancelled:['qst-f','CANCELLED']}[j.status]||['qst-f','FAILED'];
     const modelTag = j.model ? ' <span style="font-size:9px;background:#222;padding:1px 4px;border-radius:3px">'+j.model+'</span>' : '';
     const provTag = j.provider ? sbProviderBadge(j.provider) : '';
     h+='<div class="gen-queue-item"><span class="qst '+st[0]+'">'+st[1]+'</span><span style="color:var(--gold);font-weight:700">S'+(j.sceneIdx+1)+'.'+(j.shotIdx+1)+'</span>'+modelTag+provTag+'<span style="flex:1;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(j.prompt.substring(0,80))+'</span>';
@@ -6117,7 +6142,7 @@ function mhIsRealVideoUrl(url, job) {
 
 function mhIsJobGenerating(j) {
   if (!j || j.videoUrl) return false;
-  if (j.status === 'fail') return false;
+  if (j.status === 'fail' || j.status === 'cancelled') return false;
   return j.status === 'submit' || j.status === 'poll' || j.status === 'queue';
 }
 
@@ -6127,10 +6152,15 @@ function sbIsVeoModel(model) {
 function mhGeneratingClipHtml(j) {
   const model = j && j.model ? esc(j.model) : 'video';
   const eta = sbIsKlingModel(j && j.model) ? 'typically 20–45 min' : (sbIsVeoModel(j && j.model) ? 'typically 2–5 min' : 'typically 1–5 min');
+  const key = (j.sceneIdx != null && j.shotIdx != null) ? (j.sceneIdx + '-' + j.shotIdx) : '';
+  const cancelBtn = key
+    ? '<div style="margin-top:10px"><button class="b b-g b-s" style="font-size:11px;color:#fca5a5;border-color:rgba(239,68,68,0.45)" onclick="mhCancelShotGeneration(\'' + key + '\')">✕ Cancel generation</button></div>'
+    : '';
   return '<div style="margin-top:8px;padding:14px;background:var(--surface2);border:1px solid var(--gold-border);border-radius:8px;text-align:center">' +
     '<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35)">GENERATING</span>' +
     '<div style="color:var(--gold);font-size:13px;font-weight:700;margin-top:10px">⚙ Rendering video…</div>' +
-    '<div style="color:var(--dim);font-size:10px;margin-top:6px;line-height:1.4">' + model + ' · WaveSpeed/XAI · ' + eta + '<br>Stay on this tab — preview appears here when done.</div></div>';
+    '<div style="color:var(--dim);font-size:10px;margin-top:6px;line-height:1.4">' + model + ' · WaveSpeed/XAI · ' + eta + '<br>Stay on this tab — preview appears here when done.</div>' +
+    cancelBtn + '</div>';
 }
 
 function mhSetShotGenButton(key, state, detail) {
@@ -6139,18 +6169,27 @@ function mhSetShotGenButton(key, state, detail) {
   if (state === 'enriching' || state === 'submitting') {
     btn.disabled = true;
     btn.textContent = detail || 'Submitting…';
+    mhUpdateShotCancelButton(key, true);
   } else if (state === 'generating') {
     btn.disabled = true;
     btn.textContent = detail || '⚙ Generating…';
+    mhUpdateShotCancelButton(key, true);
   } else if (state === 'done') {
     btn.disabled = false;
     btn.textContent = detail || '✅ Video ready';
+    mhUpdateShotCancelButton(key, false);
+  } else if (state === 'cancelled') {
+    btn.disabled = false;
+    btn.textContent = detail || '✗ Cancelled — retry';
+    mhUpdateShotCancelButton(key, false);
   } else if (state === 'failed') {
     btn.disabled = false;
     btn.textContent = detail || '✗ Failed — retry';
+    mhUpdateShotCancelButton(key, false);
   } else {
     btn.disabled = false;
     btn.textContent = '⚡ Generate This Shot';
+    mhUpdateShotCancelButton(key, false);
   }
 }
 
@@ -6158,6 +6197,9 @@ function mhClipSourceBadge(j) {
   if (!j) return '';
   if (mhIsJobGenerating(j)) {
     return '<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35)">GENERATING</span>';
+  }
+  if (j.status === 'cancelled') {
+    return '<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(127,29,29,0.35);color:#fca5a5;border:1px solid rgba(239,68,68,0.35)">CANCELLED</span>';
   }
   if (j.status === 'fail' || j.error) {
     return '<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.35)">GENERATION FAILED</span>';
@@ -6908,6 +6950,140 @@ function mhSetBatchGenStatus(html) {
   }
 }
 
+const MH_GEN_CANCELLED_ERR = 'GENERATION_CANCELLED';
+const _mhGenCancel = new Map();
+
+function mhRegisterGenCancel(key, requestId) {
+  const prev = _mhGenCancel.get(key);
+  if (prev && prev.abortCtrl) {
+    try { prev.abortCtrl.abort(); } catch (e) {}
+  }
+  _mhGenCancel.set(key, { cancelled: false, requestId: requestId || null, abortCtrl: new AbortController() });
+}
+
+function mhGetGenAbortSignal(key) {
+  const c = _mhGenCancel.get(key);
+  return c && c.abortCtrl ? c.abortCtrl.signal : undefined;
+}
+
+function mhIsGenCancelled(key) {
+  const c = _mhGenCancel.get(key);
+  return !!(c && c.cancelled);
+}
+
+function mhUpdateShotCancelButton(key, show) {
+  const btn = document.getElementById('gen-cancel-btn-' + key);
+  if (btn) btn.style.display = show ? 'inline-block' : 'none';
+}
+
+function mhToggleGlobalCancelButtons(show) {
+  const batchBtn = document.getElementById('mhBatchCancelBtn');
+  const genBtn = document.getElementById('mhGenCancelBtn');
+  if (batchBtn) batchBtn.style.display = show ? 'inline-block' : 'none';
+  if (genBtn) genBtn.style.display = show ? 'inline-block' : 'none';
+}
+
+async function mhRequestProviderCancel(requestId, model) {
+  if (!requestId) return;
+  try {
+    const h = window.hdrs ? await window.hdrs() : { 'Content-Type': 'application/json' };
+    await fetch(sbVideoProxy(), {
+      method: 'POST',
+      headers: await (typeof h.then === 'function' ? h : Promise.resolve(h)),
+      body: JSON.stringify({ action: 'cancel', request_id: requestId, model: model || null })
+    });
+  } catch (e) {
+    console.warn('[mhCancel] provider cancel:', e.message || e);
+  }
+}
+
+function mhCancelShotGeneration(key, opts) {
+  opts = opts || {};
+  const [si, shi] = key.split('-').map(Number);
+  const j = mhGetShotJob(si, shi);
+  const entry = _mhGenCancel.get(key) || { abortCtrl: null };
+  entry.cancelled = true;
+  if (entry.abortCtrl) {
+    try { entry.abortCtrl.abort(); } catch (e) {}
+  }
+  _mhGenCancel.set(key, entry);
+
+  const requestId = (j && j.requestId) || entry.requestId;
+  if (requestId && window.SBVideo && SBVideo.polls) {
+    const iv = SBVideo.polls.get(requestId);
+    if (iv) {
+      clearInterval(iv);
+      SBVideo.polls.delete(requestId);
+    }
+    const vjob = SBVideo.jobs.get(requestId);
+    if (vjob) vjob.status = 'CANCELLED';
+    if (typeof SBVideo._updateUI === 'function') SBVideo._updateUI();
+  }
+
+  mhUpsertGenJob(si, shi, {
+    status: 'cancelled',
+    error: 'Cancelled by user',
+    videoUrl: null,
+    requestId: null
+  });
+  mhPersistPendingJobs();
+  mhUpdateShotCancelButton(key, false);
+  mhSetShotGenButton(key, 'cancelled');
+  if (!opts.silent) mhRenderShotClipPreview(key);
+  if (typeof mhRenderGenProgress === 'function') mhRenderGenProgress();
+  if (requestId) mhRequestProviderCancel(requestId, j && j.model);
+}
+
+function mhCancelBatchGeneration() {
+  window._mhBatchGenCancel = true;
+  const p = projectLoad() || {};
+  const keys = mhOrderedShotKeys(p);
+  keys.forEach(k => {
+    const [si, shi] = k.split('-').map(Number);
+    const j = mhGetShotJob(si, shi);
+    if (j && mhIsJobGenerating(j)) mhCancelShotGeneration(k, { silent: true });
+  });
+  mhToggleGlobalCancelButtons(false);
+  const batchBtn = document.getElementById('mhBatchGenBtn');
+  if (batchBtn) {
+    batchBtn.disabled = false;
+    batchBtn.textContent = '🎬 Generate Video Clips (using all Parsed Per-Shot Prompts + Jots)';
+  }
+  window._mhBatchGenRunning = false;
+  mhSetBatchGenStatus('<div style="color:#fca5a5;font-weight:700">Batch cancelled.</div><div style="color:var(--dim);font-size:11px;margin-top:4px">Stopped waiting on in-flight shots. Provider jobs may still finish on WaveSpeed — you will not auto-import them.</div>');
+  mhRenderGenClipsGallery();
+}
+
+function mhCancelAllGenerations() {
+  window._mhGenCancelAll = true;
+  (_mhGenState.jobs || []).forEach(j => {
+    if (mhIsJobGenerating(j)) mhCancelShotGeneration(j.sceneIdx + '-' + j.shotIdx, { silent: true });
+  });
+  mhToggleGlobalCancelButtons(false);
+  const genBtn = document.getElementById('mhGenerateBtn');
+  if (genBtn) {
+    genBtn.disabled = false;
+    genBtn.textContent = '⚡ Generate All';
+  }
+  _mhGenState.running = false;
+  mhRenderGenProgress();
+}
+
+async function mhSleepWhilePolling(ms, key) {
+  const step = 400;
+  let elapsed = 0;
+  while (elapsed < ms) {
+    if (key && mhIsGenCancelled(key)) throw new Error(MH_GEN_CANCELLED_ERR);
+    const wait = Math.min(step, ms - elapsed);
+    await new Promise(r => setTimeout(r, wait));
+    elapsed += wait;
+  }
+}
+
+window.mhCancelShotGeneration = mhCancelShotGeneration;
+window.mhCancelBatchGeneration = mhCancelBatchGeneration;
+window.mhCancelAllGenerations = mhCancelAllGenerations;
+
 function mhNormalizeVideoStatus(st) {
   const s = String(st || '').toUpperCase();
   if (s === 'COMPLETED' || s === 'SUCCESS' || s === 'SUCCEEDED' || s === 'DONE' || s === 'FINISHED') return 'COMPLETED';
@@ -6921,7 +7097,8 @@ async function mhPollVideoUntilDone(requestId, headers, shotKey, model) {
   const maxWait = sbMaxPollMs(model);
   let polls = 0;
   while (Date.now() - started < maxWait) {
-    await new Promise(res => setTimeout(res, sbPollIntervalMs(model, polls)));
+    if (shotKey && mhIsGenCancelled(shotKey)) throw new Error(MH_GEN_CANCELLED_ERR);
+    await mhSleepWhilePolling(sbPollIntervalMs(model, polls), shotKey);
     polls++;
     if (shotKey) {
       const [psi, pshi] = shotKey.split('-').map(Number);
@@ -6994,6 +7171,7 @@ async function mhStartBackgroundPoll(key, requestId, model) {
     mhRefreshGenUI(key);
     mhSetShotGenButton(key, 'done', '✅ Video ready');
   } catch (e) {
+    if (String(e.message || '') === MH_GEN_CANCELLED_ERR || mhIsGenCancelled(key)) return;
     console.warn('[mhBgPoll]', key, e.message || e);
     mhUpsertGenJob(si, shi, {
       status: 'poll',
@@ -7015,7 +7193,7 @@ function mhPersistPendingJobs() {
     if (!p) return;
     const storeKey = 'sb_pending_' + ((curUser && (curUser.uid || curUser.name)) || 'anon');
     const pending = (_mhGenState.jobs || [])
-      .filter(j => j.requestId && !j.videoUrl && (j.status === 'poll' || j.status === 'submit'))
+      .filter(j => j.requestId && !j.videoUrl && (j.status === 'poll' || j.status === 'submit') && j.status !== 'cancelled')
       .map(j => ({
         sceneIdx: j.sceneIdx,
         shotIdx: j.shotIdx,
@@ -7076,13 +7254,16 @@ async function mhDoFinalGenerate() {
 
   const batchBtn = document.getElementById('mhBatchGenBtn');
   window._mhBatchGenRunning = true;
+  window._mhBatchGenCancel = false;
   if (batchBtn) { batchBtn.disabled = true; batchBtn.textContent = 'Running shots in order...'; }
+  mhToggleGlobalCancelButtons(true);
 
   let done = 0;
   let failed = 0;
   const errors = [];
 
   for (let i = 0; i < keys.length; i++) {
+    if (window._mhBatchGenCancel) break;
     const key = keys[i];
     const [si, shi] = key.split('-').map(Number);
     const label = `S${si + 1}.${shi + 1}`;
@@ -7111,6 +7292,7 @@ async function mhDoFinalGenerate() {
       done++;
       mhRefreshGenUI(key);
     } catch (e) {
+      if (String(e && e.message || '') === MH_GEN_CANCELLED_ERR || window._mhBatchGenCancel) break;
       failed++;
       errors.push(`${label}: ${e && e.message ? e.message : String(e)}`);
       mhRenderShotClipPreview(key);
@@ -7119,9 +7301,16 @@ async function mhDoFinalGenerate() {
   }
 
   window._mhBatchGenRunning = false;
+  mhToggleGlobalCancelButtons(false);
   if (batchBtn) {
     batchBtn.disabled = false;
     batchBtn.textContent = '🎬 Generate Video Clips (using all Parsed Per-Shot Prompts + Jots)';
+  }
+
+  if (window._mhBatchGenCancel) {
+    mhRenderGenClipsGallery();
+    mhSyncEditorAfterGen(false);
+    return;
   }
 
   mhSetBatchGenStatus(
@@ -7136,6 +7325,7 @@ async function mhDoFinalGenerate() {
   (_mhGenState.jobs || []).forEach(j => {
     const k = j.sceneIdx + '-' + j.shotIdx;
     if (j.videoUrl) mhSetShotGenButton(k, 'done');
+    else if (j.status === 'cancelled') mhSetShotGenButton(k, 'cancelled');
     else if (j.status === 'fail' || j.error) mhSetShotGenButton(k, 'failed');
   });
 }
@@ -8231,6 +8421,7 @@ function buildPerShotDetailBoxes() {
             <!-- Per-shot generate uses edited prompt (jots stripped) + char photos as refs -->
             <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
               <button id="gen-shot-btn-${key}" class="b b-gold b-s" style="font-size:11px" onclick="generateVideoForShot('${key}', this)">⚡ Generate This Shot</button>
+              <button id="gen-cancel-btn-${key}" class="b b-g b-s" style="font-size:11px;display:none;color:#fca5a5;border-color:rgba(239,68,68,0.45)" onclick="mhCancelShotGeneration('${key}')">✕ Cancel</button>
               <span style="font-size:9px;color:#555">Uses the <strong>Video Model + Resolution/Aspect/Duration</strong> from the settings grid above (only options valid for the selected model). Grok vision enriches the prompt using your locked char + location photos first, then the model + params are sent to WaveSpeed or XAI direct.</span>
             </div>
             <div id="shot-clip-${key}" style="display:none"></div>
@@ -8250,6 +8441,7 @@ function buildPerShotDetailBoxes() {
     if (mhIsJobGenerating(j)) mhSetShotGenButton(k, 'generating');
     else if (j.videoUrl && j.localGenerated) mhSetShotGenButton(k, 'done', '⚠ Local preview only');
     else if (j.videoUrl) mhSetShotGenButton(k, 'done');
+    else if (j.status === 'cancelled') mhSetShotGenButton(k, 'cancelled');
     else if (j.status === 'fail' || j.error) mhSetShotGenButton(k, 'failed');
   });
   console.log('[Shotbreak] Built', scenes.reduce((a,s)=>a+(s.shots||[]).length,0), 'per-shot prompt boxes');
@@ -8405,6 +8597,7 @@ async function generateVideoForShot(key, btn, opts) {
     }
   }
   const finalPromptForVideo = buildShotVideoPrompt(cleanPrompt, ui, p, si, shi) || cleanPrompt || rawPrompt;
+  mhRegisterGenCancel(key);
   mhSetShotGenButton(key, 'submitting');
   if (btn && btn.id !== 'gen-shot-btn-' + key) btn.textContent = 'Submitting video…';
 
@@ -8433,11 +8626,15 @@ async function generateVideoForShot(key, btn, opts) {
   let submittedRequestId = null;
   try {
     const h = (window.hdrs ? await window.hdrs() : {'Content-Type':'application/json'});
-    const r = await fetch(sbVideoProxy(), {method:'POST', headers:h, body:JSON.stringify(payload)});
+    const entry = _mhGenCancel.get(key);
+    if (entry) entry.requestId = null;
+    const r = await fetch(sbVideoProxy(), {method:'POST', headers:h, body:JSON.stringify(payload), signal: mhGetGenAbortSignal(key)});
+    if (mhIsGenCancelled(key)) return;
     const d = await r.json();
     if (r.ok && (d.request_id || d.video_url)) {
       const modelUsed = payload.model || 'unknown';
       submittedRequestId = d.request_id || null;
+      if (entry && submittedRequestId) entry.requestId = submittedRequestId;
       const job = mhUpsertGenJob(si, shi, {
         prompt: finalPromptForVideo,
         status: d.video_url ? 'done' : 'poll',
@@ -8483,6 +8680,10 @@ async function generateVideoForShot(key, btn, opts) {
       throw new Error(d.error || d.detail || 'submit failed');
     }
   } catch (e) {
+    if (mhIsGenCancelled(key) || e.name === 'AbortError' || String(e.message || '') === MH_GEN_CANCELLED_ERR) {
+      if (!mhIsGenCancelled(key)) mhCancelShotGeneration(key);
+      return;
+    }
     console.warn('[Shot video] Remote submit failed:', e.message || e);
     if (submittedRequestId && String(e.message || '').indexOf('timed out') >= 0) {
       mhUpsertGenJob(si, shi, {

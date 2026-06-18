@@ -673,6 +673,34 @@ exports.handler = async function (event) {
     }
   }
 
+  if (action === 'cancel' && request_id) {
+    const isGrokJob = request_id.startsWith('grok_');
+    let providerNote = 'Client polling stopped; provider job may still finish on their side.';
+    if (!isGrokJob && process.env.WAVESPEED_API_KEY && !isFakeWaveSpeedId(request_id)) {
+      try {
+        const cancelPaths = [
+          '/api/v3/predictions/' + request_id + '/cancel',
+          '/api/v3/predictions/' + request_id,
+        ];
+        for (const path of cancelPaths) {
+          const res = await callWaveSpeed(path, null, 'DELETE');
+          if (res && res.httpStatus && res.httpStatus < 500) {
+            providerNote = 'Best-effort WaveSpeed cancel sent.';
+            break;
+          }
+        }
+      } catch (e) {
+        providerNote = 'Client cancelled; WaveSpeed cancel not confirmed.';
+      }
+    }
+    return jsonResponse(event, 200, {
+      request_id,
+      status: 'CANCELLED',
+      provider: isGrokJob ? 'grok-imagine' : 'wavespeed',
+      note: providerNote,
+    });
+  }
+
   if (action === 'result' && request_id) {
     const isGrokJob = request_id.startsWith('grok_');
     if ((isGrokJob && !(process.env.XAI_API_KEY || process.env.GROK_API_KEY)) || (!isGrokJob && !process.env.WAVESPEED_API_KEY) || request_id.includes('demo_')) {
