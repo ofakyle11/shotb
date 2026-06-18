@@ -780,7 +780,7 @@ window.safeSignIn = safeSignIn;
               </div>
             </div>
             <div id="videoModelNote" style="font-size:9px;color:#666;margin-top:4px"></div>
-            <div style="font-size:9px;color:#555;margin-top:2px">Full choice of resolution / aspect / duration is available for all models (no client-side blocks). The chosen model name + settings are forwarded to the renderer (WaveSpeed or Grok Imagine via XAI). Use the model note above for guidance on typical strengths.</div>
+            <div style="font-size:9px;color:#555;margin-top:2px">Resolution, aspect, and duration options change when you switch models — only valid combos for that model are shown. Settings are forwarded to WaveSpeed or Grok Imagine via XAI.</div>
           </div>
 
           <div id="mhGenEntityBoxes" style="margin-top:12px;min-height:80px">
@@ -1756,12 +1756,10 @@ const CK=Object.keys(CINE);let gC={};CK.forEach(k=>gC[k]='Default');let cOpen=fa
 
 // ===================== MODEL CAPABILITIES CONFIG =====================
 // The 5 photo + 5 video models the user explicitly listed.
-// Resolution/aspect/duration now use broad options for all models (no client-side restrictions).
-// Model config is used for the dropdown labels, the info notes (description + ref support), and
-// good internal defaults when generating character/location pictures.
-// Backend (generate-video.js) receives whatever the user actually chose + the model name and routes
-// grok-imagine/flux-xai direct to XAI, everything else to WaveSpeed. Refs + vision polish forwarded.
-// (Updated per "shouldnt be any constrants now that all those models were added thru wavespeed and thru xai direct")
+// Resolution/aspect/duration dropdowns are filtered per model — only show values each model supports.
+// Model config drives the UI options, info notes (description + ref support), and API payload defaults.
+// Backend (generate-video.js) receives the selected model + validated params and routes
+// grok-imagine/flux-xai direct to XAI, everything else to WaveSpeed.
 const PHOTO_MODELS = {
   'wan-2.7': {
     label: 'Wan 2.7',
@@ -1853,14 +1851,6 @@ const VIDEO_MODELS = {
   }
 };
 
-// Broad options now that all 5 photo + 5 video models are wired through both WaveSpeed and XAI direct.
-// No more client-side restrictions on resolution/aspect/duration/refs — user can choose any; the underlying
-// model + provider will handle (or error gracefully). Model config is still used for the label, description,
-// and good defaults when generating pictures.
-const BROAD_RESOLUTIONS = ['480p', '720p', '1080p', '1K', '2K', '4K'];
-const BROAD_ASPECTS = ['1:1', '16:9', '9:16', '2:3', '3:2', '4:3', '3:4', '20:9'];
-const BROAD_DURATIONS = [2, 4, 5, 6, 8, 10, 12, 15, 20];
-
 // Helper to get model config
 function getModelConfig(model, isVideo = true) {
   const list = isVideo ? VIDEO_MODELS : PHOTO_MODELS;
@@ -1887,53 +1877,58 @@ function updateOptionsForModel(model, isVideo, resId, aspectId, durId) {
   const aspSel = document.getElementById(aspectId);
   const durSel = durId ? document.getElementById(durId) : null;
 
-  // No client-side constraints: always offer the broad set so the user has full choice.
-  // The model + backend (WaveSpeed or XAI direct) will receive whatever is selected.
+  const resolutions = Array.isArray(cfg.resolutions) ? cfg.resolutions : [];
+  const aspects = Array.isArray(cfg.aspectRatios) ? cfg.aspectRatios : [];
+  const durations = isVideo && Array.isArray(cfg.durations) ? cfg.durations : [];
+
   if (resSel) {
     const current = resSel.value;
     resSel.innerHTML = '';
-    BROAD_RESOLUTIONS.forEach(r => {
+    resolutions.forEach(r => {
       const o = document.createElement('option');
       o.value = r; o.textContent = r;
       resSel.appendChild(o);
     });
-    // Prefer a value the model "likes" if the previous selection isn't in the broad list
-    if (current && BROAD_RESOLUTIONS.includes(current)) resSel.value = current;
-    else if (cfg.resolutions && cfg.resolutions[0]) resSel.value = cfg.resolutions[0];
+    if (current && resolutions.includes(current)) resSel.value = current;
+    else if (resolutions[0]) resSel.value = resolutions[0];
   }
   if (aspSel) {
     const current = aspSel.value;
     aspSel.innerHTML = '';
-    BROAD_ASPECTS.forEach(a => {
+    aspects.forEach(a => {
       const o = document.createElement('option');
       o.value = a; o.textContent = a;
       aspSel.appendChild(o);
     });
-    if (current && BROAD_ASPECTS.includes(current)) aspSel.value = current;
-    else if (cfg.aspectRatios && cfg.aspectRatios[0]) aspSel.value = cfg.aspectRatios[0];
+    if (current && aspects.includes(current)) aspSel.value = current;
+    else if (aspects[0]) aspSel.value = aspects[0];
   }
   if (durSel) {
     const current = durSel.value;
     const currentNum = current ? parseInt(current, 10) : null;
     durSel.innerHTML = '';
-    BROAD_DURATIONS.forEach(d => {
+    durations.forEach(d => {
       const o = document.createElement('option');
       o.value = String(d); o.textContent = d + 's';
       durSel.appendChild(o);
     });
-    if (currentNum != null && BROAD_DURATIONS.includes(currentNum)) {
+    if (currentNum != null && durations.includes(currentNum)) {
       durSel.value = String(currentNum);
-    } else if (cfg.durations && cfg.durations[0] != null) {
-      durSel.value = String(cfg.durations[0]);
+    } else if (durations[0] != null) {
+      durSel.value = String(durations[0]);
     }
-    // select.value will be the bare number string (e.g. "6") so payload parseInt works cleanly
   }
 
-  // update note with model-specific info (description + ref support). This is the only "model awareness" in the UI now.
+  // Model-specific note: description + ref support + supported output params
   const noteEl = document.getElementById(isVideo ? 'videoModelNote' : 'photoModelNote');
   if (noteEl && cfg.description) {
-    const refNote = cfg.supportsReferences ? ` • up to ${cfg.maxRefImages || 3} refs supported` : '';
-    noteEl.textContent = cfg.description + refNote;
+    const refNote = cfg.supportsReferences ? ` • up to ${cfg.maxRefImages || 3} refs` : '';
+    const paramBits = [];
+    if (resolutions.length) paramBits.push(resolutions.join(', '));
+    if (aspects.length) paramBits.push(aspects.join(', '));
+    if (durations.length) paramBits.push(durations.map(d => d + 's').join(', '));
+    const paramNote = paramBits.length ? ` • supported: ${paramBits.join(' · ')}` : '';
+    noteEl.textContent = cfg.description + refNote + paramNote;
   }
 }
 
@@ -7055,7 +7050,7 @@ function mhSwitchTab(tab) {
     mhRefreshBaselineShotSelect(projectLoad());
     if (typeof buildPerShotDetailBoxes === 'function') buildPerShotDetailBoxes();
     setTimeout(() => { if (typeof buildPerShotDetailBoxes === 'function') buildPerShotDetailBoxes(); }, 250);
-    // Populate video model select (the 5 models). Resolution/aspect/duration are broad choices (no client-side model filtering).
+    // Populate video model select; resolution/aspect/duration filtered per model via updateVideoOptions().
     setTimeout(() => {
       const vidSel = document.getElementById('videoModelSelect');
       if (vidSel && vidSel.options.length === 0) {
@@ -8216,7 +8211,7 @@ function buildPerShotDetailBoxes() {
             <!-- Per-shot generate wired to use this exact edited prompt (jots stripped) + char photos as refs + Grok enrichment for coherence (same provider as the 82 agents) -->
             <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
               <button class="b b-gold b-s" style="font-size:11px" onclick="generateVideoForShot('${key}', this)">⚡ Generate This Shot</button>
-              <span style="font-size:9px;color:#555">Uses the <strong>Video Model + Resolution/Aspect/Duration</strong> from the settings grid above (full choice — no client blocks). Grok vision enriches the prompt using your locked char + location photos first, then the exact chosen model + params are sent to WaveSpeed or XAI direct.</span>
+              <span style="font-size:9px;color:#555">Uses the <strong>Video Model + Resolution/Aspect/Duration</strong> from the settings grid above (only options valid for the selected model). Grok vision enriches the prompt using your locked char + location photos first, then the model + params are sent to WaveSpeed or XAI direct.</span>
             </div>
           </div>
         </div>
@@ -8565,7 +8560,7 @@ Throughout the full 6s clip enforce (WIND, HAIR, CLOTHING & LEATHER DETAIL EXPER
 
   btn.textContent = 'Submitting video...';
 
-  // Build payload with the chosen video model + the resolution/aspect/duration the user picked in the settings grid (no pre-filtering)
+  // Build payload with the chosen video model + model-filtered resolution/aspect/duration from settings grid
   const vidModelSel = document.getElementById('videoModelSelect');
   const videoModel = (vidModelSel ? vidModelSel.value : 'grok-imagine');
   const resSel = document.getElementById('videoResolutionSelect');
@@ -8706,7 +8701,7 @@ function generateBaselineVideo() {
   const sceneShot = document.getElementById('baselineSceneShot').value || 'scene1_shot1';
   const model = (document.getElementById('videoModelSelect') ? document.getElementById('videoModelSelect').value : 'seedance-2.0-turbo');
   const take = document.getElementById('baselineTake').value || '1';
-  // duration etc will be read from the main Video Settings selects in the payload build if remote (broad options)
+  // duration etc read from Video Settings selects (filtered per selected model)
 
   // Use per-shot prompt if available for better coherence with the new UI (strip jots for the actual gen)
   const [sceneKey, shotKey] = sceneShot.split('_');
@@ -8751,7 +8746,7 @@ function generateBaselineVideo() {
   buildPerShotDetailBoxes();
 }
 
-// Initialize the 5 photo + 5 video model selects (broad resolution/aspect/duration choices for all; model only drives the note + picture-gen defaults)
+// Initialize the 5 photo + 5 video model selects (video output params filtered per model)
 setTimeout(() => {
   try {
     const vSel = document.getElementById('videoModelSelect');
