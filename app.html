@@ -624,6 +624,9 @@ window.safeSignIn = safeSignIn;
 .shot-section h6 { margin: 0 0 6px; font-size: 11px; color: var(--gold); text-transform: uppercase; letter-spacing: 0.05em; }
 .char-photo-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .char-photo-thumb { width: 52px; height: 52px; border-radius: 4px; border: 1px solid var(--border); object-fit: cover; }
+.ref-photo-wrap { position: relative; display: inline-block; vertical-align: top; }
+.ref-photo-remove { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; padding: 0; border: none; border-radius: 50%; background: rgba(0,0,0,0.75); color: #f87171; font-size: 11px; font-weight: 700; line-height: 18px; cursor: pointer; z-index: 2; display: flex; align-items: center; justify-content: center; }
+.ref-photo-remove:hover { background: #7f1d1d; color: #fff; }
 .loc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px; }
 .loc-grid select, .loc-grid input { width: 100%; background: var(--bg); color: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 5px 6px; font-size: 11px; }
 .big-prompt { width: 100%; min-height: 110px; background: #0a0a0f; color: #fff; border: 1px solid var(--gold-border); border-radius: 6px; padding: 10px; font-family: var(--mono); font-size: 12.5px; resize: vertical; line-height: 1.4; }
@@ -3179,6 +3182,37 @@ function addCharacterPhoto(charName, model, photoData) {
   });
   projectSave(p);
 }
+
+function removeCharacterPhoto(charName, model, photoIndex) {
+  const p = projectLoad();
+  if (!p || !p.assets || !p.assets.characterPhotos) return;
+  const byModel = p.assets.characterPhotos[charName];
+  if (!byModel || !byModel[model]) return;
+  const arr = byModel[model];
+  const idx = parseInt(photoIndex, 10);
+  if (isNaN(idx) || idx < 0 || idx >= arr.length) return;
+  const removedUrl = arr[idx].url;
+  arr.splice(idx, 1);
+  if (!arr.length) delete byModel[model];
+  if (!Object.keys(byModel).length) delete p.assets.characterPhotos[charName];
+  (p.characterBible || []).forEach(c => {
+    if ((c.name || '') === charName && c.imageUrl === removedUrl) c.imageUrl = null;
+  });
+  projectSave(p);
+  renderCharacterPhotos(charName);
+}
+
+function removeLocationPhoto(index) {
+  const p = projectLoad();
+  if (!p || !p.assets || !p.assets.locationPhotos) return;
+  const i = parseInt(index, 10);
+  if (isNaN(i) || i < 0 || i >= p.assets.locationPhotos.length) return;
+  p.assets.locationPhotos.splice(i, 1);
+  projectSave(p);
+  renderLocationPhotos();
+}
+window.removeCharacterPhoto = removeCharacterPhoto;
+window.removeLocationPhoto = removeLocationPhoto;
 
 function addVideoClip(model, sceneKey, shotKey, takeKey, videoData) {
   const p = projectLoad(); if (!p) return;
@@ -6890,9 +6924,12 @@ function renderCharacterPhotos(charName) {
   let html = '';
   Object.keys(photosByModel).forEach(model => {
     html += `<div style="margin:4px 0;"><strong style="color:#aaa;">${esc(model)}</strong><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">`;
-    photosByModel[model].forEach(photo => {
+    photosByModel[model].forEach((photo, pi) => {
       const prov = photo.provider ? sbProviderBadge(photo.provider) : '';
-      html += `<div style="width:72px;text-align:center;"><img src="${photo.url}" style="width:70px;height:70px;object-fit:cover;border-radius:4px;border:1px solid var(--border);" /><div style="font-size:9px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;">${esc((photo.prompt||'').slice(0,20))}</div>${prov}</div>`;
+      html += `<div class="ref-photo-wrap" style="width:72px;text-align:center;">
+        <button type="button" class="ref-photo-remove" title="Remove this reference" onclick="removeCharacterPhoto(${JSON.stringify(charName)}, ${JSON.stringify(model)}, ${pi})">✕</button>
+        <img src="${photo.url}" style="width:70px;height:70px;object-fit:cover;border-radius:4px;border:1px solid var(--border);" />
+        <div style="font-size:9px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;">${esc((photo.prompt||'').slice(0,20))}</div>${prov}</div>`;
     });
     html += `</div></div>`;
   });
@@ -7054,8 +7091,9 @@ function renderLocationPhotos() {
     area.innerHTML = '<span style="color:var(--dim);font-size:11px">No location plates yet. Add some for visual coherence.</span>';
     return;
   }
-  area.innerHTML = photos.map((ph,i) => `
-    <div style="width:110px;text-align:center;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#111">
+  area.innerHTML = photos.map((ph, i) => `
+    <div class="ref-photo-wrap" style="width:110px;text-align:center;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#111">
+      <button type="button" class="ref-photo-remove" title="Remove this location reference" onclick="removeLocationPhoto(${i})">✕</button>
       <img src="${ph.url}" style="width:100%;height:62px;object-fit:cover;display:block" />
       <div style="font-size:9px;padding:3px 4px;color:#aaa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((ph.prompt||'').slice(0,28))}</div>
       ${ph.provider ? sbProviderBadge(ph.provider) : ''}
