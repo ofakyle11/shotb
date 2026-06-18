@@ -411,9 +411,11 @@ window.safeSignIn = safeSignIn;
       <h3>Design a Character</h3>
       <label class="form-label">Model</label>
       <select class="cs-model-sel" id="csModel">
-        <option value="flux-schnell">⚡ Flux Schnell — 5 credits (Fast)</option>
-        <option value="flux-dev" selected>🎨 Flux Dev — 15 credits</option>
-        <option value="flux-pro">👑 Flux Pro — 20 credits (Best)</option>
+        <option value="flux-xai" selected>Grok Imagine (Flux via XAI)</option>
+        <option value="wan-2.7">Wan 2.7</option>
+        <option value="nano-banana">Nano Banana</option>
+        <option value="nano-banana-pro">Nano Banana Pro</option>
+        <option value="gpt-image-2">GPT 2.0</option>
       </select>
       <label class="form-label">Character Name</label>
       <input type="text" id="csName" placeholder="e.g. JOHN MERCER">
@@ -2026,6 +2028,36 @@ function populateModelSelect(selectId, modelsObj) {
   });
 }
 
+// Character/location stills via generate-video.js → Grok Imagine (flux-xai) or WaveSpeed
+async function sbGenerateCharacterPicture(opts) {
+  const picModel = opts.model || 'flux-xai';
+  const pCfg = PHOTO_MODELS[picModel] || PHOTO_MODELS['flux-xai'];
+  const photoAspect = opts.aspect_ratio || pCfg.aspectRatios[0];
+  const photoRes = opts.resolution || pCfg.resolutions[0];
+  const picProviderSel = opts.provider || (document.getElementById('mhProvider') ? document.getElementById('mhProvider').value : 'grok-imagine');
+  const h = await (window.hdrs ? window.hdrs() : Promise.resolve({'Content-Type': 'application/json'}));
+  const picPayload = {
+    action: 'generate_picture',
+    type: opts.type || 'character',
+    name: opts.name || 'character',
+    desc: opts.desc || opts.prompt || '',
+    prompt: opts.prompt || opts.desc || '',
+    points: opts.points || [],
+    location: opts.location || {},
+    referenceImages: opts.referenceImages || [],
+    model: picModel,
+    aspect_ratio: photoAspect,
+    resolution: photoRes,
+    provider: picProviderSel
+  };
+  const r = await fetch(sbVideoProxy(), {method: 'POST', headers: h, body: JSON.stringify(picPayload)});
+  const d = await r.json();
+  if (!r.ok || d.error) throw new Error(d.error || ('HTTP ' + r.status));
+  const url = d.url || d.demo_url || d.image_url || (d.images && d.images[0] && d.images[0].url);
+  if (!url) throw new Error('No image URL returned.');
+  return Object.assign({}, d, {url, prompt: d.prompt || picPayload.prompt, model: picModel});
+}
+
 function updateOptionsForModel(model, isVideo, resId, aspectId, durId) {
   const cfg = getModelConfig(model, isVideo);
   const resSel = document.getElementById(resId);
@@ -3217,35 +3249,33 @@ V.init=V.initFromResult;
 })();
 
 // ===================== CHARACTER STUDIO =====================
-const CS_PROXY="/.netlify/functions/generate-character";
 let csImages=[];    // [{url, name, prompt, model}]
 let csLocked=[];    // [{name, description, imageUrl}]
+const CS_RATIO_ASPECT={'1024x1024':'1:1','768x1024':'3:4','1024x768':'4:3','1024x1536':'2:3'};
 
 async function csGenerate(){
   const name=document.getElementById('csName').value.trim();
   const prompt=document.getElementById('csPrompt').value.trim();
-  const model=document.getElementById('csModel').value;
-  const ratio=document.getElementById('csRatio').value.split('x');
+  const model=document.getElementById('csModel').value||'flux-xai';
+  const ratio=document.getElementById('csRatio').value;
+  const aspect_ratio=CS_RATIO_ASPECT[ratio]||'1:1';
   if(!name){alert('Enter a character name.');return}
   if(!prompt){alert('Enter a description.');return}
 
   const btn=document.getElementById('csGenBtn');
-  btn.disabled=true;btn.textContent='⏳ Generating...';
+  btn.disabled=true;btn.textContent='⏳ Generating via Grok...';
   const errEl=document.getElementById('csError');errEl.classList.remove('show');
 
   try{
-    const ot = window.SB_OWNER_TOKEN; const token = (ot && ot.split(':').length===4 && ot.startsWith('owner:')) ? ot : await firebase.auth().currentUser.getIdToken();
-    const r=await fetch(CS_PROXY,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-      body:JSON.stringify({action:'generate',model,prompt:'Character reference: '+name+'. '+prompt,width:parseInt(ratio[0]),height:parseInt(ratio[1])})
+    const d=await sbGenerateCharacterPicture({
+      name,
+      desc:prompt,
+      prompt:'Character reference: '+name+'. '+prompt,
+      model,
+      aspect_ratio
     });
-    const d=await r.json();
-    if(!r.ok){errEl.textContent='⚠ '+d.error;errEl.classList.add('show');btn.disabled=false;btn.textContent='Generate Character';return}
-    if(d.image_url){
-      csImages.push({url:d.image_url,name,prompt,model});
-      csRenderResults();
-    }
+    csImages.push({url:d.url,name,prompt,model});
+    csRenderResults();
   }catch(e){errEl.textContent='⚠ '+e.message;errEl.classList.add('show')}
   btn.disabled=false;btn.textContent='Generate Character';
 }
@@ -5326,9 +5356,10 @@ function mhCharRenderCard(p,i){
   // Overlay: model picker + generate button (always interactive even when card is locked)
   h+='<div class="photo-overlay">';
   h+='<select id="mhCharModel_'+i+'">';
-  h+='<option value="flux-schnell">⚡ Flux Schnell — 5cr</option>';
-  h+='<option value="flux-dev" selected>🎨 Flux Dev — 15cr</option>';
-  h+='<option value="flux-pro">👑 Flux Pro — 20cr</option>';
+  Object.keys(PHOTO_MODELS).forEach(mk=>{
+    const pm=PHOTO_MODELS[mk];
+    h+='<option value="'+mk+'"'+(mk==='flux-xai'?' selected':'')+'>'+esc(pm.label)+'</option>';
+  });
   h+='</select>';
   h+='<button class="b b-gold b-s" id="mhCharGenBtn_'+i+'" '+(locked?'disabled':'')+' onclick="mhCharGenerate('+i+')">'+(hasImg?'↻ Regenerate':'🎭 Generate')+'</button>';
   h+='<span id="mhCharGenStatus_'+i+'" style="font-size:10px;color:#fff;font-family:var(--mono);text-align:center;min-height:12px"></span>';
@@ -5681,34 +5712,34 @@ async function mhCharGenerate(idx){
   if(!c.description.trim()){alert('Write a description first.');return}
   if(!curUser){alert('Not logged in.');return}
   if(curUser.tier==='free'&&!curUser.isOwner){alert('Image generation requires Creator ($14.99/mo) or above.');return}
-  const model=document.getElementById('mhCharModel_'+idx).value;
+  const modelEl=document.getElementById('mhCharModel_'+idx);
+  const model=(modelEl&&modelEl.value)?modelEl.value:'flux-xai';
   const btn=document.getElementById('mhCharGenBtn_'+idx);
   const status=document.getElementById('mhCharGenStatus_'+idx);
-  btn.disabled=true;btn.textContent='Generating...';status.textContent='submitting...';
+  btn.disabled=true;btn.textContent='Generating...';status.textContent='Grok Imagine...';
   try{
-    const h=await window.hdrs();
-    // Build rich prompt: full body reference sheet with multi-angle framing
-    const prompt='Full body character reference sheet. '+c.name+': '+c.description+'. Neutral studio lighting, white seamless background, multiple angles showing front, side, and 3/4 view. Highly detailed photorealistic live-action, balanced authentic subsurface scattering on skin (moderately increased for hyper realism; controlled to avoid excessive glow or red hands by balancing SSS levels), realistic skin texture, pores, natural translucency and micro-details.';
-    const r=await fetch('/.netlify/functions/generate-character',{method:'POST',headers:h,body:JSON.stringify({action:'generate',model,prompt,aspect_ratio:'1:1'})});
-    const d=await r.json();
-    if(!r.ok){
-      status.textContent='';
-      alert('Generation failed: '+(d.error||d.message||r.status));
-      btn.disabled=false;btn.textContent=c.imageUrl?'↻ Regenerate':'🎭 Generate';
-      return;
+    const refImgs=[];
+    if(c.continueFromIdx>=0&&p.characterBible[c.continueFromIdx]&&p.characterBible[c.continueFromIdx].imageUrl){
+      refImgs.push({name:p.characterBible[c.continueFromIdx].name,url:p.characterBible[c.continueFromIdx].imageUrl});
     }
-    const url=d.image_url||d.images?.[0]?.url||d.url;
-    if(!url){
-      status.textContent='';alert('No image URL returned.');
-      btn.disabled=false;btn.textContent='🎭 Generate';
-      return;
-    }
-    const p2=projectLoad();p2.characterBible[idx].imageUrl=url;projectSave(p2);
+    if(c.imageUrl)refImgs.push({name:c.name,url:c.imageUrl});
+    const baseDesc=c.description.trim();
+    const prompt='Full body character reference sheet. '+c.name+': '+baseDesc+'. Neutral studio lighting, white seamless background, multiple angles showing front, side, and 3/4 view. Highly detailed photorealistic live-action, balanced authentic subsurface scattering on skin (moderately increased for hyper realism; controlled to avoid excessive glow or red hands by balancing SSS levels), realistic skin texture, pores, natural translucency and micro-details.';
+    const d=await sbGenerateCharacterPicture({
+      name:c.name,
+      desc:baseDesc,
+      prompt,
+      model,
+      aspect_ratio:'1:1',
+      referenceImages:refImgs
+    });
+    const p2=projectLoad();p2.characterBible[idx].imageUrl=d.url;projectSave(p2);
     status.textContent='';
     mhRenderCharacters();
   }catch(e){
-    status.textContent='';alert('Error: '+e.message);
-    btn.disabled=false;btn.textContent='🎭 Generate';
+    status.textContent='';
+    alert('Generation failed: '+e.message);
+    btn.disabled=false;btn.textContent=c.imageUrl?'↻ Regenerate':'🎭 Generate';
   }
 }
 
