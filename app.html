@@ -257,9 +257,11 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
       <a href="index.html" style="font-size:12px;color:var(--dim)">← Back to website</a>
     </div>
 
-    <!-- Owner login note -->
-    <div style="margin-top:18px; padding:12px 14px; background:#1a140a; border:1px solid #d4a84344; border-radius:8px; font-size:12px; line-height:1.35; color:#d4c8a8;">
-      <strong style="color:#f0d9a0">Owners:</strong> In the Sign In form, enter short (kylef / stevec / scottd / stevek / kyle / scott / steve) + the matching OWNER_PW_* value from your Netlify env (or a real Firebase password if you created an account for the email). The login now routes owners through /verify-owner so the special passwords work directly in the UI (sets 4-part token + owner tier). ps1 helper still useful for shells/cURL. No bypasses. Non-owners require valid subscription.
+    <div style="margin-top:18px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.4;color:var(--dim);text-align:center">
+      New here? <span class="form-link" onclick="showTab('register')">Create an account</span> to start your first project.
+    </div>
+    <div id="ownerLoginDevNote" style="display:none;margin-top:10px;padding:10px 12px;background:#1a140a;border:1px solid #d4a84344;border-radius:8px;font-size:11px;line-height:1.35;color:#d4c8a8">
+      <strong style="color:#f0d9a0">Local dev:</strong> owner short + OWNER_PW from Netlify env, or Firebase email/password.
     </div>
 
   </div>
@@ -290,6 +292,11 @@ function safeSignIn() {
   }
 }
 window.safeSignIn = safeSignIn;
+(function () {
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:';
+  const devNote = document.getElementById('ownerLoginDevNote');
+  if (devNote && isLocal) devNote.style.display = 'block';
+})();
 </script>
 </div>
 
@@ -794,6 +801,13 @@ window.safeSignIn = safeSignIn;
           <div style="margin-top:20px">
             <button class="b b-gold b-big" id="mhBatchGenBtn" onclick="mhDoFinalGenerate()">🎬 Generate Video Clips (using all Parsed Per-Shot Prompts + Jots)</button>
             <div id="mhBatchGenStatus" style="display:none;margin-top:10px;padding:12px;background:#111;border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.5"></div>
+            <div id="mhGenClipsGallery" style="display:none;margin-top:16px">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+                <h4 style="margin:0;font-family:var(--display);font-size:15px;font-weight:800;color:var(--gold)">Generated Clips</h4>
+                <button class="b b-gold b-s" onclick="mhSyncEditorAfterGen(true)">+ Add All to Editor</button>
+              </div>
+              <div id="mhGenClipsGalleryInner" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px"></div>
+            </div>
             <div style="font-size:10px;color:#555;margin-top:4px">Runs every shot <strong>in order</strong> (S1.1 → S1.2 → …) — Grok enrich, submit, wait for completion, then next. All video + picture creative direction routes thru Grok with vision on your locked photos.</div>
           </div>
         </div>
@@ -5915,25 +5929,161 @@ function mhRenderGenProgress(){
   mhRenderClipsGrid();
 }
 
-function mhRenderClipsGrid(){
-  const grid=document.getElementById('mhClipsGrid');
-  const inner=document.getElementById('mhClipsGridInner');
-  if(!grid||!inner)return;
-  const done=(_mhGenState.jobs||[]).filter(j=>j.videoUrl);
-  if(!done.length){grid.style.display='none';return}
-  grid.style.display='block';
-  let h='';
-  for(const j of done){
-    const label='S'+(j.sceneIdx+1)+'.'+(j.shotIdx+1);
-    h+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden">';
-    h+='<video src="'+j.videoUrl+'" controls style="width:100%;display:block;background:#000"></video>';
-    h+='<div style="padding:10px"><div style="color:var(--gold);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px">'+label+(j.provider?sbProviderBadge(j.provider):'')+'</div>';
-    h+='<div style="color:var(--dim);font-size:12px;line-height:1.3;max-height:48px;overflow:hidden">'+esc(j.prompt.substring(0,100))+'...</div>';
-    h+='<div style="margin-top:8px;display:flex;gap:4px"><a href="'+j.videoUrl+'" download="shotbreak_'+label+'.mp4" class="b b-g b-xs">⬇ Download</a><button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\''+label+'\')">+ Editor</button></div>';
-    h+='</div></div>';
-  }
-  inner.innerHTML=h;
+function mhEnsureGenState() {
+  if (!_mhGenState) _mhGenState = { running: false, jobs: [] };
+  if (!_mhGenState.jobs) _mhGenState.jobs = [];
 }
+
+function mhUpsertGenJob(si, shi, patch) {
+  mhEnsureGenState();
+  let j = _mhGenState.jobs.find(x => x.sceneIdx === si && x.shotIdx === shi);
+  if (!j) {
+    j = { sceneIdx: si, shotIdx: shi, prompt: '', status: 'queue', requestId: null, videoUrl: null, error: null, model: null, provider: null, localGenerated: false };
+    _mhGenState.jobs.push(j);
+  }
+  Object.assign(j, patch);
+  return j;
+}
+
+function mhIsRealVideoUrl(url, job) {
+  if (!url) return false;
+  if (job && job.localGenerated) return false;
+  if (url.startsWith('data:image/')) return false;
+  return true;
+}
+
+function mhClipSourceBadge(j) {
+  if (!j) return '';
+  if (j.status === 'fail' || j.error) {
+    return '<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.35)">GENERATION FAILED</span>';
+  }
+  if (!j.videoUrl) return '';
+  if (mhIsRealVideoUrl(j.videoUrl, j)) {
+    return '<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(34,197,94,0.12);color:#86efac;border:1px solid rgba(34,197,94,0.3)">LIVE RENDER</span>';
+  }
+  return '<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(127,29,29,0.35);color:#fca5a5;border:1px solid rgba(239,68,68,0.35)">LOCAL PREVIEW ONLY</span>';
+}
+
+function mhGetShotJob(si, shi) {
+  mhEnsureGenState();
+  return _mhGenState.jobs.find(j => j.sceneIdx === si && j.shotIdx === shi) || null;
+}
+
+function mhClipMediaHtml(j) {
+  if (!j || !j.videoUrl) return '';
+  const isReal = mhIsRealVideoUrl(j.videoUrl, j);
+  if (isReal && !String(j.videoUrl).startsWith('data:')) {
+    return '<video src="' + j.videoUrl + '" controls preload="metadata" style="width:100%;display:block;background:#000;aspect-ratio:16/9;object-fit:cover"></video>';
+  }
+  return '<img src="' + j.videoUrl + '" alt="clip preview" style="width:100%;display:block;background:#000;aspect-ratio:16/9;object-fit:cover;border-bottom:1px solid var(--border)"/>';
+}
+
+function mhRenderShotClipPreview(key) {
+  const el = document.getElementById('shot-clip-' + key);
+  if (!el) return;
+  const [si, shi] = key.split('-').map(Number);
+  const j = mhGetShotJob(si, shi);
+  if (!j || (!j.videoUrl && !j.error)) {
+    el.innerHTML = '';
+    el.style.display = 'none';
+    return;
+  }
+  const label = 'S' + (si + 1) + '.' + (shi + 1);
+  if (j.error && !j.videoUrl) {
+    el.innerHTML = '<div style="margin-top:8px;padding:10px;background:#1a0a0a;border:1px solid rgba(239,68,68,0.4);border-radius:8px;font-size:11px;color:#fca5a5">' + mhClipSourceBadge(j) + '<div style="margin-top:6px">' + esc(j.error) + '</div></div>';
+    el.style.display = 'block';
+    return;
+  }
+  const isReal = mhIsRealVideoUrl(j.videoUrl, j);
+  const modelTag = j.model ? ' <span style="font-size:9px;color:var(--dim)">' + esc(j.model) + '</span>' : '';
+  el.innerHTML =
+    '<div style="margin-top:8px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">' +
+    mhClipSourceBadge(j) + modelTag +
+    '<div style="margin-top:6px">' + mhClipMediaHtml(j) + '</div>' +
+    '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">' +
+    (isReal ? '<a href="' + j.videoUrl + '" download="shotbreak_' + label + '.mp4" class="b b-g b-xs">⬇ Download</a>' : '') +
+    '<button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\'' + label + '\')">+ Editor</button>' +
+    '</div></div>';
+  el.style.display = 'block';
+}
+
+function mhRenderGenClipsGallery() {
+  const grid = document.getElementById('mhGenClipsGallery');
+  const inner = document.getElementById('mhGenClipsGalleryInner');
+  if (!grid || !inner) { mhRenderClipsGridLegacy(); return; }
+  mhEnsureGenState();
+  const jobs = (_mhGenState.jobs || []).filter(j => j.videoUrl).sort((a, b) =>
+    a.sceneIdx !== b.sceneIdx ? a.sceneIdx - b.sceneIdx : a.shotIdx - b.shotIdx);
+  if (!jobs.length) { grid.style.display = 'none'; return; }
+  grid.style.display = 'block';
+  let h = '';
+  for (const j of jobs) {
+    const label = 'S' + (j.sceneIdx + 1) + '.' + (j.shotIdx + 1);
+    const isReal = mhIsRealVideoUrl(j.videoUrl, j);
+    const modelTag = j.model ? ' <span style="font-size:9px;background:#222;padding:1px 4px;border-radius:3px">' + esc(j.model) + '</span>' : '';
+    h += '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden">';
+    h += mhClipMediaHtml(j);
+    h += '<div style="padding:10px"><div style="margin-bottom:4px">' + mhClipSourceBadge(j) + modelTag + (j.provider ? sbProviderBadge(j.provider) : '') + '</div>';
+    h += '<div style="color:var(--gold);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px">' + label + '</div>';
+    h += '<div style="color:var(--dim);font-size:12px;line-height:1.3;max-height:48px;overflow:hidden">' + esc((j.prompt || '').substring(0, 100)) + (j.prompt && j.prompt.length > 100 ? '...' : '') + '</div>';
+    h += '<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">';
+    if (isReal) h += '<a href="' + j.videoUrl + '" download="shotbreak_' + label + '.mp4" class="b b-g b-xs">⬇ Download</a>';
+    h += '<button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\'' + label + '\')">+ Editor</button>';
+    h += '</div></div></div>';
+  }
+  inner.innerHTML = h;
+}
+
+function mhRenderClipsGridLegacy() {
+  const grid = document.getElementById('mhClipsGrid');
+  const inner = document.getElementById('mhClipsGridInner');
+  if (!grid || !inner) return;
+  const done = (_mhGenState.jobs || []).filter(j => j.videoUrl);
+  if (!done.length) { grid.style.display = 'none'; return; }
+  grid.style.display = 'block';
+  let h = '';
+  for (const j of done) {
+    const label = 'S' + (j.sceneIdx + 1) + '.' + (j.shotIdx + 1);
+    h += '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden">';
+    h += mhClipMediaHtml(j);
+    h += '<div style="padding:10px"><div style="margin-bottom:4px">' + mhClipSourceBadge(j) + '</div>';
+    h += '<div style="color:var(--gold);font-size:11px;font-weight:700">' + label + '</div>';
+    h += '<div style="margin-top:8px;display:flex;gap:4px"><a href="' + j.videoUrl + '" download="shotbreak_' + label + '.mp4" class="b b-g b-xs">⬇ Download</a><button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\'' + label + '\')">+ Editor</button></div>';
+    h += '</div></div>';
+  }
+  inner.innerHTML = h;
+}
+
+function mhRenderClipsGrid() {
+  mhRenderGenClipsGallery();
+  mhRenderClipsGridLegacy();
+}
+
+function mhRefreshGenUI(key) {
+  mhRenderGenClipsGallery();
+  if (key) mhRenderShotClipPreview(key);
+  if (typeof mhEditRenderLibrary === 'function') mhEditRenderLibrary();
+}
+
+function mhSyncEditorAfterGen(switchTab) {
+  mhEnsureGenState();
+  const withUrl = (_mhGenState.jobs || []).filter(j => j.videoUrl);
+  if (!withUrl.length) return;
+  if (!_mhEditState.clips.length) {
+    mhEditAddAll();
+  } else {
+    withUrl.forEach(j => {
+      const label = 'S' + (j.sceneIdx + 1) + '.' + (j.shotIdx + 1);
+      if (!_mhEditState.clips.some(c => c.label === label)) {
+        mhEditAddClip(label, j.videoUrl);
+      }
+    });
+  }
+  if (typeof mhEditRenderLibrary === 'function') mhEditRenderLibrary();
+  if (typeof mhEditRenderTimeline === 'function') mhEditRenderTimeline();
+  if (switchTab && typeof mhSwitchTab === 'function') mhSwitchTab('edit');
+}
+window.mhSyncEditorAfterGen = mhSyncEditorAfterGen;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STEP 5: EDITOR — Browser-based timeline editor using FFmpeg.wasm
@@ -6133,7 +6283,7 @@ function mhPersistClips(){
     const p=projectLoad();if(!p)return;
     const key='sb_clips_'+((curUser&&(curUser.uid||curUser.name))||'anon');
     const clips=(_mhGenState.jobs||[])
-      .filter(j=>j.videoUrl&&!j._localFile) // skip local uploads (blob URLs die on reload)
+      .filter(j=>j.videoUrl&&!j._localFile&&!j.localGenerated) // skip local previews + blob uploads
       .map(j=>({sceneIdx:j.sceneIdx,shotIdx:j.shotIdx,videoUrl:j.videoUrl,prompt:j.prompt||''}));
     localStorage.setItem(key,JSON.stringify({projectCreatedAt:p.createdAt,clips,savedAt:Date.now()}));
   }catch(e){console.warn('[mh] clip persist failed',e)}
@@ -6847,9 +6997,11 @@ async function mhDoFinalGenerate() {
     try {
       await generateVideoForShot(key, fakeBtn, { batch: true, waitForDone: true });
       done++;
+      mhRefreshGenUI(key);
     } catch (e) {
       failed++;
       errors.push(`${label}: ${e && e.message ? e.message : String(e)}`);
+      mhRenderShotClipPreview(key);
       console.warn('Batch shot failed', key, e);
     }
   }
@@ -6866,8 +7018,9 @@ async function mhDoFinalGenerate() {
     `<div style="color:var(--dim);font-size:11px;margin-top:6px">Shots ran one at a time in scene order.</div>`
   );
 
+  mhRenderGenClipsGallery();
+  mhSyncEditorAfterGen(false);
   setTimeout(() => {
-    if (typeof mhShowQualityPanel === 'function') mhShowQualityPanel();
     if (typeof buildPerShotDetailBoxes === 'function') buildPerShotDetailBoxes();
   }, 400);
 }
@@ -7046,10 +7199,14 @@ function mhSwitchTab(tab) {
     if ((p.script || '').trim()) {
       mhSyncScenesFromScript(p);
     }
+    mhLoadPersistedClips();
     mhWirePhotoRemoveHandlers();
     mhRefreshBaselineShotSelect(projectLoad());
     if (typeof buildPerShotDetailBoxes === 'function') buildPerShotDetailBoxes();
-    setTimeout(() => { if (typeof buildPerShotDetailBoxes === 'function') buildPerShotDetailBoxes(); }, 250);
+    setTimeout(() => {
+      if (typeof buildPerShotDetailBoxes === 'function') buildPerShotDetailBoxes();
+      mhRenderGenClipsGallery();
+    }, 250);
     // Populate video model select; resolution/aspect/duration filtered per model via updateVideoOptions().
     setTimeout(() => {
       const vidSel = document.getElementById('videoModelSelect');
@@ -7065,6 +7222,7 @@ function mhSwitchTab(tab) {
 
   if (tab === 'edit') {
     mhLoadPersistedClips();
+    mhSyncEditorAfterGen(false);
     mhRenderEditor();
     setTimeout(() => {
       const pane = document.getElementById('mhTabPaneEdit');
@@ -8213,6 +8371,7 @@ function buildPerShotDetailBoxes() {
               <button class="b b-gold b-s" style="font-size:11px" onclick="generateVideoForShot('${key}', this)">⚡ Generate This Shot</button>
               <span style="font-size:9px;color:#555">Uses the <strong>Video Model + Resolution/Aspect/Duration</strong> from the settings grid above (only options valid for the selected model). Grok vision enriches the prompt using your locked char + location photos first, then the model + params are sent to WaveSpeed or XAI direct.</span>
             </div>
+            <div id="shot-clip-${key}" style="display:none"></div>
           </div>
         </div>
       </div>`;
@@ -8220,6 +8379,10 @@ function buildPerShotDetailBoxes() {
   });
 
   area.innerHTML = html;
+  scenes.forEach((scene, si) => {
+    (scene.shots || []).forEach((shot, shi) => mhRenderShotClipPreview(si + '-' + shi));
+  });
+  mhRenderGenClipsGallery();
   console.log('[Shotbreak] Built', scenes.reduce((a,s)=>a+(s.shots||[]).length,0), 'per-shot prompt boxes');
   } catch (buildErr) {
     console.error('[buildPerShotDetailBoxes]', buildErr);
@@ -8579,59 +8742,74 @@ Throughout the full 6s clip enforce (WIND, HAIR, CLOTHING & LEATHER DETAIL EXPER
     location: ui.loc
   };
 
-  let usedReal = false;
+  mhUpsertGenJob(si, shi, { prompt: finalPromptForVideo, status: 'submit', model: payload.model, error: null, localGenerated: false });
+
   try {
     const h = (window.hdrs ? await window.hdrs() : {'Content-Type':'application/json'});
     const r = await fetch(sbVideoProxy(), {method:'POST', headers:h, body:JSON.stringify(payload)});
     const d = await r.json();
     if (r.ok && (d.request_id || d.video_url)) {
-      usedReal = true;
-      // Track in global jobs if the progress UI exists
-      if (window._mhGenState && window._mhGenState.jobs) {
-        window._mhGenState.jobs.push({sceneIdx:si, shotIdx:shi, prompt:finalPromptForVideo, status:'submitted', requestId:d.request_id||null, videoUrl:d.video_url||null, model: payload.model });
-        if (typeof mhRenderGenProgress === 'function') mhRenderGenProgress();
-      }
-      // Also feed SBVideo jobs for the legacy gallery if present
+      const modelUsed = payload.model || 'unknown';
+      const job = mhUpsertGenJob(si, shi, {
+        prompt: finalPromptForVideo,
+        status: d.video_url ? 'done' : 'poll',
+        requestId: d.request_id || null,
+        videoUrl: d.video_url || null,
+        model: modelUsed,
+        localGenerated: false,
+        error: null
+      });
       if (window.SBVideo && d.request_id) {
         SBVideo.jobs.set(d.request_id, {scene:si+1, shot:shi+1, status:'IN_QUEUE', videoUrl:null, model:payload.model});
         if (typeof SBVideo._startPoll === 'function') SBVideo._startPoll(d.request_id, payload.model);
         if (typeof SBVideo._updateUI === 'function') SBVideo._updateUI();
       }
-      const modelUsed = payload.model || 'unknown';
       if (waitForDone && d.request_id) {
         btn.textContent = 'Waiting for render...';
         const polled = await mhPollVideoUntilDone(d.request_id, h);
-        if (window._mhGenState && window._mhGenState.jobs) {
-          const j = window._mhGenState.jobs.find(x => x.requestId === d.request_id);
-          if (j) { j.status = 'done'; j.videoUrl = polled.videoUrl; j.provider = polled.provider; }
-          if (typeof mhRenderGenProgress === 'function') mhRenderGenProgress();
-        }
-        btn.textContent = '✅ Done (' + modelUsed + ')';
+        job.status = 'done';
+        job.videoUrl = polled.videoUrl;
+        job.provider = polled.provider;
+        job.localGenerated = false;
+        mhPersistClips();
+        mhRefreshGenUI(key);
+        btn.textContent = '✅ Live render (' + modelUsed + ')';
+      } else if (d.video_url) {
+        mhPersistClips();
+        mhRefreshGenUI(key);
+        btn.textContent = '✅ Live render (' + modelUsed + ')';
       } else if (!batch) {
-        alert('✅ Shot ' + (si+1) + '.' + (shi+1) + ' submitted with ' + modelUsed + '.\nGrok-enriched prompt used for coherence.\n' + (charRefUrl ? 'Character photo ref forwarded for I2V match.\n' : '') + (d.request_id ? ('Request: ' + d.request_id + ' — watch the progress list or poll for completion.') : ''));
+        mhRefreshGenUI(key);
         btn.textContent = '⏳ Queued (' + modelUsed + ')';
       } else {
         btn.textContent = '✅ Submitted (' + modelUsed + ')';
       }
+      if (typeof mhRenderGenProgress === 'function') mhRenderGenProgress();
     } else {
       throw new Error(d.error || d.detail || 'submit failed');
     }
   } catch (e) {
-    // Local high-quality fallback that actually uses the per-shot data (prompt + photos + loc)
-    console.warn('[Shot video] Remote submit failed or no netlify, using local Grok-directed canvas clip:', e.message || e);
-    generateLocalClipForShot(key, finalPromptForVideo, charRefUrl, charRefName);
+    console.warn('[Shot video] Remote submit failed:', e.message || e);
+    if (isLocalOnly()) {
+      generateLocalClipForShot(key, finalPromptForVideo, charRefUrl, charRefName, btn, payload.model);
+    } else {
+      mhUpsertGenJob(si, shi, { status: 'fail', error: e.message || String(e), videoUrl: null, localGenerated: false });
+      mhRenderShotClipPreview(key);
+      mhRenderGenClipsGallery();
+      btn.textContent = '✗ Failed';
+      btn.disabled = false;
+      throw e;
+    }
   }
 
-  if (!btn.textContent.includes('Queued') && !btn.textContent.includes('Done')) {
+  if (!btn.textContent.includes('Queued') && !btn.textContent.includes('Done') && !btn.textContent.includes('Live') && !btn.textContent.includes('Local') && !btn.textContent.includes('Failed')) {
     btn.textContent = origText;
   }
   btn.disabled = false;
-  // Rebuild so any new clips can be shown if UI supports per-shot video thumbs later
-  setTimeout(() => { if (typeof buildPerShotDetailBoxes === 'function') buildPerShotDetailBoxes(); }, 300);
 }
 
-// Local canvas clip that respects the per-shot prompt (Grok enriched), any uploaded/locked char photos, and location breakdown.
-function generateLocalClipForShot(key, promptText, refPhotoUrl, refName) {
+// Local canvas preview only — never shown as success on production.
+function generateLocalClipForShot(key, promptText, refPhotoUrl, refName, btn, modelUsed) {
   const ui = _shotUI[key] || {};
   const [si, shi] = key.split('-').map(Number);
   const p = projectLoad() || {};
@@ -8640,21 +8818,21 @@ function generateLocalClipForShot(key, promptText, refPhotoUrl, refName) {
   canvas.width = 360; canvas.height = 200;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#0a0a0f'; ctx.fillRect(0,0,360,200);
+  ctx.fillStyle = '#f87171'; ctx.font = 'bold 10px monospace';
+  ctx.fillText('LOCAL PREVIEW ONLY — NOT A LIVE RENDER', 10, 14);
   ctx.fillStyle = '#f4a261'; ctx.font = '11px monospace';
-  ctx.fillText('GROK-DIRECTED LOCAL CLIP  S'+(si+1)+'.'+(shi+1), 10, 16);
+  ctx.fillText('S'+(si+1)+'.'+(shi+1)+(modelUsed ? ' · '+modelUsed : ''), 10, 28);
   ctx.fillStyle = '#ddd'; ctx.font = '9px sans-serif';
   const lines = String(promptText||'').match(/.{1,52}(\s|$)/g) || [];
-  lines.slice(0,7).forEach((l,i) => ctx.fillText(l.trim(), 10, 34 + i*12));
+  lines.slice(0,6).forEach((l,i) => ctx.fillText(l.trim(), 10, 44 + i*12));
   if (ui.loc) {
     ctx.fillText('LOC: ' + ui.loc.name + ' | ' + ui.loc.tod + ' ' + ui.loc.weather, 10, 130);
   }
   if (refPhotoUrl) {
-    // Draw a thumb of the ref photo on the "clip" for visual proof of photo-matching
     const img = new Image();
     img.onload = () => {
       ctx.drawImage(img, 260, 140, 80, 45);
-      ctx.fillStyle = '#0a0a0f'; ctx.fillRect(260,180,80,18);
-      ctx.fillStyle = '#f4a261'; ctx.font='8px monospace'; ctx.fillText((refName||'REF').slice(0,12), 262, 192);
+      mhRefreshGenUI(key);
     };
     img.src = refPhotoUrl;
   } else if (ui.chars && ui.chars.length) {
@@ -8662,22 +8840,25 @@ function generateLocalClipForShot(key, promptText, refPhotoUrl, refName) {
   }
 
   const clipUrl = canvas.toDataURL('image/png');
-  // Store using the existing addVideoClip helper if present, else stash in project
-  const model = (document.getElementById('mhGenModel')||{value:'local-grok'}).value || 'local-grok';
+  const model = modelUsed || (document.getElementById('videoModelSelect') ? document.getElementById('videoModelSelect').value : 'local-preview');
   const take = Date.now().toString(36).slice(-4);
   if (typeof addVideoClip === 'function') {
-    addVideoClip(model, 's'+(si+1), 'sh'+(shi+1), take, { url: clipUrl, prompt: promptText, notes: 'local-grok-directed using per-shot prompt + char photos', sceneShot: key, localGenerated:true, grokEnriched:true });
-  } else {
-    if (!p.assets) p.assets = {videos:{}};
-    if (!p.assets.videos) p.assets.videos = {};
-    const vkey = model + ':' + key + ':' + take;
-    p.assets.videos[vkey] = {url:clipUrl, prompt:promptText, ts:Date.now(), grok:true};
-    try { localStorage.setItem('sb_project', JSON.stringify(p)); } catch(e){}
+    addVideoClip(model, 's'+(si+1), 'sh'+(shi+1), take, { url: clipUrl, prompt: promptText, notes: 'local preview only', sceneShot: key, localGenerated:true, grokEnriched:true });
   }
-  const modelUsed = (document.getElementById('videoModelSelect') ? document.getElementById('videoModelSelect').value : 'local');
-  alert('✅ Local clip for this shot using ' + modelUsed + ' is DONE!\nUses the exact prompt you edited (jots stripped) + any char photos you added for coherence.\nRebuild boxes or check the clips grid / Edit tab to see the video. (Only valid model params were used.)');
-  btn.textContent = '✅ Done (' + modelUsed + ')';
-  setTimeout(() => { if (btn && btn.textContent.includes('Done')) btn.textContent = origText; }, 4000);
+  mhUpsertGenJob(si, shi, {
+    prompt: promptText,
+    status: 'done',
+    videoUrl: clipUrl,
+    model: model,
+    localGenerated: true,
+    error: null
+  });
+  mhRefreshGenUI(key);
+  if (btn) {
+    btn.textContent = '⚠ Local preview only';
+    btn.disabled = false;
+  }
+  return clipUrl;
 }
 
 // Keep a minimal stub of the old function name so old onclicks don't hard-crash
