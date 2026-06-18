@@ -3143,8 +3143,8 @@ function csRenderLocked(){
 
 // Per-user localStorage key. Computed at call time because curUser is set after auth.
 function projKey(){return 'sb_project_'+((curUser&&(curUser.uid||curUser.name))||'anon')}
-function projectLoad(){try{const r=localStorage.getItem(projKey());const p = r?JSON.parse(r):null; return ensureProjectAssets(p);}catch{return null}}
-function projectSave(p){try{localStorage.setItem(projKey(),JSON.stringify(p));return true}catch(e){console.error('[proj] save failed',e);alert('Could not save project (storage full?)');return false}}
+function projectLoad(){try{const r=localStorage.getItem(projKey());const p = r?JSON.parse(r):null; const out=ensureProjectAssets(p); if(out&&out._shotUI)window._shotUI=out._shotUI; return out;}catch{return null}}
+function projectSave(p){try{if(p&&window._shotUI)p._shotUI=window._shotUI;localStorage.setItem(projKey(),JSON.stringify(p));return true}catch(e){console.error('[proj] save failed',e);alert('Could not save project (storage full?)');return false}}
 
 // Helper: get the best description/prompt for a character, preferring any user-relocked clean prompt from the parse+edit+relock flow in Characters tab.
 function getBestCharPrompt(name, p) {
@@ -3195,11 +3195,103 @@ function mhFindCharPhotosContainer(charName) {
     || document.getElementById('char-photos-' + charName);
 }
 
+function mhNormalizeAssetUrl(u) {
+  if (!u) return '';
+  let s = String(u).trim();
+  if (s.startsWith('/') && typeof location !== 'undefined') {
+    try { s = new URL(s, location.origin).href; } catch (e) { /* keep */ }
+  }
+  return s.split('?')[0];
+}
+
 function mhUrlsMatch(a, b) {
   if (!a || !b) return false;
-  const sa = String(a);
-  const sb = String(b);
-  return sa === sb || sa.split('?')[0] === sb.split('?')[0];
+  const na = mhNormalizeAssetUrl(a);
+  const nb = mhNormalizeAssetUrl(b);
+  if (!na || !nb) return false;
+  return na === nb || na.endsWith(nb) || nb.endsWith(na);
+}
+
+function mhCollectActiveCharPhotoUrls(p) {
+  const urls = new Set();
+  const store = (p && p.assets && p.assets.characterPhotos) || {};
+  Object.keys(store).forEach(charName => {
+    Object.keys(store[charName] || {}).forEach(model => {
+      (store[charName][model] || []).forEach(ph => {
+        if (ph && ph.url) urls.add(mhNormalizeAssetUrl(ph.url));
+      });
+    });
+  });
+  return urls;
+}
+
+function mhCharHasActivePhotos(p, charName) {
+  const resolved = mhResolveCharPhotoStore(p, charName);
+  if (!resolved) return false;
+  return Object.keys(resolved.store[resolved.key]).some(m => ((resolved.store[resolved.key][m] || []).length > 0));
+}
+
+function mhBuildShotCharsFromProject(p) {
+  const chars = [];
+  const seen = new Set();
+  (p.characterBible || []).forEach(c => {
+    const name = c.name;
+    if (!name || seen.has(String(name).toUpperCase())) return;
+    const resolved = mhResolveCharPhotoStore(p, name);
+    if (!resolved) return;
+    let photo = null;
+    Object.keys(resolved.store[resolved.key]).forEach(model => {
+      const arr = resolved.store[resolved.key][model] || [];
+      if (!photo && arr.length && arr[0].url) photo = arr[0].url;
+    });
+    if (photo) {
+      chars.push({ name, photo });
+      seen.add(String(name).toUpperCase());
+    }
+  });
+  return chars;
+}
+
+function mhSyncShotUICharsWithProject(p) {
+  if (!p) p = projectLoad() || {};
+  if (!window._shotUI) window._shotUI = {};
+  const activeUrls = mhCollectActiveCharPhotoUrls(p);
+  Object.keys(_shotUI).forEach(k => {
+    const ui = _shotUI[k];
+    if (!ui) return;
+    if (!Array.isArray(ui.chars)) ui.chars = [];
+    ui.chars = ui.chars.filter(c => {
+      if (!c || !c.photo) return false;
+      if (/picsum\.photos/i.test(String(c.photo))) return false;
+      const norm = mhNormalizeAssetUrl(c.photo);
+      if (activeUrls.has(norm)) return true;
+      if (c.name && !mhCharHasActivePhotos(p, c.name)) return false;
+      return false;
+    });
+    if (ui.prompt) {
+      if (!activeUrls.size) {
+        ui.prompt = ui.prompt
+          .replace(/Using locked photo of[^\n]*/gi, 'No locked character photo refs')
+          .replace(/\s{2,}/g, ' ').trim();
+      }
+    }
+  });
+}
+
+function mhSyncShotUIPromptsWithProject(p) {
+  if (!p) p = projectLoad() || {};
+  const hasLoc = (p.assets && p.assets.locationPhotos && p.assets.locationPhotos.length > 0);
+  if (!window._shotUI) return;
+  Object.keys(_shotUI).forEach(k => {
+    const ui = _shotUI[k];
+    if (!ui || !ui.prompt) return;
+    if (!hasLoc) {
+      ui.prompt = ui.prompt
+        .replace(/\(using locked location plate photo for coherence\)/gi, '')
+        .replace(/locked location plate photo/gi, '')
+        .replace(/\s{2,}/g, ' ').trim();
+    }
+  });
 }
 
 function mhPurgePhotoUrlFromProject(p, removedUrl, opts) {
@@ -3258,20 +3350,23 @@ function mhPurgePhotoUrlFromProject(p, removedUrl, opts) {
     window.SB_LOCKED_CHARACTERS = csLocked;
   }
 
-  if (opts.isLocation && window._shotUI) {
+  if (opts.charName && window._shotUI && !mhCharHasActivePhotos(p, opts.charName)) {
+    const target = String(opts.charName).toUpperCase();
     Object.keys(_shotUI).forEach(k => {
       const ui = _shotUI[k];
-      if (!ui || !ui.prompt) return;
-      ui.prompt = ui.prompt
-        .replace(/\(using locked location plate photo for coherence\)/gi, '')
-        .replace(/locked location plate photo/gi, '')
-        .replace(/\s{2,}/g, ' ').trim();
+      if (!ui || !ui.chars) return;
+      ui.chars = ui.chars.filter(c => String(c.name || '').toUpperCase() !== target);
     });
   }
+  mhSyncShotUICharsWithProject(p);
+  mhSyncShotUIPromptsWithProject(p);
 }
 
 function mhRefreshAllPhotoUIs() {
   const p = projectLoad() || {};
+  mhSyncShotUICharsWithProject(p);
+  mhSyncShotUIPromptsWithProject(p);
+  if (p) { p._shotUI = window._shotUI; projectSave(p); }
   (p.characterBible || []).forEach((c, idx) => {
     renderCharacterPhotos(c.name || ('char' + idx));
   });
@@ -3293,6 +3388,10 @@ function mhWirePhotoRemoveHandlers() {
     if (!btn) return;
     e.preventDefault();
     e.stopPropagation();
+    if (btn.dataset.shotKey !== undefined && btn.dataset.shotCharIndex !== undefined) {
+      removeShotCharPhoto(btn.dataset.shotKey, btn.dataset.shotCharIndex);
+      return;
+    }
     if (btn.dataset.locIndex !== undefined) {
       removeLocationPhoto(btn.dataset.locIndex);
       return;
@@ -3308,6 +3407,8 @@ function mhWirePhotoRemoveHandlers() {
   if (charArea) charArea.addEventListener('click', onRemoveClick);
   const locArea = document.getElementById('mhLocPhotoArea');
   if (locArea) locArea.addEventListener('click', onRemoveClick);
+  const genArea = document.getElementById('mhGenEntityBoxes');
+  if (genArea) genArea.addEventListener('click', onRemoveClick);
 }
 
 function addCharacterPhoto(charName, model, photoData) {
@@ -3341,10 +3442,29 @@ function removeCharacterPhoto(charName, model, photoIndex) {
   arr.splice(idx, 1);
   if (!arr.length) delete resolved.store[resolved.key][model];
   if (!Object.keys(resolved.store[resolved.key]).length) delete resolved.store[resolved.key];
-  mhPurgePhotoUrlFromProject(p, removedUrl);
+  mhPurgePhotoUrlFromProject(p, removedUrl, { charName });
+  mhSyncShotUICharsWithProject(p);
+  mhSyncShotUIPromptsWithProject(p);
+  p._shotUI = window._shotUI;
   if (!projectSave(p)) return;
   mhRefreshAllPhotoUIs();
 }
+
+function removeShotCharPhoto(shotKey, charIndex) {
+  const idx = parseInt(charIndex, 10);
+  if (!_shotUI || !_shotUI[shotKey] || !Array.isArray(_shotUI[shotKey].chars)) return;
+  if (isNaN(idx) || idx < 0 || idx >= _shotUI[shotKey].chars.length) return;
+  const removed = _shotUI[shotKey].chars.splice(idx, 1)[0];
+  let p = projectLoad();
+  if (p && removed && removed.photo) {
+    mhPurgePhotoUrlFromProject(p, removed.photo, { charName: removed.name });
+    mhSyncShotUICharsWithProject(p);
+    p._shotUI = window._shotUI;
+    projectSave(p);
+  }
+  if (typeof buildPerShotDetailBoxes === 'function') buildPerShotDetailBoxes();
+}
+window.removeShotCharPhoto = removeShotCharPhoto;
 
 function removeLocationPhoto(index) {
   let p = projectLoad();
@@ -3356,6 +3476,8 @@ function removeLocationPhoto(index) {
   const removedUrl = photos[i].url;
   photos.splice(i, 1);
   mhPurgePhotoUrlFromProject(p, removedUrl, { isLocation: true });
+  mhSyncShotUIPromptsWithProject(p);
+  p._shotUI = window._shotUI;
   if (!projectSave(p)) return;
   mhRefreshAllPhotoUIs();
 }
@@ -7964,6 +8086,8 @@ function buildPerShotDetailBoxes() {
     mhSyncScenesFromScript(p);
     p = projectLoad() || {};
   }
+  mhSyncShotUICharsWithProject(p);
+  mhSyncShotUIPromptsWithProject(p);
   mhRefreshBaselineShotSelect(p);
   const scenes = p.scenes || [];
   if (!scenes.length) {
@@ -7997,9 +8121,12 @@ function buildPerShotDetailBoxes() {
       // Seed prompt from parsed script prompt + shot action + chars/location
       const shotAction = (shot.text || shot.description || shot.action || '').trim();
       if (!ui.prompt || (masterPrompt && !ui.prompt.includes(masterPrompt.slice(0, 80)))) {
+        const activeCharUrls = mhCollectActiveCharPhotoUrls(p);
         const firstChar = (p.characterBible && p.characterBible[0]) ? p.characterBible[0] : null;
         const bestDesc = firstChar ? getBestCharPrompt(firstChar.name, p) : '';
-        const charRef = firstChar ? `Using locked photo of ${firstChar.name} as ${(bestDesc || firstChar.description || '').slice(0, 80)}` : 'Using locked character references';
+        const charRef = (firstChar && activeCharUrls.size)
+          ? `Using locked photo of ${firstChar.name} as ${(bestDesc || firstChar.description || '').slice(0, 80)}`
+          : 'No locked character photo refs';
         let locRef = `Location plate: ${ui.loc.name}`;
         if (p.assets && p.assets.locationPhotos && p.assets.locationPhotos.length) {
           locRef += ' (using locked location plate photo for coherence)';
@@ -8117,16 +8244,22 @@ function toggleShotMinimize(key, hdrEl) {
 }
 
 function renderShotChars(key, p) {
-  const ui = _shotUI[key] || {chars:[]};
-  if (!ui.chars || !ui.chars.length) {
-    // seed from bible
-    ui.chars = (p.characterBible || []).slice(0,2).map(c => ({name: c.name, photo: (c.lockedPhoto || 'https://picsum.photos/seed/'+(c.name||'c').replace(/\s/g,'')+'/52/52') }));
+  if (!window._shotUI) window._shotUI = {};
+  if (!_shotUI[key]) _shotUI[key] = { minimized: false, prompt: '', chars: [], loc: {}, jots: [] };
+  mhSyncShotUICharsWithProject(p);
+  const ui = _shotUI[key];
+  if (!ui.chars.length) {
+    ui.chars = mhBuildShotCharsFromProject(p).slice(0, 2);
   }
-  return ui.chars.map((c,i) => `
-    <div style="text-align:center">
+  if (!ui.chars.length) {
+    return '<span style="font-size:10px;color:#555">No character refs — add on Characters tab or use + Add below.</span>';
+  }
+  return ui.chars.map((c, i) => `
+    <div class="ref-photo-wrap" style="text-align:center">
+      <button type="button" class="ref-photo-remove" title="Remove from this shot" data-shot-key="${key}" data-shot-char-index="${i}">✕</button>
       <img src="${c.photo}" class="char-photo-thumb" title="${esc(c.name)}" />
       <div style="font-size:8px;color:#888;max-width:52px;overflow:hidden">${esc(c.name)}</div>
-    </div>`).join('') + (ui.chars.length ? '' : '<span style="font-size:10px;color:#555">None yet — add for photo match</span>');
+    </div>`).join('');
 }
 
 function addCharToShot(key) {
