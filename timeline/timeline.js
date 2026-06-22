@@ -79,6 +79,7 @@ function renderTimeline(){
   const has=state.clips.length>0;
   $('importZone').classList.toggle('hidden',has);
   $('timelineSection').classList.toggle('hidden',!has);
+  if($('flowHint'))$('flowHint').classList.toggle('hidden',has);
   if(!has){$('clipRow').innerHTML='';$('timeRuler').innerHTML='';return}
   let t=0,ticks=[];
   state.clips.forEach(c=>{ticks.push('<span class="time-tick">'+formatTime(t)+'</span>');t+=clipDur(c)});
@@ -109,22 +110,22 @@ function reorder(toId,fromId){
 
 function renderDetail(){
   const clip=state.clips.find(c=>c.id===state.selectedId),body=$('detailBody');
-  if(!clip){body.innerHTML='<div class="detail-empty">Click a clip — set params, generate, approve.</div>';$('detailTitle').textContent='Clip Detail';return}
-  $('detailTitle').textContent='Clip '+String(clip.num).padStart(2,'0')+' — '+clip.label;
+  if(!clip){body.innerHTML='<div class="detail-empty">Select a clip to edit and generate.</div>';$('detailTitle').textContent='Clip';return}
+  const label=clip.label.length>28?clip.label.slice(0,26)+'…':clip.label;
+  $('detailTitle').textContent='Clip '+String(clip.num).padStart(2,'0')+' · '+label;
   const p=clip.params;
-  function tog(grp,key,label){const on=grp.on[key];return '<div class="field"><label><span>'+label+'</span><span class="toggle'+(on?' on':'')+'" data-grp="'+key.split('.')[0]+'" data-f="'+key.split('.')[1]+'"></span></label><input data-grp="'+key.split('.')[0]+'" data-f="'+key.split('.')[1]+'" value="'+esc(grp[key.split('.')[1]||key]||'')+'"></div>'}
   body.innerHTML=
-    '<div class="field"><label>Scene description</label><textarea id="d-desc">'+esc(clip.description)+'</textarea></div>'+
-    '<div class="field"><label>✎ AI prompt preview</label><textarea id="d-prompt" readonly>'+esc(buildPrompt(clip))+'</textarea></div>'+
+    '<div class="field"><label>Scene</label><textarea id="d-desc" rows="3">'+esc(clip.description)+'</textarea></div>'+
     '<div class="field"><label>Emotion</label><select id="d-emotion">'+['Neutral','Tense','Joy','Fear','Anger','Sad','Noir'].map(e=>'<option'+(clip.emotion===e?' selected':'')+'>'+e+'</option>').join('')+'</select></div>'+
-    '<div class="section-title">Scene &amp; Setting</div>'+mkTog(p.scene,'location','Location')+mkTog(p.scene,'timeOfDay','Time of Day')+mkTog(p.scene,'weather','Weather')+mkTog(p.scene,'season','Season')+
-    '<div class="section-title">Camera &amp; Film</div>'+mkTog(p.camera,'angle','Angle')+mkTog(p.camera,'filmGrade','Film Grade')+mkTog(p.camera,'colorMode','Color')+mkTog(p.camera,'saturation','Saturation')+
-    '<div class="section-title">Atmosphere</div>'+mkTog(p.atmosphere,'lighting','Lighting')+mkTog(p.atmosphere,'mood','Mood')+mkTog(p.atmosphere,'fx','FX')+mkTog(p.atmosphere,'sound','Sound')+
+    '<details class="detail-section"><summary>AI prompt</summary><div class="section-inner"><textarea id="d-prompt" readonly rows="4">'+esc(buildPrompt(clip))+'</textarea></div></details>'+
+    '<details class="detail-section"><summary>Scene &amp; setting</summary><div class="section-inner">'+mkTog(p.scene,'location','Location')+mkTog(p.scene,'timeOfDay','Time')+mkTog(p.scene,'weather','Weather')+mkTog(p.scene,'season','Season')+'</div></details>'+
+    '<details class="detail-section"><summary>Camera</summary><div class="section-inner">'+mkTog(p.camera,'angle','Angle')+mkTog(p.camera,'filmGrade','Film grade')+mkTog(p.camera,'colorMode','Color')+mkTog(p.camera,'saturation','Saturation')+'</div></details>'+
+    '<details class="detail-section"><summary>Atmosphere</summary><div class="section-inner">'+mkTog(p.atmosphere,'lighting','Lighting')+mkTog(p.atmosphere,'mood','Mood')+mkTog(p.atmosphere,'fx','FX')+mkTog(p.atmosphere,'sound','Sound')+'</div></details>'+
     (clip.error?'<div class="err">'+esc(clip.error)+'</div>':'');
-  $('d-desc').oninput=e=>{clip.description=e.target.value;save();$('d-prompt').value=buildPrompt(clip)};
-  $('d-emotion').onchange=e=>{clip.emotion=e.target.value;save();$('d-prompt').value=buildPrompt(clip)};
-  body.querySelectorAll('.toggle').forEach(t=>{t.onclick=()=>{const g=clip.params[t.dataset.grp];g.on[t.dataset.f]=!g.on[t.dataset.f];t.classList.toggle('on',g.on[t.dataset.f]);save();$('d-prompt').value=buildPrompt(clip)}});
-  body.querySelectorAll('input[data-grp]').forEach(inp=>{inp.oninput=()=>{clip.params[inp.dataset.grp][inp.dataset.f]=inp.value;save();$('d-prompt').value=buildPrompt(clip)}});
+  $('d-desc').oninput=e=>{clip.description=e.target.value;save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)};
+  $('d-emotion').onchange=e=>{clip.emotion=e.target.value;save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)};
+  body.querySelectorAll('.toggle').forEach(t=>{t.onclick=()=>{const g=clip.params[t.dataset.grp];g.on[t.dataset.f]=!g.on[t.dataset.f];t.classList.toggle('on',g.on[t.dataset.f]);save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)}});
+  body.querySelectorAll('input[data-grp]').forEach(inp=>{inp.oninput=()=>{clip.params[inp.dataset.grp][inp.dataset.f]=inp.value;save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)}});
 }
 function mkTog(grp,f,label){return '<div class="field"><label><span>'+label+'</span><span class="toggle'+(grp.on[f]?' on':'')+'" data-grp="'+(['location','timeOfDay','weather','season'].includes(f)?'scene':['angle','filmGrade','colorMode','saturation'].includes(f)?'camera':'atmosphere')+'" data-f="'+f+'"></span></label><input data-grp="'+(['location','timeOfDay','weather','season'].includes(f)?'scene':['angle','filmGrade','colorMode','saturation'].includes(f)?'camera':'atmosphere')+'" data-f="'+f+'" value="'+esc(grp[f]||'')+'"></div>'}
 
@@ -149,7 +150,9 @@ function renderAssembly(){
 function renderCharacters(){
   $('charListPanel').innerHTML=SBCharacters.renderList(state.characters);
   $('charListPanel').querySelectorAll('.char-card').forEach(el=>{el.onclick=()=>{state.selectedChar=el.dataset.name;renderCharEditor()}});
-  $('charChips').innerHTML=Object.keys(state.characters).map(n=>'<span class="char-chip">'+esc(n)+'</span>').join('')||'<span class="empty-hint">No characters yet</span>';
+  const names=Object.keys(state.characters);
+  if($('charsStrip'))$('charsStrip').classList.toggle('hidden',!names.length);
+  $('charChips').innerHTML=names.map(n=>'<span class="char-chip">'+esc(n)+'</span>').join('');
   renderCharEditor();
 }
 function renderCharEditor(){
@@ -296,7 +299,15 @@ function sendEditor(){
   window.open('/editor/','_blank');toast('Sent to editor');
 }
 
+function toggleMoreMenu(open){
+  const menu=$('moreMenu');if(!menu)return;
+  const show=open!==undefined?open:menu.classList.contains('hidden');
+  menu.classList.toggle('hidden',!show);
+}
 function bindUI(){
+  $('btnMoreMenu').onclick=e=>{e.stopPropagation();toggleMoreMenu()};
+  document.addEventListener('click',()=>toggleMoreMenu(false));
+  $('moreMenu').onclick=e=>e.stopPropagation();
   $('fileInput').onchange=e=>{const f=e.target.files[0];if(f)importFile(f).catch(err=>toast(err.message));e.target.value=''};
   $('btnImport').onclick=()=>$('fileInput').click();
   $('btnPaste').onclick=()=>{const t=prompt('Paste screenplay:');if(t&&t.trim())importText(t)};
@@ -319,6 +330,8 @@ function bindUI(){
   $('btnClosePreview').onclick=()=>$('previewModal').classList.add('hidden');
   $('btnCloseExport').onclick=()=>$('exportModal').classList.add('hidden');
   ['gFilm','gColor','gAspect','gQuality','gAudio','gModel','gDuration','gLang'].forEach(id=>{const el=$(id);if(el)el.onchange=syncGlobal});
+  const sq=document.querySelector('.settings-quick');
+  if(sq){sq.addEventListener('mousedown',e=>e.preventDefault());sq.addEventListener('click',e=>e.stopPropagation())}
   load();
   ['gFilm','gColor','gAspect','gQuality','gAudio','gModel','gDuration'].forEach(id=>{
     const m={gFilm:'filmStyle',gColor:'colorGrade',gAspect:'aspectRatio',gQuality:'quality',gAudio:'audioProfile',gModel:'model',gDuration:'clipDuration'};

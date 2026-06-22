@@ -16,43 +16,54 @@
 </head>
 <body>
 <div class="app">
-  <!-- ② MAIN TIMELINE PAGE toolbar (per flowchart) -->
   <header class="topbar">
     <div class="logo">SHOT<span>BREAK</span></div>
-    <button class="tb-btn" id="btnSaveProj" title="Save project JSON">💾 Save</button>
-    <button class="tb-btn" id="btnLoadProj" title="Load project">📂 Load</button>
-    <button class="tb-btn" id="btnImport">📄 Import Script</button>
-    <button class="tb-btn" id="btnAdd">+ Add Clip</button>
-    <button class="tb-btn" id="btnDup">Duplicate</button>
-    <button class="tb-btn" id="btnUndo">↶ Undo</button>
-    <button class="tb-btn" id="btnRedo">↷ Redo</button>
-    <button class="tb-btn" id="btnPreviewAll">▶ Preview All</button>
-    <button class="tb-btn gold" id="btnBatch">⚡ Batch Generate</button>
+    <div class="tb-group">
+      <button class="tb-btn" id="btnImport">Import</button>
+      <button class="tb-btn" id="btnAdd">+ Clip</button>
+      <button class="tb-btn gold" id="btnBatch">Generate All</button>
+    </div>
+    <div class="tb-more-wrap">
+      <button class="tb-btn tb-icon" id="btnMoreMenu" title="More actions">⋯</button>
+      <div class="tb-dropdown hidden" id="moreMenu">
+        <button class="tb-dd" id="btnSaveProj">Save project</button>
+        <button class="tb-dd" id="btnLoadProj">Load project</button>
+        <button class="tb-dd" id="btnDup">Duplicate clip</button>
+        <button class="tb-dd" id="btnUndo">Undo</button>
+        <button class="tb-dd" id="btnRedo">Redo</button>
+        <button class="tb-dd" id="btnPreviewAll">Preview all</button>
+      </div>
+    </div>
     <div class="tb-spacer"></div>
     <span class="tb-meta" id="projectTitle">Untitled Film</span>
     <span class="tb-meta" id="userMeta">—</span>
   </header>
 
-  <!-- ④ UNIVERSAL CONTROLS -->
-  <div class="universal">
-    <div class="uc-group"><span class="uc-label">Film Style</span><select class="uc-sel" id="gFilm"><option>Cinematic</option><option>Documentary</option><option>Film Noir</option><option>Neo-Noir</option><option>Commercial</option></select></div>
-    <div class="uc-group"><span class="uc-label">Color Grade</span><select class="uc-sel" id="gColor"><option>Natural</option><option>Warm</option><option>Cool</option><option>Desaturated</option><option>High Contrast</option></select></div>
-    <div class="uc-group"><span class="uc-label">Aspect</span><select class="uc-sel" id="gAspect"><option value="16:9">16:9</option><option value="2.39:1">2.39:1</option><option value="9:16">9:16</option><option value="1:1">1:1</option></select></div>
-    <div class="uc-group"><span class="uc-label">Quality</span><select class="uc-sel" id="gQuality"><option>1080p</option><option>720p</option><option>4K</option></select></div>
-    <div class="uc-group"><span class="uc-label">Audio</span><select class="uc-sel" id="gAudio"><option>Cinematic</option><option>Narration</option><option>Dialogue + Music</option></select></div>
-    <div class="uc-group"><span class="uc-label">Language</span><select class="uc-sel" id="gLang"><option>English</option><option>French</option><option>Bilingual</option></select></div>
-    <div class="uc-group"><span class="uc-label">Model</span><select class="uc-sel" id="gModel"><option value="seedance-turbo">Seedance Turbo</option><option value="seedance">Seedance 2.0</option><option value="veo">Veo 3.1</option></select></div>
-    <div class="uc-group"><span class="uc-label">Clip length</span><select class="uc-sel" id="gDuration"><option value="5">~5 sec</option><option value="8">~8 sec</option><option value="10">~10 sec</option></select></div>
-  </div>
+  <details class="settings-bar" id="settingsBar">
+    <summary class="settings-summary">
+      <span class="settings-label">Settings</span>
+      <div class="settings-quick" onclick="event.preventDefault()">
+        <select class="uc-sel" id="gModel" title="Model"><option value="seedance-turbo">Seedance Turbo</option><option value="seedance">Seedance 2.0</option><option value="veo">Veo 3.1</option></select>
+        <select class="uc-sel" id="gAspect" title="Aspect"><option value="16:9">16:9</option><option value="2.39:1">2.39:1</option><option value="9:16">9:16</option><option value="1:1">1:1</option></select>
+        <select class="uc-sel" id="gDuration" title="Clip length"><option value="5">~5s</option><option value="8">~8s</option><option value="10">~10s</option></select>
+      </div>
+    </summary>
+    <div class="settings-full">
+      <div class="uc-group"><span class="uc-label">Style</span><select class="uc-sel" id="gFilm"><option>Cinematic</option><option>Documentary</option><option>Film Noir</option><option>Neo-Noir</option><option>Commercial</option></select></div>
+      <div class="uc-group"><span class="uc-label">Color</span><select class="uc-sel" id="gColor"><option>Natural</option><option>Warm</option><option>Cool</option><option>Desaturated</option><option>High Contrast</option></select></div>
+      <div class="uc-group"><span class="uc-label">Quality</span><select class="uc-sel" id="gQuality"><option>1080p</option><option>720p</option><option>4K</option></select></div>
+      <div class="uc-group"><span class="uc-label">Audio</span><select class="uc-sel" id="gAudio"><option>Cinematic</option><option>Narration</option><option>Dialogue + Music</option></select></div>
+      <div class="uc-group"><span class="uc-label">Language</span><select class="uc-sel" id="gLang"><option>English</option><option>French</option><option>Bilingual</option></select></div>
+    </div>
+  </details>
 
-  <div class="flow-hint">Script Import → Auto-Parse → Clip Boxes → Click Clip → Generate / Approve → Editor Assembly → Final Export</div>
+  <div class="flow-hint hidden" id="flowHint">Import script → parse into clips → click a clip → generate &amp; approve → export</div>
 
   <div class="main">
-    <!-- Left: ② Main Timeline + modules ⑤⑥⑦ stacked (no tabs) -->
     <section class="workspace">
       <div class="import-zone" id="importZone">
-        <h3>① Script → Clips → Film</h3>
-        <p>Import screenplay (.txt / .pdf / .fdx). Parser breaks into 2–8 sec clips and fills the timeline below.</p>
+        <h3>Start with a script</h3>
+        <p>Import a screenplay (.txt, .pdf, or .fdx). We break it into short clips on the timeline.</p>
         <div class="import-btns">
           <button class="tb-btn gold" onclick="document.getElementById('btnImport').click()">Import Script</button>
           <button class="tb-btn" id="btnPaste">Paste script</button>
@@ -62,16 +73,22 @@
 
       <div id="timelineSection" class="hidden">
         <div class="timeline-wrap">
-          <div class="timeline-head"><h2>Main Timeline</h2><span class="tb-meta" id="clipCount">0 clips</span></div>
+          <div class="timeline-head">
+            <h2>Timeline</h2>
+            <span class="tb-meta" id="clipCount">0 clips</span>
+          </div>
           <div class="time-ruler" id="timeRuler"></div>
           <div class="clip-row" id="clipRow"></div>
         </div>
-        <div class="chars"><h3>Characters in scene</h3><div id="charChips"></div></div>
+        <div class="chars hidden" id="charsStrip">
+          <h3>Characters</h3>
+          <div id="charChips"></div>
+        </div>
       </div>
 
       <div class="module-stack">
-        <details class="module-panel" open>
-          <summary>⑤ Character Module — face lock, voice, lip-sync</summary>
+        <details class="module-panel">
+          <summary>Characters</summary>
           <div class="panel-pad">
             <div class="panel-head"><button class="tb-btn" id="btnAddChar">+ Add Character</button></div>
             <div id="charListPanel"></div>
@@ -80,20 +97,19 @@
         </details>
 
         <details class="module-panel">
-          <summary>⑥ Editor Module — trim, transitions, titles</summary>
+          <summary>Editor</summary>
           <div class="panel-pad"><div id="assemblyBody"></div></div>
         </details>
 
         <details class="module-panel">
-          <summary>⑦ Output — render queue, stitch, export</summary>
+          <summary>Export</summary>
           <div class="panel-pad">
             <p class="panel-desc" id="outputStats">0 approved</p>
-            <h3 class="sub-h">AI Render Queue</h3>
             <div id="queuePanel"></div>
             <div class="output-btns">
-              <button class="tb-btn gold" id="btnFinal">🎬 Final Export (MP4)</button>
-              <button class="tb-btn" id="btnEDL">⬇ Export EDL</button>
-              <button class="tb-btn" id="btnExport">→ Open Full Editor</button>
+              <button class="tb-btn gold" id="btnFinal">Final Export (MP4)</button>
+              <button class="tb-btn" id="btnEDL">Export EDL</button>
+              <button class="tb-btn" id="btnExport">Open Full Editor</button>
             </div>
           </div>
         </details>
@@ -102,14 +118,16 @@
       <div class="queue-bar" id="queueBar"><span id="queueText">Generating…</span></div>
     </section>
 
-    <!-- Right: ③ Clip Detail Panel — everything runs here when you click a clip -->
     <aside class="detail">
-      <div class="detail-h" id="detailTitle">③ Clip Detail</div>
-      <div class="detail-body" id="detailBody"><div class="detail-empty">Click a clip on the timeline.</div></div>
+      <div class="detail-h" id="detailTitle">Clip</div>
+      <div class="detail-body" id="detailBody"><div class="detail-empty">Select a clip to edit and generate.</div></div>
       <div class="detail-actions">
-        <button class="tb-btn gold" id="btnGen">■ Generate Clip</button>
-        <div class="act-row"><button class="tb-btn" id="btnRegen">↻ Regenerate</button><button class="tb-btn" id="btnPreview">▶ Preview</button></div>
-        <button class="tb-btn approve-btn" id="btnApprove">✓ Approve Clip</button>
+        <button class="tb-btn gold" id="btnGen">Generate</button>
+        <div class="act-row">
+          <button class="tb-btn" id="btnRegen">Regenerate</button>
+          <button class="tb-btn" id="btnPreview">Preview</button>
+        </div>
+        <button class="tb-btn approve-btn" id="btnApprove">Approve</button>
       </div>
     </aside>
   </div>
