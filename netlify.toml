@@ -62,6 +62,11 @@
   to = "/404.html"
   status = 404
   force = true
+[[redirects]]
+  from = "/private/*"
+  to = "/404.html"
+  status = 404
+  force = true
 
 # For the full golden HTML deploy, the app.html is the main file (large single file golden pushed via web editor ritual as documented).
 # Functions auto-deploy on git push.
