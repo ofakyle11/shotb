@@ -306,6 +306,7 @@ window.safeSignIn = safeSignIn;
       <span class="user-pill-name" id="uNm">Kyle</span>
       <div class="user-menu" id="uMenu">
         <a onclick="showMode('media')">Generation Hub</a>
+        <a href="/timeline/" onclick="document.getElementById('uMenu').classList.remove('open')">Timeline Studio (NEW)</a>
         <a onclick="window.open('https://billing.stripe.com/p/login/8x2eVebPLcQ707J0Pt1ck00','_blank');document.getElementById('uMenu').classList.remove('open')">Manage Subscription</a>
         <a class="red" onclick="doLogout()">Log Out</a>
       </div>
@@ -665,9 +666,22 @@ window.safeSignIn = safeSignIn;
 <div id="mediaView" style="display:none">
   <div class="ws">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:10px">
-      <div><span style="font-family:var(--display);font-size:22px;font-weight:800">🎬 Generation Hub</span></div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-family:var(--display);font-size:22px;font-weight:800">🎬 Generation Hub</span>
+        <a href="/timeline/" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:linear-gradient(135deg,rgba(96,165,250,0.22),rgba(96,165,250,0.08));border:1px solid rgba(96,165,250,0.45);border-radius:8px;color:#93c5fd;font-family:var(--body);font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap" title="New flowchart UI: script → clips → generate → export">⚡ Timeline Studio →</a>
+      </div>
       <div id="mhProjInfo" style="font-size:12px;color:var(--dim)"></div>
     </div>
+    <a href="/timeline/" style="display:block;text-decoration:none;margin-bottom:12px;padding:14px 16px;background:linear-gradient(135deg,rgba(96,165,250,0.14),rgba(96,165,250,0.04));border:1px solid rgba(96,165,250,0.35);border-radius:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#60a5fa;margin-bottom:3px">New · deployed on shotbreak.io</div>
+          <div style="font-family:var(--display);font-size:16px;font-weight:800;color:#fff;margin-bottom:2px">Timeline Studio — not this page</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.4">Separate app for your text-to-video flowchart: import script → auto clip boxes → batch generate → approve → stitch MP4. Generation Hub (here) is the older per-shot workflow.</div>
+        </div>
+        <div style="padding:10px 18px;background:#2563eb;color:#fff;border-radius:8px;font-weight:800;font-size:13px;white-space:nowrap">Open Timeline Studio →</div>
+      </div>
+    </a>
     <div id="sbLocalStatus" style="display:none;font-size:11px;color:var(--dim);padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-bottom:10px;font-family:var(--mono);line-height:1.45"></div>
 
     <!-- Just the 4 options - the modular building blocks for your movie. Extremely modular. -->
