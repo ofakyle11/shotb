@@ -123,6 +123,23 @@ window.SBParser = (function(){
     return true;
   }
 
+  function countLines(t){return String(t||'').split('\n').filter(l=>l.trim()).length}
+
+  /** True when text looks like a PDF paste or single-line blob, not a real screenplay file. */
+  function isScriptFlattened(text){
+    const t=String(text||'').replace(/\r\n/g,'\n');
+    if(!t.trim())return false;
+    const lines=t.split('\n').map(l=>l.trim()).filter(Boolean);
+    if(lines.length<=2&&t.length>280)return true;
+    if(lines.length<=1&&t.length>120)return true;
+    const avg=t.length/Math.max(lines.length,1);
+    if(avg>130&&t.length>450)return true;
+    const longLines=lines.filter(l=>l.length>180).length;
+    if(longLines>=2&&longLines/lines.length>0.25)return true;
+    if(lines.length<Math.ceil(t.length/350)&&t.length>700)return true;
+    return false;
+  }
+
   /** Split flattened PDF blobs before character cues and action-line names. */
   function insertCueBreaks(t){
     return t
@@ -148,19 +165,49 @@ window.SBParser = (function(){
       });
   }
 
+  function splitCueParentheticals(t){
+    return t
+      .replace(/(^|\n)([A-Z][A-Z0-9 .'\-]{1,30})\s+(\([^)]{1,80}\))\s*(?=\n|[A-Za-z])/g,'$1$2\n$3\n')
+      .replace(/\s+(\((?:v\.?o\.?|o\.?s\.?|o\.?c\.?|cont'?d|whispering|beat|pause|sighs|laughing|filtered|into radio|to camera)[^)]*\))/gi,'\n$1\n');
+  }
+
+  function splitSceneBlocks(t){
+    return t
+      .replace(/\s+(?=(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s)/gi,'\n\n')
+      .replace(/((?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s+[^\n]{2,100}?[-—–]\s*(?:DAY|NIGHT|MORNING|EVENING|DUSK|DAWN|CONTINUOUS|LATER|MOMENTS))\s+(?=[A-Za-z])/gi,'$1\n\n')
+      .replace(/\s+(?=(?:FADE IN|FADE OUT|CUT TO|DISSOLVE TO|SMASH CUT)\b)/gi,'\n\n')
+      .replace(/\s+(\d+[A-Z]?\.)\s+(?=(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s)/gi,'\n\n$1\n');
+  }
+
+  /** Rebuild screenplay line breaks from flattened PDF / paste blobs. */
+  function unflattenScreenplay(text){
+    let t=String(text||'').replace(/\r\n/g,'\n').replace(/\r/g,'\n').replace(/\t/g,' ');
+    t=t.replace(/^\s*(FADE IN:?)\s*/i,'$1\n\n');
+    t=splitSceneBlocks(t);
+    t=insertCueBreaks(t);
+    t=splitCueParentheticals(t);
+    t=t.replace(/\s+(\([^)]{2,80}\))\s+(?=[A-Za-z"(])/g,'\n$1\n');
+    t=t.replace(/([.!?])\s+(?=[A-Z][a-z])/g,'$1\n\n');
+    if(isScriptFlattened(t))t=t.replace(/  +/g,'\n');
+    return t.replace(/\n{3,}/g,'\n\n').trim();
+  }
+
   /** Normalize PDF / pasted blobs — restore line breaks screenplay parsers expect. */
   function normalizeScriptText(text){
     if(!text)return'';
     let t=String(text).replace(/\r\n/g,'\n').replace(/\r/g,'\n').replace(/\t/g,' ');
-    const lineCount=t.split('\n').filter(l=>l.trim()).length;
-    const needsReflow=lineCount<20&&t.length>250;
-    if(needsReflow){
-      t=t
-        .replace(/\s+(?=(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s)/gi,'\n\n')
-        .replace(/\s+(?=(?:FADE IN|FADE OUT|CUT TO|DISSOLVE TO|SMASH CUT)\b)/gi,'\n\n');
-      t=insertCueBreaks(t);
-    }
+    if(isScriptFlattened(t))return unflattenScreenplay(t);
+    const lineCount=countLines(t);
+    if(lineCount<20&&t.length>250)return unflattenScreenplay(t);
     return t.replace(/\n{3,}/g,'\n\n').trim();
+  }
+
+  function normalizeScriptTextDetailed(text){
+    const raw=String(text||'');
+    const before=countLines(raw);
+    const normalized=normalizeScriptText(raw);
+    const after=countLines(normalized);
+    return{text:normalized,wasFlattened:isScriptFlattened(raw)||after>before+3,before,after};
   }
 
   function parseQualityWarning(result){
@@ -418,10 +465,11 @@ window.SBParser = (function(){
     for(let p=1;p<=pdf.numPages;p++){
       const page=await pdf.getPage(p);
       const content=await page.getTextContent();
-      pages.push(pdfItemsToLines(content.items).join('\n'));
+      const pageText=pdfItemsToLines(content.items).join('\n');
+      pages.push(normalizeScriptText(pageText));
     }
-    return pages.join('\n\n');
+    return normalizeScriptText(pages.join('\n\n'));
   }
 
-  return{parse,scenesToClips,readFile,extractCharactersFromText,mergeCharMaps,normalizeScriptText,isClipReconstruction,parseQualityWarning};
+  return{parse,scenesToClips,readFile,extractCharactersFromText,mergeCharMaps,normalizeScriptText,normalizeScriptTextDetailed,unflattenScreenplay,isScriptFlattened,isClipReconstruction,parseQualityWarning};
 })();

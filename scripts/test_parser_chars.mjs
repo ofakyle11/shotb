@@ -51,6 +51,7 @@ const bad = [...found].filter(n => /RAIN|TIN ROOF|WAREHOUSE/i.test(n) && !['JOHN
 
 const pdfBlob = SAMPLE.replace(/\n/g, ' ');
 const pdfNorm = SBParser.normalizeScriptText(pdfBlob);
+const pdfLines = pdfNorm.split('\n').filter(l => l.trim()).length;
 const pdfResult = SBParser.parse(pdfNorm, 5);
 const pdfFound = Object.keys(pdfResult.characters);
 
@@ -65,9 +66,14 @@ if (bad.length) {
   console.error('FAIL false positives:', bad);
   process.exit(1);
 }
+if (pdfLines < 8) {
+  console.error('FAIL unflatten too few lines:', pdfLines, pdfNorm.slice(0, 200));
+  process.exit(1);
+}
 if (pdfFound.length < 3) {
   console.error('FAIL PDF-normalized too sparse:', pdfFound);
   process.exit(1);
 }
+console.log('Unflattened lines:', pdfLines);
 console.log('PDF-normalized found:', pdfFound.sort());
 console.log('PASS');

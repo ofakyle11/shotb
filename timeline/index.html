@@ -195,13 +195,14 @@
 <div class="modal hidden" id="scriptModal">
   <div class="modal-card script-modal-card">
     <div class="modal-head"><span>Screenplay editor</span><button type="button" class="tb-btn" id="btnCloseScript" aria-label="Close">✕</button></div>
-    <p class="panel-desc" style="margin-bottom:10px">Paste or edit your screenplay, then <strong>Re-parse timeline</strong> to refresh clips and characters.</p>
+    <p class="panel-desc" style="margin-bottom:10px">Paste or edit your screenplay. Flattened PDF paste? Click <strong>Unflatten</strong> first, then <strong>Re-parse timeline</strong>.</p>
     <div class="script-warn hidden" id="scriptWarn"></div>
     <textarea id="scriptEditor" class="script-editor script-editor-modal" rows="18" placeholder="FADE IN:&#10;&#10;INT. LOCATION - DAY&#10;&#10;Your screenplay…"></textarea>
     <div class="script-actions">
       <span class="script-meta" id="scriptMeta">0 lines</span>
       <div class="script-btns">
         <button class="tb-btn gold" id="btnReparseScript" type="button">↻ Re-parse timeline</button>
+        <button class="tb-btn" id="btnUnflattenScript" type="button">⇤ Unflatten</button>
         <button class="tb-btn" id="btnScriptImport" type="button">Import file</button>
         <button class="tb-btn" id="btnNewScript" type="button">+ New script</button>
       </div>
@@ -211,9 +212,9 @@
 
 <div class="toast" id="toast"></div>
 <script src="/js/model-config.js?v=20260624a"></script>
-<script src="parser.js?v=20260624b"></script>
+<script src="parser.js?v=20260624c"></script>
 <script src="timeline-characters.js?v=20260624a"></script>
 <script src="timeline-export.js?v=20260624a"></script>
-<script src="timeline.js?v=20260624b"></script>
+<script src="timeline.js?v=20260624c"></script>
 </body>
 </html>

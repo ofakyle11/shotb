@@ -134,6 +134,7 @@ function updateScriptMeta(){
   if(bar){
     if(!text.trim())bar.textContent='No screenplay yet — click ✎ Open script editor';
     else if(isClipReconstruction(text))bar.textContent='⚠ Corrupted clip text — open editor & use + New script';
+    else if(SBParser.isScriptFlattened&&SBParser.isScriptFlattened(text))bar.textContent='⚠ Flattened script — open editor & click Unflatten';
     else bar.textContent=summary;
   }
 }
@@ -218,6 +219,36 @@ function startNewScript(){
   const ta=$('scriptEditor');
   if(ta){ta.value='';ta._focused=false}
   save();renderAll();openScriptPanel();toast('Ready for a new script — paste or import below');
+}
+
+function normalizeImportedScript(raw){
+  if(SBParser.normalizeScriptTextDetailed)return SBParser.normalizeScriptTextDetailed(raw);
+  const norm=SBParser.normalizeScriptText?SBParser.normalizeScriptText(raw):raw;
+  const before=String(raw||'').split('\n').filter(l=>l.trim()).length;
+  const after=String(norm||'').split('\n').filter(l=>l.trim()).length;
+  return{text:norm,wasFlattened:after>before+3,before,after};
+}
+
+function unflattenScriptFromEditor(){
+  const ta=$('scriptEditor');
+  const raw=ta?(ta.value||''):state.scriptText||'';
+  if(!raw.trim()){toast('Paste or import a screenplay first');openScriptPanel();return}
+  if(isClipReconstruction(raw)){
+    toast('That is broken clip text — use + New script and import your real file');
+    openScriptPanel();
+    return;
+  }
+  const flat=SBParser.isScriptFlattened?SBParser.isScriptFlattened(raw):false;
+  const norm=normalizeImportedScript(raw);
+  pushHistory();
+  state.scriptText=norm.text;
+  if(ta){ta.value=norm.text;ta._focused=false}
+  save();renderScriptEditor();
+  if(norm.wasFlattened||flat){
+    toast('Unflattened screenplay · '+norm.before+' → '+norm.after+' lines');
+  }else{
+    toast('Script already has line breaks ('+norm.after+' lines)');
+  }
 }
 
 async function reparseScriptFromEditor(){
@@ -455,7 +486,7 @@ function rebuildCharactersFromProject(){
   const base=Object.assign({},(state.parseResult&&state.parseResult.characters)||{});
   let merged=base;
   const dur=parseInt(state.global.clipDuration,10)||5;
-  const norm=SBParser.normalizeScriptText?SBParser.normalizeScriptText(blob):blob;
+  const norm=normalizeImportedScript(blob).text;
 
   if(SBParser.parse){
     const reparsed=SBParser.parse(norm,dur);
@@ -502,7 +533,8 @@ async function importText(text,opts){
     return;
   }
   pushHistory();
-  const norm=SBParser.normalizeScriptText?SBParser.normalizeScriptText(raw):raw;
+  const normInfo=normalizeImportedScript(raw);
+  const norm=normInfo.text;
   state.scriptText=norm;
   const ta=$('scriptEditor');
   if(ta){ta.value=norm;ta._focused=false}
@@ -527,6 +559,7 @@ async function importText(text,opts){
   save();renderAll();
   const nChars=Object.keys(state.characters).length;
   let msg=state.clips.length+' clips'+(nChars?' · '+nChars+' characters':'');
+  if(normInfo.wasFlattened)msg='Unflattened '+normInfo.before+'→'+normInfo.after+' lines · '+msg;
   const warn=SBParser.parseQualityWarning?SBParser.parseQualityWarning(result):'';
   if(warn)msg+=' — '+warn;
   toast(msg);
@@ -708,6 +741,8 @@ function bindUI(){
   if(btnEditLink)btnEditLink.onclick=openScriptPanel;
   const btnReparse=$('btnReparseScript');
   if(btnReparse)btnReparse.onclick=()=>reparseScriptFromEditor().catch(e=>toast(e.message));
+  const btnUnflatten=$('btnUnflattenScript');
+  if(btnUnflatten)btnUnflatten.onclick=unflattenScriptFromEditor;
   const btnScriptImport=$('btnScriptImport');
   if(btnScriptImport)btnScriptImport.onclick=()=>$('fileInput').click();
   const btnNewScript=$('btnNewScript');
