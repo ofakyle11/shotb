@@ -2189,6 +2189,13 @@ function parse(text,durSec){
       cur.shots.push({type:iT(s,!1,m.length),camera:iCm(s,iT(s,!1,m.length)),duration:dl,description:s,dialogue:null,characters_in_frame:m,cine:{}})}
     i++;
   }
+  const extra=extractCharacterDescriptions(text);
+  extra.names.forEach(n=>{
+    const cn=cleanCharName(n);
+    if(!cn)return;
+    if(chars[cn]===undefined)chars[cn]=extra.descriptions[cn]||'';
+    else if(extra.descriptions[cn]&&!chars[cn])chars[cn]=extra.descriptions[cn];
+  });
   return{scenes,characters:chars,characterImages:{}};
 }
 

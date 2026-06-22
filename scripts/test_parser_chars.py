@@ -104,13 +104,38 @@ def extract_characters(text):
             if intro:
                 register_char(chars, intro.group(1))
     for m in re.findall(r"\b[A-Z][A-Z0-9\-']{2,18}(?:\s+[A-Z][A-Z0-9\-']{2,18}){0,2}\b", text):
-        register_char(chars, m.strip())
+        s = m.strip()
+        if is_location_caps(s):
+            continue
+        register_char(chars, s)
     return chars
+
+LOC_WORDS = {
+    'ABANDONED','WAREHOUSE','BUILDING','APARTMENT','HOUSE','OFFICE','FACTORY','ALLEY','STREET',
+    'ROOM','HALLWAY','ROOF','CEILING','NIGHT','DAY','MORNING','EVENING','LOCATION'
+}
+
+def is_location_caps(name):
+    words = name.upper().split()
+    return bool(words) and all(w in LOC_WORDS or w in CAP_FALSE_POS for w in words)
+
+def is_cc(t):
+    t = (t or '').strip()
+    if not t or len(t) < 2 or len(t) > 40 or is_sh(t):
+        return False
+    if re.match(r'^(FADE|CUT|DISSOLVE|SMASH|MATCH|IRIS|WIPE)', t):
+        return False
+    n = re.sub(r'\s*\(.*\)\s*$', '', t)
+    return n == n.upper() and not re.search(r'[.!?,;:]$', n) and not (t.startswith('(') and t.endswith(')'))
 
 def normalize_pdf(text):
     t = text.replace('\r\n', '\n').replace('\r', '\n')
-    if len(t.split('\n')) < 8 and len(t) > 400:
+    line_count = len([l for l in t.split('\n') if l.strip()])
+    if line_count < 12 and len(t) > 200:
         t = re.sub(r'\s+(?=(?:INT\.|EXT\.|INT/EXT\.|I/E\.)\s)', '\n\n', t, flags=re.I)
+        t = re.sub(r'\s+(?=(?:FADE IN|FADE OUT|CUT TO|DISSOLVE TO|SMASH CUT)\b)', '\n\n', t, flags=re.I)
+        t = re.sub(r'([.!?])\s+([A-Z][A-Z0-9 .\'\-]{1,30})(\s*\([^)]{0,60}\))?\s+(?=[(\[]|[a-z])', r'\1\n\n\2\3\n', t)
+        t = re.sub(r'\)\s+([A-Z][A-Z0-9 .\'\-]{1,30})(\s*\([^)]{0,40}\))?\s*(?=\(|$|[a-z])', r')\n\n\1\2\n', t)
     return t
 
 def main():
@@ -118,7 +143,10 @@ def main():
     expected = {'JOHN MERCER', 'JOHN', 'SARAH COLE', 'SARAH', 'DMITRI VOLKOV', 'VOLKOV'}
     found = set(chars.keys())
     missing = expected - found
-    extra = found - expected
+    bad_action = [k for k in found if k in ('RAIN HAMMERS THE TIN ROOF', 'RAIN', 'TIN', 'ROOF')]
+    if bad_action:
+        print('FAIL action lines misclassified as characters:', bad_action)
+        return 1
 
     pdf_blob = SAMPLE.replace('\n', ' ')
     pdf_chars = extract_characters(normalize_pdf(pdf_blob))

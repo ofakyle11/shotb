@@ -9,7 +9,14 @@ window.SBParser = (function(){
     if(/^\d+[.\s]+\s*[A-Z][A-Z0-9\s'\-]+\s+[-—–]\s+(DAY|NIGHT|MORNING|EVENING|DUSK|DAWN|CONTINUOUS|LATER)\s*$/i.test(line))return true;
     return /^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i.test(line);
   }
-  function isCC(t){return /^[A-Z][A-Z0-9 .'\-()]+$/i.test(t)&&t.length<40&&!isSH(t)&&!/^(FADE|CUT|DISSOLVE)/i.test(t)}
+  /** Character cue — must be ALL CAPS (matches Edit Studio isCC). */
+  function isCC(l){
+    const t=(l||'').trim();
+    if(!t||t.length<2||t.length>40||isSH(t))return false;
+    if(/^(FADE|CUT|DISSOLVE|SMASH|MATCH|IRIS|WIPE)/.test(t))return false;
+    const n=t.replace(/\s*\(.*\)\s*$/,'');
+    return n===n.toUpperCase()&&!/[.!?,;:]$/.test(n)&&!((/^\(/.test(t)&&/\)$/.test(t)));
+  }
   function isPar(t){return /^\([^)]+\)$/.test(t)}
   function isTr(t){return /^(FADE IN|FADE OUT|CUT TO|DISSOLVE TO|SMASH CUT)/i.test(t)}
   function isSceneNumberOnly(t){return /^\d+[A-Z]?\.?$/.test(t)}
@@ -62,8 +69,19 @@ window.SBParser = (function(){
     'INT','EXT','I/E','INT/EXT','FADE','CUT','DISSOLVE','ANGLE','POV','CLOSE','WIDE','INSERT',
     'DAY','NIGHT','MORNING','EVENING','CONTINUOUS','LATER','MOMENTS','CONT','VO','OS','OC',
     'THE','AND','BUT','WITH','FROM','INTO','OVER','UNDER','AFTER','BEFORE','SCENE','SHOT',
-    'FADE IN','FADE OUT','CUT TO','SMASH CUT','DISSOLVE TO','SUPER','TITLE','END','MONTAGE'
+    'FADE IN','FADE OUT','CUT TO','SMASH CUT','DISSOLVE TO','SUPER','TITLE','END','MONTAGE',
+    'ABANDONED','WAREHOUSE','BUILDING','APARTMENT','HOUSE','OFFICE','FACTORY','ALLEY','STREET',
+    'ROOM','HALLWAY','CORRIDOR','BASEMENT','ATTIC','GARAGE','KITCHEN','BEDROOM','ROOF','CEILING',
+    'PARKING','FIELD','FOREST','BEACH','DESERT','HIGHWAY','ROAD','BRIDGE','TUNNEL','HOSPITAL',
+    'SCHOOL','CHURCH','STATION','AIRPORT','PRISON','COURTROOM','LOBBY','BAR','RESTAURANT','LAB'
   ]);
+
+  function isLocationCaps(name){
+    const LOC=new Set(['ABANDONED','WAREHOUSE','BUILDING','APARTMENT','HOUSE','OFFICE','FACTORY','ALLEY','STREET','ROOM','HALLWAY','CORRIDOR','BASEMENT','ATTIC','GARAGE','KITCHEN','BEDROOM','ROOF','CEILING','PARKING','FIELD','FOREST','BEACH','DESERT','HIGHWAY','ROAD','BRIDGE','TUNNEL','HOSPITAL','SCHOOL','CHURCH','STATION','AIRPORT','PRISON','COURTROOM','LOBBY','BAR','RESTAURANT','LAB','LOCATION','INTERIOR','EXTERIOR']);
+    const words=String(name||'').toUpperCase().split(/\s+/);
+    if(!words.length)return true;
+    return words.every(w=>LOC.has(w)||CAP_FALSE_POS.has(w));
+  }
 
   function cleanCharName(raw){
     if(!raw)return'';
@@ -74,6 +92,8 @@ window.SBParser = (function(){
     const cn=cleanCharName(name);
     if(!cn||cn.length<2||cn.length>40)return;
     if([...cn.split(/\s+/)].every(w=>CAP_FALSE_POS.has(w)))return;
+    if(isLocationCaps(cn))return;
+    if(/^(INT|EXT|I\/E|INT\/EXT)\b/.test(cn))return;
     if(chars[cn]===undefined)chars[cn]=desc||'';
     else if(desc&&!chars[cn])chars[cn]=desc;
   }
@@ -97,10 +117,13 @@ window.SBParser = (function(){
   function normalizeScriptText(text){
     if(!text)return'';
     let t=String(text).replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-    if(t.split('\n').length<8&&t.length>400){
+    const lineCount=t.split('\n').filter(l=>l.trim()).length;
+    if(lineCount<12&&t.length>200){
       t=t
         .replace(/\s+(?=(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s)/gi,'\n\n')
-        .replace(/\s+(?=(?:FADE IN|FADE OUT|CUT TO|DISSOLVE TO)\b)/gi,'\n\n');
+        .replace(/\s+(?=(?:FADE IN|FADE OUT|CUT TO|DISSOLVE TO|SMASH CUT)\b)/gi,'\n\n')
+        .replace(/([.!?])\s+([A-Z][A-Z0-9 .'\-]{1,30})(\s*\([^)]{0,60}\))?\s+(?=[(\[]|[a-z])/g,'$1\n\n$2$3\n')
+        .replace(/\)\s+([A-Z][A-Z0-9 .'\-]{1,30})(\s*\([^)]{0,40}\))?\s*(?=\(|$|[a-z])/g,')\n\n$1$2\n');
     }
     return t;
   }
@@ -121,7 +144,7 @@ window.SBParser = (function(){
       if(inlineDlg){registerChar(chars,inlineDlg[1],'');inDialogue=true;return;}
       const dlgLabel=t.match(/^([A-Z][A-Z0-9 .'\-()]{1,35})\s*(?:\([^)]*\))?\s*:\s*$/);
       if(dlgLabel){registerChar(chars,dlgLabel[1],'');inDialogue=true;return;}
-      if(isCharCueLine(t)||isCC(t)){
+      if(isCharCueLine(t)){
         const ci=t.match(/\(([^)]+)\)/);
         const desc=ci&&ci[1]&&!/^(V\.?O\.?|O\.?S\.?|CONT'?D?|O\.?C\.?)$/i.test(ci[1].trim())?ci[1].trim():'';
         registerChar(chars,t,desc);
@@ -135,17 +158,13 @@ window.SBParser = (function(){
       }
     });
     const caps=norm.match(/\b[A-Z][A-Z0-9\-']{2,18}(?:\s+[A-Z][A-Z0-9\-']{2,18}){0,2}\b/g)||[];
-    caps.forEach(m=>registerChar(chars,m.trim(),''));
+    caps.forEach(m=>{
+      const s=m.trim();
+      if(isLocationCaps(s))return;
+      registerChar(chars,s,'');
+    });
     const titled=norm.match(/\b(?:Mr|Mrs|Ms|Dr|Det|Agent|Sgt|Officer|Captain)\.?\s+[A-Z][A-Za-z\-']{2,20}\b/g)||[];
     titled.forEach(m=>registerChar(chars,m.replace(/\./g,'').trim(),''));
-    const proper=norm.match(/\b([A-Z][a-z]{2,18}(?:\s+[A-Z][a-z]{2,18})?)\b/g)||[];
-    const SKIP_PROP=new Set(['fade','cut','dissolve','int','ext','scene','close','wide','the','and','but','with','from','into','over','under','rain','water','tin','roof']);
-    proper.forEach(m=>{
-      const parts=m.split(/\s+/);
-      if(parts.every(p=>SKIP_PROP.has(p.toLowerCase())))return;
-      if(parts[0].length<2)return;
-      registerChar(chars,m,'');
-    });
     return chars;
   }
 

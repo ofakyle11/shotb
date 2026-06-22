@@ -293,7 +293,7 @@ function rebuildCharactersFromProject(){
   save();
   return true;
 }
-const CHAR_SKIP=new Set(['INT','EXT','FADE','CUT','CLOSE','WIDE','THE','AND','RAIN','WATER','ROOF','SCENE','OPENING','DIALOGUE','ACTION','REACTION','CLIMAX','RESOLUTION','EPILOGUE','TRANSITION']);
+const CHAR_SKIP=new Set(['INT','EXT','FADE','CUT','CLOSE','WIDE','THE','AND','RAIN','WATER','ROOF','SCENE','OPENING','DIALOGUE','ACTION','REACTION','CLIMAX','RESOLUTION','EPILOGUE','TRANSITION','ABANDONED','WAREHOUSE','BUILDING','STREET','NIGHT','DAY','MORNING','EVENING','LOCATION','INTERIOR','EXTERIOR']);
 function registerCharFromParse(map,name,desc){
   const up=String(name||'').replace(/\s*\([^)]*\)\s*/g,'').trim().toUpperCase();
   if(!up||up.length<2||up.length>40)return;
