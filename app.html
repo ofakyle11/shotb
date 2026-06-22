@@ -29,7 +29,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
 <script src="js/config.js?v=20260617"></script>
 <script src="js/auth.js?v=20260617"></script>
-<script src="js/model-config.js?v=20260622b"></script>
+<script src="js/model-config.js?v=20260622c"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Anybody:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -778,6 +778,7 @@ window.safeSignIn = safeSignIn;
         </div>
       </div>
       <div id="videoModelNote" class="mh-settings-note"></div>
+      <div id="mhSettingsStatus" class="mh-settings-note" style="color:var(--gold);font-size:10px"></div>
     </div>
 
     <!-- Tab bar hidden — unified edit workspace shows all sections stacked -->
@@ -5846,7 +5847,8 @@ async function mhRunSingleJob(j,model){
     j.status='submit';mhRenderGenProgress();
     const h=await window.hdrs();
     // Submit — short, fast request. Returns a request_id for polling.
-    const submitBody={action:'submit',model,prompt:j.prompt,duration:6,aspect_ratio:'16:9'};
+    const vs = (typeof window.getVideoSettings === 'function') ? window.getVideoSettings('app') : { model: model, duration: 6, aspect_ratio: '16:9', resolution: '720p', provider: 'wavespeed' };
+    const submitBody={action:'submit',model:vs.model||model,prompt:j.prompt,duration:vs.duration,aspect_ratio:vs.aspect_ratio,resolution:vs.resolution,provider:vs.provider};
     if (j.character_image_url) submitBody.character_image_url = j.character_image_url;
     const r=await fetch(sbVideoProxy(),{method:'POST',headers:h,body:JSON.stringify(submitBody)});
     let d;try{d=await r.json()}catch(e){d={error:'Bad JSON: '+e.message}}
@@ -7289,6 +7291,9 @@ function mhResumePendingPolls() {
 
 // Quality / Upscale / Sizing / Downloader panel (final tab in the exact flow the user described)
 async function mhDoFinalGenerate() {
+  if (typeof window.getVideoSettings === 'function') {
+    try { window.getVideoSettings('app'); if (window.updateSettingsStatusBar) window.updateSettingsStatusBar(); } catch (e) { console.warn('[mh] video settings', e); }
+  }
   const p = projectLoad() || {};
   const scenes = p.scenes || [];
   if (!scenes.length) { alert('Lock script and build per-shot boxes first.'); return; }
@@ -8612,20 +8617,19 @@ async function generateVideoForShot(key, btn, opts) {
   mhSetShotGenButton(key, 'submitting');
   if (btn && btn.id !== 'gen-shot-btn-' + key) btn.textContent = 'Submitting video…';
 
-  // Build payload with the chosen video model + model-filtered resolution/aspect/duration from settings grid
-  const vidModelSel = document.getElementById('videoModelSelect');
-  const videoModel = (vidModelSel ? vidModelSel.value : 'seedance-2.0-turbo');
-  const resSel = document.getElementById('videoResolutionSelect');
-  const aspSel = document.getElementById('videoAspectSelect');
-  const durSel = document.getElementById('videoDurationSelect');
+  const vs = (typeof window.getVideoSettings === 'function')
+    ? window.getVideoSettings('app')
+    : { model: 'seedance-2.0-turbo', duration: 6, aspect_ratio: '16:9', resolution: '720p', provider: 'wavespeed' };
+  const videoModel = vs.model;
 
   const payload = {
     action: 'submit',
-    model: videoModel,  // e.g. grok-imagine, wan-2.7, sora-2, seedance-2.0-turbo, veo-3.1
+    model: videoModel,
     prompt: finalPromptForVideo,
-    duration: durSel ? parseInt(durSel.value) || 6 : 6,
-    aspect_ratio: aspSel ? aspSel.value : '16:9',
-    resolution: resSel ? resSel.value : '720p',
+    duration: vs.duration,
+    aspect_ratio: vs.aspect_ratio,
+    resolution: vs.resolution,
+    provider: vs.provider,
     shotKey: key,
     character_image_url: (charRefUrl && (charRefUrl.startsWith('http') || charRefUrl.startsWith('data:'))) ? charRefUrl : null,
     location: ui.loc
@@ -8795,51 +8799,14 @@ function generateBaselineVideo() {
   buildPerShotDetailBoxes();
 
   const sceneShot = document.getElementById('baselineSceneShot').value || 'scene1_shot1';
-  const model = (document.getElementById('videoModelSelect') ? document.getElementById('videoModelSelect').value : 'seedance-2.0-turbo');
-  const take = document.getElementById('baselineTake').value || '1';
-  // duration etc read from Video Settings selects (filtered per selected model)
-
-  // Use per-shot prompt if available for better coherence with the new UI (strip jots for the actual gen)
   const [sceneKey, shotKey] = sceneShot.split('_');
   const shotKeyUI = `${parseInt(sceneKey.replace('scene',''))-1 || 0}-${parseInt(shotKey.replace('shot',''))-1 || 0}`;
-  const uiPrompt = (window._shotUI && window._shotUI[shotKeyUI] && window._shotUI[shotKeyUI].prompt) ? stripJots(window._shotUI[shotKeyUI].prompt) : (p.script || '').slice(0, 400);
 
-  const richPrompt = uiPrompt + ' | using locked character photos and location plate for coherence | ' + (p.location ? p.location.name + ' ' + p.location.weather : '');
-
-  const provider = (document.getElementById('mhProvider') ? document.getElementById('mhProvider').value : 'grok-imagine');
-
-  // Local canvas "generated clip" preview (references the prompt + any photos in UI)
-  const canvas = document.createElement('canvas');
-  canvas.width = 320;
-  canvas.height = 180;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#0a0a0f';
-  ctx.fillRect(0, 0, 320, 180);
-  ctx.fillStyle = '#e9c46a';
-  ctx.font = '10px monospace';
-  ctx.fillText('LOCAL BASELINE CLIP ' + model + ' ' + sceneShot, 10, 15);
-  ctx.font = '9px sans-serif';
-  const plines = richPrompt.match(/.{1,45}(\s|$)/g) || [richPrompt];
-  plines.slice(0,6).forEach((l,i) => ctx.fillText(l.trim(), 10, 35 + i*12));
-  // If per-shot has char photos, "composite" simple refs
-  if (window._shotUI && window._shotUI[shotKeyUI] && window._shotUI[shotKeyUI].chars && window._shotUI[shotKeyUI].chars.length) {
-    ctx.fillText('REFS: ' + window._shotUI[shotKeyUI].chars.map(c=>c.name).join(', '), 10, 170);
-  }
-  const localClipUrl = canvas.toDataURL('image/png');
-
-  addVideoClip(model, sceneKey, shotKey, take, {
-    url: localClipUrl,
-    prompt: richPrompt,
-    notes: 'local baseline - using per-shot prompt, jots, char photos, location for coherence. provider=' + provider,
-    sceneShot,
-    localGenerated: true,
-    provider
+  if (typeof window.getVideoSettings === 'function') window.getVideoSettings('app');
+  const btn = document.getElementById('gen-shot-btn-' + shotKeyUI) || { textContent: 'Generate', disabled: false, id: '' };
+  generateVideoForShot(shotKeyUI, btn, { waitForDone: true }).catch(function (e) {
+    alert('Generate failed: ' + (e && e.message ? e.message : e));
   });
-
-  // Refresh per-shot if visible so the new clip shows in the organized video section
-  alert(`Local baseline clip generated for ${sceneShot} using ${model} take ${take}.\nUses the per-shot prompt + any added char photos + location details.\nClick "Build / Rebuild Per-Shot Detail Boxes" to see in context (video clips section).`);
-  const area = document.getElementById('mhGenEntityBoxes');
-  buildPerShotDetailBoxes();
 }
 
 // Initialize photo + video model selects (video settings also wired on mhEnsureUnifiedStudio)

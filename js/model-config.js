@@ -219,6 +219,81 @@
   var APP_VIDEO_IDS = ['videoModelSelect', 'videoAspectSelect', 'videoDurationSelect', 'videoResolutionSelect'];
   var TL_VIDEO_IDS = ['gModel', 'gAspect', 'gDuration', 'gQuality'];
 
+  function inferVideoProvider(model) {
+    var m = String(model || '').toLowerCase();
+    if (m.indexOf('grok') >= 0) return 'grok-imagine';
+    return 'wavespeed';
+  }
+
+  /** Single source of truth for video submit payloads — reads UI + validates per model */
+  function getVideoSettings(source) {
+    var isTimeline = source === 'timeline' || (!document.getElementById('videoModelSelect') && document.getElementById('gModel'));
+    var ids = isTimeline
+      ? { model: 'gModel', aspect: 'gAspect', duration: 'gDuration', resolution: 'gQuality' }
+      : { model: 'videoModelSelect', aspect: 'videoAspectSelect', duration: 'videoDurationSelect', resolution: 'videoResolutionSelect' };
+
+    if (isTimeline) {
+      var gModel = document.getElementById('gModel');
+      if (gModel && !gModel.options.length) {
+        populateModelSelect('gModel', VIDEO_MODELS);
+        if (VIDEO_MODELS['seedance-2.0-turbo']) gModel.value = 'seedance-2.0-turbo';
+        updateOptionsForModel(gModel.value, true, 'gQuality', 'gAspect', 'gDuration');
+        enhanceSelects(TL_VIDEO_IDS);
+      }
+    } else {
+      mhInitVideoSettings();
+    }
+
+    var modelEl = document.getElementById(ids.model);
+    var model = (modelEl && modelEl.value) || 'seedance-2.0-turbo';
+    if (!VIDEO_MODELS[model]) {
+      model = VIDEO_MODELS['seedance-2.0-turbo'] ? 'seedance-2.0-turbo' : Object.keys(VIDEO_MODELS)[0];
+      if (modelEl) modelEl.value = model;
+    }
+
+    var cfg = getModelConfig(model, true);
+    var aspEl = document.getElementById(ids.aspect);
+    var durEl = document.getElementById(ids.duration);
+    var resEl = document.getElementById(ids.resolution);
+
+    var aspect = (aspEl && aspEl.value) || (cfg.aspectRatios && cfg.aspectRatios[0]) || '16:9';
+    var duration = parseInt((durEl && durEl.value) || '', 10);
+    if (!duration || isNaN(duration)) duration = (cfg.durations && cfg.durations[0]) || 6;
+    var resolution = (resEl && resEl.value) || (cfg.resolutions && cfg.resolutions[0]) || '720p';
+
+    if (cfg.aspectRatios && cfg.aspectRatios.indexOf(aspect) < 0) aspect = cfg.aspectRatios[0];
+    if (cfg.durations && cfg.durations.indexOf(duration) < 0) duration = cfg.durations[0];
+    if (cfg.resolutions && cfg.resolutions.indexOf(resolution) < 0) resolution = cfg.resolutions[0];
+
+    if (aspEl && aspEl.value !== aspect) aspEl.value = aspect;
+    if (durEl && durEl.value !== String(duration)) durEl.value = String(duration);
+    if (resEl && resEl.value !== resolution) resEl.value = resolution;
+    refreshSbDropdown(aspEl);
+    refreshSbDropdown(durEl);
+    refreshSbDropdown(resEl);
+    refreshSbDropdown(modelEl);
+
+    return {
+      model: model,
+      aspect_ratio: aspect,
+      duration: duration,
+      resolution: resolution,
+      provider: inferVideoProvider(model)
+    };
+  }
+
+  function updateSettingsStatusBar() {
+    var bar = document.getElementById('mhSettingsStatus');
+    if (!bar || !document.getElementById('videoModelSelect')) return;
+    try {
+      var s = getVideoSettings('app');
+      var label = VIDEO_MODELS[s.model] ? VIDEO_MODELS[s.model].label : s.model;
+      bar.textContent = 'Generate will use: ' + label + ' · ' + s.aspect_ratio + ' · ~' + s.duration + 's · ' + s.resolution;
+    } catch (e) {
+      bar.textContent = '';
+    }
+  }
+
   function mhInitVideoSettings() {
     var vidSel = document.getElementById('videoModelSelect');
     if (!vidSel) return;
@@ -234,8 +309,19 @@
     enhanceSelects(APP_VIDEO_IDS);
     if (!vidSel.dataset.mhWired) {
       vidSel.dataset.mhWired = '1';
-      vidSel.addEventListener('change', updateVideoOptions);
+      vidSel.addEventListener('change', function () {
+        updateVideoOptions();
+        updateSettingsStatusBar();
+      });
     }
+    ['videoAspectSelect', 'videoDurationSelect', 'videoResolutionSelect'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && !el.dataset.mhWired) {
+        el.dataset.mhWired = '1';
+        el.addEventListener('change', updateSettingsStatusBar);
+      }
+    });
+    updateSettingsStatusBar();
   }
 
   function initTimelineVideoSettings(onSync, skipInitialSync) {
@@ -274,6 +360,9 @@
   window.initTimelineVideoSettings = initTimelineVideoSettings;
   window.enhanceSelect = enhanceSelect;
   window.enhanceSelects = enhanceSelects;
+  window.getVideoSettings = getVideoSettings;
+  window.inferVideoProvider = inferVideoProvider;
+  window.updateSettingsStatusBar = updateSettingsStatusBar;
 
   function boot() {
     if (document.getElementById('videoModelSelect')) mhInitVideoSettings();

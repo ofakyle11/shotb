@@ -210,9 +210,10 @@ async function runJob(clip){
   const ref=SBCharacters.getRefForClip(state.characters,clip);
   try{
     const h=await hdrs();
-    const dur=Math.min(15,Math.max(3,parseInt(state.global.clipDuration,10)||clip.durationSec||5));
-    const asp=state.global.aspectRatio||'16:9';
-    const body={action:'submit',model:state.global.model,prompt,duration:dur,aspect_ratio:asp,resolution:state.global.quality||'720p',provider:state.global.model&&state.global.model.includes('grok')?'grok-imagine':'wavespeed'};
+    const vs=(typeof window.getVideoSettings==='function')?window.getVideoSettings('timeline'):null;
+    const dur=vs?vs.duration:Math.min(15,Math.max(3,parseInt(state.global.clipDuration,10)||clip.durationSec||5));
+    const asp=vs?vs.aspect_ratio:(state.global.aspectRatio||'16:9');
+    const body={action:'submit',model:vs?vs.model:state.global.model,prompt,duration:dur,aspect_ratio:asp,resolution:vs?vs.resolution:(state.global.quality||'720p'),provider:vs?vs.provider:(state.global.model&&state.global.model.includes('grok')?'grok-imagine':'wavespeed')};
     if(ref)body.character_image_url=ref.url;
     const sub=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify(body)});
     const sd=await sub.json();
