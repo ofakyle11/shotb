@@ -20,6 +20,7 @@
   };
 
   var _ddDocClickWired = false;
+  var _ddScrollWired = false;
 
   function injectDropdownStyles() {
     if (document.getElementById('sb-dd-styles')) return;
@@ -32,24 +33,79 @@
       '.sb-dd-btn:focus{outline:none;border-color:var(--gold,#d4a843);box-shadow:0 0 0 2px rgba(212,168,67,.15)}',
       '.sb-dd-btn::after{content:"▾";font-size:10px;color:var(--dim,#5a5a6a);flex-shrink:0}',
       '.sb-dd-btn.open::after{transform:rotate(180deg)}',
-      '.sb-dd-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;max-height:240px;overflow-y:auto;background:var(--surface2,#131319);border:1px solid var(--border2,rgba(255,255,255,.14));border-radius:8px;padding:4px;box-shadow:0 10px 28px rgba(0,0,0,.5);z-index:9999}',
+      '.sb-dd-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;max-height:240px;overflow-y:auto;background:var(--surface2,#131319);border:1px solid var(--border2,rgba(255,255,255,.14));border-radius:8px;padding:4px;box-shadow:0 10px 28px rgba(0,0,0,.5);z-index:10050}',
+      '.sb-dd-menu.sb-dd-floating{position:fixed;right:auto;z-index:10050}',
       '.sb-dd-menu.sb-dd-hidden{display:none}',
       '.sb-dd-item{display:block;width:100%;text-align:left;border:none;background:transparent;color:var(--text2,#8e8e9e);padding:8px 10px;font-size:11px;font-weight:600;border-radius:5px;cursor:pointer}',
       '.sb-dd-item:hover,.sb-dd-item.sb-dd-on{background:rgba(212,168,67,.12);color:var(--gold,#d4a843)}',
       '.sb-dd-native{position:absolute!important;opacity:0!important;width:1px!important;height:1px!important;pointer-events:none!important;left:-9999px!important}',
       '#mhSettingsBar .sb-dd-wrap,#settingsBar .sb-dd-wrap{min-width:140px}',
-      '#mhSettingsBar,#settingsBar,.settings-quick,.mh-settings-quick{overflow:visible!important}'
+      '#mhSettingsBar,#settingsBar,.settings-bar,.settings-quick,.mh-settings-quick,.settings-full{overflow:visible!important}',
+      '#mhSettingsBar.sb-dd-bar-open,#settingsBar.sb-dd-bar-open{z-index:10040!important}',
+      '.mh-section-label{position:relative;z-index:1}',
+      '.timeline-wrap,.module-stack{position:relative;z-index:1}'
     ].join('');
     document.head.appendChild(s);
+  }
+
+  function positionFloatingMenu(btn, menu) {
+    var r = btn.getBoundingClientRect();
+    menu.classList.add('sb-dd-floating');
+    menu.style.top = Math.round(r.bottom + 4) + 'px';
+    menu.style.left = Math.round(r.left) + 'px';
+    menu.style.width = Math.max(Math.round(r.width), 140) + 'px';
+    menu.style.right = 'auto';
+    menu.style.maxHeight = Math.min(240, Math.max(120, window.innerHeight - r.bottom - 12)) + 'px';
+  }
+
+  function dockFloatingMenu(ui) {
+    if (!ui || !ui.menu || !ui.wrap) return;
+    ui.menu.classList.remove('sb-dd-floating');
+    ui.menu.style.top = '';
+    ui.menu.style.left = '';
+    ui.menu.style.width = '';
+    ui.menu.style.right = '';
+    ui.menu.style.maxHeight = '';
+    if (ui.menu.parentNode !== ui.wrap) {
+      ui.wrap.appendChild(ui.menu);
+    }
+  }
+
+  function closeAllSbDropdowns() {
+    document.querySelectorAll('.sb-dd-menu').forEach(function (m) {
+      m.classList.add('sb-dd-hidden');
+      var wrap = m._sbDdWrap;
+      if (wrap) dockFloatingMenu({ menu: m, wrap: wrap });
+    });
+    document.querySelectorAll('.sb-dd-btn.open').forEach(function (b) { b.classList.remove('open'); });
+    var bar = document.getElementById('mhSettingsBar') || document.getElementById('settingsBar');
+    if (bar) bar.classList.remove('sb-dd-bar-open');
+  }
+
+  function openSbDropdown(sel, ui) {
+    refreshSbDropdown(sel);
+    closeAllSbDropdowns();
+    document.body.appendChild(ui.menu);
+    ui.menu._sbDdWrap = ui.wrap;
+    positionFloatingMenu(ui.btn, ui.menu);
+    ui.menu.classList.remove('sb-dd-hidden');
+    ui.btn.classList.add('open');
+    var bar = document.getElementById('mhSettingsBar') || document.getElementById('settingsBar');
+    if (bar && bar.contains(ui.wrap)) bar.classList.add('sb-dd-bar-open');
   }
 
   function wireDocClose() {
     if (_ddDocClickWired) return;
     _ddDocClickWired = true;
-    document.addEventListener('click', function () {
-      document.querySelectorAll('.sb-dd-menu').forEach(function (m) { m.classList.add('sb-dd-hidden'); });
-      document.querySelectorAll('.sb-dd-btn.open').forEach(function (b) { b.classList.remove('open'); });
+    document.addEventListener('click', function (e) {
+      if (e.target.closest && (e.target.closest('.sb-dd-wrap') || e.target.closest('.sb-dd-menu'))) return;
+      closeAllSbDropdowns();
     });
+    if (_ddScrollWired) return;
+    _ddScrollWired = true;
+    var onScroll = function () { closeAllSbDropdowns(); };
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
   }
 
   function refreshSbDropdown(sel) {
@@ -74,8 +130,7 @@
           e.stopPropagation();
           sel.value = opt.value;
           refreshSbDropdown(sel);
-          ui.menu.classList.add('sb-dd-hidden');
-          ui.btn.classList.remove('open');
+          closeAllSbDropdowns();
           sel.dispatchEvent(new Event('change', { bubbles: true }));
         });
         ui.menu.appendChild(item);
@@ -103,18 +158,21 @@
     menu.className = 'sb-dd-menu sb-dd-hidden';
     menu.setAttribute('role', 'listbox');
 
+    btn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
     btn.addEventListener('click', function (e) {
+      e.preventDefault();
       e.stopPropagation();
       if (sel.disabled) return;
       var open = menu.classList.contains('sb-dd-hidden');
-      document.querySelectorAll('.sb-dd-menu').forEach(function (m) { m.classList.add('sb-dd-hidden'); });
-      document.querySelectorAll('.sb-dd-btn.open').forEach(function (b) { b.classList.remove('open'); });
       if (open) {
-        refreshSbDropdown(sel);
-        menu.classList.remove('sb-dd-hidden');
-        btn.classList.add('open');
+        setTimeout(function () {
+          openSbDropdown(sel, { wrap: wrap, btn: btn, menu: menu });
+        }, 0);
+      } else {
+        closeAllSbDropdowns();
       }
     });
+    menu.addEventListener('mousedown', function (e) { e.stopPropagation(); });
 
     sel._sbDd = { wrap: wrap, btn: btn, menu: menu };
     var parent = sel.parentNode;
@@ -129,6 +187,27 @@
     ids.forEach(function (id) {
       var el = document.getElementById(id);
       if (el) enhanceSelect(el);
+    });
+  }
+
+  /** Undo sb-dd wrapper — timeline uses native OS dropdowns on Windows. */
+  function restoreNativeSelect(sel) {
+    if (!sel) return;
+    var ui = sel._sbDd;
+    if (ui && ui.wrap && ui.wrap.parentNode) {
+      ui.wrap.parentNode.insertBefore(sel, ui.wrap);
+      ui.wrap.remove();
+    }
+    sel.classList.remove('sb-dd-native');
+    delete sel.dataset.sbDd;
+    delete sel._sbDd;
+    sel.style.cssText = '';
+    sel.removeAttribute('style');
+  }
+
+  function restoreNativeSelects(ids) {
+    (ids || []).forEach(function (id) {
+      restoreNativeSelect(document.getElementById(id));
     });
   }
 
@@ -218,6 +297,8 @@
 
   var APP_VIDEO_IDS = ['videoModelSelect', 'videoAspectSelect', 'videoDurationSelect', 'videoResolutionSelect'];
   var TL_VIDEO_IDS = ['gModel', 'gAspect', 'gDuration', 'gQuality'];
+  var TL_STYLE_IDS = ['gFilm', 'gColor', 'gAudio', 'gLang'];
+  var TL_ALL_SETTING_IDS = TL_VIDEO_IDS.concat(TL_STYLE_IDS);
 
   function inferVideoProvider(model) {
     var m = String(model || '').toLowerCase();
@@ -238,7 +319,6 @@
         populateModelSelect('gModel', VIDEO_MODELS);
         if (VIDEO_MODELS['seedance-2.0-turbo']) gModel.value = 'seedance-2.0-turbo';
         updateOptionsForModel(gModel.value, true, 'gQuality', 'gAspect', 'gDuration');
-        enhanceSelects(TL_VIDEO_IDS);
       }
     } else {
       mhInitVideoSettings();
@@ -327,6 +407,7 @@
   function initTimelineVideoSettings(onSync, skipInitialSync) {
     var modelSel = document.getElementById('gModel');
     if (!modelSel) return;
+    restoreNativeSelects(TL_ALL_SETTING_IDS);
     populateModelSelect('gModel', VIDEO_MODELS);
     var migrate = { 'seedance-turbo': 'seedance-2.0-turbo', seedance: 'seedance-2.0-turbo', veo: 'veo-3.1' };
     if (modelSel.value && migrate[modelSel.value]) modelSel.value = migrate[modelSel.value];
@@ -335,7 +416,7 @@
     }
     function refresh(runSync) {
       updateOptionsForModel(modelSel.value, true, 'gQuality', 'gAspect', 'gDuration');
-      enhanceSelects(TL_VIDEO_IDS);
+      /* Timeline uses native <select> — custom sb-dd was invisible/blocked on Windows */
       if (runSync !== false && typeof onSync === 'function') onSync();
     }
     if (!modelSel.dataset.tlWired) {
@@ -360,6 +441,7 @@
   window.initTimelineVideoSettings = initTimelineVideoSettings;
   window.enhanceSelect = enhanceSelect;
   window.enhanceSelects = enhanceSelects;
+  window.restoreNativeSelects = restoreNativeSelects;
   window.getVideoSettings = getVideoSettings;
   window.inferVideoProvider = inferVideoProvider;
   window.updateSettingsStatusBar = updateSettingsStatusBar;

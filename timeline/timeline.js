@@ -7,6 +7,7 @@ const OWNER_EMAILS=new Set(['kyle@shotbreak.io','scott@shotbreak.io','steve@shot
 
 let state={
   projectName:'Untitled Film',clips:[],characters:{},selectedId:null,selectedChar:null,
+  scriptText:'',
   global:{filmStyle:'Cinematic',colorGrade:'Natural',aspectRatio:'16:9',quality:'1080p',audioProfile:'Cinematic',model:'seedance-2.0-turbo',clipDuration:5,language:'English'},
   assembly:{titleText:'',creditsText:'',musicHint:'',sfxHint:''},
   parseResult:null,queue:{running:false}
@@ -25,8 +26,8 @@ function undo(){if(!history.past.length)return;history.future.push(snapshot());r
 function redo(){if(!history.future.length)return;history.past.push(snapshot());restore(history.future.pop());save();renderAll();toast('Redo')}
 function updateUndo(){if($('btnUndo'))$('btnUndo').disabled=!history.past.length;if($('btnRedo'))$('btnRedo').disabled=!history.future.length}
 
-function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({clips:state.clips,characters:state.characters,global:state.global,assembly:state.assembly,parseResult:state.parseResult,projectName:state.projectName}))}catch(e){}}
-function load(){try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(!d)return;if(d.clips)state.clips=d.clips;if(d.characters)state.characters=SBCharacters.normalize(d.characters);if(d.global)Object.assign(state.global,d.global);if(d.assembly)Object.assign(state.assembly,d.assembly);if(d.parseResult)state.parseResult=d.parseResult;if(d.projectName)state.projectName=d.projectName;state.clips.forEach(ensureClip)}catch(e){}}
+function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({clips:state.clips,characters:state.characters,global:state.global,assembly:state.assembly,parseResult:state.parseResult,projectName:state.projectName,scriptText:state.scriptText}))}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(!d)return;if(d.clips)state.clips=d.clips;if(d.characters)state.characters=SBCharacters.normalize(d.characters);if(d.global)Object.assign(state.global,d.global);if(d.assembly)Object.assign(state.assembly,d.assembly);if(d.parseResult)state.parseResult=d.parseResult;if(d.projectName)state.projectName=d.projectName;if(d.scriptText)state.scriptText=d.scriptText;state.clips.forEach(ensureClip)}catch(e){}}
 
 function ensureClip(c){
   if(!c.params)c.params={scene:{on:{location:1,timeOfDay:1,weather:0,season:0},location:'',timeOfDay:'Day',weather:'Clear',season:'Summer'},camera:{on:{angle:1,filmGrade:1,colorMode:1,saturation:0},angle:'Medium',filmGrade:'35mm Grain',colorMode:'Color',saturation:'0'},atmosphere:{on:{lighting:1,mood:1,fx:0,sound:0},lighting:'Natural',mood:'Cinematic',fx:'',sound:''}};
@@ -72,7 +73,19 @@ function totalDuration(){return state.clips.reduce((a,c)=>a+clipDur(c),0)}
 
 function renderAll(){
   $('projectTitle').textContent=state.projectName;
+  if(state.clips.length&&!Object.keys(state.characters).length){
+    rebuildCharactersFromProject();
+    repairCharactersFromClips();
+  }
   renderTimeline();renderAssembly();renderCharacters();renderOutput();renderDetail();updateUndo();
+  openCharactersPanelIfNeeded();
+}
+function openCharactersPanelIfNeeded(){
+  if(!state.clips.length)return;
+  document.querySelectorAll('.module-panel').forEach(panel=>{
+    const sum=panel.querySelector('summary');
+    if(sum&&sum.textContent.trim()==='Characters')panel.open=true;
+  });
 }
 
 function renderTimeline(){
@@ -148,7 +161,12 @@ function renderAssembly(){
 }
 
 function renderCharacters(){
-  $('charListPanel').innerHTML=SBCharacters.renderList(state.characters);
+  let listHtml=SBCharacters.renderList(state.characters);
+  if(!Object.keys(state.characters).length&&state.clips.length){
+    listHtml='<div style="padding:10px 12px;margin-bottom:10px;background:rgba(212,168,67,.08);border:1px solid rgba(212,168,67,.35);border-radius:8px;font-size:12px;line-height:1.5;color:var(--text2)">'+
+      '<strong style="color:var(--gold)">Characters empty</strong> — click <strong>↻ Sync from parse</strong> or <strong>re-import</strong> your script (Import / Paste). Names must be in screenplay format (ALL CAPS cue lines or <em>Name: dialogue</em>).</div>'+listHtml;
+  }
+  $('charListPanel').innerHTML=listHtml;
   $('charListPanel').querySelectorAll('.char-card').forEach(el=>{el.onclick=()=>{state.selectedChar=el.dataset.name;renderCharEditor()}});
   const names=Object.keys(state.characters);
   if($('charsStrip'))$('charsStrip').classList.toggle('hidden',!names.length);
@@ -180,15 +198,130 @@ async function uploadRef(name){
 
 function renderOutput(){$('queuePanel').innerHTML=SBExport.renderQueue(state.clips,state.queue);$('outputStats').textContent=state.clips.filter(c=>c.status==='approved').length+' approved · '+state.clips.filter(c=>c.videoUrl).length+' rendered'}
 
+function syncCharactersFromParse(result,text){
+  let chars=Object.assign({},(result&&result.characters)||{});
+  if(text&&SBParser.extractCharactersFromText){
+    chars=SBParser.mergeCharMaps(chars,SBParser.extractCharactersFromText(text));
+  }
+  if(result&&result.scenes){
+    result.scenes.forEach(sc=>{
+      (sc.shots||[]).forEach(sh=>{
+        (sh.characters_in_frame||[]).forEach(n=>{
+          const up=String(n||'').replace(/\s*\([^)]*\)\s*/g,'').trim().toUpperCase();
+          if(up&&chars[up]===undefined)chars[up]='';
+        });
+      });
+    });
+  }
+  state.characters=SBCharacters.normalize(chars);
+  const names=Object.keys(state.characters);
+  if(names.length&&!state.selectedChar)state.selectedChar=names[0];
+}
+
+function clipTextBlob(){
+  if(state.scriptText&&state.scriptText.trim())return state.scriptText;
+  if(!state.clips.length)return'';
+  const parts=[];
+  state.clips.forEach(c=>{
+    if(c.heading)parts.push(c.heading);
+    if(c.description)parts.push(c.description);
+    if(c.dialogue)parts.push(c.dialogue);
+  });
+  return parts.join('\n');
+}
+
+function repairCharactersFromClips(){
+  if(!state.clips.length&&!state.scriptText)return false;
+  let changed=false;
+  state.clips.forEach(c=>{
+    (c.characters||[]).forEach(n=>{
+      const up=String(n||'').toUpperCase().trim();
+      if(!up)return;
+      if(!state.characters[up]){
+        state.characters[up]=Object.assign({},SBCharacters.DEFAULTS);
+        changed=true;
+      }
+    });
+  });
+  if(changed)save();
+  return changed;
+}
+
+/** Re-sync characters from stored script + full re-parse + clip metadata. */
+function rebuildCharactersFromProject(){
+  const blob=clipTextBlob();
+  if(!blob||!blob.trim())return false;
+  const base=Object.assign({},(state.parseResult&&state.parseResult.characters)||{});
+  let merged=base;
+  const dur=parseInt(state.global.clipDuration,10)||5;
+  const norm=SBParser.normalizeScriptText?SBParser.normalizeScriptText(blob):blob;
+
+  if(SBParser.parse){
+    const reparsed=SBParser.parse(norm,dur);
+    state.parseResult=reparsed;
+    merged=SBParser.mergeCharMaps(merged,reparsed.characters||{});
+    (reparsed.scenes||[]).forEach(sc=>{
+      (sc.shots||[]).forEach(sh=>{
+        (sh.characters_in_frame||[]).forEach(n=>registerCharFromParse(merged,n));
+      });
+    });
+  }
+  if(SBParser.extractCharactersFromText){
+    merged=SBParser.mergeCharMaps(merged,SBParser.extractCharactersFromText(norm));
+  }
+  state.clips.forEach(c=>{
+    (c.characters||[]).forEach(n=>registerCharFromParse(merged,n));
+    const desc=c.description||'';
+    const dlg=c.dialogue||'';
+    const intro=desc.match(/\b([A-Z][A-Z0-9 .'\-]{1,30})\s*\(([^)]+)\)/);
+    if(intro)registerCharFromParse(merged,intro[1],intro[2]);
+    const closeOn=desc.match(/Close on\s+([A-Z][A-Z0-9 .'\-]{1,30})/i);
+    if(closeOn)registerCharFromParse(merged,closeOn[1]);
+    const titleNames=(desc+' '+dlg).match(/\b([A-Z][a-z]{2,18}(?:\s+[A-Z][a-z]{2,18})?)\b/g)||[];
+    titleNames.forEach(m=>registerCharFromParse(merged,m));
+  });
+  const names=Object.keys(merged).filter(n=>n.length>=2);
+  if(!names.length)return false;
+  state.characters=SBCharacters.normalize(merged);
+  if(!state.selectedChar)state.selectedChar=names[0];
+  save();
+  return true;
+}
+const CHAR_SKIP=new Set(['INT','EXT','FADE','CUT','CLOSE','WIDE','THE','AND','RAIN','WATER','ROOF','SCENE','OPENING','DIALOGUE','ACTION','REACTION','CLIMAX','RESOLUTION','EPILOGUE','TRANSITION']);
+function registerCharFromParse(map,name,desc){
+  const up=String(name||'').replace(/\s*\([^)]*\)\s*/g,'').trim().toUpperCase();
+  if(!up||up.length<2||up.length>40)return;
+  if(CHAR_SKIP.has(up))return;
+  if(up.split(/\s+/).every(w=>CHAR_SKIP.has(w)))return;
+  if(map[up]===undefined)map[up]=desc||'';
+  else if(desc&&!map[up])map[up]=desc;
+}
+
 async function importText(text){
   pushHistory();
+  const norm=SBParser.normalizeScriptText?SBParser.normalizeScriptText(text):text;
+  state.scriptText=norm;
   const dur=parseInt(state.global.clipDuration,10)||5;
-  const result=SBParser.parse(text,dur);
-  state.parseResult=result;state.characters=SBCharacters.normalize(result.characters||{});
+  const result=SBParser.parse(norm,dur);
+  state.parseResult=result;
   state.clips=SBParser.scenesToClips(result,state.global,dur);
   state.clips.forEach(ensureClip);
+  syncCharactersFromParse(result,norm);
+  rebuildCharactersFromProject();
+  state.clips.forEach(c=>{
+    (c.characters||[]).forEach(n=>{
+      const up=String(n||'').toUpperCase().trim();
+      if(up&&!state.characters[up])state.characters[up]=Object.assign({},SBCharacters.DEFAULTS);
+    });
+  });
   if(state.clips.length)state.selectedId=state.clips[0].id;
-  save();renderAll();toast(state.clips.length+' clips on timeline');
+  save();renderAll();
+  const nChars=Object.keys(state.characters).length;
+  toast(state.clips.length+' clips'+(nChars?' · '+nChars+' characters from parse':''));
+  document.querySelectorAll('.module-panel').forEach(panel=>{
+    const sum=panel.querySelector('summary');
+    if(sum&&sum.textContent.trim()==='Characters')panel.open=true;
+  });
 }
 async function importFile(file){importText(await SBParser.readFile(file))}
 
@@ -304,13 +437,26 @@ function sendEditor(){
 }
 
 function toggleMoreMenu(open){
-  const menu=$('moreMenu');if(!menu)return;
+  const menu=$('moreMenu');const btn=$('btnMoreMenu');if(!menu)return;
   const show=open!==undefined?open:menu.classList.contains('hidden');
   menu.classList.toggle('hidden',!show);
+  if(show&&btn){
+    const r=btn.getBoundingClientRect();
+    menu.style.position='fixed';
+    menu.style.top=Math.round(r.bottom+4)+'px';
+    menu.style.left=Math.round(r.left)+'px';
+    menu.style.zIndex='10060';
+  }else{
+    menu.style.position='';
+    menu.style.top='';
+    menu.style.left='';
+    menu.style.zIndex='';
+  }
 }
 function bindUI(){
   $('btnMoreMenu').onclick=e=>{e.stopPropagation();toggleMoreMenu()};
   document.addEventListener('click',()=>toggleMoreMenu(false));
+  window.addEventListener('scroll',()=>toggleMoreMenu(false),true);
   $('moreMenu').onclick=e=>e.stopPropagation();
   $('fileInput').onchange=e=>{const f=e.target.files[0];if(f)importFile(f).catch(err=>toast(err.message));e.target.value=''};
   $('btnImport').onclick=()=>$('fileInput').click();
@@ -330,6 +476,15 @@ function bindUI(){
   $('btnEDL').onclick=exportEDL;
   $('btnSaveProj').onclick=exportProject;
   $('btnLoadProj').onclick=loadProject;
+  const btnResync=$('btnResyncChars');
+  if(btnResync)btnResync.onclick=()=>{
+    if(rebuildCharactersFromProject()){
+      renderAll();
+      toast(Object.keys(state.characters).length+' characters synced from parse');
+    }else{
+      toast('Re-import your script (Import or Paste) — need screenplay text with character names');
+    }
+  };
   $('btnAddChar').onclick=()=>{const n=prompt('Character name:');if(!n)return;pushHistory();state.characters[n.toUpperCase()]=Object.assign({},SBCharacters.DEFAULTS);state.selectedChar=n.toUpperCase();save();renderCharacters()};
   $('btnClosePreview').onclick=()=>$('previewModal').classList.add('hidden');
   $('btnCloseExport').onclick=()=>$('exportModal').classList.add('hidden');
@@ -343,6 +498,11 @@ function bindUI(){
     };
   }
   load();
+  if(state.clips.length||state.scriptText||state.parseResult){
+    if(state.parseResult)syncCharactersFromParse(state.parseResult,state.scriptText||clipTextBlob());
+    rebuildCharactersFromProject();
+    repairCharactersFromClips();
+  }
   const modelMigrate={'seedance-turbo':'seedance-2.0-turbo','seedance':'seedance-2.0-turbo','veo':'veo-3.1'};
   if(state.global.model&&modelMigrate[state.global.model])state.global.model=modelMigrate[state.global.model];
   if(typeof window.initTimelineVideoSettings==='function'){

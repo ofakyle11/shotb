@@ -29,7 +29,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
 <script src="js/config.js?v=20260617"></script>
 <script src="js/auth.js?v=20260617"></script>
-<script src="js/model-config.js?v=20260622c"></script>
+<script src="js/model-config.js?v=20260622f"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Anybody:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -670,13 +670,15 @@ window.safeSignIn = safeSignIn;
 #mhSettingsBar {
   position: sticky;
   top: 52px;
-  z-index: 120;
+  z-index: 200;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   margin-bottom: 16px;
   overflow: visible;
-  isolation: isolate;
+}
+#mhSettingsBar.sb-dd-bar-open {
+  z-index: 10040;
 }
 .mh-settings-row {
   display: flex;
@@ -750,7 +752,10 @@ window.safeSignIn = safeSignIn;
         <span style="font-family:var(--display);font-size:22px;font-weight:800">🎬 Edit Studio</span>
         <div style="font-size:12px;color:var(--text2);margin-top:4px">One workspace — script → characters → generate shots → timeline → export MP4. Scroll down.</div>
       </div>
-      <div id="mhProjInfo" style="font-size:12px;color:var(--dim)"></div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div id="mhProjInfo" style="font-size:12px;color:var(--dim)"></div>
+        <button type="button" class="b b-g b-s" onclick="mhStartNewScript()" title="Clear this project and paste a different screenplay" style="color:var(--red);border-color:rgba(239,68,68,0.35);white-space:nowrap;font-size:11px">+ New Script</button>
+      </div>
     </div>
     <div id="sbLocalStatus" style="display:none;font-size:11px;color:var(--dim);padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-bottom:10px;font-family:var(--mono);line-height:1.45"></div>
 
@@ -798,6 +803,17 @@ window.safeSignIn = safeSignIn;
       <!-- SCRIPT (section 1) -->
       <div id="mhTabPaneScript" class="mh-tab-pane" style="display:block">
         <div class="mh-section-label">① Script — paste &amp; lock</div>
+        <div class="mh-workflow-strip" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text2)">
+          <span style="color:var(--gold);font-weight:700">Workflow:</span>
+          <span><strong>1.</strong> Paste screenplay below</span>
+          <span style="color:var(--dim)">→</span>
+          <span><strong>2.</strong> Lock Script</span>
+          <span style="color:var(--dim)">→</span>
+          <span><strong>3.</strong> Characters from same parse as shots</span>
+          <span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="b b-g b-s" onclick="mhStartNewScript()" style="color:var(--red);border-color:rgba(239,68,68,0.35);white-space:nowrap">+ New Script</button>
+          </span>
+        </div>
         <div class="mh-panel">
           <div id="mhScriptBox" style="margin-top:12px">
             <textarea id="mhScriptMain" rows="8" style="width:100%;background:#0a0a0f;border:1px solid var(--border);color:#fff;padding:12px;font-family:var(--mono);font-size:13px" placeholder="Paste or lock your script here..."></textarea>
@@ -805,9 +821,11 @@ window.safeSignIn = safeSignIn;
             <div style="margin-top:8px">
               <button class="b b-gold" onclick="mhParseBox('script')" style="font-size:12px">Build Clean Script Prompt</button>
             </div>
-            <div style="margin-top:8px">
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
               <button class="b b-g b-s" onclick="mhLockScriptAndExtract()">🔒 Lock Script & Send to Characters + Locations</button>
+              <button type="button" class="b b-g b-s" onclick="mhStartNewScript()" style="color:var(--red);border-color:rgba(239,68,68,0.35)">+ New Script</button>
             </div>
+            <div style="font-size:10px;color:var(--dim);margin-top:6px;line-height:1.45"><strong>New Script</strong> clears the current project (script, characters, shots, locks) so you can start a different film. Generated video files already saved elsewhere are not deleted.</div>
             <div id="parsed_script"></div>
             <div id="mhScriptParsed" style="margin-top:8px;background:#111;border:1px solid var(--gold-border);padding:10px;font-size:13px;white-space:pre-wrap;display:none"></div>
           </div>
@@ -2139,10 +2157,12 @@ function spS(t){const r=t.match(/[^.!?]+[.!?]+[\s]*/g)||[t],res=[];let b='';for(
 function iT(t,d,c){const x=t.toLowerCase().replace(/\([^)]*\)/g,'');if(/\b(close[\s-]?up|eyes|mouth|hand|tears)\b/.test(x))return'CLOSE-UP';if(/\b(insert|phone|screen|key|gun|weapon|drive)\b/.test(x))return'INSERT';if(d&&c===2)return'TWO-SHOT';if(d)return'MEDIUM';if(/\b(behind|shoulder)\b/.test(x))return'OTS';if(/\b(wide|room|city|street|warehouse|sky|surround)\b/.test(x))return'WIDE';if(/\b(walks?|run|follow|track|through|across)\b/.test(x))return'TRACKING';if(/\b(looks?\s+at|stares?|meets?\s+(his|her)\s+eyes|exhales?|closes?\s+(his|her)\s+eyes)\b/.test(x))return'CLOSE-UP';return'MEDIUM'}
 function iCm(t,s){const x=t.toLowerCase();if(/\b(slow(ly)?|creep)\b/.test(x))return'SLOW DOLLY';if(/\b(pan|scans?)\b/.test(x))return'PAN';if(/\b(follow|track)\b/.test(x)&&s==='TRACKING')return'STEADICAM';if(/\b(crash|sudden)\b/.test(x))return'HANDHELD';return'STATIC'}
 
-function parse(text){
+function parse(text,durSec){
   const lines=text.split('\n'),scenes=[],chars={};
   let cur=null,i=0;
-  const dur=parseInt($('durSel').value)||4,dl=dur+'-'+(dur+1)+'s';
+  const durEl=typeof $==='function'?$('durSel'):null;
+  const dur=durSec||parseInt(durEl&&durEl.value)||4;
+  const dl=dur+'-'+(dur+1)+'s';
   // Track whether we've seen a real scene yet — before that, skip title-page cruft.
   let seenFirstScene=false;
   while(i<lines.length){
@@ -2457,7 +2477,8 @@ V._genShot=async function(si,shi){
   vlog("Submitting shot",si+1+"."+(shi+1),"model:",V.model,"prompt length:",prompt.length,"char lock:",charImg?charImg.char:"none","negative:",sh.negative_prompt?"yes":"no");
   try{
     const h=await window.hdrs();
-    const body={action:"submit",model:V.model,prompt,duration:parseInt(sh.duration)||6,aspect_ratio:"16:9"};
+    const vs=(typeof window.getVideoSettings==='function')?window.getVideoSettings('app'):{model:V.model,duration:6,aspect_ratio:'16:9',resolution:'720p',provider:'wavespeed'};
+    const body={action:"submit",model:vs.model||V.model,prompt,duration:vs.duration,aspect_ratio:vs.aspect_ratio,resolution:vs.resolution,provider:vs.provider};
     if(charImg)body.character_image_url=charImg.url;
     // v83: pass negative_prompt to backend if the staged shot carries one.
     // Locked once by Prompt Writer; identical across every shot in the film.
@@ -2508,12 +2529,15 @@ V._onBatch=async function(){
   async function submitOne(sh) {
     try {
       const h = await window.hdrs();
+      const vs = (typeof window.getVideoSettings === 'function') ? window.getVideoSettings('app') : { model: V.model, duration: 6, aspect_ratio: '16:9', resolution: '720p', provider: 'wavespeed' };
       const body = {
         action: "submit",
-        model: V.model,
+        model: vs.model || V.model,
         prompt: sh.prompt,
-        duration: parseInt(sh.duration) || 6,
-        aspect_ratio: "16:9",
+        duration: vs.duration,
+        aspect_ratio: vs.aspect_ratio,
+        resolution: vs.resolution,
+        provider: vs.provider,
       };
       if (sh.character_image_url) body.character_image_url = sh.character_image_url;
       if (sh.negative_prompt)     body.negative_prompt     = sh.negative_prompt;
@@ -3306,7 +3330,77 @@ function getBestCharPrompt(name, p) {
   }
   return (bible && bible.description) || '';
 }
-function projectClear(){if(!confirm('Clear the active project? This deletes your locked script, backgrounds, and character mappings for this project. Generated videos are not deleted.'))return;localStorage.removeItem(projKey());showDash()}
+function mhResetStudioUI(){
+  window._shotUI={};
+  window._mhBatchGenCancel=true;
+  const ta=document.getElementById('mhScriptMain');
+  if(ta)ta.value='';
+  const legacyTa=document.getElementById('mhScriptIn');
+  if(legacyTa)legacyTa.value='';
+  ['parsed_script','mhScriptParsed','points_script'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    if(el.tagName==='TEXTAREA'||el.tagName==='INPUT')el.value='';
+    else{el.innerHTML='';el.style.display='none'}
+  });
+  const charArea=document.getElementById('mhCharAgentArea');
+  if(charArea){
+    charArea.innerHTML='<div style="padding:18px;text-align:center;color:var(--dim);font-size:13px;line-height:1.5">Paste your screenplay in <strong style="color:var(--gold)">① Script</strong>, then click <strong>Lock Script</strong> — characters and locations will populate here.</div>';
+  }
+  const charBanner=document.getElementById('mhCharWorkflowBanner');
+  if(charBanner&&charBanner.parentNode)charBanner.parentNode.removeChild(charBanner);
+  const locArea=document.getElementById('mhLocPhotoArea');
+  if(locArea)locArea.innerHTML='';
+  ['locName','locTod','locBusy','locWeather'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    if(el.tagName==='SELECT')el.selectedIndex=0;
+    else el.value='';
+  });
+  const genArea=document.getElementById('mhGenEntityBoxes');
+  if(genArea){
+    genArea.innerHTML='<div id="mhGenEntityBoxesPlaceholder" style="padding:16px;background:#111;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--dim);font-size:13px">Paste and lock a script to build per-shot video prompts here.</div>';
+  }
+  const gallery=document.getElementById('mhGenClipsGallery');
+  if(gallery)gallery.style.display='none';
+  const galleryInner=document.getElementById('mhGenClipsGalleryInner');
+  if(galleryInner)galleryInner.innerHTML='';
+  const batchStatus=document.getElementById('mhBatchGenStatus');
+  if(batchStatus){batchStatus.style.display='none';batchStatus.innerHTML=''}
+  const genBar=document.getElementById('mhGenActiveBar');
+  if(genBar)genBar.style.display='none';
+  const baselineSel=document.getElementById('baselineSceneShot');
+  if(baselineSel)baselineSel.innerHTML='<option value="">No shots yet — paste script above</option>';
+  _mhApprovedPoints={script:[],characters:{},generate:{}};
+  _mhStep=1;
+}
+
+function mhStartNewScript(opts){
+  opts=opts||{};
+  const p=projectLoad();
+  const hasWork=!!(p&&(p.script||(p.scenes||[]).length||(p.characterBible||[]).length||(p.generatedClips||[]).length));
+  if(!opts.confirmed){
+    const msg=hasWork
+      ? 'Start a new script? This clears the current project — locked script, characters, shots, backgrounds, and in-progress generation. Video files already exported/downloaded are not deleted.'
+      : 'Start a new script? The workspace will reset so you can paste a fresh screenplay.';
+    if(hasWork&&!confirm(msg))return;
+  }
+  try{localStorage.removeItem(projKey())}catch(e){}
+  try{localStorage.removeItem('SB_WorkflowStaged')}catch(e){}
+  mhResetStudioUI();
+  mhUpdateHeader();
+  if(typeof updateSettingsStatusBar==='function')updateSettingsStatusBar();
+  const scriptPane=document.getElementById('mhTabPaneScript');
+  if(scriptPane)scriptPane.scrollIntoView({behavior:'smooth',block:'start'});
+  const ta=document.getElementById('mhScriptMain');
+  if(ta)setTimeout(()=>ta.focus(),200);
+}
+window.mhStartNewScript=mhStartNewScript;
+
+function projectClear(){
+  if(!confirm('Clear the active project? This deletes your locked script, backgrounds, and character mappings for this project. Generated videos are not deleted.'))return;
+  mhStartNewScript({confirmed:true});
+}
 
 function ensureProjectAssets(p) {
   if (!p) return p;
@@ -3676,13 +3770,94 @@ function parseScript(text){
   return{scenes};
 }
 
-// Extract ALL CAPS character names mentioned in scene body (minus common false positives).
-const CAP_FALSE_POS=new Set(['INT','EXT','FADE','CUT','DISSOLVE','ANGLE','POV','CLOSE','WIDE','INSERT','DAY','NIGHT','MORNING','EVENING','CONTINUOUS','LATER','MOMENTS','CONT','VO','OS','OC']);
+// Screenplay character extraction — cues, dialogue labels, Fountain @tags, titled names.
+const CAP_FALSE_POS=new Set([
+  'INT','EXT','I/E','INT/EXT','FADE','CUT','DISSOLVE','ANGLE','POV','CLOSE','WIDE','INSERT',
+  'DAY','NIGHT','MORNING','EVENING','CONTINUOUS','LATER','MOMENTS','CONT','VO','OS','OC',
+  'THE','AND','BUT','WITH','FROM','INTO','OVER','UNDER','AFTER','BEFORE','SCENE','SHOT',
+  'FADE IN','FADE OUT','CUT TO','SMASH CUT','DISSOLVE TO','SUPER','TITLE','END','MONTAGE',
+  'SLOWLY','QUICKLY','SUDDENLY','THEN','NOW','BACK','AWAY','DOWN','UP','OUT','OFF','ON','IN','AT','TO'
+]);
+function cleanCharName(raw){
+  if(!raw)return'';
+  return raw.replace(/\s*\([^)]*\)\s*/g,'').replace(/\s*[-–—:]\s*$/,'').replace(/\s+/g,' ').trim().toUpperCase();
+}
+function isCharCueLine(t){
+  if(!t)return false;
+  if(/^(INT\.|EXT\.|I\/E\.|INT\/EXT\.)/i.test(t))return false;
+  if(/^(FADE|CUT|DISSOLVE|SMASH|MATCH|IRIS|WIPE|THE END)/i.test(t))return false;
+  if(/^\(.+\)$/.test(t))return false;
+  const cuePart=t.replace(/\s*\([^)]*\)\s*$/,'').trim();
+  if(!cuePart||cuePart.length<2||cuePart.length>40)return false;
+  if(cuePart!==cuePart.toUpperCase())return false;
+  if(/[.!?,;:]$/.test(cuePart))return false;
+  if(!/[A-Z]/.test(cuePart))return false;
+  const words=cuePart.split(/\s+/);
+  if(words.every(w=>CAP_FALSE_POS.has(w)))return false;
+  return true;
+}
+function registerCharName(set,raw){
+  const cn=cleanCharName(raw);
+  if(!cn||cn.length<2||cn.length>40)return;
+  const words=cn.split(/\s+/);
+  if(words.every(w=>CAP_FALSE_POS.has(w)))return;
+  if(/^(INT|EXT|I\/E|INT\/EXT)\b/.test(cn))return;
+  if(words.length===1&&CAP_FALSE_POS.has(words[0]))return;
+  set.add(cn);
+}
 function extractCharacterNames(body){
   const set=new Set();
-  const matches=(body||'').match(/\b[A-Z][A-Z0-9\s\-']{1,20}\b/g)||[];
-  for(const m of matches){const t=m.trim();if(t.length<2||t.length>25)continue;const w=t.split(/\s+/);if(w.every(x=>CAP_FALSE_POS.has(x)))continue;set.add(t)}
-  return Array.from(set);
+  const text=body||'';
+  if(!text.trim())return[];
+  const lines=text.split(/\r?\n/);
+  let inDialogue=false;
+  for(let i=0;i<lines.length;i++){
+    const t=lines[i].trim();
+    if(!t){inDialogue=false;continue;}
+    const fountain=t.match(/^@([A-Za-z][A-Za-z0-9 .'\-]{1,35})$/);
+    if(fountain){registerCharName(set,fountain[1]);inDialogue=true;continue;}
+    const inlineDlg=t.match(/^([A-Z][A-Z0-9 .'\-()]{1,35})\s*(?:\([^)]*\))?\s*:\s+/);
+    if(inlineDlg){registerCharName(set,inlineDlg[1]);inDialogue=true;continue;}
+    const dlgLabel=t.match(/^([A-Z][A-Z0-9 .'\-()]{1,35})\s*(?:\([^)]*\))?\s*:\s*$/);
+    if(dlgLabel){registerCharName(set,dlgLabel[1]);inDialogue=true;continue;}
+    if(isCharCueLine(t)){registerCharName(set,t);inDialogue=true;continue;}
+    if(typeof isSH==='function'&&isSH(t)){inDialogue=false;continue;}
+    if(/^(INT\.|EXT\.|I\/E\.|INT\/EXT\.)/i.test(t)){inDialogue=false;continue;}
+    if(!inDialogue){
+      const parenIntro=t.match(/\b([A-Z][A-Z0-9 .'\-]{1,30})\s*\([^)]{3,}\)/);
+      if(parenIntro)registerCharName(set,parenIntro[1]);
+    }
+  }
+  const titled=text.match(/\b(?:Mr|Mrs|Ms|Dr|Det|Agent|Sgt|Officer|Captain)\.?\s+[A-Z][A-Za-z\-']{2,20}\b/g)||[];
+  titled.forEach(m=>registerCharName(set,m.replace(/\./g,'').trim()));
+  const caps=text.match(/\b[A-Z][A-Z0-9\-']{2,18}(?:\s+[A-Z][A-Z0-9\-']{2,18}){0,2}\b/g)||[];
+  caps.forEach(m=>registerCharName(set,m.trim()));
+  return Array.from(set).sort();
+}
+/** Pull character names + optional parenthetical descriptions from script text. */
+function extractCharacterDescriptions(body){
+  const descs={};
+  const names=extractCharacterNames(body);
+  names.forEach(n=>{descs[n]='';});
+  const lines=(body||'').split(/\r?\n/);
+  for(const line of lines){
+    const t=line.trim();
+    if(!t)continue;
+    if(isCharCueLine(t)){
+      const cn=cleanCharName(t);
+      const ci=t.match(/\(([^)]+)\)/);
+      if(cn&&ci&&ci[1]&&!/^(V\.?O\.?|O\.?S\.?|CONT'?D?|O\.?C\.?)$/i.test(ci[1].trim())){
+        descs[cn]=ci[1].trim();
+      }
+      continue;
+    }
+    const inline=t.match(/^([A-Z][A-Z0-9 .'\-()]{1,35})\s*\(([^)]+)\)\s*:\s+/);
+    if(inline){
+      const cn=cleanCharName(inline[1]);
+      if(cn)descs[cn]=inline[2].trim();
+    }
+  }
+  return {names, descriptions:descs};
 }
 
 // ───────── Generation Hub Entry + Stepper ─────────
@@ -7451,15 +7626,17 @@ function sendFwdToMediaHubAgents(){
   if(!rD || !rD.script){ alert('Run a breakdown first.'); return; }
 
   // Save the current breakdown into the shared project model that Generation Hub uses
+  const charMap = rD.characters || {};
   const proj = {
     id: 'proj_' + Date.now(),
     name: (rD.title || 'Untitled Project'),
     script: rD.script || sIn.value || '',
     scenes: rD.scenes || [],
-    characters: rD.characters || {},
-    characterBible: Object.keys(rD.characters || {}).map(n => ({
-      name: n,
-      description: rD.characters[n] || '',
+    characters: charMap,
+    characterDescriptions: charMap,
+    characterBible: Object.keys(charMap).map(n => ({
+      name: cleanCharName(n),
+      description: charMap[n] || '',
       imageUrl: (rD.characterImages && rD.characterImages[n]) || null,
       locked: !!(rD.characterImages && rD.characterImages[n])
     })),
@@ -7501,7 +7678,11 @@ function mhEnsureUnifiedStudio() {
 function mhRunTabInit(tab) {
   // Lazy init for character boxes + render photos
   if (tab === 'characters') {
-    if (!document.getElementById('mhCharAgentArea').innerHTML) {
+    const pChar = projectLoad() || {};
+    const charArea = document.getElementById('mhCharAgentArea');
+    const needsCharRebuild = !charArea || !charArea.innerHTML
+      || (!(pChar.characterBible || []).length && (pChar.script || '').trim());
+    if (needsCharRebuild) {
       mhRebuildCharAgentBoxes();
     } else {
       // re-render photos in case new ones added
@@ -7572,52 +7753,46 @@ function mhRebuildCharAgentBoxes() {
   if (!area) return;
   const p = projectLoad() || {};
 
-  // Auto-extract from script if we have one (this is the main way "parsing flows to Characters")
-  if(p.script){
-    try{
-      const names = (typeof extractCharacterNames === 'function') ? extractCharacterNames(p.script) : [];
-      if(names.length){
-        if(!p.characterBible) p.characterBible = [];
-        const existingNames = new Set(p.characterBible.map(c => (c.name||'').toUpperCase()));
-        const extracted = p.characterDescriptions || {};
-        names.forEach(name => {
-          const up = name.toUpperCase();
-          if(!existingNames.has(up)){
-            const synthesized = (typeof mhSynthesizeCharDescription === 'function')
-              ? mhSynthesizeCharDescription(name, p, extracted[name])
-              : (extracted[name] || 'Character from script.');
-            const c = {
-              id: 'char_'+name.toLowerCase().replace(/\s+/g,'_'),
-              name: up,
-              description: synthesized || 'Character from script.',
-              imageUrl: null,
-              locked: false,
-              descCustom: !!synthesized
-            };
-            if(typeof ensureCharacterSchema === 'function') ensureCharacterSchema(c);
-            p.characterBible.push(c);
-            existingNames.add(up);
-          }
-        });
+  // Pull characters from the same breakdown parse used for shots (not a second regex pass)
+  if (p.script) {
+    try {
+      if (!Object.keys(p.characters || {}).length) {
+        const built = mhBuildScenesFromScriptText(p.script);
+        if (built.characters && Object.keys(built.characters).length) {
+          p.characters = built.characters;
+          p.characterDescriptions = Object.assign({}, p.characterDescriptions || {}, built.characters);
+          mhSyncCharacterBibleFromParse(p, built.characters);
+        }
+      } else {
+        mhSyncCharacterBibleFromParse(p, p.characters);
       }
 
-      // Location extraction
       const locs = (typeof extractLocations === 'function') ? extractLocations(p.script) : [];
-      if(!p.location) p.location = {};
-      if(locs.length && !p.location.name){
-        p.location.name = locs[0];
-      }
-      if(!p.location.tod) p.location.tod = 'Night';
-      if(!p.location.busy) p.location.busy = 'Quiet';
-      if(!p.location.weather) p.location.weather = 'Light persistent rain';
+      if (!p.location) p.location = {};
+      if (locs.length && !p.location.name) p.location.name = locs[0];
+      if (!p.location.tod) p.location.tod = 'Night';
+      if (!p.location.busy) p.location.busy = 'Quiet';
+      if (!p.location.weather) p.location.weather = 'Light persistent rain';
 
-      if(names.length || locs.length){
-        projectSave(p);
-      }
-    }catch(e){ console.warn('Auto-extract in rebuild failed', e); }
+      projectSave(p);
+    } catch (e) { console.warn('Character sync from parse failed', e); }
   }
 
-  const chars = (p.characterBible || []).length ? p.characterBible : [{name:'Lead', description:'Main character'}];
+  let chars = p.characterBible || [];
+  if (!chars.length) {
+    const hint = (p.script || '').trim()
+      ? 'No characters detected yet. Click Lock Script on the Script tab — characters are pulled from the same breakdown parser that builds your shots (ALL CAPS cue lines, dialogue blocks, action intros like NAME (40s, traits)).'
+      : 'Paste your screenplay in the Script section above, then click Lock Script — characters come from the same parse as your shots.';
+    area.innerHTML = `<div class="suggestion-box" style="border-color:var(--gold-border)">
+      <h5>👤 Characters</h5>
+      <div style="font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:10px">${esc(hint)}</div>
+      <button class="b b-gold b-s" onclick="mhSwitchTab('script')">Go to Script →</button>
+      <button class="b b-g b-s" onclick="mhLockScriptAndExtract()" style="margin-left:6px">🔒 Lock Script Now</button>
+    </div>`;
+    renderLocationPhotos();
+    if(typeof populateLocationUIFromProject === 'function') populateLocationUIFromProject();
+    return;
+  }
 
   let html = '';
   chars.forEach((c, idx) => {
@@ -7997,19 +8172,10 @@ function mhLockScriptAndExtract(){
   p.script = text;
   projectSave(p);
 
-  // Screenplay INT./EXT. + prose/narrative fallbacks (Cut to SC1, bullets, sentence groups)
+  // Same parser as Generate Breakdown — scenes, shots, characters_in_frame, character descriptions
   mhSyncScenesFromScript(p, { force: true });
   p = projectLoad() || p;
-
-  // Extract character names from the full script (ALL CAPS in action lines)
-  const charNames = extractCharacterNames(text);
-  p.characterDescriptions = p.characterDescriptions || {};
-  charNames.forEach(n => {
-    if(!p.characterDescriptions[n]){
-      // Will be filled by synthesis on rebuild
-      p.characterDescriptions[n] = '';
-    }
-  });
+  const charNames = Object.keys(p.characters || p.characterDescriptions || {}).map(cleanCharName).filter(Boolean);
 
   // Extract primary location from scene headings
   const locs = extractLocations(text);
@@ -8024,28 +8190,9 @@ function mhLockScriptAndExtract(){
   if(!p.location.busy) p.location.busy = 'Quiet';
   if(!p.location.weather) p.location.weather = 'Light persistent rain';
 
-  // Seed or merge into characterBible using the same logic as the old renderer
-  if(!p.characterBible) p.characterBible = [];
-  const existingNames = new Set(p.characterBible.map(c => (c.name||'').toUpperCase()));
-  charNames.forEach(name => {
-    const up = name.toUpperCase();
-    if(!existingNames.has(up)){
-      const synthesized = (typeof mhSynthesizeCharDescription === 'function')
-        ? mhSynthesizeCharDescription(name, p, p.characterDescriptions[name])
-        : (p.characterDescriptions[name] || 'Character from script.');
-      const c = {
-        id: 'char_'+name.toLowerCase().replace(/\s+/g,'_'),
-        name: up,
-        description: synthesized || 'Character from script.',
-        imageUrl: null,
-        locked: false,
-        descCustom: !!synthesized
-      };
-      if(typeof ensureCharacterSchema === 'function') ensureCharacterSchema(c);
-      p.characterBible.push(c);
-      existingNames.add(up);
-    }
-  });
+  if (p.characters && Object.keys(p.characters).length) {
+    mhSyncCharacterBibleFromParse(p, p.characters);
+  }
 
   projectSave(p);
   mhRefreshBaselineShotSelect(p);
@@ -8065,7 +8212,7 @@ function mhLockScriptAndExtract(){
   }, 150);
 
   const shotCount = (p.scenes || []).reduce((a, s) => a + (s.shots || []).length, 0);
-  alert(`✅ Script locked — ${shotCount} shot(s), characters & location extracted.\n\nCharacters tab: names + location.\nGenerate tab: per-shot video prompts are ready.`);
+  alert(`✅ Script locked — ${shotCount} shot(s), ${charNames.length} character(s), location extracted.\n\nCharacters tab: names + location.\nGenerate tab: per-shot video prompts are ready.`);
 }
 
 // Helper: extract locations from standard scene headings
@@ -8229,39 +8376,110 @@ function mhSplitProseIntoShotChunks(text) {
   return chunks.length ? chunks : [t];
 }
 
+/** Map the original breakdown parser (parse) into Edit Studio scene + character shape. */
 function mhBuildScenesFromScriptText(text) {
-  const parsed = parseScript(text);
-  if (parsed.scenes && parsed.scenes.length) {
-    return parsed.scenes.map((sc, si) => ({
-      id: 'scene_' + si,
-      heading: sc.heading || 'Scene ' + (si + 1),
-      body: sc.body || '',
-      shots: (sc.shots || []).map((sh, shi) => ({
-        id: 'shot_' + si + '_' + shi,
+  const breakdown = (typeof parse === 'function') ? parse(text) : { scenes: [], characters: {} };
+  const charMap = breakdown.characters || {};
+  const allCharNames = Object.keys(charMap).map(cleanCharName).filter(Boolean);
+
+  if (breakdown.scenes && breakdown.scenes.length) {
+    const scenes = breakdown.scenes.map((sc, si) => {
+      const charsInScene = new Set();
+      const shots = (sc.shots || []).map((sh, shi) => {
+        const inFrame = (sh.characters_in_frame || []).map(cleanCharName).filter(Boolean);
+        inFrame.forEach(n => charsInScene.add(n));
+        return {
+          id: 'shot_' + si + '_' + shi,
+          num: shi + 1,
+          text: (sh.description || sh.text || sh.prompt || '').toString(),
+          dialogue: sh.dialogue || null,
+          characters_in_frame: inFrame,
+          shotType: sh.type || null,
+          camera: sh.camera || null,
+          duration: sh.duration || null,
+          cine: sh.cine || {}
+        };
+      });
+      if (!shots.length) {
+        shots.push({
+          id: 'shot_' + si + '_0',
+          num: 1,
+          text: sc.heading || '',
+          characters_in_frame: [],
+          cine: {}
+        });
+      }
+      return {
+        id: 'scene_' + si,
+        heading: sc.heading || 'Scene ' + (si + 1),
+        body: shots.map(s => s.text).join('\n'),
+        shots,
+        characterNames: charsInScene.size ? Array.from(charsInScene) : allCharNames.slice(0, 12),
+        background: { description: '', locked: false, cinematography: {} }
+      };
+    });
+    return { scenes, characters: charMap };
+  }
+
+  const blocks = mhSplitProseIntoShotChunks(text);
+  const fallbackChars = {};
+  const fallbackNames = extractCharacterNames(text);
+  fallbackNames.forEach(n => { fallbackChars[cleanCharName(n)] = ''; });
+  return {
+    scenes: [{
+      id: 'scene_0',
+      heading: 'PARSED SCRIPT',
+      body: text,
+      shots: blocks.map((block, shi) => ({
+        id: 'shot_0_' + shi,
         num: shi + 1,
-        text: sh.text || sh,
-        characters_in_frame: [],
+        text: block.trim().slice(0, 2000),
+        characters_in_frame: extractCharacterNames(block).map(cleanCharName).slice(0, 4),
         cine: {}
       })),
-      characterNames: [],
+      characterNames: fallbackNames.map(cleanCharName).slice(0, 12),
       background: { description: '', locked: false, cinematography: {} }
-    }));
-  }
-  const blocks = mhSplitProseIntoShotChunks(text);
-  return [{
-    id: 'scene_0',
-    heading: 'PARSED SCRIPT',
-    body: text,
-    shots: blocks.map((block, shi) => ({
-      id: 'shot_0_' + shi,
-      num: shi + 1,
-      text: block.trim().slice(0, 2000),
-      characters_in_frame: [],
-      cine: {}
-    })),
-    characterNames: [],
-    background: { description: '', locked: false, cinematography: {} }
-  }];
+    }],
+    characters: Object.keys(fallbackChars).length ? fallbackChars : charMap
+  };
+}
+
+/** Seed characterBible + characterDescriptions from breakdown parser output. */
+function mhSyncCharacterBibleFromParse(p, charMap) {
+  if (!p || !charMap || !Object.keys(charMap).length) return p;
+  p.characterBible = p.characterBible || [];
+  p.characterDescriptions = p.characterDescriptions || {};
+  const existing = new Set(p.characterBible.map(c => cleanCharName(c.name)));
+  Object.entries(charMap).forEach(([name, desc]) => {
+    const up = cleanCharName(name);
+    if (!up) return;
+    const parsedDesc = (desc || '').trim();
+    if (parsedDesc) p.characterDescriptions[up] = parsedDesc;
+    else if (p.characterDescriptions[up] === undefined) p.characterDescriptions[up] = '';
+    if (!existing.has(up)) {
+      const synthesized = (typeof mhSynthesizeCharDescription === 'function')
+        ? mhSynthesizeCharDescription(up, p, p.characterDescriptions[up])
+        : (p.characterDescriptions[up] || 'Character from script.');
+      const c = {
+        id: 'char_' + up.toLowerCase().replace(/\s+/g, '_'),
+        name: up,
+        description: synthesized || p.characterDescriptions[up] || 'Character from script.',
+        imageUrl: null,
+        locked: false,
+        descCustom: !!(synthesized || p.characterDescriptions[up])
+      };
+      if (typeof ensureCharacterSchema === 'function') ensureCharacterSchema(c);
+      p.characterBible.push(c);
+      existing.add(up);
+    } else if (parsedDesc) {
+      const c = p.characterBible.find(x => cleanCharName(x.name) === up);
+      if (c && !c.descCustom && !(c.description || '').trim()) {
+        c.description = parsedDesc;
+        c.descCustom = true;
+      }
+    }
+  });
+  return p;
 }
 
 function mhSyncScenesFromScript(p, opts) {
@@ -8269,13 +8487,20 @@ function mhSyncScenesFromScript(p, opts) {
   const text = (proj.script || '').trim();
   if (!text) return { ok: false, reason: 'no_script' };
   if ((proj.scenes || []).length && !(opts && opts.force)) {
-    return { ok: true, scenes: proj.scenes };
+    return { ok: true, scenes: proj.scenes, characters: proj.characters || {} };
   }
-  const scenes = mhBuildScenesFromScriptText(text);
-  proj.scenes = scenes;
+  const built = mhBuildScenesFromScriptText(text);
+  proj.scenes = built.scenes || [];
+  if (built.characters && Object.keys(built.characters).length) {
+    proj.characters = built.characters;
+    proj.characterDescriptions = Object.assign({}, proj.characterDescriptions || {}, built.characters);
+    mhSyncCharacterBibleFromParse(proj, built.characters);
+  }
   projectSave(proj);
-  console.log('[Shotbreak] Synced', scenes.reduce((a, s) => a + (s.shots || []).length, 0), 'shots from script');
-  return { ok: true, scenes };
+  const shotCount = (proj.scenes || []).reduce((a, s) => a + (s.shots || []).length, 0);
+  const charCount = Object.keys(proj.characters || {}).length;
+  console.log('[Shotbreak] Synced', shotCount, 'shots,', charCount, 'characters from breakdown parse');
+  return { ok: true, scenes: proj.scenes, characters: proj.characters || {} };
 }
 
 function mhRefreshBaselineShotSelect(p) {

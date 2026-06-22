@@ -50,10 +50,122 @@ window.SBParser = (function(){
     return'Day';
   }
 
+  const CAP_FALSE_POS=new Set([
+    'INT','EXT','I/E','INT/EXT','FADE','CUT','DISSOLVE','ANGLE','POV','CLOSE','WIDE','INSERT',
+    'DAY','NIGHT','MORNING','EVENING','CONTINUOUS','LATER','MOMENTS','CONT','VO','OS','OC',
+    'THE','AND','BUT','WITH','FROM','INTO','OVER','UNDER','AFTER','BEFORE','SCENE','SHOT',
+    'FADE IN','FADE OUT','CUT TO','SMASH CUT','DISSOLVE TO','SUPER','TITLE','END','MONTAGE'
+  ]);
+
+  function cleanCharName(raw){
+    if(!raw)return'';
+    return raw.replace(/\s*\([^)]*\)\s*/g,'').replace(/\s*[-–—:]\s*$/,'').replace(/\s+/g,' ').trim().toUpperCase();
+  }
+
+  function registerChar(chars,name,desc){
+    const cn=cleanCharName(name);
+    if(!cn||cn.length<2||cn.length>40)return;
+    if([...cn.split(/\s+/)].every(w=>CAP_FALSE_POS.has(w)))return;
+    if(chars[cn]===undefined)chars[cn]=desc||'';
+    else if(desc&&!chars[cn])chars[cn]=desc;
+  }
+
+  function isCharCueLine(t){
+    if(!t)return false;
+    if(isSH(t))return false;
+    if(/^(FADE|CUT|DISSOLVE|SMASH|MATCH|IRIS|WIPE|THE END)/i.test(t))return false;
+    if(/^\(.+\)$/.test(t))return false;
+    const cuePart=t.replace(/\s*\([^)]*\)\s*$/,'').trim();
+    if(!cuePart||cuePart.length<2||cuePart.length>40)return false;
+    if(cuePart!==cuePart.toUpperCase())return false;
+    if(/[.!?,;:]$/.test(cuePart))return false;
+    if(!/[A-Z]/.test(cuePart))return false;
+    const words=cuePart.split(/\s+/);
+    if(words.every(w=>CAP_FALSE_POS.has(w)))return false;
+    return true;
+  }
+
+  /** Normalize PDF / pasted blobs — restore line breaks screenplay parsers expect. */
+  function normalizeScriptText(text){
+    if(!text)return'';
+    let t=String(text).replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    if(t.split('\n').length<8&&t.length>400){
+      t=t
+        .replace(/\s+(?=(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s)/gi,'\n\n')
+        .replace(/\s+(?=(?:FADE IN|FADE OUT|CUT TO|DISSOLVE TO)\b)/gi,'\n\n');
+    }
+    return t;
+  }
+
+  /** Pull character names from screenplay cues, dialogue labels, and ALL-CAPS mentions. */
+  function extractCharactersFromText(text){
+    const chars={};
+    const norm=normalizeScriptText(text);
+    if(!norm.trim())return chars;
+    const lines=norm.split('\n');
+    let inDialogue=false;
+    lines.forEach(line=>{
+      const t=line.trim();
+      if(!t){inDialogue=false;return;}
+      const fountain=t.match(/^@([A-Za-z][A-Za-z0-9 .'\-]{1,35})$/);
+      if(fountain){registerChar(chars,fountain[1],'');inDialogue=true;return;}
+      const inlineDlg=t.match(/^([A-Z][A-Z0-9 .'\-()]{1,35})\s*(?:\([^)]*\))?\s*:\s+/);
+      if(inlineDlg){registerChar(chars,inlineDlg[1],'');inDialogue=true;return;}
+      const dlgLabel=t.match(/^([A-Z][A-Z0-9 .'\-()]{1,35})\s*(?:\([^)]*\))?\s*:\s*$/);
+      if(dlgLabel){registerChar(chars,dlgLabel[1],'');inDialogue=true;return;}
+      if(isCharCueLine(t)||isCC(t)){
+        const ci=t.match(/\(([^)]+)\)/);
+        const desc=ci&&ci[1]&&!/^(V\.?O\.?|O\.?S\.?|CONT'?D?|O\.?C\.?)$/i.test(ci[1].trim())?ci[1].trim():'';
+        registerChar(chars,t,desc);
+        inDialogue=true;
+        return;
+      }
+      if(isSH(t)){inDialogue=false;return;}
+      if(!inDialogue){
+        const parenIntro=t.match(/\b([A-Z][A-Z0-9 .'\-]{1,30})\s*\([^)]{3,}\)/);
+        if(parenIntro)registerChar(chars,parenIntro[1],'');
+      }
+    });
+    const caps=norm.match(/\b[A-Z][A-Z0-9\-']{2,18}(?:\s+[A-Z][A-Z0-9\-']{2,18}){0,2}\b/g)||[];
+    caps.forEach(m=>registerChar(chars,m.trim(),''));
+    const titled=norm.match(/\b(?:Mr|Mrs|Ms|Dr|Det|Agent|Sgt|Officer|Captain)\.?\s+[A-Z][A-Za-z\-']{2,20}\b/g)||[];
+    titled.forEach(m=>registerChar(chars,m.replace(/\./g,'').trim(),''));
+    const proper=norm.match(/\b([A-Z][a-z]{2,18}(?:\s+[A-Z][a-z]{2,18})?)\b/g)||[];
+    const SKIP_PROP=new Set(['fade','cut','dissolve','int','ext','scene','close','wide','the','and','but','with','from','into','over','under','rain','water','tin','roof']);
+    proper.forEach(m=>{
+      const parts=m.split(/\s+/);
+      if(parts.every(p=>SKIP_PROP.has(p.toLowerCase())))return;
+      if(parts[0].length<2)return;
+      registerChar(chars,m,'');
+    });
+    return chars;
+  }
+
+  function mergeCharMaps(base,extra){
+    const out=Object.assign({},base||{});
+    Object.entries(extra||{}).forEach(([n,d])=>registerChar(out,n,d));
+    return out;
+  }
+
+  function attachCharactersToShots(scenes,chars){
+    if(!scenes||!chars)return;
+    const names=Object.keys(chars);
+    scenes.forEach(sc=>{
+      (sc.shots||[]).forEach(sh=>{
+        const found=new Set(sh.characters_in_frame||[]);
+        const blob=((sh.description||'')+' '+(sh.dialogue||'')).toUpperCase();
+        names.forEach(n=>{
+          if(blob.includes(n))found.add(n);
+        });
+        sh.characters_in_frame=[...found];
+      });
+    });
+  }
+
   function parse(text, durSec){
     const dur=durSec||5;
     const dl=dur+'-'+(dur+1)+'s';
-    const lines=text.split('\n'),scenes=[],chars={};
+    const lines=normalizeScriptText(text).split('\n'),scenes=[],chars={};
     let cur=null,i=0,seenFirstScene=false;
     while(i<lines.length){
       const l=lines[i],t=l.trim();
@@ -93,7 +205,9 @@ window.SBParser = (function(){
       }
       i++;
     }
-    return{scenes,characters:chars};
+    const enriched=mergeCharMaps(chars,extractCharactersFromText(text));
+    attachCharactersToShots(scenes,enriched);
+    return{scenes,characters:enriched};
   }
 
   function scenesToClips(result, global, clipDur){
@@ -171,5 +285,5 @@ window.SBParser = (function(){
     return text;
   }
 
-  return{parse,scenesToClips,readFile};
+  return{parse,scenesToClips,readFile,extractCharactersFromText,mergeCharMaps,normalizeScriptText};
 })();

@@ -92,7 +92,10 @@
         <details class="module-panel">
           <summary>Characters</summary>
           <div class="panel-pad">
-            <div class="panel-head"><button class="tb-btn" id="btnAddChar">+ Add Character</button></div>
+            <div class="panel-head" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+              <button class="tb-btn" id="btnResyncChars" title="Pull characters from parsed script / timeline clips">↻ Sync from parse</button>
+              <button class="tb-btn" id="btnAddChar">+ Add Character</button>
+            </div>
             <div id="charListPanel"></div>
             <div id="charEditorPanel" class="char-editor-wrap"></div>
           </div>
@@ -158,7 +161,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script src="/js/model-config.js?v=20260622c"></script>
+<script src="/js/model-config.js?v=20260622f"></script>
 <script src="parser.js"></script>
 <script src="timeline-characters.js"></script>
 <script src="timeline-export.js"></script>

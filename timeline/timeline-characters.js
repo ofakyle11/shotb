@@ -16,7 +16,7 @@ window.SBCharacters = (function(){
 
   function renderList(chars, onSelect){
     const names=Object.keys(chars);
-    if(!names.length)return '<div class="empty-hint">Import a script to detect characters, or add one manually.</div>';
+    if(!names.length)return '<div class="empty-hint">Characters come from the same script parse as your timeline clips. Re-import your script, or click <strong>+ Add Character</strong>.</div>';
     return '<div class="char-grid">'+names.map(n=>{
       const c=chars[n];
       const thumb=c.refUrl?'<img src="'+esc(c.refUrl)+'" alt="">':'<span class="ph">👤</span>';
