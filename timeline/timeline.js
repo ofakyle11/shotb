@@ -740,6 +740,12 @@ function bindUI(){
     syncGlobal();
   }
   renderAll();
+  try{
+    if(!localStorage.getItem('SB_Timeline_script_hint_v2')){
+      localStorage.setItem('SB_Timeline_script_hint_v2','1');
+      setTimeout(()=>toast('Screenplay: gold ✎ Script (top) or yellow bar under Settings'),1200);
+    }
+  }catch(e){}
 }
 
 document.addEventListener('DOMContentLoaded',()=>{initAuth();bindUI()});
