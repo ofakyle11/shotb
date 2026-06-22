@@ -349,6 +349,17 @@ async function uploadRef(name){
 
 function renderOutput(){$('queuePanel').innerHTML=SBExport.renderQueue(state.clips,state.queue);$('outputStats').textContent=state.clips.filter(c=>c.status==='approved').length+' approved · '+state.clips.filter(c=>c.videoUrl).length+' rendered'}
 
+function trustedCharacterNames(text){
+  const trusted=new Set();
+  if(state.parseResult&&state.parseResult.characters){
+    Object.keys(state.parseResult.characters).forEach(n=>trusted.add(String(n).toUpperCase().trim()));
+  }
+  if(text&&SBParser.extractCharactersFromText&&!isClipReconstruction(text)){
+    Object.keys(SBParser.extractCharactersFromText(text)).forEach(n=>trusted.add(String(n).toUpperCase().trim()));
+  }
+  return trusted;
+}
+
 function syncCharactersFromParse(result,text){
   let chars=Object.assign({},(result&&result.characters)||{});
   if(text&&SBParser.extractCharactersFromText&&!isClipReconstruction(text)){
@@ -370,31 +381,31 @@ function syncCharactersFromParse(result,text){
     const up=String(k).toUpperCase().trim();
     if(up&&!out[up])out[up]=normalized[k];
   });
-  state.characters=pruneJunkCharacters(out);
+  state.characters=pruneJunkCharacters(out,trustedCharacterNames(text));
   const names=Object.keys(state.characters);
   if(names.length&&!state.selectedChar)state.selectedChar=names[0];
 }
 
-function pruneJunkCharacters(chars){
-  const cueSet=new Set();
-  if(state.parseResult&&state.parseResult.characters)Object.keys(state.parseResult.characters).forEach(n=>cueSet.add(n.toUpperCase()));
-  state.clips.forEach(c=>(c.characters||[]).forEach(n=>cueSet.add(String(n).toUpperCase())));
+function pruneJunkCharacters(chars,trusted){
+  const trustedSet=trusted||trustedCharacterNames(state.scriptText||'');
+  const clipSet=new Set();
+  state.clips.forEach(c=>(c.characters||[]).forEach(n=>clipSet.add(String(n).toUpperCase().trim())));
   const out={};
   Object.entries(chars||{}).forEach(([name,val])=>{
     const up=String(name).toUpperCase().trim();
     if(!up||up.length<2||up.length>40)return;
-    if(cueSet.has(up)){out[up]=val;return;}
+    if(trustedSet.has(up)){out[up]=val;return;}
+    if(!clipSet.has(up))return;
     const words=up.split(/\s+/);
     if(words.length>3)return;
     if(words.every(w=>JUNK_CHAR_WORDS.has(w)||CHAR_SKIP.has(w)))return;
-    if(words.length===1&&JUNK_CHAR_WORDS.has(words[0]))return;
-    if(words.length>1&&words.some(w=>JUNK_CHAR_WORDS.has(w)))return;
+    if(words.length===1&&(JUNK_CHAR_WORDS.has(words[0])||CHAR_SKIP.has(words[0])))return;
     out[up]=val;
   });
-  if(!Object.keys(out).length&&Object.keys(chars||{}).length){
-    Object.entries(chars).forEach(([name,val])=>{
-      const up=String(name).toUpperCase().trim();
-      if(cueSet.has(up))out[up]=val;
+  if(!Object.keys(out).length&&trustedSet.size){
+    trustedSet.forEach(up=>{
+      if(chars[up]!==undefined)out[up]=chars[up];
+      else if(chars[up.toLowerCase()]!==undefined)out[up]=chars[up.toLowerCase()];
     });
   }
   return out;
@@ -467,7 +478,7 @@ function rebuildCharactersFromProject(){
   });
   const names=Object.keys(merged).filter(n=>n.length>=2);
   if(!names.length)return false;
-  state.characters=SBCharacters.normalize(pruneJunkCharacters(merged));
+  state.characters=SBCharacters.normalize(pruneJunkCharacters(merged,trustedCharacterNames(norm)));
   if(!state.selectedChar)state.selectedChar=names[0];
   save();
   return true;
@@ -754,7 +765,6 @@ function bindUI(){
   if(state.clips.length||state.scriptText||state.parseResult){
     if(state.parseResult)syncCharactersFromParse(state.parseResult,state.scriptText||'');
     rebuildCharactersFromProject();
-    state.characters=pruneJunkCharacters(state.characters);
     repairCharactersFromClips();
     save();
   }

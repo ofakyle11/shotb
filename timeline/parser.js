@@ -113,6 +113,41 @@ window.SBParser = (function(){
     return true;
   }
 
+  function looksLikeCharCue(name){
+    const cn=cleanCharName(name);
+    if(!cn||cn.length<2||cn.length>40)return false;
+    if(isLocationCaps(cn))return false;
+    if(/^(INT|EXT|I\/E|INT\/EXT)\b/.test(cn))return false;
+    const words=cn.split(/\s+/);
+    if(words.every(w=>CAP_FALSE_POS.has(w)))return false;
+    return true;
+  }
+
+  /** Split flattened PDF blobs before character cues and action-line names. */
+  function insertCueBreaks(t){
+    return t
+      .replace(/([.!?])\s+([A-Z][A-Z0-9 .'\-]{1,30})(\s*\([^)]{0,80}\))?\s+(?=[(\[]|[a-z])/g,(m,p1,p2,p3)=>{
+        if(!looksLikeCharCue(p2))return m;
+        return p1+'\n\n'+p2+(p3||'')+'\n';
+      })
+      .replace(/\)\s+([A-Z][A-Z0-9 .'\-]{1,30})(\s*\([^)]{0,60}\))?\s*(?=\(|$|[a-z])/g,(m,p1,p2)=>{
+        if(!looksLikeCharCue(p1))return m;
+        return ')\n\n'+p1+(p2||'')+'\n';
+      })
+      .replace(/\s{2,}([A-Z][A-Z0-9 .'\-]{1,28})(\s*\([^)]{0,60}\))?\s+(?=\()/g,(m,p1,p2)=>{
+        if(!looksLikeCharCue(p1))return m;
+        return '\n\n'+p1+(p2||'')+'\n';
+      })
+      .replace(/\s+([A-Z][A-Z0-9 .'\-]{1,28})(\s*\([^)]{0,60}\))?\s+(?=[A-Za-z][a-z])/g,(m,p1,p2)=>{
+        if(!looksLikeCharCue(p1))return m;
+        return '\n\n'+p1+(p2||'')+'\n';
+      })
+      .replace(/\s+([A-Z]{2,}(?:\s+[A-Z]{2,}){0,2})\s+(?=[a-z])/g,(m,p1)=>{
+        if(!looksLikeCharCue(p1)||isSH(p1))return m;
+        return '\n\n'+p1+'\n';
+      });
+  }
+
   /** Normalize PDF / pasted blobs — restore line breaks screenplay parsers expect. */
   function normalizeScriptText(text){
     if(!text)return'';
@@ -122,11 +157,8 @@ window.SBParser = (function(){
     if(needsReflow){
       t=t
         .replace(/\s+(?=(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s)/gi,'\n\n')
-        .replace(/\s+(?=(?:FADE IN|FADE OUT|CUT TO|DISSOLVE TO|SMASH CUT)\b)/gi,'\n\n')
-        .replace(/([.!?])\s+([A-Z][A-Z0-9 .'\-]{1,30})(\s*\([^)]{0,60}\))?\s+(?=[(\[]|[a-z])/g,'$1\n\n$2$3\n')
-        .replace(/\)\s+([A-Z][A-Z0-9 .'\-]{1,30})(\s*\([^)]{0,40}\))?\s*(?=\(|$|[a-z])/g,')\n\n$1$2\n')
-        .replace(/\s{2,}([A-Z][A-Z0-9 .'\-]{1,28})(\s*\([^)]{0,50}\))?\s+(?=\()/g,'\n\n$1$2\n')
-        .replace(/\s+([A-Z][A-Z0-9 .'\-]{1,28})\s+(?=[A-Za-z][a-z])/g,'\n\n$1\n');
+        .replace(/\s+(?=(?:FADE IN|FADE OUT|CUT TO|DISSOLVE TO|SMASH CUT)\b)/gi,'\n\n');
+      t=insertCueBreaks(t);
     }
     return t.replace(/\n{3,}/g,'\n\n').trim();
   }
@@ -140,7 +172,23 @@ window.SBParser = (function(){
     return'';
   }
 
-  /** Pull character names from screenplay cues, dialogue labels, and ALL-CAPS mentions. */
+  function extractActionLineName(t){
+    if(!t||isSH(t)||isTr(t))return null;
+    const m=t.match(/^([A-Z][A-Z0-9 .'\-]{1,30}(?:\s+[A-Z][A-Z0-9 .'\-]{1,30})?)\s+(?=[a-z])/);
+    return m&&looksLikeCharCue(m[1])?m[1]:null;
+  }
+
+  function extractInlineCue(t){
+    if(!t||isSH(t))return null;
+    const m=t.match(/^([A-Z][A-Z0-9 .'\-]{1,30})(\s*\([^)]{0,80}\))?\s+(?=[(\[]|[a-z]["'])/);
+    if(!m||!looksLikeCharCue(m[1]))return null;
+    if(isCharCueLine(m[1]+(m[2]||'')))return{name:m[1],desc:''};
+    const ci=(m[2]||'').match(/\(([^)]+)\)/);
+    const desc=ci&&ci[1]&&!/^(V\.?O\.?|O\.?S\.?|CONT'?D?|O\.?C\.?)$/i.test(ci[1].trim())?ci[1].trim():'';
+    return{name:m[1],desc};
+  }
+
+  /** Pull character names from screenplay cues, dialogue labels, and action intros. */
   function extractCharactersFromText(text){
     const chars={};
     const norm=normalizeScriptText(text);
@@ -165,7 +213,11 @@ window.SBParser = (function(){
       }
       if(isSH(t)){inDialogue=false;return;}
       if(!inDialogue){
-        const parenIntro=t.match(/\b([A-Z][A-Z0-9 .'\-]{1,30})\s*\([^)]{3,}\)/);
+        const inlineCue=extractInlineCue(t);
+        if(inlineCue){registerChar(chars,inlineCue.name,inlineCue.desc);inDialogue=true;return;}
+        const actionName=extractActionLineName(t);
+        if(actionName)registerChar(chars,actionName,'');
+        const parenIntro=t.match(/\b([A-Z][A-Z0-9 .'\-]{1,30}(?:\s+[A-Z][A-Z0-9 .'\-]{1,30})?)\s*\([^)]{3,}\)/);
         if(parenIntro)registerChar(chars,parenIntro[1],'');
       }
     });
@@ -246,7 +298,13 @@ window.SBParser = (function(){
       for(const s of ss){
         let m=[];
         Object.keys(chars).forEach(c=>{if(s.toUpperCase().includes(c)&&!m.includes(c))m.push(c)});
-        const im=s.match(/([A-Z][A-Z0-9 .'\-]{1,30})\s*\(([^)]+)\)/);
+        const actionName=extractActionLineName(s);
+        if(actionName){
+          const r=resCN(cleanCharName(actionName),chars);
+          if(chars[r]===undefined)chars[r]='';
+          if(!m.includes(r))m.push(r);
+        }
+        const im=s.match(/([A-Z][A-Z0-9 .'\-]{1,30}(?:\s+[A-Z][A-Z0-9 .'\-]{1,30})?)\s*\(([^)]+)\)/);
         if(im){
           const rn=im[1].trim(),r=resCN(rn,chars);
           if(chars[r]===undefined)chars[rn]=im[2].trim();
