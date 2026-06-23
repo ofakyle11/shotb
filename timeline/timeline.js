@@ -4,7 +4,8 @@
 
 const STORAGE_KEY='SB_Timeline_v1';
 const OWNER_EMAILS=new Set(['kyle@shotbreak.io','scott@shotbreak.io','steve@shotbreak.io']);
-const CHAR_SKIP=new Set(['INT','EXT','FADE','CUT','CLOSE','WIDE','THE','AND','RAIN','WATER','ROOF','SCENE','OPENING','DIALOGUE','ACTION','REACTION','CLIMAX','RESOLUTION','EPILOGUE','TRANSITION','ABANDONED','WAREHOUSE','BUILDING','STREET','NIGHT','DAY','MORNING','EVENING','LOCATION','INTERIOR','EXTERIOR']);
+const CHAR_SKIP=new Set(['INT','EXT','FADE','CUT','CLOSE','WIDE','THE','AND','RAIN','WATER','ROOF','SCENE','OPENING','SEQUENCE','DIALOGUE','ACTION','REACTION','CLIMAX','RESOLUTION','EPILOGUE','TRANSITION','ABANDONED','WAREHOUSE','BUILDING','STREET','NIGHT','DAY','MORNING','EVENING','LOCATION','INTERIOR','EXTERIOR']);
+const JUNK_CLOSE_ON_RE=/^Close on\s+((?:OPENING|TITLE|CLOSING|END|CREDIT|TEASER|PROLOGUE)\s+(?:SEQUENCE|SCENE|CREDITS)|SEQUENCE|DIALOGUE|ACTION|REACTION|TRANSITION|CLIMAX|RESOLUTION|EPILOGUE|CHARACTER\s+INTRO|OPENING\s+SCENE)/i;
 const JUNK_CHAR_WORDS=new Set([
   'THE','AND','BUT','FOR','NOT','YOU','ALL','CAN','HER','WAS','ONE','OUR','OUT','ARE','HAS','HIS','HOW','ITS','MAY','NEW','NOW','OLD','SEE','WAY','WHO','DID','GET','HIT','LET','PUT','SAY','SHE','TOO','USE','WHY','ANY','DAY','END','TWO','WAR','YES','YET',
   'STOP','LOOK','THOSE','TONIGHT','THIS','WHAT','WHEN','THAT','SINCE','JUST','THEY','ROCKS','TOGETHER','READY','BESIDE','SWIFTLY','OPENING','SEQUENCE','WRITTEN','ROCKY','CLIFFTOP','HEIGHTS','DRIVE','INTERNATIONAL','AIRPORT','FEBRUARY','GERMAN',
@@ -56,9 +57,62 @@ function initAuth(){
   $('loginBtn').onclick=async()=>{const err=$('loginErr');err.style.display='none';try{await auth.signInWithEmailAndPassword($('loginEmail').value.trim(),$('loginPw').value)}catch(e){err.textContent=e.message;err.style.display='block'}};
 }
 
+function cleanClipDescription(clip){
+  const desc=String(clip.description||'').trim();
+  if(!desc)return'';
+  if(JUNK_CLOSE_ON_RE.test(desc)||/delivering dialogue\./i.test(desc)&&JUNK_CLOSE_ON_RE.test(desc)){
+    if(clip.dialogue)return clip.dialogue.trim();
+    if(clip.heading)return clip.heading.trim();
+    return'';
+  }
+  const closeM=desc.match(/^Close on\s+([A-Z][A-Z0-9 .'\-]{1,40})/i);
+  if(closeM&&!isValidCharacterName(closeM[1])){
+    if(clip.dialogue)return clip.dialogue.trim();
+    return desc.replace(/^Close on\s+[A-Z][A-Z0-9 .'\-]{1,40},?\s*/i,'').replace(/,?\s*delivering dialogue\.?/i,'').trim();
+  }
+  return desc;
+}
+
+function formatGenError(sd,status){
+  const err=String((sd&&sd.error)||'').trim();
+  const det=String((sd&&sd.detail)||'').trim();
+  const raw=String((sd&&sd.raw&&sd.raw.message)||(sd&&sd.raw)||'').trim();
+  const blob=(err+' '+det+' '+raw).toLowerCase();
+  if(/insufficient|balance|credit|quota|billing|payment|funds/.test(blob)){
+    return'WaveSpeed API credits exhausted on server — contact support to top up the platform account.';
+  }
+  if(/unauthorized|invalid.*key|api key|forbidden/.test(blob)){
+    return'Video API key misconfigured on server ('+(det||err||'check Netlify env')+').';
+  }
+  if(status===401)return'Session expired — sign out and sign back in.';
+  if(status===503)return det||err||'Video service unavailable (API keys not configured).';
+  return det||err||raw||'Video submit failed';
+}
+
+function repairCorruptClips(){
+  if(!state.clips.length)return false;
+  let changed=false;
+  state.clips.forEach(c=>{
+    const desc=String(c.description||'');
+    if(JUNK_CLOSE_ON_RE.test(desc)||(desc.includes('delivering dialogue')&&desc.match(/Close on\s+[A-Z]/i)&&!isValidCharacterName((desc.match(/Close on\s+([A-Z][A-Z0-9 .'\-]{1,40})/i)||[])[1]))){
+      const dlg=c.dialogue||'';
+      const head=(c.heading||'').trim();
+      if(dlg){c.description=dlg.slice(0,400);changed=true}
+      else if(head&&head!=='SCENE 1'){c.description=head.slice(0,400);changed=true}
+      else{c.description='';changed=true}
+    }
+    if(c.characters&&c.characters.length){
+      const clean=c.characters.filter(n=>isValidCharacterName(n));
+      if(clean.length!==c.characters.length){c.characters=clean;changed=true}
+    }
+  });
+  if(changed)save();
+  return changed;
+}
+
 function buildPrompt(clip){
   const g=state.global,p=clip.params,x=[];
-  if(clip.heading)x.push(clip.heading.slice(0,80)+'.');
+  if(clip.heading&&clip.heading!=='SCENE 1')x.push(clip.heading.slice(0,80)+'.');
   if(p.scene.on.location&&p.scene.location)x.push('Location: '+p.scene.location+'.');
   if(p.scene.on.timeOfDay&&p.scene.timeOfDay)x.push('Time: '+p.scene.timeOfDay+'.');
   if(p.scene.on.weather&&p.scene.weather)x.push('Weather: '+p.scene.weather+'.');
@@ -68,10 +122,12 @@ function buildPrompt(clip){
   if(p.atmosphere.on.mood&&p.atmosphere.mood)x.push('Mood: '+p.atmosphere.mood+'.');
   if(clip.emotion)x.push('Emotion: '+clip.emotion+'.');
   x.push('Style: '+g.filmStyle+', '+g.colorGrade+'.');
-  if(clip.description)x.push(clip.description.slice(0,300));
-  if(clip.dialogue)x.push('Dialogue: "'+clip.dialogue.slice(0,120)+'"');
+  const desc=cleanClipDescription(clip);
+  if(desc)x.push(desc.slice(0,300));
+  if(clip.dialogue&&!desc.includes(clip.dialogue.slice(0,40)))x.push('Dialogue: "'+clip.dialogue.slice(0,120)+'"');
   let pr=x.join(' ').replace(/\s+/g,' ').trim();
-  pr=SBCharacters.injectIntoPrompt(pr,state.characters,clip);
+  const safeClip=Object.assign({},clip,{characters:(clip.characters||[]).filter(n=>isValidCharacterName(n))});
+  pr=SBCharacters.injectIntoPrompt(pr,state.characters,safeClip);
   return pr.length>900?pr.slice(0,897)+'...':pr||'Cinematic scene shot';
 }
 
@@ -80,6 +136,7 @@ function totalDuration(){return state.clips.reduce((a,c)=>a+clipDur(c),0)}
 
 function renderAll(){
   $('projectTitle').textContent=state.projectName;
+  repairCorruptClips();
   if(state.clips.length&&!Object.keys(state.characters).length){
     rebuildCharactersFromProject();
     repairCharactersFromClips();
@@ -638,7 +695,7 @@ async function runJob(clip){
     if(ref)body.character_image_url=ref.url;
     const sub=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify(body)});
     const sd=await sub.json();
-    if(!sub.ok||!sd.request_id)throw new Error(sd.error||sd.detail||'Submit failed');
+    if(!sub.ok||!sd.request_id)throw new Error(formatGenError(sd,sub.status));
     clip.requestId=sd.request_id;
     const t0=Date.now();
     while(Date.now()-t0<480000){
@@ -653,7 +710,7 @@ async function runJob(clip){
         if(!clip.videoUrl)throw new Error('No video URL');
         clip.status='done';save();renderAll();return;
       }
-      if(st==='FAILED'||st==='ERROR')throw new Error(pd.error||'Failed');
+      if(st==='FAILED'||st==='ERROR')throw new Error(formatGenError(pd,pr.status));
     }
     throw new Error('Timed out');
   }catch(e){clip.status='draft';clip.error=e.message;save();renderAll();toast(e.message)}
@@ -827,10 +884,14 @@ function bindUI(){
     };
   }
   load();
+  repairCorruptClips();
   if(state.scriptText&&isClipReconstruction(state.scriptText)){
     state.scriptText='';
     save();
   }
+  Object.keys(state.characters).forEach(n=>{
+    if(!isValidCharacterName(n))delete state.characters[n];
+  });
   if(state.clips.length||state.scriptText||state.parseResult){
     if(state.parseResult)syncCharactersFromParse(state.parseResult,state.scriptText||'');
     rebuildCharactersFromProject();

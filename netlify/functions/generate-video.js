@@ -88,6 +88,25 @@ async function fetchWaveSpeedPrediction(request_id) {
   return last || { code: 404, message: 'prediction not found', httpStatus: 404 };
 }
 
+function humanizeWaveSpeedError(result) {
+  const parts = [];
+  if (result) {
+    if (result.message) parts.push(String(result.message));
+    if (result.error) parts.push(String(result.error));
+    if (result.raw) parts.push(typeof result.raw === 'string' ? result.raw : JSON.stringify(result.raw));
+    if (result.data && result.data.error) parts.push(String(result.data.error));
+    if (result.data && result.data.message) parts.push(String(result.data.message));
+  }
+  const blob = parts.join(' ').toLowerCase();
+  if (/insufficient|balance|credit|quota|billing|payment|funds|not enough/.test(blob)) {
+    return 'WaveSpeed API credits exhausted on the platform account. Top up WaveSpeed billing or contact support.';
+  }
+  if (/unauthorized|invalid.*key|api key|forbidden|access denied/.test(blob)) {
+    return 'WaveSpeed API key invalid or missing. Check WAVESPEED_API_KEY in Netlify env.';
+  }
+  return parts.filter(Boolean).join(' — ') || 'no job id returned';
+}
+
 function extractWaveSpeedOutput(result) {
   if (!result) return null;
   const data = result.data || result;
@@ -276,6 +295,19 @@ function isVeoModel(modelId) {
   return (modelId || '').toLowerCase().includes('veo');
 }
 
+function isSoraModel(modelId) {
+  return (modelId || '').toLowerCase().includes('sora');
+}
+
+function isWanVideoModel(modelId) {
+  const m = (modelId || '').toLowerCase();
+  return m.includes('wan');
+}
+
+function isSeedanceModel(modelId) {
+  return (modelId || '').toLowerCase().includes('seedance');
+}
+
 function clampVeoDuration(d) {
   const allowed = [4, 6, 8];
   const n = Number(d) || 8;
@@ -314,6 +346,35 @@ function clampKlingDuration(d) {
   return Math.min(15, Math.max(3, Math.round(n)));
 }
 
+function clampSoraDuration(d) {
+  const allowed = [4, 8, 12, 16, 20];
+  const n = Number(d) || 4;
+  if (allowed.includes(n)) return n;
+  return allowed.reduce((best, v) => (Math.abs(v - n) < Math.abs(best - n) ? v : best), 4);
+}
+
+function soraSizeFromAspect(ar) {
+  return ar === '9:16' ? '720*1280' : '1280*720';
+}
+
+function clampWanDuration(d) {
+  const n = Number(d) || 5;
+  return Math.min(15, Math.max(2, Math.round(n)));
+}
+
+function clampWanResolution(res) {
+  return res === '1080p' ? '1080p' : '720p';
+}
+
+function clampSeedanceDuration(d) {
+  const n = Number(d) || 5;
+  return Math.min(15, Math.max(4, Math.round(n)));
+}
+
+function clampSeedanceResolution(res) {
+  return res === '1080p' ? '1080p' : '720p';
+}
+
 function pickRefImageUrl(body) {
   if (body.character_image_url && isSafeUrl(body.character_image_url)) return body.character_image_url;
   if (Array.isArray(body.reference_images)) {
@@ -341,7 +402,7 @@ function getWaveSpeedPath(modelId, hasRefImage = false) {
     return hasRefImage ? 'alibaba/wan-2.7/image-to-video' : 'alibaba/wan-2.7/text-to-video';
   }
   if (m.includes('sora') || m === 'sora-2') {
-    return 'wavespeed-ai/sora-2'; // or openai/sora-2 equivalent on platform
+    return hasRefImage ? 'openai/sora-2/image-to-video' : 'openai/sora-2/text-to-video';
   }
   if (m.includes('veo') || m === 'veo-3.1') {
     return hasRefImage
@@ -356,6 +417,9 @@ function getWaveSpeedPath(modelId, hasRefImage = false) {
 }
 
 function buildWaveSpeedBody(videoModel, fields, hasRef) {
+  const refUrl = pickRefImageUrl(fields);
+  const refUrls = collectRefImageUrls(fields);
+
   if (isKlingModel(videoModel)) {
     const wsBody = {
       prompt: fields.prompt,
@@ -364,11 +428,11 @@ function buildWaveSpeedBody(videoModel, fields, hasRef) {
       cfg_scale: 0.5,
       sound: false,
     };
-    const refUrl = pickRefImageUrl(fields);
     if (hasRef && refUrl) wsBody.image = refUrl;
     if (fields.negative_prompt) wsBody.negative_prompt = sanitizeField(fields.negative_prompt, 500);
     return wsBody;
   }
+
   if (isVeoModel(videoModel)) {
     const wsBody = {
       prompt: fields.prompt,
@@ -376,7 +440,6 @@ function buildWaveSpeedBody(videoModel, fields, hasRef) {
       resolution: clampVeoResolution(fields.resolution),
       generate_audio: false,
     };
-    const refUrls = collectRefImageUrls(fields);
     if (hasRef && refUrls.length) {
       wsBody.images = refUrls;
     } else {
@@ -385,13 +448,58 @@ function buildWaveSpeedBody(videoModel, fields, hasRef) {
     if (fields.negative_prompt) wsBody.negative_prompt = sanitizeField(fields.negative_prompt, 500);
     return wsBody;
   }
+
+  if (isSoraModel(videoModel)) {
+    const wsBody = {
+      prompt: fields.prompt,
+      duration: clampSoraDuration(fields.duration),
+    };
+    if (hasRef && refUrl) {
+      wsBody.image = refUrl;
+    } else {
+      wsBody.size = soraSizeFromAspect(fields.aspect_ratio);
+    }
+    return wsBody;
+  }
+
+  if (isWanVideoModel(videoModel)) {
+    const wsBody = {
+      prompt: fields.prompt,
+      duration: clampWanDuration(fields.duration),
+      resolution: clampWanResolution(fields.resolution),
+    };
+    if (hasRef && refUrl) {
+      wsBody.image = refUrl;
+    } else {
+      wsBody.aspect_ratio = fields.aspect_ratio || '16:9';
+    }
+    if (fields.negative_prompt) wsBody.negative_prompt = sanitizeField(fields.negative_prompt, 500);
+    return wsBody;
+  }
+
+  if (isSeedanceModel(videoModel)) {
+    const wsBody = {
+      prompt: fields.prompt,
+      duration: clampSeedanceDuration(fields.duration),
+      aspect_ratio: fields.aspect_ratio || '16:9',
+      resolution: clampSeedanceResolution(fields.resolution),
+      generate_audio: false,
+      enable_web_search: false,
+    };
+    if (hasRef && refUrl) {
+      wsBody.image = refUrl;
+    } else if (refUrls.length) {
+      wsBody.reference_images = refUrls;
+    }
+    return wsBody;
+  }
+
   return {
     prompt: fields.prompt,
     duration: fields.duration || 6,
     aspect_ratio: fields.aspect_ratio || '16:9',
     ...(fields.resolution && { resolution: fields.resolution }),
-    ...(fields.character_image_url && { reference_image: fields.character_image_url }),
-    ...(fields.reference_images && { reference_images: fields.reference_images }),
+    ...(refUrl && { image: refUrl }),
     ...(fields.shotKey && { shot_key: fields.shotKey }),
     ...(fields.location && { location_context: fields.location }),
   };
@@ -693,9 +801,10 @@ exports.handler = async function (event) {
         const rid = (result.data && result.data.id) || result.id || result.request_id || null;
         const apiOk = result && result.httpStatus < 400 && (!result.code || result.code === 200) && rid;
         if (!apiOk) {
+          const detail = humanizeWaveSpeedError(result);
           return jsonResponse(event, 502, {
             error: 'WaveSpeed submit failed for model ' + videoModel,
-            detail: (result && (result.message || result.error || result.raw)) || 'no job id returned',
+            detail,
             provider: 'wavespeed',
             raw: result
           });

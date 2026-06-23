@@ -23,7 +23,8 @@ window.SBParser = (function(){
   function isTitlePageLine(t){
     if(isSH(t))return false;
     if(/^(written by|by |story by|draft|revision|page |registered|copyright|contact|address|phone|email|wga|version)/i.test(t))return true;
-    if(/^[A-Z][A-Z\s]{3,40}$/.test(t)&&!isCC(t)&&t.split(/\s+/).length<=5)return true;
+    if(LABEL_CUE_RE.test(t.trim()))return true;
+    if(/^[A-Z][A-Z\s]{3,40}$/.test(t)&&!isCharCueLine(t)&&t.split(/\s+/).length<=5)return true;
     return false;
   }
   function exCN(t){return t.replace(/\s*\([^)]*\)\s*/g,'').trim().toUpperCase()}
@@ -82,9 +83,12 @@ window.SBParser = (function(){
     'STOP','LOOK','LISTEN','RUN','HELP','WAIT','YES','NO','OK','OKAY','DAMN','HELL',
     'CLIFF','MOUNTAIN','RIVER','OCEAN','SEA','LAKE','VALLEY','CASTLE','SHIP','BOAT','DOOR','WALL',
     'HAMMER','HAMMERS','DRIP','DRIPS','STEP','STEPS','EMERGE','EMERGES','LAUNCH','LAUNCHES',
-    'PUSH','PUSHES','RAISE','RAISING','DELIVERING','OPENING','SEQUENCE','WRITTEN','CREDITS'
+    'PUSH','PUSHES','RAISE','RAISING','DELIVERING','OPENING','SEQUENCE','WRITTEN','CREDITS',
+    'TEASER','PROLOGUE','EPILOGUE','CLOSING','INTERNATIONAL','PIERRE','TRUDEAU','ZOOMS','LANDS',
+    'CAMERA','STREET','LEVEL','JET','OVERHEAD','LARGE','AS','THE','A','AN'
   ]);
   const NON_NAME_WORDS=CAP_FALSE_POS;
+  const LABEL_CUE_RE=/^(?:OPENING|TITLE|TEASER|PROLOGUE|EPILOGUE|END|CREDIT|CLOSING)\s+(?:SEQUENCE|CREDITS|SCENE)$|^(?:SEQUENCE|DIALOGUE|ACTION|REACTION|TRANSITION|CLIMAX|RESOLUTION|EPILOGUE|CHARACTER\s+INTRO|OPENING\s+SCENE|BEAT\s+\d+)$/i;
 
   function isLocationCaps(name){
     const LOC=new Set(['ABANDONED','WAREHOUSE','BUILDING','APARTMENT','HOUSE','OFFICE','FACTORY','ALLEY','STREET','ROOM','HALLWAY','CORRIDOR','BASEMENT','ATTIC','GARAGE','KITCHEN','BEDROOM','ROOF','CEILING','PARKING','FIELD','FOREST','BEACH','DESERT','HIGHWAY','ROAD','BRIDGE','TUNNEL','HOSPITAL','SCHOOL','CHURCH','STATION','AIRPORT','PRISON','COURTROOM','LOBBY','BAR','RESTAURANT','LAB','LOCATION','INTERIOR','EXTERIOR']);
@@ -149,6 +153,7 @@ window.SBParser = (function(){
     const words=cuePart.split(/\s+/);
     if(words.every(w=>NON_NAME_WORDS.has(w)))return false;
     if(words.length===1&&NON_NAME_WORDS.has(words[0]))return false;
+    if(LABEL_CUE_RE.test(cuePart))return false;
     return isLikelyPersonName(cuePart,{fromCue:true});
   }
 
@@ -546,5 +551,5 @@ window.SBParser = (function(){
     return normalizeScriptText(pages.join('\n\n'));
   }
 
-  return{parse,scenesToClips,readFile,extractCharactersFromText,mergeCharMaps,filterCharacterMap,isLikelyPersonName,normalizeScriptText,normalizeScriptTextDetailed,unflattenScreenplay,isScriptFlattened,isClipReconstruction,parseQualityWarning};
+  return{parse,scenesToClips,readFile,extractCharactersFromText,mergeCharMaps,filterCharacterMap,isLikelyPersonName,LABEL_CUE_RE,normalizeScriptText,normalizeScriptTextDetailed,unflattenScreenplay,isScriptFlattened,isClipReconstruction,parseQualityWarning};
 })();

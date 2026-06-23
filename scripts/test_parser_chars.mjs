@@ -64,6 +64,15 @@ const NOISE = `INT. FIELD - DAY
 
 RAIN hammers the shields. GERMAN soldiers advance. STOP Look out!`;
 
+const TITLE_PAGE = `OPENING SEQUENCE
+
+INT. AIRPORT - DAY
+
+A large jet zooms overhead.
+
+BRANT
+We ride.`;
+
 function assertChars(label, result, expected, forbidden) {
   const found = new Set(Object.keys(result.characters));
   const missing = expected.filter(n => !found.has(n));
@@ -91,6 +100,9 @@ assertChars('viking', viking,
 
 const noise = SBParser.parse(NOISE, 5);
 assertChars('noise', noise, [], [/^(RAIN|GERMAN|STOP|LOOK|SHIELD|FIELD)$/i]);
+
+const titlePage = SBParser.parse(TITLE_PAGE, 5);
+assertChars('title-page', titlePage, ['BRANT'], [/OPENING|SEQUENCE/i]);
 
 const pdfBlob = SAMPLE.replace(/\n/g, ' ');
 const pdfNorm = SBParser.normalizeScriptText(pdfBlob);
