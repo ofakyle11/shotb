@@ -1,13 +1,13 @@
-# Store OpenAI Sora API key on production (Firebase server_secrets fallback).
-# For aivideoapi.ai keys (recommended for Shotbreak Sora 2), use fix-aivideoapi-sora.ps1 instead.
+# Store aivideoapi.ai Sora 2 API key on production (Firebase server_secrets).
+# Get your key at: https://aivideoapi.ai/api-keys
 # Usage:
-#   $env:OPENAI_API_KEY = 'sk-...'
-#   .\fix-openai-sora.ps1
+#   $env:AIVIDEOAPI_API_KEY = 'sk-...'
+#   .\fix-aivideoapi-sora.ps1
 # Or:
-#   .\fix-openai-sora.ps1 -OpenAIKey 'sk-...' -OwnerPassword '...'
+#   .\fix-aivideoapi-sora.ps1 -ApiKey 'sk-...' -OwnerPassword '...'
 
 param(
-  [string]$OpenAIKey,
+  [string]$ApiKey,
   [string]$OwnerName = 'kyleF',
   [string]$OwnerPassword
 )
@@ -15,9 +15,10 @@ param(
 $ErrorActionPreference = 'Stop'
 $Base = 'https://shotbreak.io/.netlify/functions'
 
-if (-not $OpenAIKey) { $OpenAIKey = $env:OPENAI_API_KEY }
-if (-not $OpenAIKey -or -not $OpenAIKey.Trim().StartsWith('sk-')) {
-  Write-Host 'Set OPENAI_API_KEY env var or pass -OpenAIKey sk-...' -ForegroundColor Red
+if (-not $ApiKey) { $ApiKey = $env:AIVIDEOAPI_API_KEY }
+if (-not $ApiKey) { $ApiKey = $env:OPENAI_API_KEY }
+if (-not $ApiKey -or -not $ApiKey.Trim().StartsWith('sk-')) {
+  Write-Host 'Set AIVIDEOAPI_API_KEY env var or pass -ApiKey sk-... (from https://aivideoapi.ai/api-keys)' -ForegroundColor Red
   exit 1
 }
 
@@ -38,8 +39,8 @@ $headers = @{
   'Content-Type' = 'application/json'
 }
 
-Write-Host 'Storing OpenAI key (Firebase server_secrets)...' -ForegroundColor Cyan
-$setBody = @{ action = 'set_openai_key'; api_key = $OpenAIKey.Trim() } | ConvertTo-Json
+Write-Host 'Storing aivideoapi key (Firebase server_secrets)...' -ForegroundColor Cyan
+$setBody = @{ action = 'set_aivideoapi_key'; api_key = $ApiKey.Trim() } | ConvertTo-Json
 $set = Invoke-RestMethod -Uri "$Base/generate-video" -Method Post -Headers $headers -Body $setBody
 
 Write-Host 'Verifying providers...' -ForegroundColor Cyan
@@ -47,8 +48,8 @@ $provBody = @{ action = 'providers' } | ConvertTo-Json
 $prov = Invoke-RestMethod -Uri "$Base/generate-video" -Method Post -Headers $headers -Body $provBody
 
 $prov | ConvertTo-Json -Depth 4
-if ($prov.openai) {
-  Write-Host "`nDone — Sora 2 should work on timeline now." -ForegroundColor Green
+if ($prov.aivideoapi -and $prov.sora_provider -eq 'aivideoapi') {
+  Write-Host "`nDone — Sora 2 will route via aivideoapi.ai. Top up credits at https://aivideoapi.ai/dashboard/billing if needed." -ForegroundColor Green
 } else {
   Write-Host "`nKey still not visible to functions. Check FIREBASE_DB_SECRET on Netlify." -ForegroundColor Yellow
   exit 2

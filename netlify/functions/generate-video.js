@@ -12,8 +12,20 @@ const {
   getOpenAIVideoStatus,
   getOpenAIVideoResult,
 } = require('./lib/openai-video');
+const {
+  submitAIVideoAPISora,
+  getAIVideoAPITaskStatus,
+  getAIVideoAPITaskResult,
+  isAIVideoAPIJob,
+  humanizeAIVideoAPIError,
+} = require('./lib/aivideoapi');
 const { env, hasEnv } = require('./lib/env');
-const { storeOpenAIApiKey, openAIKeyDiagnostics } = require('./lib/server-secrets');
+const {
+  storeOpenAIApiKey,
+  storeAIVideoApiKey,
+  resolveAIVideoApiKey,
+  providerKeyDiagnostics,
+} = require('./lib/server-secrets');
 
 function jsonResponse(event, statusCode, body) {
   return {
@@ -613,15 +625,25 @@ exports.handler = async function (event) {
   const isOwner = !!authResult.isOwner;
 
   if (action === 'providers') {
-    const diag = await openAIKeyDiagnostics();
+    const diag = await providerKeyDiagnostics();
+    let hint = 'No Sora key. Set AIVIDEOAPI_API_KEY in Netlify OR owner action set_aivideoapi_key (key from https://aivideoapi.ai/api-keys).';
+    if (diag.aivideoapi) {
+      hint = diag.aivideoapi_env
+        ? 'Sora 2 via aivideoapi.ai (key from Netlify env).'
+        : 'Sora 2 via aivideoapi.ai (key from Firebase server_secrets).';
+    } else if (diag.openai) {
+      hint = diag.openai_env
+        ? 'Sora 2 via direct OpenAI (key from Netlify env).'
+        : 'Sora 2 via direct OpenAI (key from Firebase server_secrets).';
+    } else if (hasEnv('WAVESPEED_API_KEY')) {
+      hint = 'Sora 2 will route via WaveSpeed (no aivideoapi/OpenAI key).';
+    }
     return jsonResponse(event, 200, {
       ...diag,
       wavespeed: hasEnv('WAVESPEED_API_KEY'),
       grok: hasEnv('XAI_API_KEY') || hasEnv('GROK_API_KEY'),
       deploy_context: env('CONTEXT') || env('NETLIFY_CONTEXT') || null,
-      hint: diag.openai
-        ? (diag.openai_env ? 'OpenAI key from Netlify env.' : 'OpenAI key from Firebase server_secrets.')
-        : 'No OpenAI key. Netlify OPENAI_API_KEY (Functions scope) OR owner action set_openai_key.',
+      hint,
     });
   }
 
@@ -635,7 +657,7 @@ exports.handler = async function (event) {
     }
     try {
       await storeOpenAIApiKey(apiKey);
-      const diag = await openAIKeyDiagnostics();
+      const diag = await providerKeyDiagnostics();
       return jsonResponse(event, 200, {
         ok: true,
         message: 'OpenAI key stored in Firebase server_secrets (server-only).',
@@ -643,6 +665,27 @@ exports.handler = async function (event) {
       });
     } catch (e) {
       return jsonResponse(event, 500, { error: 'Failed to store OpenAI key', detail: e.message });
+    }
+  }
+
+  if (action === 'set_aivideoapi_key') {
+    if (!isOwner) {
+      return jsonResponse(event, 403, { error: 'Owner only — sign in as kylef/scott/steve owner' });
+    }
+    const apiKey = body.api_key || body.aivideoapi_api_key;
+    if (!apiKey || !String(apiKey).trim().startsWith('sk-')) {
+      return jsonResponse(event, 400, { error: 'api_key required (must start with sk-)' });
+    }
+    try {
+      await storeAIVideoApiKey(apiKey);
+      const diag = await providerKeyDiagnostics();
+      return jsonResponse(event, 200, {
+        ok: true,
+        message: 'AI Video API key stored in Firebase server_secrets (server-only). Sora 2 will use aivideoapi.ai.',
+        ...diag,
+      });
+    } catch (e) {
+      return jsonResponse(event, 500, { error: 'Failed to store AI Video API key', detail: e.message });
     }
   }
 
@@ -788,11 +831,12 @@ exports.handler = async function (event) {
     const hasWsKey = !!process.env.WAVESPEED_API_KEY;
     const hasGrokKey = !!(process.env.XAI_API_KEY || process.env.GROK_API_KEY);
     const hasOpenAIKey = !!(await getOpenAIApiKey());
+    const hasAIVideoKey = !!(await resolveAIVideoApiKey());
 
-    if (!hasWsKey && !hasGrokKey && !hasOpenAIKey) {
+    if (!hasWsKey && !hasGrokKey && !hasOpenAIKey && !hasAIVideoKey) {
       return jsonResponse(event, 503, {
         error: 'No video generation API keys configured',
-        detail: 'Set OPENAI_API_KEY, WAVESPEED_API_KEY, and/or XAI_API_KEY in Netlify environment variables (Deploy + Preview).',
+        detail: 'Set AIVIDEOAPI_API_KEY, OPENAI_API_KEY, WAVESPEED_API_KEY, and/or XAI_API_KEY in Netlify environment variables (Deploy + Preview).',
         model: videoModel
       });
     }
@@ -812,7 +856,9 @@ exports.handler = async function (event) {
 
       const isGrokImagineVideo = videoModel === 'grok-imagine' || videoModel.includes('grok-imagine');
       const wantsOpenAI = body.provider === 'openai';
-      const isSoraDirect = isSoraModel(videoModel) && hasOpenAIKey;
+      const wantsAIVideo = body.provider === 'aivideoapi' || (!wantsOpenAI && isSoraModel(videoModel));
+      const isSoraAIVideo = isSoraModel(videoModel) && hasAIVideoKey && wantsAIVideo;
+      const isSoraDirect = isSoraModel(videoModel) && hasOpenAIKey && wantsOpenAI;
       if (isSoraModel(videoModel) && wantsOpenAI && !hasOpenAIKey) {
         return jsonResponse(event, 503, {
           error: 'OpenAI Sora not configured on server',
@@ -820,6 +866,17 @@ exports.handler = async function (event) {
           model: videoModel,
           provider: 'openai',
           openai: false,
+          aivideoapi: hasAIVideoKey,
+          wavespeed: hasWsKey,
+        });
+      }
+      if (isSoraModel(videoModel) && wantsAIVideo && !hasAIVideoKey && !hasOpenAIKey && !hasWsKey) {
+        return jsonResponse(event, 503, {
+          error: 'Sora 2 not configured on server',
+          detail: 'No aivideoapi key. Owner: POST {action:"set_aivideoapi_key",api_key:"sk-..."} with key from https://aivideoapi.ai/api-keys',
+          model: videoModel,
+          provider: 'aivideoapi',
+          aivideoapi: false,
           wavespeed: hasWsKey,
         });
       }
@@ -836,6 +893,19 @@ exports.handler = async function (event) {
           ...grokRes,
           model: videoModel,
           note: 'Direct via XAI Grok Imagine'
+        });
+      } else if (isSoraAIVideo) {
+        const refUrl = pickRefImageUrl({ character_image_url, reference_images: body.reference_images });
+        const avRes = await submitAIVideoAPISora({
+          prompt: finalPrompt,
+          duration,
+          aspect_ratio,
+          character_image_url: refUrl || character_image_url,
+        });
+        return jsonResponse(event, 200, {
+          ...avRes,
+          model: videoModel,
+          note: 'Sora 2 via aivideoapi.ai (AIVIDEOAPI_API_KEY)',
         });
       } else if (isSoraDirect) {
         const refUrl = pickRefImageUrl({ character_image_url, reference_images: body.reference_images });
@@ -887,14 +957,16 @@ exports.handler = async function (event) {
           status: st,
           model: videoModel,
           provider: 'wavespeed',
-          fallback: isSoraModel(videoModel) && !hasOpenAIKey ? 'OPENAI_API_KEY not set — routed sora-2 via WaveSpeed' : undefined,
+          fallback: isSoraModel(videoModel) && !hasAIVideoKey && !hasOpenAIKey ? 'No aivideoapi/OpenAI key — routed sora-2 via WaveSpeed' : undefined,
           raw: result
         });
       }
     } catch (err) {
-      const detail = isSoraModel(videoModel) && (await getOpenAIApiKey())
-        ? humanizeOpenAIError(err)
-        : (err.message || String(err));
+      let detail = err.message || String(err);
+      if (isSoraModel(videoModel)) {
+        if (await resolveAIVideoApiKey()) detail = humanizeAIVideoAPIError(err);
+        else if (await getOpenAIApiKey()) detail = humanizeOpenAIError(err);
+      }
       return {
         statusCode: 500,
         headers: CORS,
@@ -906,8 +978,9 @@ exports.handler = async function (event) {
   if (action === 'status' && request_id) {
     const isGrokJob = isGrokVideoJob(request_id, body.provider, body.model || model);
     const isOpenAIJob = isOpenAIVideoJob(request_id, body.provider);
+    const isAVJob = isAIVideoAPIJob(request_id, body.provider);
     if (request_id.includes('demo_')) {
-      const prov = isGrokJob ? 'grok-imagine' : (isOpenAIJob ? 'openai' : 'wavespeed');
+      const prov = isGrokJob ? 'grok-imagine' : (isAVJob ? 'aivideoapi' : (isOpenAIJob ? 'openai' : 'wavespeed'));
       return jsonResponse(event, 400, { request_id, status: 'FAILED', error: 'Demo job id — configure API keys and resubmit', provider: prov });
     }
     if (isGrokJob && !(process.env.XAI_API_KEY || process.env.GROK_API_KEY)) {
@@ -916,15 +989,21 @@ exports.handler = async function (event) {
     if (isOpenAIJob && !(await getOpenAIApiKey())) {
       return jsonResponse(event, 503, { request_id, status: 'FAILED', error: 'OPENAI_API_KEY not configured', provider: 'openai' });
     }
-    if (!isGrokJob && !isOpenAIJob && !process.env.WAVESPEED_API_KEY) {
+    if (isAVJob && !(await resolveAIVideoApiKey())) {
+      return jsonResponse(event, 503, { request_id, status: 'FAILED', error: 'AIVIDEOAPI_API_KEY not configured', provider: 'aivideoapi' });
+    }
+    if (!isGrokJob && !isOpenAIJob && !isAVJob && !process.env.WAVESPEED_API_KEY) {
       return jsonResponse(event, 503, { request_id, status: 'FAILED', error: 'WAVESPEED_API_KEY not configured', provider: 'wavespeed' });
     }
-    if (!isGrokJob && !isOpenAIJob && isFakeWaveSpeedId(request_id)) {
+    if (!isGrokJob && !isOpenAIJob && !isAVJob && isFakeWaveSpeedId(request_id)) {
       return jsonResponse(event, 400, { request_id, status: 'FAILED', error: 'Invalid WaveSpeed job id — submit did not reach WaveSpeed', provider: 'wavespeed' });
     }
     try {
       if (isGrokJob) {
         const r = await getGrokImagineVideoStatus(request_id);
+        return jsonResponse(event, 200, r);
+      } else if (isAVJob) {
+        const r = await getAIVideoAPITaskStatus(request_id);
         return jsonResponse(event, 200, r);
       } else if (isOpenAIJob) {
         const r = await getOpenAIVideoStatus(request_id);
@@ -950,6 +1029,7 @@ exports.handler = async function (event) {
   if (action === 'cancel' && request_id) {
     const isGrokJob = request_id.startsWith('grok_');
     const isOpenAIJob = isOpenAIVideoJob(request_id, body.provider);
+    const isAVJob = isAIVideoAPIJob(request_id, body.provider);
     let providerNote = 'Client polling stopped; provider job may still finish on their side.';
     if (!isGrokJob && !isOpenAIJob && process.env.WAVESPEED_API_KEY && !isFakeWaveSpeedId(request_id)) {
       try {
@@ -971,7 +1051,7 @@ exports.handler = async function (event) {
     return jsonResponse(event, 200, {
       request_id,
       status: 'CANCELLED',
-      provider: isGrokJob ? 'grok-imagine' : (isOpenAIJob ? 'openai' : 'wavespeed'),
+      provider: isGrokJob ? 'grok-imagine' : (isAVJob ? 'aivideoapi' : (isOpenAIJob ? 'openai' : 'wavespeed')),
       note: providerNote,
     });
   }
@@ -979,8 +1059,9 @@ exports.handler = async function (event) {
   if (action === 'result' && request_id) {
     const isGrokJob = isGrokVideoJob(request_id, body.provider, body.model || model);
     const isOpenAIJob = isOpenAIVideoJob(request_id, body.provider);
+    const isAVJob = isAIVideoAPIJob(request_id, body.provider);
     if (request_id.includes('demo_')) {
-      const prov = isGrokJob ? 'grok-imagine' : (isOpenAIJob ? 'openai' : 'wavespeed');
+      const prov = isGrokJob ? 'grok-imagine' : (isAVJob ? 'aivideoapi' : (isOpenAIJob ? 'openai' : 'wavespeed'));
       return jsonResponse(event, 400, { request_id, status: 'FAILED', error: 'Demo job id — configure API keys and resubmit', provider: prov });
     }
     if (isGrokJob && !(process.env.XAI_API_KEY || process.env.GROK_API_KEY)) {
@@ -989,15 +1070,21 @@ exports.handler = async function (event) {
     if (isOpenAIJob && !(await getOpenAIApiKey())) {
       return jsonResponse(event, 503, { request_id, status: 'FAILED', error: 'OPENAI_API_KEY not configured', provider: 'openai' });
     }
-    if (!isGrokJob && !isOpenAIJob && !process.env.WAVESPEED_API_KEY) {
+    if (isAVJob && !(await resolveAIVideoApiKey())) {
+      return jsonResponse(event, 503, { request_id, status: 'FAILED', error: 'AIVIDEOAPI_API_KEY not configured', provider: 'aivideoapi' });
+    }
+    if (!isGrokJob && !isOpenAIJob && !isAVJob && !process.env.WAVESPEED_API_KEY) {
       return jsonResponse(event, 503, { request_id, status: 'FAILED', error: 'WAVESPEED_API_KEY not configured', provider: 'wavespeed' });
     }
-    if (!isGrokJob && !isOpenAIJob && isFakeWaveSpeedId(request_id)) {
+    if (!isGrokJob && !isOpenAIJob && !isAVJob && isFakeWaveSpeedId(request_id)) {
       return jsonResponse(event, 400, { request_id, status: 'FAILED', error: 'Invalid WaveSpeed job id — submit did not reach WaveSpeed', provider: 'wavespeed' });
     }
     try {
       if (isGrokJob) {
         const r = await getGrokImagineVideoResult(request_id);
+        return jsonResponse(event, 200, r);
+      } else if (isAVJob) {
+        const r = await getAIVideoAPITaskResult(request_id);
         return jsonResponse(event, 200, r);
       } else if (isOpenAIJob) {
         const r = await getOpenAIVideoResult(request_id, event);

@@ -13,7 +13,7 @@
   var VIDEO_MODELS = {
     'seedance-2.0-turbo': { label: 'Seedance 2.0 Turbo', resolutions: ['720p'], aspectRatios: ['16:9', '9:16', '1:1', '2:3', '3:2'], durations: [4, 5, 6, 8, 10], supportsReferences: true, maxRefImages: 3, description: 'Fast reference-to-video, good audio' },
     'wan-2.7': { label: 'Wan 2.7', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '2:3', '3:2'], durations: [2, 4, 5, 6, 8, 10, 12, 15], supportsReferences: true, maxRefImages: 2, description: 'Wan 2.7 - strong I2V, first+last, audio, 2-15s' },
-    'sora-2': { label: 'Sora 2 (OpenAI)', resolutions: ['720p'], aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12], supportsReferences: true, maxRefImages: 1, description: 'OpenAI Sora 2 direct API — 4/8/12s, 1280×720 or 720×1280' },
+    'sora-2': { label: 'Sora 2', resolutions: ['720p'], aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12], supportsReferences: true, maxRefImages: 1, description: 'Sora 2 via aivideoapi.ai — 4/8/12s, 16:9 or 9:16' },
     'veo-3.1': { label: 'Veo 3.1', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], supportsReferences: true, maxRefImages: 3, description: 'Google Veo 3.1 — 1080p T2V/R2V via WaveSpeed (4/6/8s)' },
     'grok-imagine': { label: 'Grok Imagine (XAI)', resolutions: ['480p', '720p'], aspectRatios: ['1:1', '16:9', '9:16', '2:3', '3:2'], durations: [4, 5, 6, 8, 10, 12, 15], supportsReferences: true, maxRefImages: 7, description: 'XAI Grok Imagine native - excellent ref coherence + audio' },
     'kling-3.0-pro': { label: 'Kling 3.0 Pro', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [3, 5, 8, 10, 15], supportsReferences: true, maxRefImages: 1, description: 'Kling 3.0 Pro — cinematic T2V/I2V via WaveSpeed' }
@@ -303,7 +303,7 @@
   function inferVideoProvider(model) {
     var m = String(model || '').toLowerCase();
     if (m.indexOf('grok') >= 0) return 'grok-imagine';
-    if (m.indexOf('sora') >= 0) return 'openai';
+    if (m.indexOf('sora') >= 0) return 'aivideoapi';
     return 'wavespeed';
   }
 

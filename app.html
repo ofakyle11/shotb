@@ -29,7 +29,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
 <script src="js/config.js?v=20260617"></script>
 <script src="js/auth.js?v=20260617"></script>
-<script src="js/model-config.js?v=20260623a"></script>
+<script src="js/model-config.js?v=20260624k"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Anybody:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -1498,7 +1498,7 @@ function sbInferProvider(model, apiProvider) {
   if (apiProvider) return apiProvider;
   const m = String(model || '').toLowerCase();
   if (m.includes('grok') || m === 'flux-xai') return 'grok-imagine';
-  if (m.includes('sora')) return 'openai';
+  if (m.includes('sora')) return 'aivideoapi';
   return 'wavespeed';
 }
 function sbIsVideoMediaUrl(url) {
@@ -1561,6 +1561,7 @@ function sbPollIntervalMs(model, polls) {
 const SB_PROVIDER_LABELS = {
   'xai-imagine': { label: 'Grok Imagine', color: '#a78bfa', tip: 'Real pixels via XAI Grok Imagine API' },
   'openai': { label: 'OpenAI Sora', color: '#10a37f', tip: 'Direct OpenAI Sora 2 Videos API' },
+  'aivideoapi': { label: 'AI Video API', color: '#10a37f', tip: 'Sora 2 via aivideoapi.ai unified proxy' },
   'wavespeed': { label: 'WaveSpeed', color: '#38bdf8', tip: 'Cloud video/image via WaveSpeed API' },
   'grok-imagine': { label: 'Grok Imagine', color: '#a78bfa', tip: 'Grok Imagine (legacy label)' },
   'comfyui-local': { label: 'ComfyUI', color: '#4ade80', tip: 'Real AI from ComfyUI on GPU' },

@@ -78,14 +78,20 @@ function formatGenError(sd,status){
   const det=String((sd&&sd.detail)||'').trim();
   const raw=String((sd&&sd.raw&&sd.raw.message)||(sd&&sd.raw)||'').trim();
   const blob=(err+' '+det+' '+raw).toLowerCase();
+  if(/aivideoapi|insufficient_credits|insufficient credits/.test(blob)){
+    return'AI Video API credits exhausted — top up at https://aivideoapi.ai/dashboard/billing';
+  }
   if(/insufficient|balance|credit|quota|billing|payment|funds/.test(blob)){
-    return'WaveSpeed API credits exhausted on server — contact support to top up the platform account.';
+    return'Video API credits exhausted on server — top up billing for the configured provider.';
   }
   if(/unauthorized|invalid.*key|api key|forbidden/.test(blob)){
     return'Video API key misconfigured on server ('+(det||err||'check Netlify env')+').';
   }
+  if(/aivideoapi.*not configured|set_aivideoapi_key/i.test(blob)){
+    return'Sora 2 not configured. Owner: run fix-aivideoapi-sora.ps1 with key from https://aivideoapi.ai/api-keys';
+  }
   if(/openai.*not configured|set openai_api_key/i.test(blob)){
-    return'OpenAI Sora not configured. Owner: run fix-openai-sora.ps1 OR in console: fetch(...,{body:JSON.stringify({action:"set_openai_key",api_key:"sk-..."})}).';
+    return'OpenAI Sora not configured. Owner: POST {action:"set_openai_key",api_key:"sk-..."} to generate-video.';
   }
   if(status===401)return'Session expired — sign out and sign back in.';
   if(status===503)return det||err||'Video service unavailable (API keys not configured).';
@@ -695,7 +701,7 @@ async function runJob(clip){
     const dur=vs?vs.duration:Math.min(15,Math.max(3,parseInt(state.global.clipDuration,10)||clip.durationSec||5));
     const asp=vs?vs.aspect_ratio:(state.global.aspectRatio||'16:9');
     const pollModel=vs?vs.model:state.global.model;
-    const pollProv=vs?vs.provider:((typeof window.inferVideoProvider==='function')?window.inferVideoProvider(pollModel):(pollModel&&pollModel.includes('grok')?'grok-imagine':pollModel&&pollModel.includes('sora')?'openai':'wavespeed'));
+    const pollProv=vs?vs.provider:((typeof window.inferVideoProvider==='function')?window.inferVideoProvider(pollModel):(pollModel&&pollModel.includes('grok')?'grok-imagine':pollModel&&pollModel.includes('sora')?'aivideoapi':'wavespeed'));
     const body={action:'submit',model:pollModel,prompt,duration:dur,aspect_ratio:asp,resolution:vs?vs.resolution:(state.global.quality||'720p'),provider:pollProv};
     if(ref)body.character_image_url=ref.url;
     const sub=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify(body)});
