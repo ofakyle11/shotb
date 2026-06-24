@@ -130,8 +130,8 @@ function humanizeOpenAIError(err) {
   if (/insufficient|quota|billing|payment|funds|credit|rate limit/.test(blob)) {
     return 'OpenAI API credits or quota exhausted. Check billing at platform.openai.com.';
   }
-  if (/unauthorized|invalid.*key|api key|forbidden|access denied/.test(blob)) {
-    return 'OpenAI API key invalid or missing. Set OPENAI_API_KEY in Netlify or use owner set_openai_key.';
+  if (/unauthorized|invalid.*key|api key|forbidden|access denied|401/.test(blob)) {
+    return 'OpenAI rejected the API key (401). Create a new key at platform.openai.com/api-keys, then run fix-openai-sora.ps1 or set_openai_key.';
   }
   return String(err && err.message ? err.message : err || 'OpenAI video request failed');
 }
