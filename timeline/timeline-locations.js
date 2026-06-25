@@ -6,9 +6,43 @@ window.SBLocations = (function () {
 
   function cleanLocName (name) {
     return String(name || '')
-      .replace(/^\s*(?:at|in|on|inside|outside|near)\s+(?:the\s+)?/i, '')
+      .replace(/^\s*(?:at|inside|outside|near)\s+(?:the\s+)?/i, '')
+      .replace(/^\s*in\s+(?:the\s+)?/i, '')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  function parseLocFromText (raw) {
+    const t = String(raw || '').trim();
+    if (!t) return '';
+    const locTag = t.match(/\bLocation:\s*([^.;\n]{3,120})/i);
+    if (locTag) {
+      const n = cleanLocName(locTag[1].trim());
+      if (n.length > 2 && !/^SCENE\s*\d*$/i.test(n)) return n;
+    }
+    const slug = t.match(/\b(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.?)\s+([^\n.!?\]]{2,120})/i);
+    if (slug) {
+      const n = cleanLocName(slug[1].split(/\s*[-—–]\s*/)[0].trim());
+      if (n.length > 2 && !/^SCENE\s*\d*$/i.test(n) && !/^(DAY|NIGHT|MORNING|EVENING|CONTINUOUS)$/i.test(n)) return n;
+    }
+    const atM = t.match(/\b(?:at|in|inside|outside|near)\s+(?:the\s+)?([A-Za-z][A-Za-z0-9 .'\-/&,]{4,100})/i);
+    if (atM) {
+      const n = cleanLocName(atM[1].replace(/[.,;]+$/, '').trim());
+      if (n.length > 4 && !/^SCENE\s*\d*$/i.test(n)) return n;
+    }
+    const direct = cleanLocName(t);
+    if (direct.length > 2 && !/^SCENE\s*\d*$/i.test(direct) && !/^(DAY|NIGHT|MORNING|EVENING)$/i.test(direct)) return direct;
+    return '';
+  }
+
+  function getClipLocationRaw (clip) {
+    const p = clip.params && clip.params.scene;
+    const vals = [p && p.location, clip.location, clip.sceneLocation, clip.setting && clip.setting.location];
+    for (let i = 0; i < vals.length; i++) {
+      const v = String(vals[i] || '').trim();
+      if (v) return v;
+    }
+    return '';
   }
 
   function locKey (name) {
@@ -31,21 +65,20 @@ window.SBLocations = (function () {
 
   function clipLocationMeta (clip) {
     const heading = clip.heading || '';
-    const fromParams = cleanLocName((clip.params && clip.params.scene && clip.params.scene.location) || '');
+    const fields = [getClipLocationRaw(clip), heading, clip.description, clip.dialogue, clip.label];
+    let fromAny = '';
+    for (let i = 0; i < fields.length; i++) {
+      fromAny = parseLocFromText(fields[i]);
+      if (fromAny) break;
+    }
     const meta = parseHeading(heading);
     if (meta.key) {
       meta.name = cleanLocName(meta.name) || meta.name;
       meta.key = locKey(meta.name);
       return meta;
     }
-    if (fromParams) {
-      return { key: locKey(fromParams), name: fromParams, timeOfDay: (clip.params.scene.timeOfDay || ''), raw: heading };
-    }
-    const fallback = heading.replace(/^\s*(?:SC|SCENE)\s*\d+[A-Z]?[.\s\-—]*\s*/i, '')
-      .replace(/^\s*(INT\.|EXT\.|INT\/EXT\.|I\/E\.?)\s+/i, '')
-      .split(/\s*[-—–]\s*/)[0].trim();
-    if (fallback && !/^SCENE\s*\d*$/i.test(fallback)) {
-      return { key: locKey(fallback), name: fallback, timeOfDay: '', raw: heading };
+    if (fromAny) {
+      return { key: locKey(fromAny), name: fromAny, timeOfDay: (clip.params && clip.params.scene && clip.params.scene.timeOfDay) || '', raw: heading };
     }
     return { key: '', name: '', timeOfDay: '', raw: heading };
   }
@@ -162,7 +195,7 @@ window.SBLocations = (function () {
     if (state.parseResult && state.parseResult.scenes) {
       bible = mergeFromScenes(state.parseResult.scenes, state.clips || [], bible);
     }
-    if (state.scriptText) {
+    if (state.scriptText && /^\s*(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)/im.test(String(state.scriptText || ''))) {
       bible = mergeFromScript(state.scriptText, bible);
     }
     return bible;

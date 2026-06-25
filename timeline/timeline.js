@@ -3,7 +3,7 @@
 'use strict';
 
 const STORAGE_KEY='SB_Timeline_v1';
-const BOOT_VERSION='20260625d';
+const BOOT_VERSION='20260625e';
 const OWNER_EMAILS=new Set(['kyle@shotbreak.io','scott@shotbreak.io','steve@shotbreak.io']);
 const CHAR_SKIP=new Set(['INT','EXT','FADE','CUT','CLOSE','WIDE','THE','AND','RAIN','WATER','ROOF','SCENE','OPENING','SEQUENCE','DIALOGUE','ACTION','REACTION','CLIMAX','RESOLUTION','EPILOGUE','TRANSITION','ABANDONED','WAREHOUSE','BUILDING','STREET','NIGHT','DAY','MORNING','EVENING','LOCATION','INTERIOR','EXTERIOR']);
 const JUNK_CLOSE_ON_RE=/^Close on\s+((?:OPENING|TITLE|CLOSING|END|CREDIT|TEASER|PROLOGUE)\s+(?:SEQUENCE|SCENE|CREDITS)|SEQUENCE|DIALOGUE|ACTION|REACTION|TRANSITION|CLIMAX|RESOLUTION|EPILOGUE|CHARACTER\s+INTRO|OPENING\s+SCENE)/i;
@@ -39,7 +39,17 @@ function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({clips:state
 function load(){try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(!d)return;if(d.clips)state.clips=d.clips;if(d.characters)state.characters=SBCharacters.normalize(d.characters);if(d.locationBible)state.locationBible=d.locationBible;if(d.global)Object.assign(state.global,d.global);if(d.assembly)Object.assign(state.assembly,d.assembly);if(d.parseResult)state.parseResult=d.parseResult;if(d.projectName)state.projectName=d.projectName;if(d.scriptText)state.scriptText=d.scriptText;state.clips.forEach(ensureClip)}catch(e){}}
 
 function ensureClip(c){
-  if(!c.params)c.params={scene:{on:{location:1,timeOfDay:1,weather:0,season:0},location:'',timeOfDay:'Day',weather:'Clear',season:'Summer'},camera:{on:{angle:1,filmGrade:1,colorMode:1,saturation:0},angle:'Medium',filmGrade:'35mm Grain',colorMode:'Color',saturation:'0'},atmosphere:{on:{lighting:1,mood:1,fx:0,sound:0},lighting:'Natural',mood:'Cinematic',fx:'',sound:''}};
+  const sceneDef={on:{location:1,timeOfDay:1,weather:0,season:0},location:'',timeOfDay:'Day',weather:'Clear',season:'Summer'};
+  const cameraDef={on:{angle:1,filmGrade:1,colorMode:1,saturation:0},angle:'Medium',filmGrade:'35mm Grain',colorMode:'Color',saturation:'0'};
+  const atmosDef={on:{lighting:1,mood:1,fx:0,sound:0},lighting:'Natural',mood:'Cinematic',fx:'',sound:''};
+  if(!c.params)c.params={scene:Object.assign({},sceneDef),camera:Object.assign({},cameraDef),atmosphere:Object.assign({},atmosDef)};
+  if(!c.params.scene)c.params.scene=Object.assign({},sceneDef);
+  if(!c.params.scene.on)c.params.scene.on=Object.assign({},sceneDef.on);
+  if(!c.params.camera)c.params.camera=Object.assign({},cameraDef);
+  if(!c.params.camera.on)c.params.camera.on=Object.assign({},cameraDef.on);
+  if(!c.params.atmosphere)c.params.atmosphere=Object.assign({},atmosDef);
+  if(!c.params.atmosphere.on)c.params.atmosphere.on=Object.assign({},atmosDef.on);
+  if(c.params.scene.location==null)c.params.scene.location='';
   if(!c.edit)c.edit={trimIn:0,trimOut:null,transition:'cut',transitionDur:0.5,speed:1,overlayFx:'',colorCorrect:''};
   if(!c.emotion)c.emotion='Neutral';
 }
@@ -162,9 +172,65 @@ function clipDur(c){return (c.edit.trimOut!=null?c.edit.trimOut:c.durationSec)-(
 function totalDuration(){return state.clips.reduce((a,c)=>a+clipDur(c),0)}
 
 function cleanLocName(s){
-  return String(s||'').replace(/^\s*(?:at|in|on|inside|outside|near)\s+(?:the\s+)?/i,'').replace(/\s+/g,' ').trim();
+  return String(s||'')
+    .replace(/^\s*(?:at|inside|outside|near)\s+(?:the\s+)?/i,'')
+    .replace(/^\s*in\s+(?:the\s+)?/i,'')
+    .replace(/\s+/g,' ')
+    .trim();
 }
-function locKeyName(name){return cleanLocName(name).toUpperCase().replace(/\s+/g,' ')}
+function locKeyName(name){const n=cleanLocName(name);return n?n.toUpperCase().replace(/\s+/g,' '):''}
+
+function scriptHasSluglines(text){
+  return /^\s*(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)/im.test(String(text||''));
+}
+
+function getClipLocationRaw(clip){
+  const p=clip.params&&clip.params.scene;
+  const vals=[p&&p.location,clip.location,clip.sceneLocation,clip.setting&&clip.setting.location];
+  for(let i=0;i<vals.length;i++){
+    const v=String(vals[i]||'').trim();
+    if(v)return v;
+  }
+  return'';
+}
+
+function parseLocFromText(raw){
+  const t=String(raw||'').trim();
+  if(!t)return'';
+  const locTag=t.match(/\bLocation:\s*([^.;\n]{3,120})/i);
+  if(locTag){
+    const n=cleanLocName(locTag[1].trim());
+    if(n.length>2&&!/^SCENE\s*\d*$/i.test(n))return n;
+  }
+  const slug=t.match(/\b(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.?)\s+([^\n.!?\]]{2,120})/i);
+  if(slug){
+    const n=cleanLocName(slug[1].split(/\s*[-—–]\s*/)[0].trim());
+    if(n.length>2&&!/^SCENE\s*\d*$/i.test(n)&&!/^(DAY|NIGHT|MORNING|EVENING|CONTINUOUS)$/i.test(n))return n;
+  }
+  const atM=t.match(/\b(?:at|in|inside|outside|near)\s+(?:the\s+)?([A-Za-z][A-Za-z0-9 .'\-/&,]{4,100})/i);
+  if(atM){
+    const n=cleanLocName(atM[1].replace(/[.,;]+$/, '').trim());
+    if(n.length>4&&!/^SCENE\s*\d*$/i.test(n))return n;
+  }
+  const direct=cleanLocName(t);
+  if(direct.length>2&&!/^SCENE\s*\d*$/i.test(direct)&&!/^(DAY|NIGHT|MORNING|EVENING|OPENING|DIALOGUE|ACTION)$/i.test(direct))return direct;
+  return'';
+}
+
+function upsertLocEntry(bible,byKey,name,heading,ci){
+  const clean=cleanLocName(name);
+  if(!clean||clean.length<2||/^SCENE\s*\d*$/i.test(clean))return false;
+  const key=locKeyName(clean);
+  if(!key)return false;
+  let loc=byKey[key];
+  if(!loc){
+    loc={name:clean,key,description:(heading&&heading!=='SCENE 1'?heading:clean),locked:false,plateUrl:null,consistencyPhrase:'',clipIndices:[]};
+    bible.push(loc);byKey[key]=loc;
+  }
+  if(ci!=null&&loc.clipIndices.indexOf(ci)<0)loc.clipIndices.push(ci);
+  if(heading&&heading!=='SCENE 1'&&(!loc.description||loc.description===loc.name))loc.description=heading;
+  return true;
+}
 
 function screenplayText(){
   const t=(state.scriptText||'').trim();
@@ -185,24 +251,36 @@ function isDescriptiveTrait(s){
 }
 
 function inferLocFromClipText(clip){
-  const fields=[clip.params&&clip.params.scene&&clip.params.scene.location,clip.heading,clip.description,clip.dialogue,clip.label];
+  const fields=[getClipLocationRaw(clip),clip.heading,clip.description,clip.dialogue,clip.label];
   for(let i=0;i<fields.length;i++){
-    const raw=String(fields[i]||'').trim();
-    if(!raw)continue;
-    const direct=cleanLocName(raw);
-    if(direct.length>2&&!/^SCENE\s*\d*$/i.test(direct)&&!/^(DAY|NIGHT|MORNING|EVENING)$/i.test(direct))return direct;
-    const slug=raw.match(/(?:^|\n)\s*(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.?)\s+([^\n]+)/i);
-    if(slug){
-      const loc=cleanLocName(slug[1].split(/\s*[-—–]\s*/)[0]);
-      if(loc.length>2&&!/^SCENE\s*\d*$/i.test(loc))return loc;
-    }
-    const atM=raw.match(/\b(?:at|in|inside|outside|near)\s+(?:the\s+)?([A-Z][A-Za-z0-9 .'\-/&,]{4,80})/);
-    if(atM){
-      const loc=cleanLocName(atM[1].replace(/[.,;]+$/, ''));
-      if(loc.length>4)return loc;
-    }
+    const loc=parseLocFromText(fields[i]);
+    if(loc)return loc;
   }
   return'';
+}
+
+function locationsFromScriptText(text){
+  if(!text||!SBParser||!SBParser.extractLocationsFromText)return{};
+  if(!scriptHasSluglines(text))return{};
+  return SBParser.extractLocationsFromText(text);
+}
+
+function mineLocationsFromParseScenes(){
+  const scenes=state.parseResult&&state.parseResult.scenes;
+  if(!scenes||!state.clips.length)return 0;
+  let n=0;
+  state.clips.forEach(clip=>{
+    ensureClip(clip);
+    const si=clip.sceneIdx;
+    if(si==null||!scenes[si])return;
+    const heading=scenes[si].heading||'';
+    const loc=parseLocFromText(heading)||(SBParser.inferLocation?SBParser.inferLocation(heading):'');
+    if(loc&&(!getClipLocationRaw(clip)||/^at\s+/i.test(getClipLocationRaw(clip)))){
+      clip.params.scene.location=loc;
+      n++;
+    }
+  });
+  return n;
 }
 
 function harvestTraitsFromClip(clip){
@@ -230,11 +308,12 @@ function harvestTraitsFromClip(clip){
 
 function mineProjectMetadata(){
   let changed=false;
+  mineLocationsFromParseScenes();
   state.clips.forEach(clip=>{
     ensureClip(clip);
     harvestTraitsFromClip(clip);
     const loc=inferLocFromClipText(clip);
-    if(loc&&(!clip.params.scene.location||String(clip.params.scene.location).trim()==='')){
+    if(loc&&(!getClipLocationRaw(clip)||String(getClipLocationRaw(clip)).trim()==='')){
       clip.params.scene.location=loc;
       changed=true;
     }
@@ -261,32 +340,32 @@ function bootstrapLocationsInline(){
   bible.forEach(l=>{if(l&&l.key){if(!l.clipIndices)l.clipIndices=[];byKey[l.key]=l}});
   state.clips.forEach((clip,ci)=>{
     ensureClip(clip);
-    let name=cleanLocName(clip.params&&clip.params.scene&&clip.params.scene.location)||inferLocFromClipText(clip);
     const heading=clip.heading||'';
+    let name=parseLocFromText(getClipLocationRaw(clip))||inferLocFromClipText(clip);
     if(SBParser&&SBParser.parseSceneHeading){
       const m=SBParser.parseSceneHeading(heading);
       if(m&&m.name)name=name||cleanLocName(m.name);
-    }else if(/^EXT\.|^INT\./i.test(heading)){
-      name=name||cleanLocName(heading.replace(/^\s*(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.?)\s+/i,'').split(/\s*[-–—]\s*/)[0]);
+    }else{
+      name=name||parseLocFromText(heading);
     }
-    if(!name)return;
-    const key=locKeyName(name);
-    let loc=byKey[key];
-    if(!loc){
-      loc={name,key,description:heading||name,locked:!!loc&&!!loc.locked,plateUrl:null,consistencyPhrase:'',clipIndices:[]};
-      bible.push(loc);byKey[key]=loc;
+    const si=clip.sceneIdx;
+    const sc=state.parseResult&&state.parseResult.scenes&&si!=null?state.parseResult.scenes[si]:null;
+    if(sc&&sc.heading){
+      name=name||parseLocFromText(sc.heading)||(SBParser.inferLocation?cleanLocName(SBParser.inferLocation(sc.heading)):'');
     }
-    if(loc.clipIndices.indexOf(ci)<0)loc.clipIndices.push(ci);
-    if(heading&&heading!=='SCENE 1'&&!loc.description)loc.description=heading;
+    upsertLocEntry(bible,byKey,name,heading||sc&&sc.heading,ci);
   });
-  const blob=screenplayText()||(state.scriptText||'').trim();
-  if(blob&&!isClipReconstruction(blob)&&SBParser&&SBParser.extractLocationsFromText){
-    Object.values(SBParser.extractLocationsFromText(blob)).forEach(row=>{
-      if(!row||!row.key)return;
-      if(!byKey[row.key]){
-        const loc={name:row.name,key:row.key,description:row.heading||row.name,locked:false,plateUrl:null,consistencyPhrase:'',clipIndices:[]};
-        bible.push(loc);byKey[row.key]=loc;
-      }
+  const scriptBlob=(state.scriptText||'').trim();
+  Object.values(locationsFromScriptText(scriptBlob)).forEach(row=>{
+    if(!row||!row.key)return;
+    upsertLocEntry(bible,byKey,row.name,row.heading,null);
+  });
+  const scenes=state.parseResult&&state.parseResult.scenes;
+  if(scenes){
+    scenes.forEach(sc=>{
+      const h=sc.heading||'';
+      const name=parseLocFromText(h)||(SBParser.inferLocation?cleanLocName(SBParser.inferLocation(h)):'');
+      upsertLocEntry(bible,byKey,name,h,null);
     });
   }
   state.locationBible=bible;
@@ -379,13 +458,17 @@ function bootstrapMastery(force){
   if((state.locationBible||[]).length&&!state.selectedLoc)state.selectedLoc=state.locationBible[0].key;
   save();
   const locN=(state.locationBible||[]).length;
+  const clipsWithLoc=state.clips.filter(c=>!!parseLocFromText(getClipLocationRaw(c))||!!inferLocFromClipText(c)).length;
   const el=$('tbBuildVer');
-  if(el)el.textContent='build '+BOOT_VERSION+' · '+locN+' loc · '+charFilled+'/'+names.length+' chars';
-  return{locN,charFilled,total:names.length};
+  if(el)el.textContent='build '+BOOT_VERSION+' · '+locN+' loc ('+clipsWithLoc+'/'+state.clips.length+' clips) · '+charFilled+'/'+names.length+' chars';
+  return{locN,charFilled,total:names.length,clipsWithLoc};
 }
 
 function masterySyncMessage(r){
-  if(!r.total&&!r.locN)return'Nothing to sync — open ✎ Script, re-import your .txt/.pdf, then Re-parse timeline';
+  if(!r.total&&!r.locN){
+    if(r.clipsWithLoc&&!r.locN)return'Found location on '+r.clipsWithLoc+' clips but bible empty — hard refresh (Ctrl+Shift+R)';
+    return'No locations found — set Location on a clip (right panel) or re-import script with INT./EXT. lines';
+  }
   return r.charFilled+'/'+r.total+' chars · '+r.locN+' locations synced';
 }
 
