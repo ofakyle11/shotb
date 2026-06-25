@@ -247,12 +247,13 @@ window.SBCharacters = (function () {
       const lock = c.faceLock ? '<span class="lock-badge">🔒 Face lock</span>' : '';
       const sel = selected === n ? ' selected' : '';
       const preview = (c.description || '').trim().slice(0, 42);
+      const roleTag = (c.role && c.role !== 'lead') ? '<span class="lock-badge" style="opacity:.85">' + esc(c.role) + '</span>' : '';
       return '<div class="char-card' + sel + '" data-name="' + esc(n) + '">' +
         '<button type="button" class="char-del" data-del="' + esc(n) + '" title="Delete character" aria-label="Delete ' + esc(n) + '">×</button>' +
         '<div class="char-thumb">' + thumb + '</div>' +
         '<div class="char-name">' + esc(n) + '</div>' +
         (preview ? '<div class="char-meta" style="color:var(--text2);margin-top:2px">' + esc(preview) + (c.description.length > 42 ? '…' : '') + '</div>' : '') +
-        lock +
+        lock + roleTag +
         '<div class="char-meta">' + esc(c.emotion || 'Neutral') + ' · ' + esc(c.voice || 'Natural') + '</div></div>';
     }).join('') + '</div>';
   }
@@ -321,6 +322,22 @@ window.SBCharacters = (function () {
     return (prompt + extra).slice(0, 900);
   }
 
+  function inferCastRole (name, clips) {
+    const up = String(name || '').toUpperCase().trim().replace(/^(A|AN|THE)\s+/, '');
+    const words = up.split(/\s+/).filter(Boolean);
+    let hasDialogue = false;
+    (clips || []).forEach(function (clip) {
+      if (!clip.dialogue) return;
+      const inFrame = (clip.characters || []).some(function (n) {
+        return String(n || '').toUpperCase().trim() === up;
+      });
+      if (inFrame) hasDialogue = true;
+    });
+    if (words.length >= 2) return hasDialogue ? 'supporting' : 'background';
+    if (hasDialogue) return 'lead';
+    return 'supporting';
+  }
+
   function hydrate (characters, scriptText, clips, parseChars) {
     if (!characters) return characters;
     Object.keys(characters).forEach(function (name) {
@@ -341,6 +358,11 @@ window.SBCharacters = (function () {
       }
       const fb = fallbackFromClips(name, clips);
       if (fb) c.description = fb;
+    });
+    Object.keys(characters).forEach(function (name) {
+      const c = characters[name];
+      if (!c) return;
+      if (!c.role || c.role === 'lead') c.role = inferCastRole(name, clips);
     });
     return characters;
   }

@@ -3,7 +3,7 @@
 'use strict';
 
 const STORAGE_KEY='SB_Timeline_v1';
-const BOOT_VERSION='20260625e';
+const BOOT_VERSION='20260625f';
 const OWNER_EMAILS=new Set(['kyle@shotbreak.io','scott@shotbreak.io','steve@shotbreak.io']);
 const CHAR_SKIP=new Set(['INT','EXT','FADE','CUT','CLOSE','WIDE','THE','AND','RAIN','WATER','ROOF','SCENE','OPENING','SEQUENCE','DIALOGUE','ACTION','REACTION','CLIMAX','RESOLUTION','EPILOGUE','TRANSITION','ABANDONED','WAREHOUSE','BUILDING','STREET','NIGHT','DAY','MORNING','EVENING','LOCATION','INTERIOR','EXTERIOR']);
 const JUNK_CLOSE_ON_RE=/^Close on\s+((?:OPENING|TITLE|CLOSING|END|CREDIT|TEASER|PROLOGUE)\s+(?:SEQUENCE|SCENE|CREDITS)|SEQUENCE|DIALOGUE|ACTION|REACTION|TRANSITION|CLIMAX|RESOLUTION|EPILOGUE|CHARACTER\s+INTRO|OPENING\s+SCENE)/i;
@@ -453,6 +453,7 @@ function bootstrapMastery(force){
   }
   try{hydrateAllCharacters(force)}catch(e){console.warn('[Shotbreak] hydrateAllCharacters',e)}
   const charFilled=bootstrapCharactersInline();
+  applyCastRoles(state.characters,state.clips);
   const names=Object.keys(state.characters);
   if(names.length&&!state.selectedChar)state.selectedChar=names[0];
   if((state.locationBible||[]).length&&!state.selectedLoc)state.selectedLoc=state.locationBible[0].key;
@@ -937,19 +938,89 @@ function renderOutput(){$('queuePanel').innerHTML=SBExport.renderQueue(state.cli
 function isValidCharacterName(name){
   const up=String(name||'').toUpperCase().trim();
   if(!up||up.length<2)return false;
+  if(SBParser.isCastMember)return SBParser.isCastMember(up,{fromCue:true});
   if(SBParser.isLikelyPersonName)return SBParser.isLikelyPersonName(up,{fromCue:true});
   return !JUNK_CHAR_WORDS.has(up)&&!CHAR_SKIP.has(up);
 }
 
+function scriptForCastExtraction(){
+  const t=(state.scriptText||'').trim();
+  if(!t)return'';
+  if(!isClipReconstruction(t))return state.scriptText;
+  if(scriptHasSluglines(t))return state.scriptText;
+  if(/^\s*[A-Z][A-Z0-9 .'\-]{1,35}\s*$/m.test(t))return state.scriptText;
+  if(/(?:^|\n)\s*(?:A|AN)\s+[A-Z][A-Z0-9 .'\-]{2,}/m.test(t))return state.scriptText;
+  return'';
+}
+
+function inferCastRole(name,clips){
+  const up=String(name||'').toUpperCase().trim().replace(/^(A|AN|THE)\s+/,'');
+  const words=up.split(/\s+/).filter(Boolean);
+  let hasDialogue=false;
+  (clips||[]).forEach(c=>{
+    if(!c.dialogue)return;
+    const inFrame=(c.characters||[]).some(n=>String(n).toUpperCase().trim()===up);
+    if(inFrame)hasDialogue=true;
+  });
+  if(words.length>=2)return hasDialogue?'supporting':'background';
+  if(hasDialogue)return'lead';
+  return'supporting';
+}
+
+function applyCastRoles(characters,clips){
+  if(!characters)return;
+  Object.keys(characters).forEach(name=>{
+    const c=characters[name];
+    if(!c||c.role&&c.role!=='lead')return;
+    c.role=inferCastRole(name,clips);
+  });
+}
+
+function collectCastFromProject(){
+  const chars={};
+  const add=(name,desc)=>{
+    const up=String(name||'').replace(/\s*\([^)]*\)\s*/g,'').trim().toUpperCase();
+    if(!up||!isValidCharacterName(up))return;
+    if(chars[up]===undefined)chars[up]=desc||'';
+    else if(desc&&String(desc).length>String(chars[up]).length)chars[up]=desc;
+  };
+  if(state.parseResult&&state.parseResult.characters){
+    Object.entries(state.parseResult.characters).forEach(([n,d])=>add(n,d));
+  }
+  if(state.parseResult&&state.parseResult.scenes){
+    state.parseResult.scenes.forEach(sc=>{
+      (sc.shots||[]).forEach(sh=>{
+        (sh.characters_in_frame||[]).forEach(n=>add(n,''));
+      });
+    });
+  }
+  state.clips.forEach(c=>{
+    (c.characters||[]).forEach(n=>add(n,''));
+    const desc=String(c.description||'');
+    const closeM=desc.match(/Close on\s+([A-Z][A-Z0-9 .'\-]{1,30})/i);
+    if(closeM)add(closeM[1],'');
+  });
+  const script=scriptForCastExtraction();
+  if(script&&SBParser.extractCharactersFromText){
+    Object.entries(SBParser.extractCharactersFromText(script)).forEach(([n,d])=>add(n,d));
+  }
+  if(script&&SBParser.extractBackgroundCastFromText){
+    Object.entries(SBParser.extractBackgroundCastFromText(script)).forEach(([n,d])=>add(n,d));
+  }
+  return chars;
+}
+
 function trustedCharacterNames(text){
   const trusted=new Set();
-  if(state.parseResult&&state.parseResult.characters){
-    Object.keys(state.parseResult.characters).forEach(n=>{
+  const script=scriptForCastExtraction()||(text&&!isClipReconstruction(text)?text:'');
+  Object.keys(collectCastFromProject()).forEach(n=>trusted.add(String(n).toUpperCase().trim()));
+  if(script&&SBParser.extractCharactersFromText){
+    Object.keys(SBParser.extractCharactersFromText(script)).forEach(n=>{
       if(isValidCharacterName(n))trusted.add(String(n).toUpperCase().trim());
     });
   }
-  if(text&&SBParser.extractCharactersFromText&&!isClipReconstruction(text)){
-    Object.keys(SBParser.extractCharactersFromText(text)).forEach(n=>{
+  if(script&&SBParser.extractBackgroundCastFromText){
+    Object.keys(SBParser.extractBackgroundCastFromText(script)).forEach(n=>{
       if(isValidCharacterName(n))trusted.add(String(n).toUpperCase().trim());
     });
   }
@@ -957,9 +1028,13 @@ function trustedCharacterNames(text){
 }
 
 function syncCharactersFromParse(result,text){
-  let chars=Object.assign({},(result&&result.characters)||{});
-  if(text&&SBParser.extractCharactersFromText&&!isClipReconstruction(text)){
-    chars=SBParser.mergeCharMaps(chars,SBParser.extractCharactersFromText(text));
+  let chars=Object.assign({},collectCastFromProject(),(result&&result.characters)||{});
+  const script=scriptForCastExtraction()||(text&&!isClipReconstruction(text)?text:'');
+  if(script&&SBParser.extractCharactersFromText){
+    chars=SBParser.mergeCharMaps(chars,SBParser.extractCharactersFromText(script));
+  }
+  if(script&&SBParser.extractBackgroundCastFromText){
+    chars=SBParser.mergeCharMaps(chars,SBParser.extractBackgroundCastFromText(script));
   }
   if(result&&result.scenes){
     result.scenes.forEach(sc=>{
@@ -985,6 +1060,7 @@ function syncCharactersFromParse(result,text){
   });
   state.characters=pruneJunkCharacters(out,trustedCharacterNames(text));
   SBCharacters.hydrate(state.characters,text||state.scriptText||clipTextBlob(),state.clips,(result&&result.characters)||{});
+  applyCastRoles(state.characters,state.clips);
   const names=Object.keys(state.characters);
   if(names.length&&!state.selectedChar)state.selectedChar=names[0];
 }
@@ -992,15 +1068,30 @@ function syncCharactersFromParse(result,text){
 function pruneJunkCharacters(chars,trusted){
   const trustedSet=trusted||trustedCharacterNames(state.scriptText||'');
   const clipSet=new Set();
-  state.clips.forEach(c=>(c.characters||[]).forEach(n=>clipSet.add(String(n).toUpperCase().trim())));
+  const frameSet=new Set();
+  state.clips.forEach(c=>{
+    (c.characters||[]).forEach(n=>clipSet.add(String(n).toUpperCase().trim()));
+    const blob=((c.description||'')+' '+(c.dialogue||'')).toUpperCase();
+    Object.keys(chars||{}).forEach(n=>{
+      const up=String(n).toUpperCase().trim();
+      if(up&&blob.includes(up))frameSet.add(up);
+    });
+  });
+  if(state.parseResult&&state.parseResult.scenes){
+    state.parseResult.scenes.forEach(sc=>{
+      (sc.shots||[]).forEach(sh=>{
+        (sh.characters_in_frame||[]).forEach(n=>frameSet.add(String(n).toUpperCase().trim()));
+      });
+    });
+  }
   const out={};
   Object.entries(chars||{}).forEach(([name,val])=>{
     const up=String(name).toUpperCase().trim();
     if(!up||up.length<2||up.length>40||!isValidCharacterName(up))return;
     if(trustedSet.has(up)){out[up]=val;return;}
-    if(!clipSet.has(up))return;
+    if(clipSet.has(up)||frameSet.has(up)){out[up]=val;return;}
     const words=up.split(/\s+/);
-    if(words.length>3)return;
+    if(words.length>4)return;
     if(words.every(w=>JUNK_CHAR_WORDS.has(w)||CHAR_SKIP.has(w)))return;
     if(words.length===1&&(JUNK_CHAR_WORDS.has(words[0])||CHAR_SKIP.has(words[0])))return;
     out[up]=val;
