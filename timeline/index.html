@@ -6,7 +6,7 @@
 <title>SHOTBREAK — Text-to-Video Movie System</title>
 <link rel="icon" href="/favicon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Anybody:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="timeline.css?v=20260624n">
+<link rel="stylesheet" href="timeline.css?v=20260627e">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -150,9 +150,52 @@
           </div>
         </details>
 
-        <details class="module-panel">
+        <details class="module-panel" id="editorPanel">
           <summary>Editor</summary>
-          <div class="panel-pad"><div id="assemblyBody"></div></div>
+          <div class="panel-pad">
+            <div id="assemblyBody" class="tl-editor">
+              <div class="tle-toolbar">
+                <button type="button" class="tb-btn gold" id="tle-btnSync">Sync clips</button>
+                <button type="button" class="tb-btn" id="tle-btnUpload">Upload MP4</button>
+                <button type="button" class="tb-btn" id="tle-btnRender">Render MP4</button>
+                <button type="button" class="tb-btn" id="tle-btnEdl">Export EDL</button>
+                <a class="tle-full-link" href="/editor/" target="_blank" rel="noopener">Full-screen editor ↗</a>
+                <span class="tle-sync-hint" id="tle-syncHint">Generate clips, then Sync</span>
+              </div>
+              <div class="tle-workspace">
+                <div class="tle-bin">
+                  <div class="tle-bin-head">Media bin</div>
+                  <div class="tle-bin-items" id="tle-binItems"></div>
+                </div>
+                <div class="tle-stage">
+                  <div class="tle-preview-wrap" id="tle-preview">
+                    <video id="tle-previewA" playsinline muted></video>
+                    <div class="tle-placeholder" id="tle-previewPlaceholder">Sync clips to load media</div>
+                  </div>
+                  <div class="tle-transport">
+                    <button type="button" class="tle-play" id="tle-playBtn">▶</button>
+                    <span class="tle-timecode" id="tle-timecode">00:00.00</span>
+                    <span class="tle-total" id="tle-totalTime">/ 00:00.00</span>
+                    <div class="tle-zoom">
+                      <label for="tle-zoom">Zoom</label>
+                      <input type="range" id="tle-zoom" min="0.5" max="5" step="0.1" value="1">
+                    </div>
+                  </div>
+                  <div class="tle-timeline">
+                    <div class="tle-ruler" id="tle-ruler"></div>
+                    <div class="tle-lane-wrap">
+                      <div class="tle-lane" id="tle-videoLane"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="tle-inspector">
+                  <div class="tle-inspector-head">Inspector</div>
+                  <div id="tle-inspectorContent" class="inspector-empty">Select a clip on the edit track</div>
+                </div>
+              </div>
+              <div class="tle-log" id="tle-agentLog"></div>
+            </div>
+          </div>
         </details>
 
         <details class="module-panel">
@@ -163,7 +206,7 @@
             <div class="output-btns">
               <button class="tb-btn gold" id="btnFinal">Final Export (MP4)</button>
               <button class="tb-btn" id="btnEDL">Export EDL</button>
-              <button class="tb-btn" id="btnExport">Open Full Editor</button>
+              <button class="tb-btn" id="btnExport">Open Editor</button>
             </div>
           </div>
         </details>
@@ -238,6 +281,7 @@
 <script src="timeline-locations-enrich.js?v=20260627d"></script>
 <script src="timeline-enrich.js?v=20260627d"></script>
 <script src="timeline-export.js?v=20260624a"></script>
-<script src="timeline.js?v=20260627d"></script>
+<script src="/editor/timeline-engine.js?v=20260627e"></script>
+<script src="timeline.js?v=20260627e"></script>
 </body>
 </html>

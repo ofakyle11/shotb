@@ -3,7 +3,7 @@
 'use strict';
 
 const STORAGE_KEY='SB_Timeline_v1';
-const BOOT_VERSION='20260627d';
+const BOOT_VERSION='20260627e';
 const OWNER_EMAILS=new Set(['kyle@shotbreak.io','scott@shotbreak.io','steve@shotbreak.io']);
 const CHAR_SKIP=new Set(['INT','EXT','FADE','CUT','CLOSE','WIDE','THE','AND','RAIN','WATER','ROOF','SCENE','OPENING','SEQUENCE','DIALOGUE','ACTION','REACTION','CLIMAX','RESOLUTION','EPILOGUE','TRANSITION','ABANDONED','WAREHOUSE','BUILDING','STREET','NIGHT','DAY','MORNING','EVENING','LOCATION','INTERIOR','EXTERIOR']);
 const JUNK_CLOSE_ON_RE=/^Close on\s+((?:OPENING|TITLE|CLOSING|END|CREDIT|TEASER|PROLOGUE)\s+(?:SEQUENCE|SCENE|CREDITS)|SEQUENCE|DIALOGUE|ACTION|REACTION|TRANSITION|CLIMAX|RESOLUTION|EPILOGUE|CHARACTER\s+INTRO|OPENING\s+SCENE)/i;
@@ -21,7 +21,7 @@ let state={
   assembly:{titleText:'',creditsText:'',musicHint:'',sfxHint:''},
   parseResult:null,queue:{running:false}
 };
-let history={past:[],future:[]}, curUser=null, auth=null;
+let history={past:[],future:[]}, curUser=null, auth=null, timelineEditorInst=null;
 
 function $(id){return document.getElementById(id)}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2800)}
@@ -1075,22 +1075,40 @@ function renderDetail(){
 }
 function mkTog(grp,f,label){return '<div class="field"><label><span>'+label+'</span><span class="toggle'+(grp.on[f]?' on':'')+'" data-grp="'+(['location','timeOfDay','weather','season'].includes(f)?'scene':['angle','filmGrade','colorMode','saturation'].includes(f)?'camera':'atmosphere')+'" data-f="'+f+'"></span></label><input data-grp="'+(['location','timeOfDay','weather','season'].includes(f)?'scene':['angle','filmGrade','colorMode','saturation'].includes(f)?'camera':'atmosphere')+'" data-f="'+f+'" value="'+esc(grp[f]||'')+'"></div>'}
 
+function clipsForEditor(){
+  const withVideo=state.clips.filter(c=>c.videoUrl);
+  const approved=withVideo.filter(c=>c.status==='approved');
+  return approved.length?approved:withVideo;
+}
+function initTimelineEditor(){
+  if(timelineEditorInst||!window.SBTimelineEditor||!$('tle-binItems'))return;
+  timelineEditorInst=window.SBTimelineEditor.create({
+    prefix:'tle-',
+    storageKey:'SB_Editor_embed_v1',
+    embedded:true,
+    projectName:state.projectName
+  });
+  timelineEditorInst.init({onSync:syncTimelineEditor});
+}
+function syncTimelineEditor(){
+  if(!timelineEditorInst)initTimelineEditor();
+  if(!timelineEditorInst)return toast('Editor not ready');
+  const ok=clipsForEditor();
+  if(!ok.length)return toast('Generate clips first');
+  if(!state.clips.filter(c=>c.status==='approved'&&c.videoUrl).length)toast('Using unapproved clips — approve for final export');
+  timelineEditorInst.syncFromClips(ok,{clipDuration:clipDur});
+}
+function openEditorPanel(){
+  const panel=$('editorPanel');
+  if(panel)panel.open=true;
+  syncTimelineEditor();
+}
 function renderAssembly(){
-  const el=$('assemblyBody'),ok=state.clips.filter(c=>c.status==='approved'&&c.videoUrl);
-  if(!ok.length){el.innerHTML='<div class="empty-hint">Approve clips first. Trim, transitions, speed ramp, and titles live here.</div>';return}
-  el.innerHTML=ok.map((c,i)=>'<div class="asm-card"><b>Clip '+c.num+'</b> — '+esc(c.label)+
-    '<div class="asm-grid"><div class="field"><label>Trim in</label><input type="number" step="0.1" data-id="'+c.id+'" data-k="trimIn" value="'+c.edit.trimIn+'"></div>'+
-    '<div class="field"><label>Trim out</label><input type="number" step="0.1" data-id="'+c.id+'" data-k="trimOut" value="'+(c.edit.trimOut!=null?c.edit.trimOut:c.durationSec)+'"></div>'+
-    '<div class="field"><label>Transition</label><select data-id="'+c.id+'" data-k="transition">'+['cut','dissolve','fade','wipe'].map(t=>'<option'+(c.edit.transition===t?' selected':'')+'>'+t+'</option>').join('')+'</select></div>'+
-    '<div class="field"><label>Speed</label><input type="number" step="0.1" data-id="'+c.id+'" data-k="speed" value="'+c.edit.speed+'"></div>'+
-    '<div class="field"><label>Overlay FX</label><input data-id="'+c.id+'" data-k="overlayFx" value="'+esc(c.edit.overlayFx)+'"></div></div>'+
-    (i<ok.length-1?'<div class="asm-arrow">↓ '+esc(c.edit.transition)+'</div>':'')+'</div>').join('')+
-    '<div class="section-title">Titles &amp; Audio</div>'+
-    '<div class="field"><label>Title card</label><input id="a-title" value="'+esc(state.assembly.titleText)+'"></div>'+
-    '<div class="field"><label>End credits</label><input id="a-credits" value="'+esc(state.assembly.creditsText)+'"></div>'+
-    '<div class="field"><label>Music / SFX</label><input id="a-music" value="'+esc(state.assembly.musicHint)+'"></div>';
-  el.querySelectorAll('[data-id]').forEach(inp=>{const c=state.clips.find(x=>x.id===inp.dataset.id);inp.onchange=()=>{pushHistory();const k=inp.dataset.k;if(k==='trimIn'||k==='trimOut'||k==='speed')c.edit[k]=parseFloat(inp.value)||0;else c.edit[k]=inp.value;save()}});
-  ['a-title','a-credits','a-music'].forEach((id,i)=>{const k=['titleText','creditsText','musicHint'][i];$(id).oninput=e=>{state.assembly[k]=e.target.value;save()}});
+  const hint=$('tle-syncHint');
+  if(!hint)return;
+  const n=state.clips.filter(c=>c.videoUrl).length;
+  const a=state.clips.filter(c=>c.status==='approved'&&c.videoUrl).length;
+  hint.textContent=n?(a?a+' approved · '+n+' with video — Sync to refresh':'No approved clips — Sync will use all generated clips'):'Generate clips, then Sync';
 }
 
 function deleteCharacter(name){
@@ -1677,20 +1695,7 @@ async function finalExport(){
   }catch(e){$('exportStatus').textContent=e.message;toast(e.message)}
 }
 
-function sendEditor(){
-  const withVideo=state.clips.filter(c=>c.videoUrl);
-  if(!withVideo.length)return toast('Generate clips first');
-  const approved=withVideo.filter(c=>c.status==='approved');
-  const ok=approved.length?approved:withVideo;
-  if(!approved.length)toast('Sending unapproved clips — approve for final export');
-  const payload=ok.map((c,i)=>({id:c.id,name:'Clip '+c.num,src:c.videoUrl,duration:clipDur(c),order:i,transition:c.edit.transition}));
-  try{const prev=JSON.parse(localStorage.getItem('SB_Generated')||'[]');const next=Array.isArray(prev)?prev:[];
-    payload.forEach(p=>next.push({...p,source:'timeline',createdAt:Date.now()}));
-    localStorage.setItem('SB_Generated',JSON.stringify(next));
-    localStorage.setItem('SB_Timeline_Export',JSON.stringify(payload));
-  }catch(e){}
-  window.open('/editor/','_blank');toast('Sent to editor');
-}
+function sendEditor(){openEditorPanel()}
 
 function toggleMoreMenu(open){
   const menu=$('moreMenu');const btn=$('btnMoreMenu');if(!menu)return;
@@ -1808,6 +1813,7 @@ function bindUI(){
       btnMore.setAttribute('aria-expanded',!open?'true':'false');
     };
   }
+  initTimelineEditor();
   load();
   repairCorruptClips();
   if(state.scriptText&&isClipReconstruction(state.scriptText)){
