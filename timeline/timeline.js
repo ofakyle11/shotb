@@ -216,10 +216,10 @@ function parseLocFromText(raw){
   }
   const atM=t.match(/\b(?:at|in|inside|outside|near)\s+(?:the\s+)?([A-Za-z][A-Za-z0-9 .'\-/&,]{4,100})/i);
   if(atM){
-    const n=cleanLocName(atM[1].replace(/[.,;]+$/, '').trim());
+    const n=canonicalLocName(atM[1].replace(/[.,;]+$/, '').trim());
     if(n.length>4&&!/^SCENE\s*\d*$/i.test(n))return n;
   }
-  const direct=cleanLocName(t);
+  const direct=canonicalLocName(t);
   if(direct.length>2&&!/^SCENE\s*\d*$/i.test(direct)&&!/^(DAY|NIGHT|MORNING|EVENING|OPENING|DIALOGUE|ACTION)$/i.test(direct))return direct;
   return'';
 }
