@@ -418,7 +418,9 @@ window.SBCharacters = (function () {
       '<div class="field"><label><span>Lip-sync enable</span><span class="toggle' + (c.lipSync ? ' on' : '') + '" data-k="lipSync"></span></label></div>' +
       '<div class="field"><label>Lock method</label><select data-k="lockMethod"><option value="ip-adapter"' + (c.lockMethod === 'ip-adapter' ? ' selected' : '') + '>IP-Adapter</option><option value="lora"' + (c.lockMethod === 'lora' ? ' selected' : '') + '>LoRA</option></select></div>' +
       (c.refUrl ? '<div class="ref-preview"><img src="' + esc(c.refUrl) + '" alt="ref"></div>' : '') +
-      '<button type="button" class="tb-btn gold" id="btnUploadRef">Upload reference image</button>' +
+      (c.refUrl && String(c.refUrl).indexOf('data:') === 0 ? '<div class="hint-chip gold">⚠ This reference is a stale data URL and never reaches providers — re-upload or regenerate it.</div>' : '') +
+      '<button type="button" class="tb-btn gold" id="btnGenPortrait">✨ Generate portrait</button> ' +
+      '<button type="button" class="tb-btn" id="btnUploadRef">Upload reference image</button>' +
       (c.refUrl ? '<button type="button" class="tb-btn" id="btnClearRef">Remove reference</button>' : '') +
       '<button type="button" class="tb-btn char-delete-btn" id="btnDeleteChar">Delete character</button>' +
       '</div>';

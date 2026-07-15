@@ -35,6 +35,20 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
+# Deprecated surfaces — dashboard.html is an unrelated leftover ("Atlas Analysis"
+# stock dashboard) and workflow/ + its agent stubs were never completed. Blocked
+# from serving; the files can be deleted from the repo once confirmed.
+[[redirects]]
+  from = "/dashboard.html"
+  to = "/404.html"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/workflow/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
 # Block ops/internal files — force=true overrides static file serving (_redirects alone cannot).
 [[redirects]]
   from = "/DO_THIS_NOW.txt"

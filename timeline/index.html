@@ -21,7 +21,6 @@
     <div class="logo">SHOT<span>BREAK</span></div>
     <div class="tb-group">
       <button class="tb-btn" id="btnImport">Import</button>
-      <button class="tb-btn gold" id="btnScript" title="Open screenplay editor">✎ Script</button>
       <button class="tb-btn" id="btnAdd">+ Clip</button>
       <button class="tb-btn gold" id="btnBatch">Generate All</button>
     </div>
@@ -83,20 +82,23 @@
     </div>
   </div>
 
-  <div class="flow-hint hidden" id="flowHint">Import script → parse into clips → click a clip → generate &amp; approve → export</div>
+  <nav class="stepper" id="stepper" aria-label="Workflow">
+    <button type="button" class="step" data-step="script"><span class="step-num"><span>1</span></span><span class="step-body"><span class="step-label">Script</span><span class="step-meta" id="stepScriptMeta">Import or paste to start</span></span></button>
+    <button type="button" class="step" data-step="cast"><span class="step-num"><span>2</span></span><span class="step-body"><span class="step-label">Cast &amp; Locations</span><span class="step-meta" id="stepCastMeta">—</span></span></button>
+    <button type="button" class="step" data-step="generate"><span class="step-num"><span>3</span></span><span class="step-body"><span class="step-label">Generate</span><span class="step-meta" id="stepGenMeta">—</span></span></button>
+    <button type="button" class="step" data-step="edit"><span class="step-num"><span>4</span></span><span class="step-body"><span class="step-label">Edit &amp; Export</span><span class="step-meta" id="stepEditMeta">—</span></span></button>
+  </nav>
 
-  <div class="script-bar" id="scriptBar">
-    <button type="button" class="tb-btn gold" id="btnOpenScript">✎ Open script editor</button>
-    <span class="script-bar-meta" id="scriptBarMeta">No screenplay yet — import or paste to start</span>
-    <button type="button" class="tb-btn" id="btnBarImport">Import file</button>
-    <button type="button" class="tb-btn" id="btnBarReparse">↻ Re-parse</button>
+  <div class="auth-gate hidden" id="authGate">
+    <span>Sign in to generate video — script parsing and editing work without an account.</span>
+    <button type="button" class="tb-btn gold" id="authGateBtn">Sign in</button>
   </div>
 
   <div class="main">
     <section class="workspace">
       <div class="import-zone" id="importZone">
         <h3>Start with a script</h3>
-        <p>Import a screenplay (.txt, .pdf, or .fdx), or click the gold <strong>✎ Script</strong> button above. Re-parse anytime to replace the timeline.</p>
+        <p>Import a screenplay (.txt, .pdf, or .fdx) or paste one — it becomes a timeline of clips you can generate shot by shot. Re-parse anytime to replace the timeline.</p>
         <div class="import-btns">
           <button class="tb-btn gold" onclick="document.getElementById('btnImport').click()">Import Script</button>
           <button class="tb-btn" id="btnPaste">Paste script</button>
@@ -108,13 +110,16 @@
         <div class="timeline-wrap">
           <div class="timeline-head">
             <h2>Timeline</h2>
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div class="timeline-head-actions">
               <button type="button" class="script-link" id="btnEditScriptLink">Edit script</button>
               <span class="tb-meta" id="clipCount">0 clips</span>
             </div>
           </div>
-          <div class="time-ruler" id="timeRuler"></div>
-          <div class="clip-row" id="clipRow"></div>
+          <div class="strip-scroll" id="stripScroll">
+            <div class="time-ruler" id="timeRuler"></div>
+            <div class="scene-bands" id="sceneBands"></div>
+            <div class="clip-row" id="clipRow"></div>
+          </div>
         </div>
         <div class="chars hidden" id="charsStrip">
           <h3>Characters</h3>
@@ -130,10 +135,10 @@
         <details class="module-panel">
           <summary>Characters</summary>
           <div class="panel-pad">
-            <div class="panel-head" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center">
+            <div class="panel-toolbar">
               <button class="tb-btn" id="btnResyncChars" title="Local parse + AI character bible (appearance only)">↻ Sync from parse</button>
               <button class="tb-btn" id="btnAddChar">+ Add Character</button>
-              <span id="tbBuildVer" style="font-size:9px;color:var(--dim);font-family:var(--mono);margin-left:auto">build …</span>
+              <span id="tbBuildVer" class="build-ver">build …</span>
             </div>
             <div id="charListPanel"></div>
             <div id="charEditorPanel" class="char-editor-wrap"></div>
@@ -144,7 +149,7 @@
           <summary>Locations</summary>
           <div class="panel-pad">
             <p class="panel-desc">Lock each set/location from your script. Locked descriptions + reference plates feed every matching clip when you hit Generate.</p>
-            <div class="panel-head" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <div class="panel-toolbar">
               <button class="tb-btn" id="btnResyncLocs" title="Pull locations from parsed timeline clips">↻ Sync from clips</button>
             </div>
             <div id="locListPanel"></div>
@@ -238,16 +243,21 @@
     <h1>Text-to-Video <span>Studio</span></h1>
     <p>Sign in to generate video. Script parsing works offline.</p>
     <div class="login-err" id="loginErr"></div>
-    <input type="email" id="loginEmail" placeholder="Email (kylef / stevec / scottd)">
+    <div class="login-ok" id="loginOk"></div>
+    <input type="email" id="loginEmail" placeholder="Email">
     <input type="password" id="loginPw" placeholder="Password">
-    <button class="tb-btn gold" id="loginBtn" style="width:100%;margin-top:8px">Sign in</button>
+    <button class="tb-btn gold login-submit" id="loginBtn">Sign in</button>
+    <div class="login-links">
+      <button type="button" class="login-link" id="loginSignupBtn">Create account</button>
+      <button type="button" class="login-link" id="loginResetBtn">Forgot password?</button>
+    </div>
   </div>
 </div>
 
 <div class="modal hidden" id="previewModal">
   <div class="modal-card">
     <div class="modal-head"><span id="previewLabel">Preview</span><button class="tb-btn" id="btnClosePreview">✕</button></div>
-    <video id="previewPlayer" controls playsinline style="width:100%;border-radius:10px;background:#000"></video>
+    <video id="previewPlayer" class="preview-video" controls playsinline></video>
   </div>
 </div>
 

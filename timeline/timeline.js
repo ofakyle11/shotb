@@ -70,9 +70,25 @@ function initAuth(){
   auth=firebase.auth();
   auth.onAuthStateChanged(u=>{
     if(u){const e=(u.email||'').toLowerCase();curUser={name:u.displayName||e.split('@')[0],email:e,isOwner:OWNER_EMAILS.has(e),uid:u.uid};$('loginOverlay').classList.add('hidden');$('userMeta').textContent=curUser.name}
-    else{curUser=null;$('loginOverlay').classList.remove('hidden')}
+    else{curUser=null;$('loginOverlay').classList.remove('hidden');$('userMeta').textContent='—'}
+    renderAuthGate();
   });
-  $('loginBtn').onclick=async()=>{const err=$('loginErr');err.style.display='none';try{await auth.signInWithEmailAndPassword($('loginEmail').value.trim(),$('loginPw').value)}catch(e){err.textContent=e.message;err.style.display='block'}};
+  const err=$('loginErr'),ok=$('loginOk');
+  const showErr=m=>{if(ok)ok.style.display='none';err.textContent=m;err.style.display='block'};
+  const showOk=m=>{err.style.display='none';if(ok){ok.textContent=m;ok.style.display='block'}};
+  $('loginBtn').onclick=async()=>{err.style.display='none';if(ok)ok.style.display='none';try{await auth.signInWithEmailAndPassword($('loginEmail').value.trim(),$('loginPw').value)}catch(e){showErr(e.message)}};
+  const su=$('loginSignupBtn');
+  if(su)su.onclick=async()=>{
+    const email=$('loginEmail').value.trim(),pw=$('loginPw').value;
+    if(!email||!pw)return showErr('Enter an email and password (6+ characters) to create an account');
+    try{await auth.createUserWithEmailAndPassword(email,pw);showOk('Account created — you are signed in')}catch(e){showErr(e.message)}
+  };
+  const rs=$('loginResetBtn');
+  if(rs)rs.onclick=async()=>{
+    const email=$('loginEmail').value.trim();
+    if(!email)return showErr('Enter your email first, then click Forgot password');
+    try{await auth.sendPasswordResetEmail(email);showOk('Password reset email sent to '+email)}catch(e){showErr(e.message)}
+  };
 }
 
 function cleanClipDescription(clip){
@@ -727,7 +743,78 @@ function renderAll(){
   repairCorruptClips();
   if(state.clips.length||state.scriptText)bootstrapMastery(false,{skipHydrate:true});
   renderTimeline();renderScriptEditor();renderAssembly();renderCharacters();renderLocations();renderOutput();renderDetail();updateUndo();
+  renderStepper();renderAuthGate();
   openSidePanelsIfNeeded();
+}
+
+/* ── guided workflow stepper ── */
+function stepperProgress(){
+  const clips=state.clips.length;
+  const gen=state.clips.filter(c=>c.videoUrl).length;
+  const approved=state.clips.filter(c=>c.status==='approved').length;
+  const chars=Object.keys(state.characters).length;
+  const charRefs=Object.keys(state.characters).filter(n=>{const c=state.characters[n];return c&&(c.refUrl||'').startsWith('https://')}).length;
+  const locs=(state.locationBible||[]).length;
+  const locked=(state.locationBible||[]).filter(l=>l&&l.locked).length;
+  return {clips,gen,approved,chars,charRefs,locs,locked};
+}
+function renderStepper(){
+  const bar=$('stepper');if(!bar)return;
+  const p=stepperProgress();
+  const scriptDone=p.clips>0;
+  const castDone=scriptDone&&p.chars>0&&(p.charRefs>0||p.locked>0);
+  const genDone=scriptDone&&p.gen>=p.clips&&p.clips>0;
+  const editDone=genDone&&p.approved>=p.clips;
+  const text=scriptEditorText?scriptEditorText():state.scriptText||'';
+  $('stepScriptMeta').textContent=scriptDone
+    ?(text?text.split(/\r?\n/).length+' lines · ':'')+p.clips+' clips parsed'
+    :'Import or paste to start';
+  $('stepCastMeta').textContent=scriptDone
+    ?p.chars+' cast ('+p.charRefs+' with refs) · '+p.locs+' locations ('+p.locked+' locked)'
+    :'—';
+  $('stepGenMeta').textContent=scriptDone?p.gen+' / '+p.clips+' generated':'—';
+  $('stepEditMeta').textContent=scriptDone?p.approved+' approved':'—';
+  const states={script:scriptDone,cast:castDone,generate:genDone,edit:editDone};
+  let currentSet=false;
+  bar.querySelectorAll('.step').forEach(el=>{
+    const done=!!states[el.dataset.step];
+    el.classList.toggle('done',done);
+    const isCurrent=!done&&!currentSet;
+    if(isCurrent)currentSet=true;
+    el.classList.toggle('current',isCurrent);
+  });
+}
+function openModulePanel(label){
+  let found=null;
+  document.querySelectorAll('.module-panel').forEach(panel=>{
+    const sum=panel.querySelector('summary');
+    if(sum&&sum.textContent.trim()===label){panel.open=true;found=panel}
+  });
+  if(found)found.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function gotoStep(step){
+  if(step==='script'){openScriptPanel();return}
+  if(step==='cast'){openModulePanel('Characters');openModulePanel('Locations');return}
+  if(step==='generate'){
+    if(!state.clips.length)return toast('Parse a script first');
+    if(!state.selectedId)state.selectedId=state.clips[0].id;
+    renderAll();
+    const ts=$('timelineSection');if(ts)ts.scrollIntoView({behavior:'smooth',block:'start'});
+    return;
+  }
+  if(step==='edit'){openModulePanel('Editor');openModulePanel('Export')}
+}
+
+/* ── sign-in gating (visible, not a silent toast) ── */
+function renderAuthGate(){
+  const gate=$('authGate');if(!gate)return;
+  gate.classList.toggle('hidden',!!curUser);
+  ['btnGen','btnRegen','btnBatch'].forEach(id=>{const b=$(id);if(b)b.disabled=!curUser});
+  const clip=state.clips.find(c=>c.id===state.selectedId);
+  const ap=$('btnApprove');
+  if(ap)ap.disabled=!clip||!clip.videoUrl;
+  const gen=$('btnGen');
+  if(gen)gen.title=curUser?'':'Sign in to generate';
 }
 function openSidePanelsIfNeeded(){
   if(!state.clips.length)return;
@@ -829,12 +916,12 @@ function updateScriptMeta(){
   const summary=lines+' lines · '+chars+' chars'+(state.clips.length?' · '+state.clips.length+' clips':'');
   const meta=$('scriptMeta');
   if(meta)meta.textContent=summary;
-  const bar=$('scriptBarMeta');
-  if(bar){
-    if(!text.trim())bar.textContent='No screenplay yet — click ✎ Open script editor';
-    else if(isClipReconstruction(text))bar.textContent='⚠ Corrupted clip text — open editor & use + New script';
-    else if(SBParser.isScriptFlattened&&SBParser.isScriptFlattened(text))bar.textContent='⚠ Flattened script — open editor & click Unflatten';
-    else bar.textContent=summary;
+  const step=$('stepScriptMeta');
+  if(step){
+    if(!text.trim())step.textContent=state.clips.length?state.clips.length+' clips parsed':'Import or paste to start';
+    else if(isClipReconstruction(text))step.textContent='⚠ Corrupted clip text — use + New script in the editor';
+    else if(SBParser.isScriptFlattened&&SBParser.isScriptFlattened(text))step.textContent='⚠ Flattened script — click Unflatten in the editor';
+    else step.textContent=summary;
   }
 }
 
@@ -1007,16 +1094,53 @@ async function reparseScriptFromEditor(){
   openScriptPanel();
 }
 
+// Scene-block bands under the ruler: one colored segment per continuity block,
+// sized to span its clips, so the film strip also reads as scene structure.
+// Walks the clips (not the block list) so every clip is covered even when the
+// continuity graph is partial.
+function renderSceneBands(){
+  const el=$('sceneBands');if(!el)return;
+  const CARD=108,GAP=6;
+  const segs=[];
+  state.clips.forEach((c,i)=>{
+    let key='i:'+i,label='Scene',tod='';
+    let blk=null;
+    if(window.SBContinuity&&typeof SBContinuity.blockForClip==='function'){
+      try{blk=SBContinuity.blockForClip(state,i)}catch(e){}
+    }
+    if(blk){
+      key='b:'+(blk.id!=null?blk.id:blk.locationKey);
+      label=blk.locationName||blk.locationKey||'Scene';
+      tod=blk.timeOfDay||'';
+    }else if(window.SBLocations){
+      const meta=SBLocations.clipLocationMeta(c)||{};
+      if(meta.key){key='l:'+meta.key;label=meta.name||'Scene'}
+    }
+    const last=segs[segs.length-1];
+    if(last&&last.key===key)last.count++;
+    else segs.push({key,label,tod,count:1,firstClip:i});
+  });
+  el.innerHTML=segs.map((s,i)=>{
+    const w=s.count*(CARD+GAP)-GAP;
+    const hue=(String(s.label).split('').reduce((h,ch)=>((h*31+ch.charCodeAt(0))>>>0),7)%360);
+    const short=String(s.label).length>26?String(s.label).slice(0,24)+'…':s.label;
+    return '<span class="scene-band" data-clip="'+s.firstClip+'" style="width:'+w+'px;--band:hsl('+hue+',45%,48%)" title="'+esc(s.label)+(s.tod?' — '+esc(s.tod):'')+'">'+esc(short)+(s.tod?' <span class="band-tod">'+esc(s.tod)+'</span>':'')+'</span>';
+  }).join('');
+  el.querySelectorAll('.scene-band').forEach(b=>{
+    b.onclick=()=>{const c=state.clips[parseInt(b.dataset.clip,10)];if(c){state.selectedId=c.id;renderAll()}};
+  });
+}
+
 function renderTimeline(){
   const has=state.clips.length>0;
   $('importZone').classList.toggle('hidden',has);
   $('timelineSection').classList.toggle('hidden',!has);
-  if($('flowHint'))$('flowHint').classList.toggle('hidden',has);
-  if(!has){$('clipRow').innerHTML='';$('timeRuler').innerHTML='';return}
+  if(!has){$('clipRow').innerHTML='';$('timeRuler').innerHTML='';if($('sceneBands'))$('sceneBands').innerHTML='';return}
   let t=0,ticks=[];
   state.clips.forEach(c=>{ticks.push('<span class="time-tick">'+formatTime(t)+'</span>');t+=clipDur(c)});
   ticks.push('<span class="time-tick">'+formatTime(t)+'</span>');
   $('timeRuler').innerHTML=ticks.join('');
+  renderSceneBands();
   $('clipRow').innerHTML=state.clips.map(c=>{
     const st=c.status==='approved'?'approved':c.status==='done'?'done':c.status==='generating'?'gen':'';
     const th=c.videoUrl?'<video src="'+c.videoUrl+'" muted loop playsinline></video>':'<span class="ph">🎬</span>';
@@ -1051,9 +1175,9 @@ function renderDetail(){
     const meta=SBLocations.clipLocationMeta(clip);
     const locEntry=(state.locationBible||[]).find(l=>l.key===meta.key);
     if(locEntry&&locEntry.locked){
-      locHint='<div style="font-size:11px;color:var(--gold);margin-bottom:10px;padding:8px 10px;background:rgba(212,168,67,.08);border:1px solid rgba(212,168,67,.3);border-radius:8px">🔒 Location locked: <strong>'+esc(locEntry.name)+'</strong>'+(locEntry.plateUrl?' · plate attached':'')+'</div>';
+      locHint='<div class="hint-chip gold">🔒 Location locked: <strong>'+esc(locEntry.name)+'</strong>'+(locEntry.plateUrl?' · plate attached':'')+'</div>';
     }else if(meta.name){
-      locHint='<div style="font-size:11px;color:var(--dim);margin-bottom:10px">📍 '+esc(meta.name)+' — lock in <strong>Locations</strong> panel below timeline</div>';
+      locHint='<div class="hint-chip bare">📍 '+esc(meta.name)+' — lock in <strong>Locations</strong> panel below timeline</div>';
     }
   }
   if(window.SBContinuity&&typeof SBContinuity.blockForClip==='function'){
@@ -1062,7 +1186,7 @@ function renderDetail(){
     if(blk){
       const cast=[].concat(blk.leads||[],blk.supporting||[],blk.background||[]).filter(Boolean);
       const castPreview=cast.slice(0,6).join(', ')+(cast.length>6?'…':'');
-      locHint+='<div style="font-size:11px;color:var(--text2);margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px">🔗 Scene block · '+esc(blk.continuity||'new')+
+      locHint+='<div class="hint-chip quiet">🔗 Scene block · '+esc(blk.continuity||'new')+
         (blk.locationName?' · <strong>'+esc(blk.locationName)+'</strong>':'')+
         (castPreview?' · cast: '+esc(castPreview):'')+'</div>';
     }
@@ -1166,8 +1290,7 @@ function deleteCharacter(name){
 function renderCharacters(){
   let listHtml=SBCharacters.renderList(state.characters,state.selectedChar);
   if(!Object.keys(state.characters).length&&state.clips.length){
-    listHtml='<div style="padding:10px 12px;margin-bottom:10px;background:rgba(212,168,67,.08);border:1px solid rgba(212,168,67,.35);border-radius:8px;font-size:12px;line-height:1.5;color:var(--text2)">'+
-      '<strong style="color:var(--gold)">Characters empty</strong> — click <strong>↻ Sync from parse</strong> or <strong>re-import</strong> your script (Import / Paste). Names must be in screenplay format (ALL CAPS cue lines or <em>Name: dialogue</em>).</div>'+listHtml;
+    listHtml='<div class="callout"><strong>Characters empty</strong> — click <strong>↻ Sync from parse</strong> or <strong>re-import</strong> your script (Import / Paste). Names must be in screenplay format (ALL CAPS cue lines or <em>Name: dialogue</em>).</div>'+listHtml;
   }
   $('charListPanel').innerHTML=listHtml;
   $('charListPanel').querySelectorAll('.char-card').forEach(el=>{
@@ -1195,6 +1318,7 @@ function renderCharEditor(){
       save();
     };
   });
+  const gen=$('btnGenPortrait');if(gen)gen.onclick=()=>generateCharPortrait(state.selectedChar);
   const up=$('btnUploadRef');if(up)up.onclick=()=>uploadRef(state.selectedChar);
   const clr=$('btnClearRef');if(clr)clr.onclick=()=>{pushHistory();c.refUrl=null;save();renderCharacters()};
   const del=$('btnDeleteChar');if(del)del.onclick=()=>deleteCharacter(state.selectedChar);
@@ -1204,6 +1328,43 @@ function renderCharEditor(){
 async function hostRefImage(fileOrDataUrl,path){
   if(!window.SBStorage||!SBStorage.ready())throw new Error('Image hosting unavailable — refresh the page (Storage SDK missing)');
   return SBStorage.uploadDataUrl(fileOrDataUrl,path);
+}
+
+// In-timeline AI reference generation (ports app.html's Character Studio here) —
+// generate_picture returns a hosted https URL synchronously.
+async function generatePicture(opts){
+  const r=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:await hdrs(),body:JSON.stringify(Object.assign({action:'generate_picture',model:'nano-banana-pro'},opts))});
+  const d=await r.json();
+  if(!r.ok||!d.url)throw new Error(d.detail||d.error||'Image generation failed');
+  return d.url;
+}
+async function generateCharPortrait(name){
+  const c=state.characters[name];if(!c)return;
+  if(!curUser)return toast('Sign in to generate');
+  const desc=(c.description||'').trim();
+  if(!desc)return toast('Add a description first — the portrait is generated from it');
+  toast('Generating portrait for '+name+'…');
+  try{
+    const url=await generatePicture({
+      type:'character',name,
+      desc:'Character reference portrait, front view, chest-up, neutral expression, even soft lighting, plain dark backdrop. '+desc+(c.wardrobe?' Wearing: '+c.wardrobe+'.':''),
+      aspect_ratio:'2:3'
+    });
+    pushHistory();c.refUrl=url;save();renderCharacters();toast('Portrait locked for '+name);
+  }catch(e){toast(e.message)}
+}
+async function generateLocPlate(locKey){
+  const loc=(state.locationBible||[]).find(l=>l.key===locKey);if(!loc)return;
+  if(!curUser)return toast('Sign in to generate');
+  toast('Generating plate for '+loc.name+'…');
+  try{
+    const url=await generatePicture({
+      type:'location',name:loc.name,
+      desc:'Location reference plate, wide establishing view, no people. '+(loc.description||loc.name)+(loc.consistencyPhrase?' '+loc.consistencyPhrase:''),
+      aspect_ratio:'16:9'
+    });
+    pushHistory();loc.plateUrl=url;loc.locked=true;save();renderLocations();toast('Plate locked for '+loc.name);
+  }catch(e){toast(e.message)}
 }
 async function uploadRef(name){
   const inp=document.createElement('input');inp.type='file';inp.accept='image/*';
@@ -1221,8 +1382,7 @@ function renderLocations(){
     (bible.length?'<div class="loc-grid">'+bible.map(l=>'<div class="loc-card'+(state.selectedLoc===l.key?' selected':'')+'" data-key="'+esc(l.key)+'"><div class="loc-name">'+esc(l.name)+'</div><div class="loc-meta">'+(l.clipIndices||[]).length+' clips</div></div>').join('')+'</div>':
     '<div class="empty-hint">No locations — click ↻ Sync from clips</div>');
   if(!bible.length&&state.clips.length){
-    listHtml='<div style="padding:10px 12px;margin-bottom:10px;background:rgba(212,168,67,.08);border:1px solid rgba(212,168,67,.35);border-radius:8px;font-size:12px;line-height:1.5;color:var(--text2)">'+
-      '<strong style="color:var(--gold)">No locations yet</strong> — click <strong>↻ Sync from clips</strong> (scene headings from your parse).</div>'+listHtml;
+    listHtml='<div class="callout"><strong>No locations yet</strong> — click <strong>↻ Sync from clips</strong> (scene headings from your parse).</div>'+listHtml;
   }
   const listEl=$('locListPanel');
   if(listEl){
@@ -1255,6 +1415,7 @@ function renderLocEditor(){
     }
     el.oninput=el.onchange=()=>{loc[k]=el.value;save();const pr=$('d-prompt');if(pr&&state.selectedId){const c=state.clips.find(x=>x.id===state.selectedId);if(c)pr.value=buildPrompt(c)}};
   });
+  const genP=$('btnGenLocPlate');if(genP)genP.onclick=()=>generateLocPlate(state.selectedLoc);
   const up=$('btnUploadLocPlate');if(up)up.onclick=()=>uploadLocPlate(state.selectedLoc);
   const clr=$('btnClearLocPlate');if(clr)clr.onclick=()=>{pushHistory();loc.plateUrl=null;save();renderLocations();toast('Plate removed')};
 }
@@ -1800,14 +1961,11 @@ function bindUI(){
   };
   $('btnImport').onclick=()=>$('fileInput').click();
   $('btnPaste').onclick=()=>{openScriptPanel();toast('Paste screenplay here, then Re-parse timeline')};
-  const btnScript=$('btnScript');
-  if(btnScript)btnScript.onclick=openScriptPanel;
-  const btnOpenScript=$('btnOpenScript');
-  if(btnOpenScript)btnOpenScript.onclick=openScriptPanel;
-  const btnBarImport=$('btnBarImport');
-  if(btnBarImport)btnBarImport.onclick=()=>$('fileInput').click();
-  const btnBarReparse=$('btnBarReparse');
-  if(btnBarReparse)btnBarReparse.onclick=()=>reparseScriptFromEditor().catch(e=>toast(e.message));
+  document.querySelectorAll('#stepper .step').forEach(el=>{
+    el.onclick=()=>gotoStep(el.dataset.step);
+  });
+  const gateBtn=$('authGateBtn');
+  if(gateBtn)gateBtn.onclick=()=>{$('loginOverlay').classList.remove('hidden');const em=$('loginEmail');if(em)em.focus()};
   const btnCloseScript=$('btnCloseScript');
   if(btnCloseScript)btnCloseScript.onclick=closeScriptPanel;
   const scriptModal=$('scriptModal');
@@ -1920,9 +2078,9 @@ function bindUI(){
   }
   renderAll();
   try{
-    if(!localStorage.getItem('SB_Timeline_script_hint_v2')){
-      localStorage.setItem('SB_Timeline_script_hint_v2','1');
-      setTimeout(()=>toast('Screenplay: gold ✎ Script (top) or yellow bar under Settings'),1200);
+    if(!localStorage.getItem('SB_Timeline_script_hint_v3')){
+      localStorage.setItem('SB_Timeline_script_hint_v3','1');
+      setTimeout(()=>toast('Follow the steps: 1 Script → 2 Cast & Locations → 3 Generate → 4 Edit & Export'),1200);
     }
   }catch(e){}
 }
