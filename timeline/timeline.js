@@ -1305,9 +1305,16 @@ function renderCharacters(){
   renderCharEditor();
 }
 function renderCharEditor(){
-  $('charEditorPanel').innerHTML=SBCharacters.renderEditor(state.selectedChar,state.selectedChar?state.characters[state.selectedChar]:null);
+  let html=SBCharacters.renderEditor(state.selectedChar,state.selectedChar?state.characters[state.selectedChar]:null);
+  if(state.selectedChar&&window.SBRefKit){
+    // Kit strip slots in before the action buttons (end of the editor card).
+    html=html.replace('<button type="button" class="tb-btn gold" id="btnGenPortrait">',SBRefKit.renderCharKitHtml(state.characters[state.selectedChar])+'<button type="button" class="tb-btn gold" id="btnGenPortrait">');
+  }
+  $('charEditorPanel').innerHTML=html;
   if(!state.selectedChar)return;
   const c=state.characters[state.selectedChar];
+  const kitBtn=$('btnBuildCharKit');if(kitBtn)kitBtn.onclick=()=>buildCharKit(state.selectedChar);
+  $('charEditorPanel').querySelectorAll('.kit-regen').forEach(b=>{b.onclick=()=>regenCharKitView(state.selectedChar,b.dataset.kitView)});
   $('charEditorPanel').querySelectorAll('[data-k]').forEach(el=>{
     const k=el.dataset.k;
     if(el.classList.contains('toggle')){el.onclick=()=>{pushHistory();c[k]=!c[k];el.classList.toggle('on',c[k]);save();renderCharacters()};return}
@@ -1366,6 +1373,43 @@ async function generateLocPlate(locKey){
     pushHistory();loc.plateUrl=url;loc.locked=true;save();renderLocations();toast('Plate locked for '+loc.name);
   }catch(e){toast(e.message)}
 }
+
+/* ── reference kits (turnarounds / angle plates via SBRefKit) ── */
+async function buildCharKit(name){
+  const c=state.characters[name];if(!c||!window.SBRefKit)return;
+  if(!curUser)return toast('Sign in to generate');
+  if(!(c.description||'').trim())return toast('Add a description first — the kit is generated from it');
+  toast('Building reference kit for '+name+' (4 views)…');
+  try{
+    await SBRefKit.buildCharacterKit(name,c,generatePicture,(view)=>{save();renderCharacters();toast(name+': '+view+' ready')});
+    c.lockMethod='kit';save();renderCharacters();
+    toast('Reference kit complete — '+name+' now locks per shot type');
+  }catch(e){save();renderCharacters();toast(e.message)}
+}
+async function buildLocKit(locKey){
+  const loc=(state.locationBible||[]).find(l=>l.key===locKey);if(!loc||!window.SBRefKit)return;
+  if(!curUser)return toast('Sign in to generate');
+  toast('Building location kit for '+loc.name+' (3 angles)…');
+  try{
+    await SBRefKit.buildLocationKit(loc,generatePicture,(view)=>{save();renderLocations();toast(loc.name+': '+view+' ready')});
+    loc.locked=true;save();renderLocations();
+    toast('Location kit complete for '+loc.name);
+  }catch(e){save();renderLocations();toast(e.message)}
+}
+async function regenCharKitView(name,view){
+  const c=state.characters[name];if(!c||!window.SBRefKit)return;
+  if(!curUser)return toast('Sign in to generate');
+  toast('Regenerating '+view+'…');
+  try{await SBRefKit.regenerateCharView(name,c,view,generatePicture);save();renderCharacters();toast(view+' updated')}
+  catch(e){toast(e.message)}
+}
+async function regenLocKitView(locKey,view){
+  const loc=(state.locationBible||[]).find(l=>l.key===locKey);if(!loc||!window.SBRefKit)return;
+  if(!curUser)return toast('Sign in to generate');
+  toast('Regenerating '+view+'…');
+  try{await SBRefKit.regenerateLocView(loc,view,generatePicture);save();renderLocations();toast(view+' updated')}
+  catch(e){toast(e.message)}
+}
 async function uploadRef(name){
   const inp=document.createElement('input');inp.type='file';inp.accept='image/*';
   inp.onchange=async()=>{const f=inp.files[0];if(!f)return;try{
@@ -1405,8 +1449,14 @@ function renderLocEditor(){
     return;
   }
   const loc=state.selectedLoc?(state.locationBible||[]).find(l=>l.key===state.selectedLoc):null;
-  panel.innerHTML=SBLocations.renderEditor(state.selectedLoc,loc);
+  let locHtml=SBLocations.renderEditor(state.selectedLoc,loc);
+  if(loc&&window.SBRefKit){
+    locHtml=locHtml.replace('<button type="button" class="tb-btn gold" id="btnGenLocPlate">',SBRefKit.renderLocKitHtml(loc)+'<button type="button" class="tb-btn gold" id="btnGenLocPlate">');
+  }
+  panel.innerHTML=locHtml;
   if(!loc)return;
+  const kitBtn=$('btnBuildLocKit');if(kitBtn)kitBtn.onclick=()=>buildLocKit(state.selectedLoc);
+  panel.querySelectorAll('.kit-regen').forEach(b=>{b.onclick=()=>regenLocKitView(state.selectedLoc,b.dataset.kitView)});
   panel.querySelectorAll('[data-k]').forEach(el=>{
     const k=el.dataset.k;
     if(el.classList.contains('toggle')){

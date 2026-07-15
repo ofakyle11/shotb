@@ -2,15 +2,22 @@
 window.SBCharacters = (function () {
   const DEFAULTS = {
     description: '', refUrl: null, faceLock: false, bodyType: 'Average',
-    wardrobe: '', voice: 'Natural', lipSync: true, emotion: 'Neutral', lockMethod: 'ip-adapter',
+    wardrobe: '', voice: 'Natural', lipSync: true, emotion: 'Neutral', lockMethod: 'photo',
     role: 'lead'
   };
+
+  // lockMethod was a dead ip-adapter|lora dropdown; it now actually drives the
+  // resolver: kit (turnaround view by shot type) | photo (single ref) | text.
+  const LOCK_MIGRATE = { 'ip-adapter': 'photo', lora: 'kit' };
 
   function normalize (raw) {
     const out = {};
     Object.entries(raw || {}).forEach(([name, val]) => {
       if (typeof val === 'string') out[name] = { ...DEFAULTS, description: val };
       else out[name] = { ...DEFAULTS, ...val };
+      const lm = out[name].lockMethod;
+      if (LOCK_MIGRATE[lm]) out[name].lockMethod = LOCK_MIGRATE[lm];
+      if (['kit', 'photo', 'text'].indexOf(out[name].lockMethod) < 0) out[name].lockMethod = 'photo';
     });
     return out;
   }
@@ -416,7 +423,11 @@ window.SBCharacters = (function () {
       field('Cast role', 'role', 'select', c.role || 'lead', ['lead', 'supporting', 'background', 'crowd', 'voice_only']) +
       '<div class="field"><label><span>Face lock (I2V)</span><span class="toggle' + (c.faceLock ? ' on' : '') + '" data-k="faceLock"></span></label></div>' +
       '<div class="field"><label><span>Lip-sync enable</span><span class="toggle' + (c.lipSync ? ' on' : '') + '" data-k="lipSync"></span></label></div>' +
-      '<div class="field"><label>Lock method</label><select data-k="lockMethod"><option value="ip-adapter"' + (c.lockMethod === 'ip-adapter' ? ' selected' : '') + '>IP-Adapter</option><option value="lora"' + (c.lockMethod === 'lora' ? ' selected' : '') + '>LoRA</option></select></div>' +
+      '<div class="field"><label>Identity lock</label><select data-k="lockMethod">' +
+        '<option value="kit"' + (c.lockMethod === 'kit' ? ' selected' : '') + '>Reference kit (view per shot type)</option>' +
+        '<option value="photo"' + (c.lockMethod === 'photo' || !c.lockMethod ? ' selected' : '') + '>Single photo</option>' +
+        '<option value="text"' + (c.lockMethod === 'text' ? ' selected' : '') + '>Text only (no image ref)</option>' +
+      '</select></div>' +
       (c.refUrl ? '<div class="ref-preview"><img src="' + esc(c.refUrl) + '" alt="ref"></div>' : '') +
       (c.refUrl && String(c.refUrl).indexOf('data:') === 0 ? '<div class="hint-chip gold">⚠ This reference is a stale data URL and never reaches providers — re-upload or regenerate it.</div>' : '') +
       '<button type="button" class="tb-btn gold" id="btnGenPortrait">✨ Generate portrait</button> ' +

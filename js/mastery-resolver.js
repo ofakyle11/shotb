@@ -299,6 +299,7 @@
     var names = (clip.characters || []).filter(Boolean);
     var charRefs = [];
     var promptBits = [];
+    var shotType = clip.shotType || (clip.params && clip.params.camera && clip.params.camera.angle) || '';
 
     names.forEach(function (n) {
       var c = chars[n];
@@ -309,8 +310,14 @@
       }
       if (role === 'voice_only') return;
       var url = null;
-      if (c && c.faceLock && isHttpsUrl(c.refUrl)) url = c.refUrl;
-      else if (c && isHttpsUrl(c.refUrl)) url = c.refUrl;
+      var lock = (c && c.lockMethod) || 'photo';
+      if (lock !== 'text') {
+        // Kit lock: pick the turnaround view matching this clip's shot type.
+        if (lock === 'kit' && c && c.kit && window.SBRefKit) {
+          url = window.SBRefKit.pickCharKitImage(c, shotType);
+        }
+        if (!url && c && isHttpsUrl(c.refUrl)) url = c.refUrl;
+      }
       charRefs.push({ name: n, url: url, role: role });
       if (c && c.description) promptBits.push(n + ': ' + c.description.slice(0, 120));
     });
@@ -326,7 +333,8 @@
     var key = meta.key || normalizeLocationKey(String(locName).replace(/^\s*(INT\.|EXT\.)\s+/i, ''));
     var locEntry = bible.find(function (l) { return l.key === key; });
     if (locEntry && locEntry.locked) {
-      if (isHttpsUrl(locEntry.plateUrl)) locUrl = locEntry.plateUrl;
+      if (locEntry.kit && window.SBRefKit) locUrl = window.SBRefKit.pickLocKitImage(locEntry, shotType);
+      if (!locUrl && isHttpsUrl(locEntry.plateUrl)) locUrl = locEntry.plateUrl;
       if (locEntry.consistencyPhrase) {
         promptBits.unshift('Location: ' + locEntry.consistencyPhrase);
       } else if (locEntry.description) {
