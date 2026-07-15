@@ -330,6 +330,26 @@ function isSeedanceModel(modelId) {
   return (modelId || '').toLowerCase().includes('seedance');
 }
 
+function isViduModel(modelId) {
+  return (modelId || '').toLowerCase().includes('vidu');
+}
+
+function clampViduDuration(d) {
+  const n = Number(d) || 5;
+  return Math.min(16, Math.max(2, Math.round(n)));
+}
+
+function clampViduResolution(res) {
+  if (res === '1080p' || res === '480p') return res;
+  return '720p';
+}
+
+function normalizeSeed(seed) {
+  const n = Number(seed);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.floor(n) % 2147483647;
+}
+
 function clampVeoDuration(d) {
   const allowed = [4, 6, 8];
   const n = Number(d) || 8;
@@ -345,24 +365,27 @@ function clampVeoResolution(res) {
   return res === '1080p' ? '1080p' : '720p';
 }
 
-function collectRefImageUrls(fields) {
+// Ordered ref set for multi-image models. ref_strategy 'identity' leads with the
+// canonical character/location refs (block boundaries); default 'chain' leads with
+// the previous clip's end frame (mid-block motion continuity).
+function collectRefImageUrls(fields, maxRefs) {
+  const cap = Math.max(1, Math.min(7, maxRefs || 3));
+  const refs = Array.isArray(fields.reference_images) ? fields.reference_images : [];
+  const ordered = fields.ref_strategy === 'identity'
+    ? [fields.character_image_url, fields.location_image_url, ...refs, fields.prev_frame_image_url]
+    : [fields.prev_frame_image_url, fields.character_image_url, fields.location_image_url, ...refs];
   const urls = [];
-  if (fields.character_image_url && isSafeUrl(fields.character_image_url)) {
-    urls.push(fields.character_image_url);
+  for (const r of ordered) {
+    if (r && isSafeUrl(r) && !isVideoUrl(r) && !urls.includes(r)) urls.push(r);
   }
-  if (fields.location_image_url && isSafeUrl(fields.location_image_url) && !urls.includes(fields.location_image_url)) {
-    urls.push(fields.location_image_url);
-  }
-  if (Array.isArray(fields.reference_images)) {
-    for (const r of fields.reference_images) {
-      if (r && isSafeUrl(r) && !urls.includes(r)) urls.push(r);
-    }
-  }
-  if (!urls.length) {
-    const primary = pickRefImageUrl(fields);
-    if (primary) urls.push(primary);
-  }
-  return urls.slice(0, 3);
+  return urls.slice(0, cap);
+}
+
+function maxRefsForModel(modelId) {
+  const m = (modelId || '').toLowerCase();
+  if (m.includes('vidu')) return 4;
+  if (m.includes('grok')) return 7;
+  return 3;
 }
 
 function getKlingTier(modelId) {
@@ -411,12 +434,12 @@ function isVideoUrl(url) {
 }
 
 function pickRefImageUrl(body) {
-  const candidates = [
-    body.prev_frame_image_url,
-    body.character_image_url,
-    body.location_image_url,
-    ...(Array.isArray(body.reference_images) ? body.reference_images : []),
-  ];
+  const refs = Array.isArray(body.reference_images) ? body.reference_images : [];
+  // 'identity' puts the canonical character ref first (block boundaries);
+  // default 'chain' keeps prev-frame first (mid-block continuity).
+  const candidates = body.ref_strategy === 'identity'
+    ? [body.character_image_url, body.location_image_url, ...refs, body.prev_frame_image_url]
+    : [body.prev_frame_image_url, body.character_image_url, body.location_image_url, ...refs];
   for (const r of candidates) {
     if (r && isSafeUrl(r) && !isVideoUrl(r)) return r;
   }
@@ -451,6 +474,10 @@ function getWaveSpeedPath(modelId, hasRefImage = false) {
       ? 'google/veo3.1-fast/reference-to-video'
       : 'google/veo3.1/text-to-video';
   }
+  if (m.includes('vidu')) {
+    // Vidu Q3 — multi-entity consistency from 1-4 reference images.
+    return hasRefImage ? 'vidu/q3/reference-to-video' : 'vidu/q3/text-to-video';
+  }
   // photo models that go WS
   if (m.includes('nano-banana')) return 'wavespeed-ai/' + (m.includes('pro') ? 'nano-banana-pro' : 'nano-banana');
   if (m.includes('gpt-image') || m.includes('gpt-2.0')) return 'openai/gpt-image-2';
@@ -460,7 +487,8 @@ function getWaveSpeedPath(modelId, hasRefImage = false) {
 
 function buildWaveSpeedBody(videoModel, fields, hasRef) {
   const refUrl = pickRefImageUrl(fields);
-  const refUrls = collectRefImageUrls(fields);
+  const refUrls = collectRefImageUrls(fields, maxRefsForModel(videoModel));
+  const seed = normalizeSeed(fields.seed);
 
   if (isKlingModel(videoModel)) {
     const wsBody = {
@@ -515,6 +543,7 @@ function buildWaveSpeedBody(videoModel, fields, hasRef) {
     } else {
       wsBody.aspect_ratio = fields.aspect_ratio || '16:9';
     }
+    if (seed !== null) wsBody.seed = seed;
     if (fields.negative_prompt) wsBody.negative_prompt = sanitizeField(fields.negative_prompt, 500);
     return wsBody;
   }
@@ -533,6 +562,20 @@ function buildWaveSpeedBody(videoModel, fields, hasRef) {
     } else if (refUrls.length) {
       wsBody.reference_images = refUrls;
     }
+    if (seed !== null) wsBody.seed = seed;
+    return wsBody;
+  }
+
+  if (isViduModel(videoModel)) {
+    const wsBody = {
+      prompt: fields.prompt,
+      duration: clampViduDuration(fields.duration),
+      resolution: clampViduResolution(fields.resolution),
+      aspect_ratio: fields.aspect_ratio || '16:9',
+    };
+    // Multi-entity consistency: Vidu Q3 blends 1-4 refs (characters, wardrobe, props, location).
+    if (hasRef && refUrls.length) wsBody.images = refUrls.slice(0, 4);
+    if (seed !== null) wsBody.seed = seed;
     return wsBody;
   }
 
@@ -542,6 +585,7 @@ function buildWaveSpeedBody(videoModel, fields, hasRef) {
     aspect_ratio: fields.aspect_ratio || '16:9',
     ...(fields.resolution && { resolution: fields.resolution }),
     ...(refUrl && { image: refUrl }),
+    ...(seed !== null && { seed }),
     ...(fields.shotKey && { shot_key: fields.shotKey }),
     ...(fields.location && { location_context: fields.location }),
   };
@@ -829,21 +873,14 @@ exports.handler = async function (event) {
     });
   }
 
-  // Upload stub so per-shot char photos (data URLs from +Add) can be turned into usable refs.
-  // In a real deploy you would push to S3 / signed URL / bucket and return a public https.
-  // For now we echo a usable marker; client local fallbacks consume data: or http equally.
+  // upload_image previously echoed the data: URL back as "hosted", which the
+  // resolvers then silently dropped (https-only) — so uploaded refs never reached
+  // providers. Clients now upload straight to Firebase Storage (js/sb-storage.js).
   if (action === 'upload_image') {
-    const dataUrl = body.image_data_url || body.data_url;
-    const fname = body.filename || 'ref.jpg';
-    if (!dataUrl) {
-      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'image_data_url required' }) };
-    }
-    // Demo: return the original data as "hosted" for local coherence; in prod replace with real upload.
-    return {
-      statusCode: 200,
-      headers: CORS,
-      body: JSON.stringify({ url: dataUrl, filename: fname, note: 'demo-echo (use real bucket in prod for permanent https refs to WaveSpeed)' })
-    };
+    return jsonResponse(event, 501, {
+      error: 'upload_image is no longer supported',
+      detail: 'Upload reference images from the client via Firebase Storage (SBStorage.uploadDataUrl) so providers get a permanent https URL.'
+    });
   }
 
   if (action === 'submit') {
@@ -915,6 +952,7 @@ exports.handler = async function (event) {
           character_image_url,
           location_image_url: body.location_image_url,
           reference_images: body.reference_images,
+          ref_strategy: body.ref_strategy,
         });
         const grokRes = await submitGrokImagineVideo({
           prompt: finalPrompt,
@@ -929,7 +967,7 @@ exports.handler = async function (event) {
           note: 'Direct via XAI Grok Imagine'
         });
       } else if (isSoraAIVideo) {
-        const refUrl = pickRefImageUrl({ character_image_url, reference_images: body.reference_images });
+        const refUrl = pickRefImageUrl({ prev_frame_image_url: body.prev_frame_image_url, character_image_url, reference_images: body.reference_images, ref_strategy: body.ref_strategy });
         const avRes = await submitAIVideoAPISora({
           prompt: finalPrompt,
           duration,
@@ -943,7 +981,7 @@ exports.handler = async function (event) {
           note: 'Sora 2 via aivideoapi.ai (AIVIDEOAPI_API_KEY)',
         });
       } else if (isSoraDirect) {
-        const refUrl = pickRefImageUrl({ character_image_url, reference_images: body.reference_images });
+        const refUrl = pickRefImageUrl({ prev_frame_image_url: body.prev_frame_image_url, character_image_url, reference_images: body.reference_images, ref_strategy: body.ref_strategy });
         const openaiRes = await submitOpenAIVideo({
           prompt: finalPrompt,
           duration,
@@ -958,22 +996,26 @@ exports.handler = async function (event) {
           note: 'Direct via OpenAI Sora API (OPENAI_API_KEY)',
         });
       } else {
-        // WaveSpeed for all other video models (Seedance 2.0 Turbo, Wan 2.7, Sora 2, Veo 3.1, Kling 3.0 Pro, etc.)
+        // WaveSpeed for all other video models (Seedance 2.0 Turbo, Wan 2.7, Sora 2, Veo 3.1, Vidu Q3, Kling 3.0 Pro, etc.)
         // User-selected resolution/duration/aspect/refs forwarded as-is (no client pre-filtering).
-        const refUrl = pickRefImageUrl({ character_image_url, reference_images: body.reference_images });
-        const hasRef = !!refUrl;
-        const wsPath = '/api/v3/' + getWaveSpeedPath(videoModel, hasRef);
-        const wavespeedBody = buildWaveSpeedBody(videoModel, {
+        const refFields = {
           prompt: finalPrompt,
           duration,
           aspect_ratio,
           resolution: body.resolution,
-          character_image_url: refUrl || character_image_url,
+          character_image_url,
+          location_image_url: body.location_image_url,
+          prev_frame_image_url: body.prev_frame_image_url,
           reference_images: body.reference_images,
+          ref_strategy: body.ref_strategy,
+          seed: body.seed,
           shotKey,
           location,
           negative_prompt: body.negative_prompt,
-        }, hasRef);
+        };
+        const hasRef = !!pickRefImageUrl(refFields);
+        const wsPath = '/api/v3/' + getWaveSpeedPath(videoModel, hasRef);
+        const wavespeedBody = buildWaveSpeedBody(videoModel, refFields, hasRef);
         const result = await callWaveSpeed(wsPath, wavespeedBody);
         const rid = (result.data && result.data.id) || result.id || result.request_id || null;
         const apiOk = result && result.httpStatus < 400 && (!result.code || result.code === 200) && rid;

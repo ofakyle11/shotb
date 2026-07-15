@@ -258,15 +258,23 @@
     };
   }
 
-  function enrichPrompt(basePrompt, mastery) {
+  function enrichPrompt(basePrompt, mastery, opts) {
     var base = String(basePrompt || '').trim();
+    var maxChars = (opts && opts.maxChars) || 900;
     var adds = (mastery && mastery.promptAdditions) || [];
     if (!adds.length) return base;
     var block = adds.join('. ').replace(/\s+/g, ' ').trim();
     if (!block) return base;
     if (base.toLowerCase().indexOf(block.toLowerCase().slice(0, 40)) >= 0) return base;
     var merged = (base + ' ' + block).replace(/\s+/g, ' ').trim();
-    return merged.length > 900 ? merged.slice(0, 897) + '...' : merged;
+    return merged.length > maxChars ? merged.slice(0, maxChars - 3) + '...' : merged;
+  }
+
+  /* Longer prompt budget for models that handle detailed direction well. */
+  function promptBudgetForModel(model) {
+    var m = String(model || '').toLowerCase();
+    if (m.indexOf('veo') >= 0 || m.indexOf('kling') >= 0 || m.indexOf('seedance') >= 0 || m.indexOf('vidu') >= 0) return 2000;
+    return 900;
   }
 
   function applyToSubmitBody(body, mastery) {
@@ -283,9 +291,10 @@
     return body;
   }
 
-  function resolveForTimeline(state, clip) {
+  function resolveForTimeline(state, clip, opts) {
     state = state || {};
     clip = clip || {};
+    var maxRefs = Math.max(1, Math.min(7, (opts && opts.maxRefs) || 3));
     var chars = state.characters || {};
     var names = (clip.characters || []).filter(Boolean);
     var charRefs = [];
@@ -334,7 +343,7 @@
     return {
       character_image_url: charRefs.length && charRefs[0].url ? charRefs[0].url : null,
       location_image_url: locUrl,
-      reference_images: reference_images.slice(0, 3),
+      reference_images: reference_images.slice(0, maxRefs),
       promptAdditions: promptBits,
       characterRefs: charRefs,
       locationRef: locEntry || null
@@ -352,6 +361,7 @@
     resolveShotMastery: resolveShotMastery,
     resolveForTimeline: resolveForTimeline,
     enrichPrompt: enrichPrompt,
+    promptBudgetForModel: promptBudgetForModel,
     applyToSubmitBody: applyToSubmitBody,
     inferCharRole: inferCharRole
   };

@@ -36,7 +36,14 @@ function redo(){if(!history.future.length)return;history.past.push(snapshot());r
 function updateUndo(){if($('btnUndo'))$('btnUndo').disabled=!history.past.length;if($('btnRedo'))$('btnRedo').disabled=!history.future.length}
 
 function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({clips:state.clips,characters:state.characters,locationBible:state.locationBible,global:state.global,assembly:state.assembly,parseResult:state.parseResult,projectName:state.projectName,scriptText:state.scriptText}))}catch(e){}}
-function load(){try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(!d)return;if(d.clips)state.clips=d.clips;if(d.characters)state.characters=SBCharacters.normalize(d.characters);if(d.locationBible)state.locationBible=d.locationBible;if(d.global)Object.assign(state.global,d.global);if(d.assembly)Object.assign(state.assembly,d.assembly);if(d.parseResult)state.parseResult=d.parseResult;if(d.projectName)state.projectName=d.projectName;if(d.scriptText)state.scriptText=d.scriptText;state.clips.forEach(ensureClip)}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(!d)return;if(d.clips)state.clips=d.clips;if(d.characters)state.characters=SBCharacters.normalize(d.characters);if(d.locationBible)state.locationBible=d.locationBible;if(d.global)Object.assign(state.global,d.global);if(d.assembly)Object.assign(state.assembly,d.assembly);if(d.parseResult)state.parseResult=d.parseResult;if(d.projectName)state.projectName=d.projectName;if(d.scriptText)state.scriptText=d.scriptText;state.clips.forEach(ensureClip);warnStaleRefs()}catch(e){}}
+// Legacy demo-echo uploads left data: URLs in saved projects — those never reach providers.
+function warnStaleRefs(){
+  try{
+    const n=(window.SBStorage&&SBStorage.countStaleRefs)?SBStorage.countStaleRefs(state):0;
+    if(n)setTimeout(()=>toast(n+' reference image'+(n>1?'s are':' is')+' stored as data URL and never reach'+(n>1?'':'es')+' the video providers — re-upload in Characters/Locations'),1500);
+  }catch(e){}
+}
 
 function ensureClip(c){
   const sceneDef={on:{location:1,timeOfDay:1,weather:0,season:0},location:'',timeOfDay:'Day',weather:'Clear',season:'Summer'};
@@ -1192,13 +1199,18 @@ function renderCharEditor(){
   const clr=$('btnClearRef');if(clr)clr.onclick=()=>{pushHistory();c.refUrl=null;save();renderCharacters()};
   const del=$('btnDeleteChar');if(del)del.onclick=()=>deleteCharacter(state.selectedChar);
 }
+// Refs must land on real https hosting (Firebase Storage) — the resolvers drop
+// data: URLs, so anything short of a hosted URL never reaches the video providers.
+async function hostRefImage(fileOrDataUrl,path){
+  if(!window.SBStorage||!SBStorage.ready())throw new Error('Image hosting unavailable — refresh the page (Storage SDK missing)');
+  return SBStorage.uploadDataUrl(fileOrDataUrl,path);
+}
 async function uploadRef(name){
   const inp=document.createElement('input');inp.type='file';inp.accept='image/*';
   inp.onchange=async()=>{const f=inp.files[0];if(!f)return;try{
-    const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});
-    const r=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:await hdrs(),body:JSON.stringify({action:'upload_image',image_data_url:dataUrl,filename:f.name})});
-    const d=await r.json();if(!r.ok||!d.url)throw new Error(d.error||'Upload failed');
-    pushHistory();state.characters[name].refUrl=d.url;save();renderCharacters();toast('Reference locked for '+name);
+    toast('Uploading reference…');
+    const url=await hostRefImage(f,'refs/char-'+name);
+    pushHistory();state.characters[name].refUrl=url;save();renderCharacters();toast('Reference locked for '+name);
   }catch(e){toast(e.message)}};
   inp.click();
 }
@@ -1251,10 +1263,9 @@ async function uploadLocPlate(locKey){
   if(!loc)return toast('Select a location first');
   const inp=document.createElement('input');inp.type='file';inp.accept='image/*';
   inp.onchange=async()=>{const f=inp.files[0];if(!f)return;try{
-    const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)});
-    const r=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:await hdrs(),body:JSON.stringify({action:'upload_image',image_data_url:dataUrl,filename:f.name})});
-    const d=await r.json();if(!r.ok||!d.url)throw new Error(d.error||'Upload failed');
-    pushHistory();loc.plateUrl=d.url;loc.locked=true;save();renderLocations();toast('Location plate set for '+loc.name);
+    toast('Uploading plate…');
+    const url=await hostRefImage(f,'refs/loc-'+locKey);
+    pushHistory();loc.plateUrl=url;loc.locked=true;save();renderLocations();toast('Location plate set for '+loc.name);
   }catch(e){toast(e.message)}};
   inp.click();
 }
@@ -1557,9 +1568,7 @@ function duplicateClip(){
   state.clips.push(c);state.selectedId=c.id;save();renderAll();toast('Duplicated');
 }
 
-async function extractVideoEndFrame(videoUrl){
-  const src=String(videoUrl||'');
-  if(!src)return null;
+function grabVideoFrame(src,atSecondsFromEnd){
   return new Promise((resolve)=>{
     const v=document.createElement('video');
     v.muted=true;
@@ -1579,7 +1588,7 @@ async function extractVideoEndFrame(videoUrl){
       }catch(_){finish(null)}
     };
     v.addEventListener('loadedmetadata',()=>{
-      const t=Math.max(0,(v.duration||4)-0.12);
+      const t=Math.max(0,(v.duration||4)-(atSecondsFromEnd||0.12));
       v.currentTime=Number.isFinite(t)?t:0;
     });
     v.addEventListener('seeked',grab);
@@ -1589,11 +1598,43 @@ async function extractVideoEndFrame(videoUrl){
   });
 }
 
+async function extractVideoEndFrame(videoUrl){
+  const src=String(videoUrl||'');
+  if(!src)return null;
+  const direct=await grabVideoFrame(src,0.12);
+  if(direct)return direct;
+  // Provider CDNs without CORS headers taint the canvas — retry via the
+  // same-origin streaming proxy so the grab succeeds.
+  if(src.startsWith('https://')){
+    return grabVideoFrame('/.netlify/functions/proxy-media?url='+encodeURIComponent(src),0.12);
+  }
+  return null;
+}
+
 async function resolvePrevClipFrameRef(state,clipIndex){
   if(clipIndex==null||clipIndex<1||!state.clips[clipIndex])return null;
   const prev=state.clips[clipIndex-1];
   if(!prev||!prev.videoUrl)return null;
-  return extractVideoEndFrame(prev.videoUrl);
+  const frame=await extractVideoEndFrame(prev.videoUrl);
+  if(!frame){
+    toast('Continuity: could not read end frame of clip '+(prev.num||clipIndex)+' — chain weakened');
+    return null;
+  }
+  // Host the frame so providers get a small https URL instead of a multi-MB data URI.
+  try{
+    if(window.SBStorage&&SBStorage.ready()&&curUser){
+      return await SBStorage.uploadDataUrl(frame,'frames/'+(prev.id||('clip-'+(prev.num||clipIndex))));
+    }
+  }catch(_){/* fall through — server still accepts data:image/ URLs under 6MB */}
+  return frame;
+}
+
+// Deterministic 31-bit seed (FNV-1a) so retries are reproducible and A/B-able.
+function stableSeed(str){
+  let h=0x811c9dc5;
+  const s=String(str||'');
+  for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)}
+  return (h>>>0)%2147483647;
 }
 
 async function runJob(clip){
@@ -1608,27 +1649,30 @@ async function runJob(clip){
     const pollModel=vs?vs.model:state.global.model;
     const pollProv=vs?vs.provider:((typeof window.inferVideoProvider==='function')?window.inferVideoProvider(pollModel):(pollModel&&pollModel.includes('grok')?'grok-imagine':pollModel&&pollModel.includes('sora')?'aivideoapi':'wavespeed'));
     const body={action:'submit',model:pollModel,prompt,duration:dur,aspect_ratio:asp,resolution:vs?vs.resolution:(state.global.quality||'720p'),provider:pollProv};
+    // Deterministic seed: same clip + retry count → same request params (Wan/Seedance/Vidu honor it).
+    body.seed=stableSeed(state.projectName+'|'+clip.id+'|'+(clip.retryCount||0));
+    const modelCfg=(typeof window.getModelConfig==='function')?window.getModelConfig(pollModel,true):{};
+    const maxRefs=Math.max(1,Math.min(7,modelCfg.maxRefImages||3));
+    const promptBudget=(window.SBMastery&&SBMastery.promptBudgetForModel)?SBMastery.promptBudgetForModel(pollModel):900;
     if(ref&&ref.url&&String(ref.url).startsWith('https://'))body.character_image_url=ref.url;
     if(window.SBMastery){
-      const mastery=window.SBMastery.resolveForTimeline(state,clip);
+      const mastery=window.SBMastery.resolveForTimeline(state,clip,{maxRefs});
       if(!body.character_image_url&&mastery.character_image_url)body.character_image_url=mastery.character_image_url;
       if(mastery.location_image_url)body.location_image_url=mastery.location_image_url;
       if(mastery.reference_images&&mastery.reference_images.length)body.reference_images=mastery.reference_images;
-      body.prompt=window.SBMastery.enrichPrompt(body.prompt,mastery);
+      body.prompt=window.SBMastery.enrichPrompt(body.prompt,mastery,{maxChars:promptBudget});
     }
     if(window.SBContinuity&&typeof SBContinuity.continuityForClip==='function'){
       const ci=state.clips.findIndex(c=>c.id===clip.id);
       const cont=SBContinuity.continuityForClip(state,ci);
       if(cont){
         body.prompt=SBContinuity.enrichPromptWithContinuity(body.prompt,state,clip);
+        // Block boundary → lead with the canonical character ref; mid-block → lead
+        // with the previous end frame. The server orders refs accordingly.
+        body.ref_strategy=cont.blockBreak?'identity':'chain';
         if(cont.prevVideoUrl){
           const prevFrame=await resolvePrevClipFrameRef(state,ci);
-          if(prevFrame){
-            body.prev_frame_image_url=prevFrame;
-            if(!body.character_image_url)body.character_image_url=prevFrame;
-            else if(!body.reference_images)body.reference_images=[prevFrame];
-            else if(body.reference_images.indexOf(prevFrame)<0)body.reference_images.unshift(prevFrame);
-          }
+          if(prevFrame)body.prev_frame_image_url=prevFrame;
         }
       }
     }
@@ -1795,7 +1839,7 @@ function bindUI(){
   $('btnRedo').onclick=redo;
   $('btnBatch').onclick=batchGen;
   $('btnGen').onclick=genSelected;
-  $('btnRegen').onclick=genSelected;
+  $('btnRegen').onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(c)c.retryCount=(c.retryCount||0)+1;genSelected()};
   $('btnApprove').onclick=approveSelected;
   $('btnPreview').onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(c&&c.videoUrl)window.open(c.videoUrl);else toast('No video')};
   $('btnPreviewAll').onclick=previewAll;
