@@ -49,6 +49,13 @@
   status = 404
   force = true
 
+# Stray repo artifact — never serve (the space/parens filename dodges .netlifyignore globs).
+[[redirects]]
+  from = "/Shotbreak-main (1).zip"
+  to = "/404.html"
+  status = 404
+  force = true
+
 # Block ops/internal files — force=true overrides static file serving (_redirects alone cannot).
 [[redirects]]
   from = "/DO_THIS_NOW.txt"
