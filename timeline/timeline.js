@@ -65,6 +65,15 @@ function ensureClip(c){
 async function getToken(){if(!auth||!auth.currentUser)throw new Error('Not signed in');return auth.currentUser.getIdToken()}
 async function hdrs(){return{'Content-Type':'application/json','Authorization':'Bearer '+(await getToken())}}
 
+// Staging marker: visible everywhere EXCEPT the production domain, so the
+// test deployment can never be mistaken for the live site.
+function initTestBadge(){
+  const b=$('testBadge');if(!b)return;
+  const h=location.hostname;
+  const isProd=h==='shotbreak.io'||h==='www.shotbreak.io';
+  b.classList.toggle('hidden',isProd);
+}
+
 function initAuth(){
   if(!window.firebase||!window.SHOTBREAK_CONFIG)return;
   if(!firebase.apps.length)firebase.initializeApp(window.SHOTBREAK_CONFIG.firebase);
@@ -2266,5 +2275,5 @@ function bindUI(){
   }catch(e){}
 }
 
-document.addEventListener('DOMContentLoaded',()=>{initAuth();bindUI()});
+document.addEventListener('DOMContentLoaded',()=>{initTestBadge();initAuth();bindUI()});
 })();

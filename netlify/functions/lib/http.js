@@ -11,6 +11,9 @@ const ALLOWED_ORIGINS = new Set([
 function isAllowedOrigin(origin) {
   if (!origin) return false;
   if (ALLOWED_ORIGINS.has(origin)) return true;
+  // Netlify test/staging deployments (branch deploys, deploy previews, or a
+  // separate test site) — the page and functions share the domain there.
+  if (/^https:\/\/[a-z0-9-]+(--[a-z0-9-]+)?\.netlify\.app$/.test(origin)) return true;
   return /^http:\/\/localhost(:\d+)?$/.test(origin);
 }
 
