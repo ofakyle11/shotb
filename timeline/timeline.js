@@ -2086,8 +2086,17 @@ async function finalExport(){
   const clips=state.clips.filter(c=>c.status==='approved'&&c.videoUrl);
   if(!clips.length)return toast('Approve clips with video first');
   $('exportModal').classList.remove('hidden');$('exportStatus').textContent='Starting…';
+  // Scene grouping for export color matching: clips in the same continuity
+  // block grade to the block's first shot.
+  const chk=$('chkMatchColor');
+  const matchColor=chk?chk.checked:false;
+  const groups=clips.map(c=>{
+    const ci=state.clips.findIndex(x=>x.id===c.id);
+    const blk=(window.SBContinuity&&SBContinuity.blockForClip)?SBContinuity.blockForClip(state,ci):null;
+    return blk?blk.id:(c.sceneIdx!=null?'s'+c.sceneIdx:'all');
+  });
   try{
-    const blob=await SBExport.stitchClips(clips,{fade:state.assembly.masterFade||0.3},m=>$('exportStatus').textContent=m);
+    const blob=await SBExport.stitchClips(clips,{fade:state.assembly.masterFade||0.3,matchColor,groups},m=>$('exportStatus').textContent=m);
     SBExport.download('shotbreak-final.'+(blob.type.includes('zip')?'zip':'mp4'),blob,blob.type);
     $('exportStatus').textContent='Done!';
     toast('Final export downloaded');

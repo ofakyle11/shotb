@@ -332,6 +332,9 @@ button,input,select,textarea{font-family:inherit}
 .tle-log .line.info{color:var(--blue)}
 
 /* ── output ── */
+.export-opt{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);margin-top:10px;cursor:pointer}
+.export-opt input{accent-color:var(--gold)}
+.export-opt-hint{color:var(--dim);font-size:10px}
 .output-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 .queue-table{width:100%;font-size:11px;border-collapse:collapse}
 .queue-table th,.queue-table td{padding:5px 8px;text-align:left;border-bottom:1px solid var(--border)}

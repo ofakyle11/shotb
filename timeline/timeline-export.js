@@ -93,6 +93,16 @@ window.SBExport = (function(){
     return ffmpeg;
   }
 
+  async function fetchClipBlob(url){
+    try{
+      const r=await fetch(url);
+      if(r.ok)return await r.blob();
+    }catch(e){/* CORS-less CDN — fall through to proxy */}
+    const p=await fetch('/.netlify/functions/proxy-media?url='+encodeURIComponent(url));
+    if(!p.ok)throw new Error('Fetch failed ('+p.status+')');
+    return p.blob();
+  }
+
   /* Browser-native stitch: sequential download + MediaRecorder fallback using canvas */
   async function stitchClips(clips, opts, onProgress){
     const ready=clips.filter(c=>c.videoUrl);
@@ -101,13 +111,15 @@ window.SBExport = (function(){
     const blobs=[];
     for(let i=0;i<ready.length;i++){
       onProgress&&onProgress('Fetching clip '+(i+1)+' / '+ready.length);
-      const r=await fetch(ready[i].videoUrl);
-      if(!r.ok)throw new Error('Failed to fetch clip '+ready[i].num);
-      blobs.push(await r.blob());
+      try{
+        blobs.push(await fetchClipBlob(ready[i].videoUrl));
+      }catch(e){
+        throw new Error('Failed to fetch clip '+ready[i].num+' — '+e.message);
+      }
     }
     onProgress&&onProgress('Stitching with FFmpeg…');
     try{
-      return await stitchWithFFmpeg(blobs, opts, onProgress);
+      return await stitchWithFFmpeg(blobs, ready, opts, onProgress);
     }catch(e){
       console.warn('[stitch] ffmpeg failed, using concat blob',e);
       onProgress&&onProgress('FFmpeg unavailable — packaging clips as ZIP');
@@ -115,9 +127,14 @@ window.SBExport = (function(){
     }
   }
 
-  async function stitchWithFFmpeg(blobs, opts, onProgress){
+  async function stitchWithFFmpeg(blobs, clips, opts, onProgress){
     if(!window.SBFFmpeg)throw new Error('FFmpeg module not loaded');
-    return window.SBFFmpeg.stitchBlobs(blobs, onProgress);
+    opts=opts||{};
+    const segs=blobs.map((b,i)=>({
+      blob:b,trimIn:0,trimOut:null,transition:'cut',transitionDur:0,
+      group:(opts.groups&&opts.groups[i]!=null)?opts.groups[i]:0
+    }));
+    return window.SBFFmpeg.stitchTimeline(segs, onProgress, {matchColor:!!opts.matchColor});
   }
 
   async function packageZip(blobs, clips){
