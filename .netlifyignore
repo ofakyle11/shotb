@@ -16,7 +16,7 @@ local-backend/
 .grok/
 private/
 # Not for public serving on the test site
-Shotbreak-main (1).zip
+Shotbreak-main*
 *.ps1
 START_LOCAL.bat
 install-local-gpu.bat
