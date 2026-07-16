@@ -8,6 +8,9 @@ window.SBProCut = (function () {
   const MIN_CLIP = 1.2;
   const HEAD_TAIL_PAD = 0.12;
   const MOTION_FLOOR = 0.018;
+  // A frame-diff this large mid-clip is a visual "reset" (the AI model losing
+  // the scene), not motion — end the cut just before it.
+  const RESET_SPIKE = 0.34;
 
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
@@ -97,6 +100,20 @@ window.SBProCut = (function () {
       }
     }
 
+    // Auto-edit: if the AI visually resets mid-clip (huge diff spike well past
+    // the head), cut the clip just before the reset instead of shipping the
+    // glitch. Only when the usable portion still meets MIN_CLIP.
+    let resetAt = null;
+    for (let i = 1; i < motion.length; i++) {
+      if (motion[i].t > trimIn + MIN_CLIP && motion[i].score >= RESET_SPIKE) {
+        resetAt = motion[i].t;
+        break;
+      }
+    }
+    if (resetAt != null && resetAt - SAMPLE_STEP - trimIn >= MIN_CLIP) {
+      trimOut = Math.min(trimOut, resetAt - SAMPLE_STEP);
+    }
+
     if (trimOut - trimIn < MIN_CLIP) {
       trimIn = 0;
       trimOut = duration;
@@ -108,6 +125,7 @@ window.SBProCut = (function () {
       motion,
       trimIn: Math.round(trimIn * 100) / 100,
       trimOut: Math.round(trimOut * 100) / 100,
+      resetAt: resetAt,
       method: motion[0] && motion[0].score !== undefined ? 'motion' : 'fallback',
     };
   }

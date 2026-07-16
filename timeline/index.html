@@ -229,6 +229,7 @@
             <div id="queuePanel"></div>
             <label class="export-opt"><input type="checkbox" id="chkMatchColor" checked> Match scene color at export <span class="export-opt-hint">(grades each scene's clips to its first shot)</span></label>
             <div class="output-btns">
+              <button class="tb-btn" id="btnUpscaleAll" title="AI-upscale every approved clip before export (FlashVSR, ~$0.05/clip)">⬆ Upscale approved</button>
               <button class="tb-btn gold" id="btnFinal">Final Export (MP4)</button>
               <button class="tb-btn" id="btnEDL">Export EDL</button>
               <button class="tb-btn" id="btnExport">Open Editor</button>
@@ -249,6 +250,7 @@
           <button class="tb-btn" id="btnRegen">Regenerate</button>
           <button class="tb-btn" id="btnPreview">Preview</button>
         </div>
+        <button class="tb-btn" id="btnUpscale" title="AI upscale this clip (FlashVSR via WaveSpeed)">⬆ Upscale</button>
         <button class="tb-btn approve-btn" id="btnApprove">Approve</button>
       </div>
     </aside>
@@ -315,7 +317,7 @@
 <script src="timeline-verify.js?v=20260715a"></script>
 <script src="timeline-enrich.js?v=20260627d"></script>
 <script src="timeline-export.js?v=20260715a"></script>
-<script src="pro-cut.js?v=20260628a"></script>
+<script src="pro-cut.js?v=20260716a"></script>
 <script src="/js/ffmpeg-wasm.js?v=20260715a"></script>
 <script src="/editor/timeline-engine.js?v=20260628a"></script>
 <script src="timeline.js?v=20260715a"></script>

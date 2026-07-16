@@ -816,10 +816,15 @@ function gotoStep(step){
 function renderAuthGate(){
   const gate=$('authGate');if(!gate)return;
   gate.classList.toggle('hidden',!!curUser);
-  ['btnGen','btnRegen','btnBatch'].forEach(id=>{const b=$(id);if(b)b.disabled=!curUser});
+  ['btnGen','btnRegen','btnBatch','btnUpscaleAll'].forEach(id=>{const b=$(id);if(b)b.disabled=!curUser});
   const clip=state.clips.find(c=>c.id===state.selectedId);
   const ap=$('btnApprove');
   if(ap)ap.disabled=!clip||!clip.videoUrl;
+  const up=$('btnUpscale');
+  if(up){
+    up.disabled=!curUser||!clip||!clip.videoUrl||!!(clip&&clip.upscaled);
+    up.textContent=(clip&&clip.upscaled)?'✓ Upscaled':'⬆ Upscale';
+  }
   const gen=$('btnGen');
   if(gen)gen.title=curUser?'':'Sign in to generate';
 }
@@ -2026,6 +2031,58 @@ function verifyClipAsync(clip){
   }).catch(()=>null);
 }
 
+/* ── AI upscaling (WaveSpeed-hosted FlashVSR / SeedVR2, open models) ── */
+async function upscaleClip(clip,upscaler){
+  if(!curUser)return toast('Sign in');
+  if(!clip||!clip.videoUrl)return toast('Generate the clip first');
+  if(clip.upscaled)return toast('Clip '+clip.num+' is already upscaled');
+  const prevStatus=clip.status;
+  clip.status='generating';renderAll();
+  toast('Upscaling clip '+clip.num+' ('+(upscaler==='seedvr2'?'SeedVR2 4K':'FlashVSR')+')…');
+  try{
+    const h=await hdrs();
+    const sub=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify({action:'upscale',video_url:clip.videoUrl,upscaler:upscaler||'flashvsr'})});
+    const sd=await sub.json();
+    if(!sub.ok||!sd.request_id)throw new Error(formatGenError(sd,sub.status));
+    const t0=Date.now();
+    while(Date.now()-t0<480000){
+      await new Promise(r=>setTimeout(r,5000));
+      const pr=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify({action:'status',request_id:sd.request_id,provider:'wavespeed'})});
+      const pd=await pr.json();const st=(pd.status||pd.state||'').toUpperCase();
+      if(st==='COMPLETED'||st==='SUCCESS'||st==='SUCCEEDED'||st==='DONE'){
+        let url=pickVideoUrl(pd);
+        if(!url){
+          const rr=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify({action:'result',request_id:sd.request_id,provider:'wavespeed'})});
+          url=pickVideoUrl(await rr.json());
+        }
+        if(!url)throw new Error('Upscaler returned no video URL');
+        clip.videoUrlSD=clip.videoUrlSD||clip.videoUrl;   // keep the original for undo
+        clip.videoUrl=url;
+        clip.upscaled=true;
+        clip.status=prevStatus;save();renderAll();
+        toast('Clip '+clip.num+' upscaled');
+        return true;
+      }
+      if(st==='FAILED'||st==='ERROR')throw new Error(formatGenError(pd,pr.status));
+    }
+    throw new Error('Upscale timed out');
+  }catch(e){clip.status=prevStatus;save();renderAll();toast('Upscale: '+e.message);return false}
+}
+async function upscaleApproved(){
+  if(!curUser)return toast('Sign in');
+  const targets=state.clips.filter(c=>c.status==='approved'&&c.videoUrl&&!c.upscaled);
+  if(!targets.length)return toast('No approved, un-upscaled clips');
+  if(state.queue.running)return;
+  state.queue.running=true;$('queueBar').classList.add('on');
+  let ok=0;
+  for(let i=0;i<targets.length;i++){
+    $('queueText').textContent='Upscaling '+(i+1)+' / '+targets.length;
+    if(await upscaleClip(targets[i],'flashvsr'))ok++;
+  }
+  state.queue.running=false;$('queueBar').classList.remove('on');
+  toast('Upscaled '+ok+' / '+targets.length+' clips — export when ready');
+}
+
 async function genSelected(){if(!curUser)return toast('Sign in');const c=state.clips.find(x=>x.id===state.selectedId);if(!c)return toast('Select clip');await runJob(c)}
 async function batchGen(){
   if(!curUser)return toast('Sign in');if(state.queue.running)return;
@@ -2183,6 +2240,8 @@ function bindUI(){
   $('btnBatch').onclick=batchGen;
   $('btnGen').onclick=genSelected;
   $('btnRegen').onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(c)c.retryCount=(c.retryCount||0)+1;genSelected()};
+  const btnUp=$('btnUpscale');if(btnUp)btnUp.onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(!c)return toast('Select clip');upscaleClip(c,'flashvsr')};
+  const btnUpAll=$('btnUpscaleAll');if(btnUpAll)btnUpAll.onclick=upscaleApproved;
   $('btnApprove').onclick=approveSelected;
   $('btnPreview').onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(c&&c.videoUrl)window.open(c.videoUrl);else toast('No video')};
   $('btnPreviewAll').onclick=previewAll;

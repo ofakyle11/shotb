@@ -883,6 +883,41 @@ exports.handler = async function (event) {
     });
   }
 
+  // AI video upscaling via WaveSpeed-hosted open models:
+  // FlashVSR (fast, ~$0.05/run) or SeedVR2 (4K fidelity, ~$0.10/run).
+  // Async like submit — poll with the standard status/result actions.
+  if (action === 'upscale') {
+    if (!process.env.WAVESPEED_API_KEY) {
+      return jsonResponse(event, 503, { error: 'WAVESPEED_API_KEY not configured', provider: 'wavespeed' });
+    }
+    const videoUrl = body.video_url;
+    if (!videoUrl || !isSafeUrl(videoUrl) || !String(videoUrl).startsWith('https://')) {
+      return jsonResponse(event, 400, { error: 'video_url must be a safe https URL' });
+    }
+    const upscaler = body.upscaler === 'seedvr2' ? 'wavespeed-ai/seedvr2/video' : 'wavespeed-ai/flashvsr';
+    try {
+      const result = await callWaveSpeed('/api/v3/' + upscaler, { video: videoUrl });
+      const rid = (result.data && result.data.id) || result.id || result.request_id || null;
+      const apiOk = result && result.httpStatus < 400 && (!result.code || result.code === 200) && rid;
+      if (!apiOk) {
+        return jsonResponse(event, 502, {
+          error: 'WaveSpeed upscale submit failed',
+          detail: humanizeWaveSpeedError(result),
+          provider: 'wavespeed',
+          raw: result
+        });
+      }
+      return jsonResponse(event, 200, {
+        request_id: rid,
+        status: normalizeWaveSpeedStatus((result.data && result.data.status) || result.status || 'created'),
+        provider: 'wavespeed',
+        upscaler: upscaler,
+      });
+    } catch (err) {
+      return jsonResponse(event, 500, { error: 'Upscale submit failed', detail: err.message || String(err) });
+    }
+  }
+
   if (action === 'submit') {
     const videoModel = body.model || 'seedance-2.0-turbo';
     const hasWsKey = !!process.env.WAVESPEED_API_KEY;
