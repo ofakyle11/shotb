@@ -157,6 +157,20 @@
           </div>
         </details>
 
+        <details class="module-panel" id="propsPanel">
+          <summary>Props &amp; Continuity</summary>
+          <div class="panel-pad">
+            <p class="panel-desc">Track hero props and per-scene wardrobe changes, and replace the built-in crowd/location rules with ones learned from your script.</p>
+            <div class="panel-toolbar">
+              <button class="tb-btn gold" id="btnEnrichContinuity" title="AI pass: extract props, per-scene outfits, and crowd/anchor rules from the script">✨ Enrich continuity</button>
+              <button class="tb-btn" id="btnAddProp">+ Add Prop</button>
+              <span id="continuityRuleMeta" class="build-ver"></span>
+            </div>
+            <div id="propListPanel"></div>
+            <div id="propEditorPanel" class="loc-editor-wrap"></div>
+          </div>
+        </details>
+
         <details class="module-panel" id="editorPanel">
           <summary>Editor</summary>
           <div class="panel-pad">
@@ -288,12 +302,13 @@
 <script src="/js/model-config.js?v=20260715a"></script>
 <script src="/js/mastery-resolver.js?v=20260715a"></script>
 <script src="/js/sb-storage.js?v=20260715a"></script>
-<script src="parser.js?v=20260627d"></script>
+<script src="parser.js?v=20260715a"></script>
 <script src="timeline-characters.js?v=20260715a"></script>
 <script src="timeline-refkit.js?v=20260715a"></script>
 <script src="timeline-locations.js?v=20260627d"></script>
-<script src="timeline-continuity.js?v=20260627d"></script>
-<script src="timeline-locations-enrich.js?v=20260627d"></script>
+<script src="timeline-continuity.js?v=20260715a"></script>
+<script src="timeline-locations-enrich.js?v=20260715a"></script>
+<script src="timeline-props.js?v=20260715a"></script>
 <script src="timeline-enrich.js?v=20260627d"></script>
 <script src="timeline-export.js?v=20260628a"></script>
 <script src="pro-cut.js?v=20260628a"></script>

@@ -198,24 +198,41 @@ window.SBParser = (function(){
 
   function isLikelyPersonName(name,opts){
     opts=opts||{};
+    // Dialogue/action sentence fragments end in terminal punctuation; cast
+    // cues and character names never do (e.g. "HAVE THE COURAGE TO FOLLOW HER.").
+    if(/[.!?]\s*$/.test(String(name||'').trim()))return false;
     const cn=stripCastArticle(name);
     if(!cn||cn.length<2||cn.length>40)return false;
     if(/^(INT|EXT|I\/E|INT\/EXT)\b/.test(cn))return false;
     if(isLocationCaps(cn))return false;
     const words=cn.split(/\s+/);
+    // Screenplay names/cues are rarely more than 4 words; longer ALL-CAPS runs
+    // are almost always misread dialogue or action-line fragments.
+    if(words.length>4)return false;
     if(words.every(w=>NON_NAME_WORDS.has(w)))return false;
     if(words.length===1){
       if(NON_NAME_WORDS.has(words[0]))return false;
       if(!opts.fromCue&&words[0].length<3)return false;
     }else if(words.every(w=>NON_NAME_WORDS.has(w)||/^(JR|SR|II|III|IV)$/i.test(w))){
       return false;
+    }else{
+      // Reject phrases that read as a sentence: a preposition/verb-like filler
+      // word (from NON_NAME_WORDS) sitting between two content words means
+      // this is prose, not a name — e.g. "HAVE THE COURAGE TO FOLLOW HER".
+      const fillerCount=words.filter(w=>NON_NAME_WORDS.has(w)).length;
+      if(fillerCount>=2&&fillerCount/words.length>=0.4)return false;
     }
     return true;
   }
 
+  // Subject pronouns never open a character name or role title — a phrase
+  // starting with one ("SHE RUNS TOWARD THE DOOR") is an action-line fragment.
+  const SUBJECT_PRONOUNS=new Set(['SHE','HE','THEY','WE','YOU','I','IT']);
+
   /** Looser gate: dialogue leads + background role titles (FLIGHT ATTENDANT, CUSTOMS AGENT). */
   function isCastMember(name,opts){
     opts=opts||{};
+    if(/[.!?]\s*$/.test(String(name||'').trim()))return false;
     const cn=stripCastArticle(name);
     if(!cn||cn.length<2||cn.length>40)return false;
     if(/^(INT|EXT|I\/E|INT\/EXT)\b/.test(cn))return false;
@@ -223,7 +240,7 @@ window.SBParser = (function(){
     if(isLikelyPersonName(cn,{fromCue:!!opts.fromCue}))return true;
     if(isLikelyPersonName(cn,{fromCue:true}))return true;
     const words=cn.split(/\s+/).filter(w=>w&&w!=='A'&&w!=='AN'&&w!=='THE');
-    if(words.length>=2&&words.length<=4){
+    if(words.length>=2&&words.length<=4&&!SUBJECT_PRONOUNS.has(words[0])){
       const roleWords=words.filter(w=>!NON_NAME_WORDS.has(w)&&!/^(JR|SR|II|III|IV)$/i.test(w));
       if(roleWords.length>=2)return true;
     }

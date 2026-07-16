@@ -71,9 +71,13 @@ exports.handler = async function handler(event) {
 
   const evidence = body.evidence && typeof body.evidence === 'object' ? body.evidence : {};
   const scriptExcerpt = sanitizeField(body.scriptExcerpt || '', 7000);
+  // Per-project anchors (from state.continuityRules, built by enrich-continuity)
+  // override the Trudeau-airport default so alias merging generalizes past one screenplay.
+  const anchors = Array.isArray(body.anchors) ? body.anchors.slice(0, 12).filter((a) => a && typeof a.canonicalLocation === 'string') : null;
   const localAliases = buildAliasMap(
     trustedKeys.map(function (k) { return String(k).replace(/_/g, ' '); }),
-    scriptExcerpt
+    scriptExcerpt,
+    anchors
   );
 
   const userPrompt =

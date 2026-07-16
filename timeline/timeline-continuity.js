@@ -4,6 +4,47 @@ window.SBContinuity = (function () {
     return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  /* Data-driven continuity rules (previously hardcoded to one screenplay).
+     Shipped defaults reproduce the original VORSANGER/airport behavior, and
+     rules can be replaced per-project (state.continuityRules) by the
+     enrich-continuity agent or by hand. */
+  const DEFAULT_RULES = {
+    crowds: [{
+      name: 'CROWD_CLONES',
+      leaderName: 'VORSANGER',
+      leaderDescription: '50s, short military haircut, dark blue jacket, sunglasses, ex-military build; prominent white VORSANGER nametag on left chest; visually identical to the other eighty-nine men except for the nametag',
+      description: 'Ninety identically dressed ex-military men: same face, short military haircut, dark blue jacket and trousers, sunglasses; disciplined formation',
+      leaderNote: 'VORSANGER wears white nametag; clone crowd matches prior shots.',
+      detectPatterns: ['\\b(?:ninety|90)\\b', '\\bidentical(?:ly)?\\s+(?:dressed|groomed|clone)'],
+      triggerWords: ['VORSANGER', '90', 'NINETY', 'IDENTICAL'],
+      wideShotWords: ['BOARD', 'BUS', 'TARMAC', 'CURB', 'LINE', 'FORMATION']
+    }],
+    anchors: [{
+      canonicalLocation: 'Pierre Trudeau International Airport',
+      matchWords: ['AIRPORT', 'TARMAC', 'TRUDEAU', 'TERMINAL', 'RUNWAY', 'CURB']
+    }]
+  };
+
+  function getRules(state) {
+    const r = state && state.continuityRules;
+    return {
+      crowds: (r && Array.isArray(r.crowds)) ? r.crowds : DEFAULT_RULES.crowds,
+      anchors: (r && Array.isArray(r.anchors)) ? r.anchors : DEFAULT_RULES.anchors
+    };
+  }
+
+  function ruleActive(rule, blob) {
+    return (rule.detectPatterns || []).some(function (p) {
+      try { return new RegExp(p, 'i').test(blob); } catch (e) { return false; }
+    });
+  }
+
+  function wordHit(words, textUpper) {
+    return (words || []).some(function (w) {
+      return new RegExp('\\b' + escRe(String(w).toUpperCase()) + '\\b').test(textUpper);
+    });
+  }
+
   function parseHeading(heading) {
     if (window.SBParser && window.SBParser.parseSceneHeading) {
       return window.SBParser.parseSceneHeading(heading);
@@ -222,54 +263,54 @@ window.SBContinuity = (function () {
     return null;
   }
 
-  /** VORSANGER / ninety-clone crowd — one leader + crowd unit, not 90 character cards. */
+  /** Crowd rules (data-driven) — one leader + one crowd-unit card per rule,
+      not N individual character cards. */
   function applyCrowdRules(state) {
-    if (!state) return 0;
+    if (!state || !window.SBCharacters) return 0;
+    const rules = getRules(state);
     const script = String(state.scriptText || '');
     const blob = script + '\n' + (state.clips || []).map(function (c) {
       return (c.description || '') + ' ' + (c.dialogue || '') + ' ' + (c.heading || '');
     }).join('\n');
-    if (!/\b(?:ninety|90)\b/i.test(blob) && !/\bidentical(?:ly)?\s+(?:dressed|groomed|clone)/i.test(blob)) {
-      return 0;
-    }
-    if (!window.SBCharacters) return 0;
     let n = 0;
     const chars = state.characters || {};
-    const crowdDesc =
-      'Ninety identically dressed ex-military men: same face, short military haircut, dark blue jacket and trousers, sunglasses; disciplined formation';
-    const leaderDesc =
-      '50s, short military haircut, dark blue jacket, sunglasses, ex-military build; prominent white VORSANGER nametag on left chest; visually identical to the other eighty-nine men except for the nametag';
 
-    if (!chars.VORSANGER) {
-      chars.VORSANGER = Object.assign({}, window.SBCharacters.DEFAULTS);
-      n++;
-    }
-    const v = chars.VORSANGER;
-    if (!v._descLocked && (!v.description || v.description.length < 40 || /matching haircut|well groomed man/i.test(v.description))) {
-      v.description = leaderDesc;
-      n++;
-    }
-    v.role = 'lead';
+    rules.crowds.forEach(function (rule) {
+      if (!rule || !rule.name || !ruleActive(rule, blob)) return;
+      const leader = String(rule.leaderName || '').toUpperCase().trim();
 
-    if (!chars.CROWD_CLONES) {
-      chars.CROWD_CLONES = Object.assign({}, window.SBCharacters.DEFAULTS, { role: 'crowd', description: crowdDesc });
-      n++;
-    } else if (!chars.CROWD_CLONES.description) {
-      chars.CROWD_CLONES.description = crowdDesc;
-      chars.CROWD_CLONES.role = 'crowd';
-      n++;
-    }
-
-    (state.clips || []).forEach(function (clip) {
-      const text = ((clip.description || '') + ' ' + (clip.dialogue || '') + ' ' + (clip.heading || '')).toUpperCase();
-      if (!text.includes('VORSANGER') && !/\b(?:90|NINETY)\b/.test(text) && !/IDENTICAL/.test(text)) return;
-      clip.characters = clip.characters || [];
-      ['VORSANGER'].forEach(function (name) {
-        if (clip.characters.indexOf(name) < 0) clip.characters.push(name);
-      });
-      if (/WIDE|ESTABLISH|BOARD|BUS|TARMAC|CURB|LINE/i.test(text) && clip.characters.indexOf('CROWD_CLONES') < 0) {
-        clip.characters.push('CROWD_CLONES');
+      if (leader) {
+        if (!chars[leader]) {
+          chars[leader] = Object.assign({}, window.SBCharacters.DEFAULTS);
+          n++;
+        }
+        const v = chars[leader];
+        if (!v._descLocked && rule.leaderDescription && (!v.description || v.description.length < 40 || /matching haircut|well groomed man/i.test(v.description))) {
+          v.description = rule.leaderDescription;
+          n++;
+        }
+        v.role = 'lead';
       }
+
+      if (!chars[rule.name]) {
+        chars[rule.name] = Object.assign({}, window.SBCharacters.DEFAULTS, { role: 'crowd', description: rule.description || '' });
+        n++;
+      } else if (!chars[rule.name].description && rule.description) {
+        chars[rule.name].description = rule.description;
+        chars[rule.name].role = 'crowd';
+        n++;
+      }
+
+      (state.clips || []).forEach(function (clip) {
+        const text = ((clip.description || '') + ' ' + (clip.dialogue || '') + ' ' + (clip.heading || '')).toUpperCase();
+        if (!wordHit(rule.triggerWords, text)) return;
+        clip.characters = clip.characters || [];
+        if (leader && clip.characters.indexOf(leader) < 0) clip.characters.push(leader);
+        const wide = /WIDE|ESTABLISH/.test(text) || wordHit(rule.wideShotWords, text);
+        if (wide && clip.characters.indexOf(rule.name) < 0) {
+          clip.characters.push(rule.name);
+        }
+      });
     });
 
     state.characters = chars;
@@ -279,19 +320,24 @@ window.SBContinuity = (function () {
   /** Carry block leads + crowd into every shot in the block (close-ups included). */
   function applyBlockCastRules(state, blocks) {
     if (!state || !blocks || !blocks.length) return 0;
+    const rules = getRules(state);
     const script = String(state.scriptText || '');
-    const hasCrowdScript =
-      /\b(?:ninety|90)\b/i.test(script) ||
-      /\bidentical(?:ly)?\s+(?:dressed|groomed|clone)/i.test(script);
     let n = 0;
 
     blocks.forEach(function (blk) {
       const blockBlob = ((blk.locationName || '') + ' ' + (blk.headings || []).join(' ')).toUpperCase();
-      const blockHasVorsanger =
-        blk.leads.indexOf('VORSANGER') >= 0 ||
-        blk.background.indexOf('VORSANGER') >= 0 ||
-        /VORSANGER|(?:\b90\b|NINETY)|IDENTICAL/.test(blockBlob);
-      const blockIsAirport = /AIRPORT|TARMAC|TRUDEAU|TERMINAL|RUNWAY|CURB/.test(blockBlob);
+
+      const activeCrowds = rules.crowds.filter(function (rule) {
+        if (!rule || !rule.name) return false;
+        const leader = String(rule.leaderName || '').toUpperCase().trim();
+        const scriptActive = ruleActive(rule, script);
+        const blockHasLeader = leader && (blk.leads.indexOf(leader) >= 0 || blk.background.indexOf(leader) >= 0);
+        return scriptActive || blockHasLeader || wordHit(rule.triggerWords, blockBlob);
+      });
+
+      const anchor = rules.anchors.filter(function (a) {
+        return a && wordHit(a.matchWords, blockBlob);
+      })[0] || null;
 
       sortClipIndices(blk.clipIndices).forEach(function (ci) {
         const clip = state.clips[ci];
@@ -299,31 +345,40 @@ window.SBContinuity = (function () {
         clip.characters = clip.characters || [];
         const text = ((clip.description || '') + ' ' + (clip.dialogue || '') + ' ' + (clip.heading || '')).toUpperCase();
         const shotType = String(clip.shotType || (clip.params && clip.params.camera && clip.params.camera.angle) || '').toUpperCase();
-        const needsCrowd =
-          /^(WIDE|ESTABLISHING|MASTER)/.test(shotType) ||
-          /WIDE|ESTABLISH|BOARD|BUS|TARMAC|CURB|LINE|FORMATION/.test(text);
 
-        if (hasCrowdScript || blockHasVorsanger) {
-          if (clip.characters.indexOf('VORSANGER') < 0) {
-            clip.characters.push('VORSANGER');
+        const crowdLeaders = [];
+        activeCrowds.forEach(function (rule) {
+          const leader = String(rule.leaderName || '').toUpperCase().trim();
+          if (leader) {
+            crowdLeaders.push(leader);
+            if (clip.characters.indexOf(leader) < 0) {
+              clip.characters.push(leader);
+              n++;
+            }
+          }
+          const needsCrowd =
+            /^(WIDE|ESTABLISHING|MASTER)/.test(shotType) ||
+            /WIDE|ESTABLISH/.test(text) || wordHit(rule.wideShotWords, text);
+          if (needsCrowd && clip.characters.indexOf(rule.name) < 0) {
+            clip.characters.push(rule.name);
             n++;
           }
-          if (needsCrowd && clip.characters.indexOf('CROWD_CLONES') < 0) {
-            clip.characters.push('CROWD_CLONES');
-            n++;
-          }
-        }
+        });
 
         blk.leads.forEach(function (up) {
           if (!up || clip.characters.indexOf(up) >= 0) return;
-          if (up === 'VORSANGER' && !(hasCrowdScript || blockHasVorsanger)) return;
+          // Crowd leaders only join blocks where their rule is active.
+          const isInactiveLeader = rules.crowds.some(function (rule) {
+            return String(rule.leaderName || '').toUpperCase().trim() === up;
+          }) && crowdLeaders.indexOf(up) < 0;
+          if (isInactiveLeader) return;
           clip.characters.push(up);
           n++;
         });
 
-        if (blockIsAirport && blk.locationName && clip.params && clip.params.scene) {
+        if (anchor && blk.locationName && clip.params && clip.params.scene) {
           if (!clip.params.scene.location || /^(scene|location)\s*\d*$/i.test(clip.params.scene.location)) {
-            clip.params.scene.location = blk.locationName;
+            clip.params.scene.location = anchor.canonicalLocation || blk.locationName;
             n++;
           }
         }
@@ -359,7 +414,8 @@ window.SBContinuity = (function () {
     };
   }
 
-  function enrichPromptWithContinuity(prompt, state, clip) {
+  function enrichPromptWithContinuity(prompt, state, clip, opts) {
+    const maxChars = (opts && opts.maxChars) || 900;
     const ci = (state.clips || []).findIndex(function (c) { return c && c.id === clip.id; });
     const cont = continuityForClip(state, ci);
     if (!cont) return prompt;
@@ -370,17 +426,22 @@ window.SBContinuity = (function () {
     if (cont.blockLeads && cont.blockLeads.length) {
       extra += ' Characters in this sequence: ' + cont.blockLeads.join(', ') + '.';
     }
-    if (cont.blockLeads && cont.blockLeads.indexOf('VORSANGER') >= 0) {
-      extra += ' VORSANGER wears white nametag; clone crowd matches prior shots.';
-    }
+    getRules(state).crowds.forEach(function (rule) {
+      const leader = String(rule.leaderName || '').toUpperCase().trim();
+      if (rule.leaderNote && leader && cont.blockLeads && cont.blockLeads.indexOf(leader) >= 0) {
+        extra += ' ' + rule.leaderNote;
+      }
+    });
     if (cont.prevVideoUrl) {
       extra += ' Match the END FRAME of previous clip ' + cont.prevClipNum + ' exactly (wardrobe, lighting, environment).';
     }
     const out = (extra + ' ' + String(prompt || '')).replace(/\s+/g, ' ').trim();
-    return out.length > 900 ? out.slice(0, 897) + '...' : out;
+    return out.length > maxChars ? out.slice(0, maxChars - 3) + '...' : out;
   }
 
   return {
+    DEFAULT_RULES: DEFAULT_RULES,
+    getRules: getRules,
     continuityType: continuityType,
     buildBlocks: buildBlocks,
     applyGraph: applyGraph,

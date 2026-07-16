@@ -8,42 +8,42 @@ function cleanLocName(name) {
     .trim();
 }
 
-function locKey(name, scriptText) {
-  const n = canonicalLocName(name, scriptText);
-  return n ? n.toUpperCase().replace(/\s+/g, ' ') : '';
-}
+// Default anchor set — mirrors timeline/timeline-continuity.js DEFAULT_RULES.anchors
+// so the deterministic fallback behaves the same client and server side. A
+// per-project anchor list (built by enrich-continuity) can override this via
+// the `anchors` param on canonicalLocName/locKey/buildAliasMap.
+const DEFAULT_ANCHORS = [{
+  canonicalLocation: 'Pierre Trudeau International Airport',
+  matchWords: ['AIRPORT', 'TARMAC', 'TRUDEAU', 'TERMINAL', 'RUNWAY', 'CURB'],
+}];
 
-function scriptHintsAirportDeparture(scriptText) {
-  const s = String(scriptText || '');
-  return /trudeau|montréal[\s-]*airport|montreal[\s-]*airport|\byul\b|pierre\s+elliott/i.test(s);
+function escRe(s) { return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+function anchorActiveForScript(anchor, scriptText) {
+  const text = String(scriptText || '').toUpperCase();
+  const skip = { INTERNATIONAL: 1, AIRPORT: 1, TERMINAL: 1, THE: 1, OF: 1 };
+  const nameTokens = String(anchor.canonicalLocation || '').toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').split(/\s+/)
+    .filter((w) => w.length > 3 && !skip[w]);
+  return nameTokens.some((t) => text.indexOf(t) >= 0);
 }
 
 /** Deterministic canonical location — same physical place → same key. */
-function canonicalLocName(name, scriptText) {
+function canonicalLocName(name, scriptText, anchors) {
   const n = cleanLocName(name);
   if (!n) return '';
-
-  if (/montreal[\s-]*trudeau|montréal[\s-]*trudeau|pierre\s+elliott\s+trudeau|\byul\b|aéroport.*trudeau/i.test(n)) {
-    return 'Pierre Trudeau International Airport';
+  const rules = (anchors && anchors.length) ? anchors : DEFAULT_ANCHORS;
+  const nameU = n.toUpperCase();
+  for (const a of rules) {
+    if (!a || !a.canonicalLocation || !anchorActiveForScript(a, scriptText)) continue;
+    const hit = (a.matchWords || []).some((w) => new RegExp('\\b' + escRe(String(w).toUpperCase()) + '\\b').test(nameU));
+    if (hit) return a.canonicalLocation;
   }
-  if (/^pierre\s+trudeau\b/i.test(n) && /airport/i.test(n)) {
-    return 'Pierre Trudeau International Airport';
-  }
-
-  const airportCtx = scriptHintsAirportDeparture(scriptText);
-  if (airportCtx) {
-    if (/^(?:airport\s+)?(?:terminal|tarmac|runway|departure\s+gate|arrivals|baggage|customs|immigration|curb|drop[- ]?off)(?:\s+area)?$/i.test(n)) {
-      return 'Pierre Trudeau International Airport';
-    }
-    if (/^airport\s+(?:terminal|tarmac|gate|curb)/i.test(n)) {
-      return 'Pierre Trudeau International Airport';
-    }
-    if (/^montreal\s+airport$/i.test(n) || /^montréal\s+airport$/i.test(n)) {
-      return 'Pierre Trudeau International Airport';
-    }
-  }
-
   return n;
+}
+
+function locKey(name, scriptText, anchors) {
+  const n = canonicalLocName(name, scriptText, anchors);
+  return n ? n.toUpperCase().replace(/\s+/g, ' ') : '';
 }
 
 function tokenSet(name) {
@@ -63,12 +63,20 @@ function tokenOverlapScore(a, b) {
   return shared / Math.min(ta.size, tb.size);
 }
 
+function anchorBonusWords(anchors) {
+  const words = new Set();
+  ((anchors && anchors.length) ? anchors : DEFAULT_ANCHORS).forEach((a) => {
+    (a.matchWords || []).forEach((w) => words.add(String(w).toUpperCase()));
+  });
+  return words;
+}
+
 /** Build alias map: rawKey → canonicalKey for entries that are the same place. */
-function buildAliasMap(locationNames, scriptText) {
+function buildAliasMap(locationNames, scriptText, anchors) {
   const names = (locationNames || []).map(cleanLocName).filter(Boolean);
   const canonByName = {};
   names.forEach(function (nm) {
-    canonByName[nm] = locKey(nm, scriptText || '');
+    canonByName[nm] = locKey(nm, scriptText || '', anchors);
   });
 
   const groups = {};
@@ -89,6 +97,7 @@ function buildAliasMap(locationNames, scriptText) {
     });
   });
 
+  const bonusWords = anchorBonusWords(anchors);
   for (let i = 0; i < names.length; i++) {
     for (let j = i + 1; j < names.length; j++) {
       const a = names[i];
@@ -97,7 +106,9 @@ function buildAliasMap(locationNames, scriptText) {
       const kb = canonByName[b];
       if (ka === kb) continue;
       const score = tokenOverlapScore(a, b);
-      if (score >= 0.6 || (score >= 0.4 && /airport|terminal|tarmac/i.test(a) && /airport|terminal|tarmac/i.test(b))) {
+      const hasBonusTopic = Array.from(tokenSet(a)).some((t) => bonusWords.has(t))
+        && Array.from(tokenSet(b)).some((t) => bonusWords.has(t));
+      if (score >= 0.5 || (score >= 0.35 && hasBonusTopic)) {
         const winner = ka.length >= kb.length ? ka : kb;
         aliasMap[a.toUpperCase().replace(/\s+/g, ' ')] = winner;
         aliasMap[b.toUpperCase().replace(/\s+/g, ' ')] = winner;
@@ -119,7 +130,7 @@ module.exports = {
   cleanLocName,
   locKey,
   canonicalLocName,
-  scriptHintsAirportDeparture,
+  DEFAULT_ANCHORS,
   buildAliasMap,
   applyAliasMapToKey,
   tokenOverlapScore,

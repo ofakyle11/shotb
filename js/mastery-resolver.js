@@ -299,6 +299,7 @@
     var names = (clip.characters || []).filter(Boolean);
     var charRefs = [];
     var promptBits = [];
+    var extraRefs = [];
     var shotType = clip.shotType || (clip.params && clip.params.camera && clip.params.camera.angle) || '';
 
     names.forEach(function (n) {
@@ -320,6 +321,12 @@
       }
       charRefs.push({ name: n, url: url, role: role });
       if (c && c.description) promptBits.push(n + ': ' + c.description.slice(0, 120));
+      // Outfit timeline: the outfit persists from its first scene until replaced.
+      var outfit = pickOutfitForScene(c, clip.sceneIdx);
+      if (outfit && outfit.description) {
+        promptBits.push(n + ' wears: ' + outfit.description.slice(0, 120));
+        if (isHttpsUrl(outfit.cardUrl)) extraRefs.push(outfit.cardUrl);
+      }
     });
 
     charRefs.sort(function (a, b) {
@@ -331,7 +338,11 @@
     var locUrl = null;
     var bible = state.locationBible || [];
     var key = meta.key || normalizeLocationKey(String(locName).replace(/^\s*(INT\.|EXT\.)\s+/i, ''));
-    var locEntry = bible.find(function (l) { return l.key === key; });
+    var locEntry = bible.find(function (l) { return l.key === key; }) ||
+      // Merged-away locations remain findable through their aliases.
+      bible.find(function (l) {
+        return (l.aliases || []).some(function (a) { return normalizeLocationKey(a) === key; });
+      });
     if (locEntry && locEntry.locked) {
       if (locEntry.kit && window.SBRefKit) locUrl = window.SBRefKit.pickLocKitImage(locEntry, shotType);
       if (!locUrl && isHttpsUrl(locEntry.plateUrl)) locUrl = locEntry.plateUrl;
@@ -342,11 +353,29 @@
       }
     }
 
+    // Props in frame: every prop feeds the prompt; hero props with cards also
+    // ride along as image refs (after characters + location).
+    if (window.SBProps && state.propBible && clip.sceneIdx != null) {
+      var inFrame = window.SBProps.propsForClip(state, clip);
+      if (inFrame.length) {
+        promptBits.push('Props in frame: ' + inFrame.slice(0, 4).map(function (p) {
+          var d = (p.description || '').slice(0, 60);
+          return p.name + (d ? ' (' + d + ')' : '');
+        }).join('; '));
+        inFrame.forEach(function (p) {
+          if (p.importance === 'hero' && isHttpsUrl(p.refUrl)) extraRefs.push(p.refUrl);
+        });
+      }
+    }
+
     var reference_images = [];
     charRefs.forEach(function (cr) {
       if (cr.url && reference_images.indexOf(cr.url) < 0) reference_images.push(cr.url);
     });
     if (locUrl && reference_images.indexOf(locUrl) < 0) reference_images.push(locUrl);
+    extraRefs.forEach(function (u) {
+      if (u && reference_images.indexOf(u) < 0) reference_images.push(u);
+    });
 
     return {
       character_image_url: charRefs.length && charRefs[0].url ? charRefs[0].url : null,
@@ -356,6 +385,17 @@
       characterRefs: charRefs,
       locationRef: locEntry || null
     };
+  }
+
+  /* Outfit whose first scene is the latest one at or before this clip's scene. */
+  function pickOutfitForScene(c, sceneIdx) {
+    var list = (c && c.outfits) || [];
+    if (!list.length || sceneIdx == null) return null;
+    var best = null;
+    list.forEach(function (o) {
+      if (o && o.sceneIdx <= sceneIdx && (!best || o.sceneIdx > best.sceneIdx)) best = o;
+    });
+    return best;
   }
 
   window.SBMastery = {

@@ -231,6 +231,13 @@ button,input,select,textarea{font-family:inherit}
 .kit-regen:hover{background:var(--gold);color:#000}
 .kit-done{color:var(--green);text-transform:none;letter-spacing:0;font-weight:600}
 
+/* ── outfit timeline (per-scene wardrobe) ── */
+.outfit-list{display:flex;flex-direction:column;gap:6px;margin:6px 0 8px}
+.outfit-row{display:flex;gap:8px;align-items:flex-start;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 8px}
+.outfit-row .outfit-scene{font-size:9px;font-weight:700;color:var(--gold);font-family:var(--mono);flex-shrink:0;padding-top:2px}
+.outfit-row .outfit-desc{flex:1;font-size:11px;color:var(--text2);line-height:1.4}
+.outfit-row .outfit-card{width:36px;height:44px;border-radius:5px;object-fit:cover;flex-shrink:0}
+
 /* ── locations ── */
 .loc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:12px}
 .loc-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px;cursor:pointer;transition:.12s}

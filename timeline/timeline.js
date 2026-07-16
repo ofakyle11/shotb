@@ -15,7 +15,8 @@ const JUNK_CHAR_WORDS=new Set([
 ]);
 
 let state={
-  projectName:'Untitled Film',clips:[],characters:{},locationBible:[],selectedId:null,selectedChar:null,selectedLoc:null,
+  projectName:'Untitled Film',clips:[],characters:{},locationBible:[],propBible:[],continuityRules:null,
+  selectedId:null,selectedChar:null,selectedLoc:null,selectedProp:null,
   scriptText:'',
   global:{filmStyle:'Cinematic',colorGrade:'Natural',aspectRatio:'16:9',quality:'1080p',audioProfile:'Cinematic',model:'seedance-2.0-turbo',clipDuration:5,language:'English'},
   assembly:{titleText:'',creditsText:'',musicHint:'',sfxHint:''},
@@ -28,15 +29,15 @@ function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTi
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 function formatTime(sec){return Math.floor(sec/60)+':'+String(Math.floor(sec%60)).padStart(2,'0')}
 
-function snapshot(){return JSON.stringify({clips:state.clips,characters:state.characters,locationBible:state.locationBible,global:state.global,assembly:state.assembly,projectName:state.projectName,selectedId:state.selectedId,selectedLoc:state.selectedLoc})}
+function snapshot(){return JSON.stringify({clips:state.clips,characters:state.characters,locationBible:state.locationBible,propBible:state.propBible,continuityRules:state.continuityRules,global:state.global,assembly:state.assembly,projectName:state.projectName,selectedId:state.selectedId,selectedLoc:state.selectedLoc,selectedProp:state.selectedProp})}
 function pushHistory(){history.past.push(snapshot());if(history.past.length>50)history.past.shift();history.future=[];updateUndo()}
-function restore(s){const d=JSON.parse(s);state.clips=d.clips||[];state.characters=d.characters||{};state.locationBible=d.locationBible||[];state.global=Object.assign(state.global,d.global||{});state.assembly=Object.assign(state.assembly,d.assembly||{});state.projectName=d.projectName||'Untitled Film';state.selectedId=d.selectedId;state.selectedLoc=d.selectedLoc||null;state.clips.forEach(ensureClip)}
+function restore(s){const d=JSON.parse(s);state.clips=d.clips||[];state.characters=d.characters||{};state.locationBible=d.locationBible||[];state.propBible=d.propBible||[];state.continuityRules=d.continuityRules||null;state.global=Object.assign(state.global,d.global||{});state.assembly=Object.assign(state.assembly,d.assembly||{});state.projectName=d.projectName||'Untitled Film';state.selectedId=d.selectedId;state.selectedLoc=d.selectedLoc||null;state.selectedProp=d.selectedProp||null;state.clips.forEach(ensureClip)}
 function undo(){if(!history.past.length)return;history.future.push(snapshot());restore(history.past.pop());save();renderAll();toast('Undo')}
 function redo(){if(!history.future.length)return;history.past.push(snapshot());restore(history.future.pop());save();renderAll();toast('Redo')}
 function updateUndo(){if($('btnUndo'))$('btnUndo').disabled=!history.past.length;if($('btnRedo'))$('btnRedo').disabled=!history.future.length}
 
-function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({clips:state.clips,characters:state.characters,locationBible:state.locationBible,global:state.global,assembly:state.assembly,parseResult:state.parseResult,projectName:state.projectName,scriptText:state.scriptText}))}catch(e){}}
-function load(){try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(!d)return;if(d.clips)state.clips=d.clips;if(d.characters)state.characters=SBCharacters.normalize(d.characters);if(d.locationBible)state.locationBible=d.locationBible;if(d.global)Object.assign(state.global,d.global);if(d.assembly)Object.assign(state.assembly,d.assembly);if(d.parseResult)state.parseResult=d.parseResult;if(d.projectName)state.projectName=d.projectName;if(d.scriptText)state.scriptText=d.scriptText;state.clips.forEach(ensureClip);warnStaleRefs()}catch(e){}}
+function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({clips:state.clips,characters:state.characters,locationBible:state.locationBible,propBible:state.propBible,continuityRules:state.continuityRules,global:state.global,assembly:state.assembly,parseResult:state.parseResult,projectName:state.projectName,scriptText:state.scriptText}))}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(!d)return;if(d.clips)state.clips=d.clips;if(d.characters)state.characters=SBCharacters.normalize(d.characters);if(d.locationBible)state.locationBible=d.locationBible;if(d.propBible)state.propBible=d.propBible;if(d.continuityRules)state.continuityRules=d.continuityRules;if(d.global)Object.assign(state.global,d.global);if(d.assembly)Object.assign(state.assembly,d.assembly);if(d.parseResult)state.parseResult=d.parseResult;if(d.projectName)state.projectName=d.projectName;if(d.scriptText)state.scriptText=d.scriptText;state.clips.forEach(ensureClip);warnStaleRefs()}catch(e){}}
 // Legacy demo-echo uploads left data: URLs in saved projects — those never reach providers.
 function warnStaleRefs(){
   try{
@@ -206,14 +207,11 @@ function cleanLocName(s){
 }
 function canonicalLocName(name){
   const script=String((state&&state.scriptText)||'');
+  const anchors=(window.SBContinuity&&SBContinuity.getRules)?SBContinuity.getRules(state).anchors:null;
   if(window.SBLocEnrich&&typeof SBLocEnrich.canonicalLocName==='function'){
-    return SBLocEnrich.canonicalLocName(name,script);
+    return SBLocEnrich.canonicalLocName(name,script,anchors);
   }
-  const n=cleanLocName(name);
-  if(!n)return'';
-  if(/montreal[\s-]*trudeau|montréal[\s-]*trudeau|pierre\s+elliott\s+trudeau|\byul\b|aéroport.*trudeau/i.test(n))return'Pierre Trudeau International Airport';
-  if(/^pierre\s+trudeau\b/i.test(n)&&/airport/i.test(n))return'Pierre Trudeau International Airport';
-  return n;
+  return cleanLocName(name);
 }
 function locKeyName(name){const n=canonicalLocName(name);return n?n.toUpperCase().replace(/\s+/g,' '):''}
 
@@ -742,7 +740,7 @@ function renderAll(){
   $('projectTitle').textContent=state.projectName;
   repairCorruptClips();
   if(state.clips.length||state.scriptText)bootstrapMastery(false,{skipHydrate:true});
-  renderTimeline();renderScriptEditor();renderAssembly();renderCharacters();renderLocations();renderOutput();renderDetail();updateUndo();
+  renderTimeline();renderScriptEditor();renderAssembly();renderCharacters();renderLocations();renderProps();renderOutput();renderDetail();updateUndo();
   renderStepper();renderAuthGate();
   openSidePanelsIfNeeded();
 }
@@ -1304,15 +1302,25 @@ function renderCharacters(){
   $('charChips').innerHTML=stripNames.map(n=>'<span class="char-chip">'+esc(n)+'</span>').join('');
   renderCharEditor();
 }
+function outfitListHtml(c){
+  const outfits=(c&&c.outfits)||[];
+  if(!outfits.length)return'';
+  const rows=outfits.map(o=>'<div class="outfit-row">'+
+    (o.cardUrl?'<img class="outfit-card" src="'+esc(o.cardUrl)+'" alt="">':'')+
+    '<span class="outfit-scene">Scene '+(o.sceneIdx+1)+'</span>'+
+    '<span class="outfit-desc">'+esc(o.description||'')+'</span>'+
+    '</div>').join('');
+  return '<div class="field"><label>Outfit timeline (per-scene wardrobe)</label><div class="outfit-list">'+rows+'</div></div>';
+}
 function renderCharEditor(){
   let html=SBCharacters.renderEditor(state.selectedChar,state.selectedChar?state.characters[state.selectedChar]:null);
-  if(state.selectedChar&&window.SBRefKit){
-    // Kit strip slots in before the action buttons (end of the editor card).
-    html=html.replace('<button type="button" class="tb-btn gold" id="btnGenPortrait">',SBRefKit.renderCharKitHtml(state.characters[state.selectedChar])+'<button type="button" class="tb-btn gold" id="btnGenPortrait">');
+  const c=state.selectedChar?state.characters[state.selectedChar]:null;
+  if(c&&window.SBRefKit){
+    // Kit strip + outfit timeline slot in before the action buttons (end of the editor card).
+    html=html.replace('<button type="button" class="tb-btn gold" id="btnGenPortrait">',SBRefKit.renderCharKitHtml(c)+outfitListHtml(c)+'<button type="button" class="tb-btn gold" id="btnGenPortrait">');
   }
   $('charEditorPanel').innerHTML=html;
   if(!state.selectedChar)return;
-  const c=state.characters[state.selectedChar];
   const kitBtn=$('btnBuildCharKit');if(kitBtn)kitBtn.onclick=()=>buildCharKit(state.selectedChar);
   $('charEditorPanel').querySelectorAll('.kit-regen').forEach(b=>{b.onclick=()=>regenCharKitView(state.selectedChar,b.dataset.kitView)});
   $('charEditorPanel').querySelectorAll('[data-k]').forEach(el=>{
@@ -1482,6 +1490,74 @@ async function uploadLocPlate(locKey){
 }
 
 function renderOutput(){$('queuePanel').innerHTML=SBExport.renderQueue(state.clips,state.queue);$('outputStats').textContent=state.clips.filter(c=>c.status==='approved').length+' approved · '+state.clips.filter(c=>c.videoUrl).length+' rendered'}
+
+/* ── props panel ── */
+function renderProps(){
+  const listEl=$('propListPanel');
+  if(!listEl||!window.SBProps)return;
+  listEl.innerHTML=SBProps.renderList(state.propBible,state.selectedProp);
+  listEl.querySelectorAll('[data-prop]').forEach(el=>{
+    el.onclick=()=>{state.selectedProp=el.dataset.prop;renderProps()};
+  });
+  const rules=state.continuityRules;
+  const meta=$('continuityRuleMeta');
+  if(meta)meta.textContent=rules?('rules: '+rules.source+' · '+(rules.crowds||[]).length+' crowd · '+(rules.anchors||[]).length+' anchor'):'rules: default';
+  renderPropEditor();
+}
+function renderPropEditor(){
+  const panel=$('propEditorPanel');
+  if(!panel||!window.SBProps)return;
+  const prop=state.selectedProp?(state.propBible||[]).find(p=>p.id===state.selectedProp):null;
+  panel.innerHTML=SBProps.renderEditor(prop);
+  if(!prop)return;
+  panel.querySelectorAll('[data-pk]').forEach(el=>{
+    const k=el.dataset.pk;
+    el.oninput=el.onchange=()=>{prop[k]=el.value;save();renderProps()};
+  });
+  const gen=$('btnGenPropCard');if(gen)gen.onclick=()=>generatePropCard(prop.id);
+  const del=$('btnDeleteProp');if(del)del.onclick=()=>{
+    pushHistory();state.propBible=(state.propBible||[]).filter(p=>p.id!==prop.id);
+    state.selectedProp=null;save();renderProps();toast('Prop deleted');
+  };
+}
+function addProp(){
+  if(!window.SBProps)return;
+  pushHistory();
+  if(!state.propBible)state.propBible=[];
+  const p=SBProps.ensureProp({name:'New prop',description:'',refUrl:null,heldBy:''});
+  state.propBible.push(p);
+  state.selectedProp=p.id;
+  save();renderProps();
+}
+async function generatePropCard(propId){
+  const prop=(state.propBible||[]).find(p=>p.id===propId);if(!prop)return;
+  if(!curUser)return toast('Sign in to generate');
+  if(!(prop.description||'').trim())return toast('Add a description first');
+  toast('Generating prop card for '+prop.name+'…');
+  try{
+    const url=await generatePicture({
+      type:'prop',name:prop.name,
+      desc:'Product-style reference card for a film prop, plain neutral background, no people, no hands. '+prop.name+': '+prop.description,
+      aspect_ratio:'1:1'
+    });
+    pushHistory();prop.refUrl=url;save();renderProps();toast('Prop card ready for '+prop.name);
+  }catch(e){toast(e.message)}
+}
+async function enrichContinuity(){
+  if(!window.SBProps)return;
+  if(!curUser)return toast('Sign in to run continuity enrichment');
+  if(!(state.scriptText||'').trim())return toast('Import a script first');
+  toast('Analyzing script for props, outfits, and crowd/location rules…');
+  try{
+    const h=await hdrs();
+    const data=await SBProps.enrich(state,h);
+    pushHistory();
+    const n=SBProps.mergeEnrichResult(state,data);
+    if(window.SBContinuity&&typeof SBContinuity.applyGraph==='function')SBContinuity.applyGraph(state);
+    save();renderAll();
+    toast(n?('Continuity enrich: '+(state.propBible||[]).length+' props, rules updated'):'No new continuity data found');
+  }catch(e){toast(e.message)}
+}
 
 function isValidCharacterName(name){
   const up=String(name||'').toUpperCase().trim();
@@ -1877,7 +1953,7 @@ async function runJob(clip){
       const ci=state.clips.findIndex(c=>c.id===clip.id);
       const cont=SBContinuity.continuityForClip(state,ci);
       if(cont){
-        body.prompt=SBContinuity.enrichPromptWithContinuity(body.prompt,state,clip);
+        body.prompt=SBContinuity.enrichPromptWithContinuity(body.prompt,state,clip,{maxChars:promptBudget});
         // Block boundary → lead with the canonical character ref; mid-block → lead
         // with the previous end frame. The server orders refs accordingly.
         body.ref_strategy=cont.blockBreak?'identity':'chain';
@@ -2081,6 +2157,11 @@ function bindUI(){
     btnResyncLocs.disabled=false;
   };
   $('btnAddChar').onclick=()=>{const n=prompt('Character name:');if(!n)return;pushHistory();state.characters[n.toUpperCase()]=Object.assign({},SBCharacters.DEFAULTS);state.selectedChar=n.toUpperCase();save();renderCharacters()};
+  const btnAddProp=$('btnAddProp');if(btnAddProp)btnAddProp.onclick=addProp;
+  const btnEnrichCont=$('btnEnrichContinuity');if(btnEnrichCont)btnEnrichCont.onclick=async()=>{
+    btnEnrichCont.disabled=true;
+    try{await enrichContinuity()}finally{btnEnrichCont.disabled=false}
+  };
   $('btnClosePreview').onclick=()=>$('previewModal').classList.add('hidden');
   $('btnCloseExport').onclick=()=>$('exportModal').classList.add('hidden');
   ['gFilm','gColor','gAspect','gQuality','gAudio','gModel','gDuration','gLang'].forEach(id=>{const el=$(id);if(el)el.onchange=syncGlobal});
