@@ -1142,7 +1142,9 @@ function renderTimeline(){
   $('clipRow').innerHTML=state.clips.map(c=>{
     const st=c.status==='approved'?'approved':c.status==='done'?'done':c.status==='generating'?'gen':'';
     const th=c.videoUrl?'<video src="'+c.videoUrl+'" muted loop playsinline></video>':'<span class="ph">🎬</span>';
-    return '<div class="clip-card'+(c.id===state.selectedId?' active':'')+(c.status==='approved'?' approved':'')+'" data-id="'+c.id+'" draggable="true"><div class="clip-status '+st+'"></div><div class="clip-num">Clip '+String(c.num).padStart(2,'0')+'</div><div class="clip-thumb">'+th+'</div><div class="clip-label">'+esc(c.label)+'</div><div class="clip-dur">~'+c.durationSec+'s</div></div>';
+    const vd=(window.SBVerify&&SBVerify.verdict(c))||'';
+    const vTitle=vd?esc(SBVerify.summaryText(c)):'';
+    return '<div class="clip-card'+(c.id===state.selectedId?' active':'')+(c.status==='approved'?' approved':'')+'" data-id="'+c.id+'" draggable="true"><div class="verify-dot '+vd+'" title="'+vTitle+'"></div><div class="clip-status '+st+'"></div><div class="clip-num">Clip '+String(c.num).padStart(2,'0')+'</div><div class="clip-thumb">'+th+'</div><div class="clip-label">'+esc(c.label)+'</div><div class="clip-dur">~'+c.durationSec+'s</div></div>';
   }).join('');
   $('clipRow').querySelectorAll('.clip-card').forEach(el=>{
     el.onclick=()=>{state.selectedId=el.dataset.id;renderAll()};
@@ -1189,7 +1191,13 @@ function renderDetail(){
         (castPreview?' · cast: '+esc(castPreview):'')+'</div>';
     }
   }
-  body.innerHTML=locHint+
+  let verifyHint='';
+  if(window.SBVerify&&clip.continuity&&clip.continuity.available){
+    const vd=SBVerify.verdict(clip);
+    verifyHint='<div class="hint-chip '+(vd==='good'?'quiet':'gold')+'"><span class="verify-scores"><span class="'+vd+'">●</span> Continuity: '+esc(SBVerify.summaryText(clip))+'</span>'+
+      (vd==='bad'?' <button type="button" class="tb-btn" id="btnRegenIdentity" style="margin-left:6px;padding:2px 8px;font-size:10px">↻ Regenerate (identity refs)</button>':'')+'</div>';
+  }
+  body.innerHTML=locHint+verifyHint+
     '<div class="field"><label>Scene</label><textarea id="d-desc" rows="3">'+esc(clip.description)+'</textarea></div>'+
     '<div class="field"><label>Emotion</label><select id="d-emotion">'+['Neutral','Tense','Joy','Fear','Anger','Sad','Noir'].map(e=>'<option'+(clip.emotion===e?' selected':'')+'>'+e+'</option>').join('')+'</select></div>'+
     '<details class="detail-section"><summary>AI prompt</summary><div class="section-inner"><textarea id="d-prompt" readonly rows="4">'+esc(buildPrompt(clip))+'</textarea></div></details>'+
@@ -1197,6 +1205,8 @@ function renderDetail(){
     '<details class="detail-section"><summary>Camera</summary><div class="section-inner">'+mkTog(p.camera,'angle','Angle')+mkTog(p.camera,'filmGrade','Film grade')+mkTog(p.camera,'colorMode','Color')+mkTog(p.camera,'saturation','Saturation')+'</div></details>'+
     '<details class="detail-section"><summary>Atmosphere</summary><div class="section-inner">'+mkTog(p.atmosphere,'lighting','Lighting')+mkTog(p.atmosphere,'mood','Mood')+mkTog(p.atmosphere,'fx','FX')+mkTog(p.atmosphere,'sound','Sound')+'</div></details>'+
     (clip.error?'<div class="err">'+esc(clip.error)+'</div>':'');
+  const regenId=$('btnRegenIdentity');
+  if(regenId)regenId.onclick=()=>{clip.retryCount=(clip.retryCount||0)+1;clip._forceIdentity=true;runJob(clip)};
   $('d-desc').oninput=e=>{clip.description=e.target.value;save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)};
   $('d-emotion').onchange=e=>{clip.emotion=e.target.value;save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)};
   body.querySelectorAll('.toggle').forEach(t=>{t.onclick=()=>{const g=clip.params[t.dataset.grp];g.on[t.dataset.f]=!g.on[t.dataset.f];t.classList.toggle('on',g.on[t.dataset.f]);save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)}});
@@ -1956,7 +1966,8 @@ async function runJob(clip){
         body.prompt=SBContinuity.enrichPromptWithContinuity(body.prompt,state,clip,{maxChars:promptBudget});
         // Block boundary → lead with the canonical character ref; mid-block → lead
         // with the previous end frame. The server orders refs accordingly.
-        body.ref_strategy=cont.blockBreak?'identity':'chain';
+        body.ref_strategy=(clip._forceIdentity||cont.blockBreak)?'identity':'chain';
+        delete clip._forceIdentity;
         if(cont.prevVideoUrl){
           const prevFrame=await resolvePrevClipFrameRef(state,ci);
           if(prevFrame)body.prev_frame_image_url=prevFrame;
@@ -1984,7 +1995,10 @@ async function runJob(clip){
         }
         if(!videoUrl)throw new Error('No video URL in provider response');
         clip.videoUrl=videoUrl;
-        clip.status='done';clip.error=null;save();renderAll();return;
+        clip.continuity=null;
+        clip.status='done';clip.error=null;save();renderAll();
+        verifyClipAsync(clip);
+        return;
       }
       if(st==='FAILED'||st==='ERROR')throw new Error(formatGenError(pd,pr.status));
     }
@@ -1992,14 +2006,39 @@ async function runJob(clip){
   }catch(e){clip.status='draft';clip.error=e.message;save();renderAll();toast(e.message)}
 }
 
+// Fire-and-forget continuity scoring after a clip finishes (badge appears when done).
+function verifyMode(){const el=$('gVerify');return el?el.value:'badge'}
+function verifyClipAsync(clip){
+  if(!window.SBVerify||verifyMode()==='off')return Promise.resolve(null);
+  return SBVerify.scoreClip(state,clip).then(res=>{
+    save();renderTimeline();
+    if(state.selectedId===clip.id)renderDetail();
+    return res;
+  }).catch(()=>null);
+}
+
 async function genSelected(){if(!curUser)return toast('Sign in');const c=state.clips.find(x=>x.id===state.selectedId);if(!c)return toast('Select clip');await runJob(c)}
 async function batchGen(){
   if(!curUser)return toast('Sign in');if(state.queue.running)return;
   state.queue.running=true;$('queueBar').classList.add('on');
+  const autoRetry=verifyMode()==='retry';
   for(let i=0;i<state.clips.length;i++){
     $('queueText').textContent='Clip '+(i+1)+' / '+state.clips.length;
     if(i>0&&!state.clips[i-1].videoUrl)toast('Clip '+i+' has no video — continuity refs may be weak for clip '+(i+1));
-    await runJob(state.clips[i]);
+    const clip=state.clips[i];
+    await runJob(clip);
+    // Bounded auto-retry: ONE regeneration with identity-first refs and a new
+    // seed when the verification pass flags the clip as off-canon.
+    if(autoRetry&&clip.videoUrl&&window.SBVerify){
+      $('queueText').textContent='Clip '+(i+1)+' / '+state.clips.length+' — verifying…';
+      const res=await verifyClipAsync(clip);
+      if(res&&res.available&&SBVerify.verdict(clip)==='bad'){
+        toast('Clip '+(i+1)+' failed continuity check — retrying with identity refs');
+        clip.retryCount=(clip.retryCount||0)+1;
+        clip._forceIdentity=true;
+        await runJob(clip);
+      }
+    }
   }
   state.queue.running=false;$('queueBar').classList.remove('on');toast('Batch done');
 }
@@ -2021,7 +2060,9 @@ function previewAll(){
 function syncGlobal(){['gFilm','gColor','gAspect','gQuality','gAudio','gModel','gDuration','gLang'].forEach(id=>{const el=$(id);if(!el)return});
   state.global.filmStyle=$('gFilm').value;state.global.colorGrade=$('gColor').value;state.global.aspectRatio=$('gAspect').value;
   state.global.quality=$('gQuality').value;state.global.audioProfile=$('gAudio').value;state.global.model=$('gModel').value;
-  state.global.clipDuration=parseInt($('gDuration').value,10)||5;state.global.language=$('gLang').value;save()}
+  state.global.clipDuration=parseInt($('gDuration').value,10)||5;state.global.language=$('gLang').value;
+  const gv=$('gVerify');if(gv)state.global.verifyMode=gv.value;
+  save()}
 
 function exportEDL(){
   const approved=state.clips.filter(c=>c.status==='approved'&&c.videoUrl);
@@ -2164,7 +2205,7 @@ function bindUI(){
   };
   $('btnClosePreview').onclick=()=>$('previewModal').classList.add('hidden');
   $('btnCloseExport').onclick=()=>$('exportModal').classList.add('hidden');
-  ['gFilm','gColor','gAspect','gQuality','gAudio','gModel','gDuration','gLang'].forEach(id=>{const el=$(id);if(el)el.onchange=syncGlobal});
+  ['gFilm','gColor','gAspect','gQuality','gAudio','gModel','gDuration','gLang','gVerify'].forEach(id=>{const el=$(id);if(el)el.onchange=syncGlobal});
   const btnMore=$('btnSettingsMore'), panelFull=$('settingsFull');
   if(btnMore&&panelFull){
     btnMore.onclick=()=>{

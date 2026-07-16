@@ -114,6 +114,15 @@ button,input,select,textarea{font-family:inherit}
 .clip-status.done{background:var(--blue)}
 .clip-status.approved{background:var(--green)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+/* continuity verification traffic light (left of the status dot) */
+.verify-dot{position:absolute;top:5px;right:16px;width:7px;height:7px;border-radius:50%;display:none}
+.verify-dot.good{display:block;background:var(--green)}
+.verify-dot.warn{display:block;background:var(--gold)}
+.verify-dot.bad{display:block;background:var(--red)}
+.verify-scores{font-size:10px;font-family:var(--mono);line-height:1.6}
+.verify-scores .good{color:var(--green)}
+.verify-scores .warn{color:var(--gold)}
+.verify-scores .bad{color:var(--red)}
 
 /* ── import zone (empty state) ── */
 .import-zone{margin:20px 14px;border:1px dashed var(--border2);border-radius:12px;padding:36px 24px;text-align:center;background:var(--surface);flex-shrink:0}
