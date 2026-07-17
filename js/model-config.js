@@ -265,7 +265,9 @@
 
     fillSelect(resId, resolutions, null);
     fillSelect(aspectId, aspects, null);
-    if (durId) fillSelect(durId, durations, function (d) { return '~' + d + 's'; });
+    // 'auto' fits each clip's length to its scene (dialogue + action), instead
+    // of one global choice.
+    if (durId) fillSelect(durId, ['auto'].concat(durations), function (d) { return d === 'auto' ? 'Auto (fit scene)' : '~' + d + 's'; });
 
     var noteEl = document.getElementById(isVideo ? 'videoModelNote' : 'photoModelNote');
     if (noteEl && cfg.description) {
@@ -339,6 +341,7 @@
     var resEl = document.getElementById(ids.resolution);
 
     var aspect = (aspEl && aspEl.value) || (cfg.aspectRatios && cfg.aspectRatios[0]) || '16:9';
+    var autoDuration = !!(durEl && durEl.value === 'auto');
     var duration = parseInt((durEl && durEl.value) || '', 10);
     if (!duration || isNaN(duration)) duration = (cfg.durations && cfg.durations[0]) || 6;
     var resolution = (resEl && resEl.value) || (cfg.resolutions && cfg.resolutions[0]) || '720p';
@@ -348,7 +351,7 @@
     if (cfg.resolutions && cfg.resolutions.indexOf(resolution) < 0) resolution = cfg.resolutions[0];
 
     if (aspEl && aspEl.value !== aspect) aspEl.value = aspect;
-    if (durEl && durEl.value !== String(duration)) durEl.value = String(duration);
+    if (durEl && !autoDuration && durEl.value !== String(duration)) durEl.value = String(duration);
     if (resEl && resEl.value !== resolution) resEl.value = resolution;
     if (!isTimeline) {
       refreshSbDropdown(aspEl);
@@ -361,9 +364,28 @@
       model: model,
       aspect_ratio: aspect,
       duration: duration,
+      autoDuration: autoDuration,
       resolution: resolution,
       provider: inferVideoProvider(model)
     };
+  }
+
+  /* Fit a clip's duration to its content: spoken dialogue paces at ~2.4
+     words/sec plus breathing room; action-only beats scale with description
+     length. Snapped to the nearest duration the chosen model supports. */
+  function autoDurationForClip(clip, model) {
+    var cfg = getModelConfig(model, true);
+    var allowed = (Array.isArray(cfg.durations) && cfg.durations.length) ? cfg.durations : [4, 5, 6, 8, 10];
+    var words = String((clip && clip.dialogue) || '').split(/\s+/).filter(Boolean).length;
+    var descWords = String((clip && clip.description) || '').split(/\s+/).filter(Boolean).length;
+    var need;
+    if (words > 0) need = words / 2.4 + 1.8;
+    else need = Math.min(3 + descWords * 0.12, 8);
+    var best = allowed[allowed.length - 1];
+    for (var i = 0; i < allowed.length; i++) {
+      if (allowed[i] >= need) { best = allowed[i]; break; }
+    }
+    return best;
   }
 
   function updateSettingsStatusBar() {
@@ -447,6 +469,7 @@
   window.enhanceSelects = enhanceSelects;
   window.restoreNativeSelects = restoreNativeSelects;
   window.getVideoSettings = getVideoSettings;
+  window.autoDurationForClip = autoDurationForClip;
   window.inferVideoProvider = inferVideoProvider;
   window.updateSettingsStatusBar = updateSettingsStatusBar;
 

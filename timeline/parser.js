@@ -163,9 +163,17 @@ window.SBParser = (function(){
     'HAMMER','HAMMERS','DRIP','DRIPS','STEP','STEPS','EMERGE','EMERGES','LAUNCH','LAUNCHES',
     'PUSH','PUSHES','RAISE','RAISING','DELIVERING','OPENING','SEQUENCE','WRITTEN','CREDITS',
     'TEASER','PROLOGUE','EPILOGUE','CLOSING','INTERNATIONAL','PIERRE','TRUDEAU','ZOOMS','LANDS',
-    'CAMERA','STREET','LEVEL','JET','OVERHEAD','LARGE','AS','THE','A','AN'
+    'CAMERA','STREET','LEVEL','JET','OVERHEAD','LARGE','AS','THE','A','AN',
+    // Shouted-dialogue vocabulary that shows up in ALL-CAPS lines
+    // ("HIT HIM AGAIN, CRUMB!") — never part of a real character name.
+    'HIT','HIM','HER','THEM','US','ME','YOU','AGAIN','GET','GO','COME','MOVE','KILL','TAKE',
+    'PUT','DROP','GRAB','BRING','LEAVE','LET','GIVE','THROW','PULL','FASTER','HARDER','NEVER',
+    'ALWAYS','PLEASE','SORRY','THANKS','WHY','WHAT','WHERE','WHEN','WHO','HOW','THIS','THAT'
   ]);
   const NON_NAME_WORDS=CAP_FALSE_POS;
+  // Imperative openers: a phrase starting with a command verb is dialogue or
+  // an action beat, not a cast cue.
+  const IMPERATIVE_OPENERS=new Set(['HIT','GET','GO','RUN','STOP','LOOK','COME','MOVE','KILL','TAKE','PUT','DROP','GRAB','BRING','LEAVE','LET','GIVE','THROW','PULL','WAIT','HELP','HOLD','FIRE','DUCK','JUMP','WATCH','LISTEN']);
   const LABEL_CUE_RE=/^(?:OPENING|TITLE|TEASER|PROLOGUE|EPILOGUE|END|CREDIT|CLOSING)\s+(?:SEQUENCE|CREDITS|SCENE)$|^(?:SEQUENCE|DIALOGUE|ACTION|REACTION|TRANSITION|CLIMAX|RESOLUTION|EPILOGUE|CHARACTER\s+INTRO|OPENING\s+SCENE|BEAT\s+\d+)$/i;
 
   function isLocationCaps(name){
@@ -237,15 +245,48 @@ window.SBParser = (function(){
     if(!cn||cn.length<2||cn.length>40)return false;
     if(/^(INT|EXT|I\/E|INT\/EXT)\b/.test(cn))return false;
     if(isLocationCaps(cn))return false;
+    const allWords=cn.split(/\s+/);
+    if(allWords.length>1&&IMPERATIVE_OPENERS.has(allWords[0]))return false;
     if(isLikelyPersonName(cn,{fromCue:!!opts.fromCue}))return true;
     if(isLikelyPersonName(cn,{fromCue:true}))return true;
-    const words=cn.split(/\s+/).filter(w=>w&&w!=='A'&&w!=='AN'&&w!=='THE');
+    const words=allWords.filter(w=>w&&w!=='A'&&w!=='AN'&&w!=='THE');
     if(words.length>=2&&words.length<=4&&!SUBJECT_PRONOUNS.has(words[0])){
       const roleWords=words.filter(w=>!NON_NAME_WORDS.has(w)&&!/^(JR|SR|II|III|IV)$/i.test(w));
       if(roleWords.length>=2)return true;
     }
     if(words.length===1&&words[0].length>=3&&!NON_NAME_WORDS.has(words[0]))return true;
     return false;
+  }
+
+  /** Duplicate-cast merge: "MICHAEL RAMSEY" + "RAMSEY" (or "HIT HIM AGAIN
+      CRUMB" leftovers containing "CRUMB") are one person when the shorter
+      name is a whole-word suffix/prefix of the longer and their descriptions
+      don't disagree. Returns {canonical: {dupName: keepName}}. */
+  function findDuplicateCast(charMap){
+    const names=Object.keys(charMap||{});
+    const aliases={};
+    for(let i=0;i<names.length;i++){
+      for(let j=0;j<names.length;j++){
+        if(i===j)continue;
+        const long=names[i],short=names[j];
+        if(long.length<=short.length)continue;
+        const lw=long.split(/\s+/),sw=short.split(/\s+/);
+        if(sw.length>=lw.length)continue;
+        const suffix=lw.slice(-sw.length).join(' ')===short;
+        const prefix=lw.slice(0,sw.length).join(' ')===short;
+        if(!suffix&&!prefix)continue;
+        const dLong=String((charMap[long]&&charMap[long].description)||(typeof charMap[long]==='string'?charMap[long]:'')).trim();
+        const dShort=String((charMap[short]&&charMap[short].description)||(typeof charMap[short]==='string'?charMap[short]:'')).trim();
+        const agree=!dLong||!dShort||dLong.slice(0,30).toUpperCase()===dShort.slice(0,30).toUpperCase();
+        if(!agree)continue;
+        // Junk-prefixed longs ("HIT HIM AGAIN CRUMB") fold into the short cue
+        // name; real two-word names absorb their bare-surname variant.
+        const longIsJunk=lw.some(w=>NON_NAME_WORDS.has(w))||!isCastMember(long,{fromCue:true});
+        if(longIsJunk)aliases[long]=short;
+        else aliases[short]=long;
+      }
+    }
+    return aliases;
   }
 
   function registerChar(chars,name,desc,opts){
@@ -720,5 +761,5 @@ window.SBParser = (function(){
     return normalizeScriptText(pages.join('\n\n'));
   }
 
-  return{parse,scenesToClips,readFile,extractCharactersFromText,extractBackgroundCastFromText,extractLocationsFromText,parseSceneHeading,inferLocation,mergeCharMaps,filterCharacterMap,isLikelyPersonName,isCastMember,countCueLines,LABEL_CUE_RE,normalizeScriptText,normalizeScriptTextDetailed,unflattenScreenplay,isScriptFlattened,isClipReconstruction,parseQualityWarning};
+  return{parse,scenesToClips,readFile,extractCharactersFromText,extractBackgroundCastFromText,extractLocationsFromText,parseSceneHeading,inferLocation,mergeCharMaps,filterCharacterMap,isLikelyPersonName,isCastMember,findDuplicateCast,countCueLines,LABEL_CUE_RE,normalizeScriptText,normalizeScriptTextDetailed,unflattenScreenplay,isScriptFlattened,isClipReconstruction,parseQualityWarning};
 })();

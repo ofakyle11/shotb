@@ -1705,9 +1705,41 @@ function syncCharactersFromParse(result,text,opts){
   if(!opts.skipHydrate){
     SBCharacters.hydrate(state.characters,text||state.scriptText||clipTextBlob(),state.clips,(result&&result.characters)||{});
   }
+  mergeDuplicateCharacters();
   applyCastRoles(state.characters,state.clips);
   const names=Object.keys(state.characters);
   if(names.length&&!state.selectedChar)state.selectedChar=names[0];
+}
+
+/* Fold duplicate cast cards ("MICHAEL RAMSEY" + "RAMSEY", junk-prefixed
+   variants like "HIT HIM AGAIN CRUMB" + "CRUMB") into one character, keeping
+   refs/kits and rewriting every clip's cast list. */
+function mergeDuplicateCharacters(){
+  if(!SBParser.findDuplicateCast)return 0;
+  const aliases=SBParser.findDuplicateCast(state.characters);
+  let n=0;
+  Object.keys(aliases).forEach(dup=>{
+    const keep=aliases[dup];
+    const from=state.characters[dup],into=state.characters[keep];
+    if(!from||!into)return;
+    if(!into.description&&from.description)into.description=from.description;
+    if(!into.wardrobe&&from.wardrobe)into.wardrobe=from.wardrobe;
+    if(!(into.refUrl||'').startsWith('https://')&&(from.refUrl||'').startsWith('https://'))into.refUrl=from.refUrl;
+    if(!into.kit&&from.kit)into.kit=from.kit;
+    if(from.outfits&&from.outfits.length){into.outfits=(into.outfits||[]).concat(from.outfits)}
+    delete state.characters[dup];
+    state.clips.forEach(c=>{
+      if(!Array.isArray(c.characters))return;
+      const i=c.characters.indexOf(dup);
+      if(i>=0){
+        if(c.characters.indexOf(keep)<0)c.characters[i]=keep;
+        else c.characters.splice(i,1);
+      }
+    });
+    if(state.selectedChar===dup)state.selectedChar=keep;
+    n++;
+  });
+  return n;
 }
 
 function pruneJunkCharacters(chars,trusted){
@@ -1955,7 +1987,13 @@ async function runJob(clip){
   try{
     const h=await hdrs();
     const vs=(typeof window.getVideoSettings==='function')?window.getVideoSettings('timeline'):null;
-    const dur=vs?vs.duration:Math.min(15,Math.max(3,parseInt(state.global.clipDuration,10)||clip.durationSec||5));
+    let dur=vs?vs.duration:Math.min(15,Math.max(3,parseInt(state.global.clipDuration,10)||clip.durationSec||5));
+    // Auto duration: fit each clip to its own dialogue/action instead of one
+    // global length.
+    if(vs&&vs.autoDuration&&typeof window.autoDurationForClip==='function'){
+      dur=window.autoDurationForClip(clip,vs.model);
+      clip.durationSec=dur;
+    }
     const asp=vs?vs.aspect_ratio:(state.global.aspectRatio||'16:9');
     const pollModel=vs?vs.model:state.global.model;
     const pollProv=vs?vs.provider:((typeof window.inferVideoProvider==='function')?window.inferVideoProvider(pollModel):(pollModel&&pollModel.includes('grok')?'grok-imagine':pollModel&&pollModel.includes('sora')?'aivideoapi':'wavespeed'));
@@ -2126,7 +2164,7 @@ function previewAll(){
 function syncGlobal(){['gFilm','gColor','gAspect','gQuality','gAudio','gModel','gDuration','gLang'].forEach(id=>{const el=$(id);if(!el)return});
   state.global.filmStyle=$('gFilm').value;state.global.colorGrade=$('gColor').value;state.global.aspectRatio=$('gAspect').value;
   state.global.quality=$('gQuality').value;state.global.audioProfile=$('gAudio').value;state.global.model=$('gModel').value;
-  state.global.clipDuration=parseInt($('gDuration').value,10)||5;state.global.language=$('gLang').value;
+  state.global.clipDuration=$('gDuration').value==='auto'?'auto':(parseInt($('gDuration').value,10)||5);state.global.language=$('gLang').value;
   const gv=$('gVerify');if(gv)state.global.verifyMode=gv.value;
   save()}
 
@@ -2300,6 +2338,7 @@ function bindUI(){
   Object.keys(state.characters).forEach(n=>{
     if(!isValidCharacterName(n))delete state.characters[n];
   });
+  mergeDuplicateCharacters();
   if(state.clips.length||state.scriptText||state.parseResult){
     bootstrapMastery(true,{skipHydrate:true});
     repairAllCharacterDescriptions();
@@ -2313,7 +2352,13 @@ function bindUI(){
     if($('gModel')&&state.global.model&&window.VIDEO_MODELS&&window.VIDEO_MODELS[state.global.model])$('gModel').value=state.global.model;
     if(typeof window.updateOptionsForModel==='function')window.updateOptionsForModel($('gModel').value,true,'gQuality','gAspect','gDuration');
     if(state.global.aspectRatio&&$('gAspect')){const ok=[...$('gAspect').options].some(o=>o.value===state.global.aspectRatio);if(ok)$('gAspect').value=state.global.aspectRatio;}
-    if(state.global.clipDuration&&$('gDuration')){const dv=String(state.global.clipDuration);const ok=[...$('gDuration').options].some(o=>o.value===dv);if(ok)$('gDuration').value=dv;}
+    if($('gDuration')){
+      // Migrate legacy default (5) to auto; otherwise restore the saved choice.
+      const saved=state.global.clipDuration;
+      const dv=(saved==null||saved===5||saved==='5')?'auto':String(saved);
+      const ok=[...$('gDuration').options].some(o=>o.value===dv);
+      if(ok)$('gDuration').value=dv;
+    }
     if(state.global.quality&&$('gQuality')){const ok=[...$('gQuality').options].some(o=>o.value===state.global.quality);if(ok)$('gQuality').value=state.global.quality;}
     ['gFilm','gColor','gAudio','gLang'].forEach(id=>{
       const m={gFilm:'filmStyle',gColor:'colorGrade',gAudio:'audioProfile',gLang:'language'};
