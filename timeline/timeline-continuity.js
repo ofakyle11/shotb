@@ -34,9 +34,47 @@ window.SBContinuity = (function () {
   }
 
   function ruleActive(rule, blob) {
-    return (rule.detectPatterns || []).some(function (p) {
+    const patternHit = (rule.detectPatterns || []).some(function (p) {
       try { return new RegExp(p, 'i').test(blob); } catch (e) { return false; }
     });
+    if (!patternHit) return false;
+    // A rule with a named leader only applies when that leader is actually in
+    // this script — stops the shipped default (VORSANGER) from leaking into
+    // unrelated screenplays that merely mention "ninety" or "identical".
+    const leader = String(rule.leaderName || '').toUpperCase().trim();
+    if (leader && String(blob).toUpperCase().indexOf(leader) < 0) return false;
+    return true;
+  }
+
+  /** Remove crowd-rule cards that a rule injected into a script where the
+      rule doesn't apply (leader never appears in the text). */
+  function cleanupInactiveCrowdCards(state) {
+    if (!state || !state.characters) return 0;
+    const blob = String(state.scriptText || '') + '\n' + (state.clips || []).map(function (c) {
+      return (c.description || '') + ' ' + (c.dialogue || '') + ' ' + (c.heading || '');
+    }).join('\n');
+    let n = 0;
+    getRules(state).crowds.forEach(function (rule) {
+      if (ruleActive(rule, blob)) return;
+      const leader = String(rule.leaderName || '').toUpperCase().trim();
+      [leader, rule.name].forEach(function (name) {
+        if (!name || !state.characters[name]) return;
+        const desc = String(state.characters[name].description || '');
+        // Only remove cards the rule itself created (description matches the
+        // rule's canned text) — never a user's own character.
+        const canned = name === leader ? (rule.leaderDescription || '') : (rule.description || '');
+        if (canned && desc && desc.slice(0, 40) !== canned.slice(0, 40)) return;
+        delete state.characters[name];
+        (state.clips || []).forEach(function (clip) {
+          if (!Array.isArray(clip.characters)) return;
+          const idx = clip.characters.indexOf(name);
+          if (idx >= 0) clip.characters.splice(idx, 1);
+        });
+        if (state.selectedChar === name) state.selectedChar = null;
+        n++;
+      });
+    });
+    return n;
   }
 
   function wordHit(words, textUpper) {
@@ -332,7 +370,9 @@ window.SBContinuity = (function () {
         const leader = String(rule.leaderName || '').toUpperCase().trim();
         const scriptActive = ruleActive(rule, script);
         const blockHasLeader = leader && (blk.leads.indexOf(leader) >= 0 || blk.background.indexOf(leader) >= 0);
-        return scriptActive || blockHasLeader || wordHit(rule.triggerWords, blockBlob);
+        // Trigger words alone no longer activate a rule — the script itself
+        // (or the block's cast) must establish that this crowd exists here.
+        return scriptActive || blockHasLeader;
       });
 
       const anchor = rules.anchors.filter(function (a) {
@@ -442,6 +482,7 @@ window.SBContinuity = (function () {
   return {
     DEFAULT_RULES: DEFAULT_RULES,
     getRules: getRules,
+    cleanupInactiveCrowdCards: cleanupInactiveCrowdCards,
     continuityType: continuityType,
     buildBlocks: buildBlocks,
     applyGraph: applyGraph,

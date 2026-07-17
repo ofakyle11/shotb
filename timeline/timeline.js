@@ -2339,6 +2339,7 @@ function bindUI(){
     if(!isValidCharacterName(n))delete state.characters[n];
   });
   mergeDuplicateCharacters();
+  if(window.SBContinuity&&SBContinuity.cleanupInactiveCrowdCards)SBContinuity.cleanupInactiveCrowdCards(state);
   if(state.clips.length||state.scriptText||state.parseResult){
     bootstrapMastery(true,{skipHydrate:true});
     repairAllCharacterDescriptions();

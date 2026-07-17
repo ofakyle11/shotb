@@ -7,6 +7,9 @@ window.SBParser = (function(){
     if(/^SCENE\s+\d+(?:\s*[.\-—:]\s*|\s+)/i.test(line))return true;
     if(/^(FLASHBACK|FLASH\s*CUT|MONTAGE|DREAM|INTERCUT|BACK\s+TO|LATER|TIME\s+CUT|SERIES\s+OF\s+SHOTS)\b/i.test(line)&&line===line.toUpperCase())return true;
     if(/^\d+[.\s]+\s*[A-Z][A-Z0-9\s'\-]+\s+[-—–]\s+(DAY|NIGHT|MORNING|EVENING|DUSK|DAWN|CONTINUOUS|LATER)\s*$/i.test(line))return true;
+    // Un-numbered slugline without INT./EXT. — "VILLAGE SQUARE - DAY",
+    // "THE CLIFFS — NIGHT". All-caps location + time-of-day tail.
+    if(line===line.toUpperCase()&&/^[A-Z][A-Z0-9\s.,'\-]{2,45}\s+[-—–]\s+(DAY|NIGHT|MORNING|EVENING|AFTERNOON|DUSK|DAWN|SUNSET|SUNRISE|CONTINUOUS|LATER|SAME\s+TIME|MOMENTS\s+LATER)\s*$/.test(line))return true;
     return /^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i.test(line);
   }
   /** Character cue — must be ALL CAPS (matches Edit Studio isCC). */
@@ -576,6 +579,15 @@ window.SBParser = (function(){
         if(!seenFirstScene&&isTitlePageLine(t)){i++;continue}
         cur={heading:'SCENE 1',shots:[]};scenes.push(cur);seenFirstScene=true;
       }
+      // "NAME: dialogue" one-line format (chat-style / informal scripts).
+      const inlineCue=t.match(/^([A-Z][A-Za-z .''\-]{1,30}):\s+(\S.*)$/);
+      if(inlineCue&&isCastMember(inlineCue[1].toUpperCase().trim(),{fromCue:true})&&!isSH(t)){
+        const cn=resCN(inlineCue[1].toUpperCase().trim(),chars);
+        if(chars[cn]===undefined)chars[cn]='';
+        const fd=inlineCue[2].trim(),tp=iT(fd,!0,1);
+        cur.shots.push({type:tp,camera:iCm(fd,tp),duration:dl,description:'Close on '+cn+(chars[cn]?' ('+chars[cn]+')':'')+', delivering dialogue.',dialogue:fd,characters_in_frame:[cn],cine:{}});
+        i++;continue;
+      }
       if(isCC(t)){
         const rn=exCN(t),cn=resCN(rn,chars),ci=t.match(/\(([^)]+)\)/);
         const desc=ci&&ci[1]&&isDescriptiveParen(ci[1])?ci[1].trim():'';
@@ -585,7 +597,10 @@ window.SBParser = (function(){
         while(i<lines.length){
           const d=lines[i];
           if(!d.trim()||isSH(d.trim()))break;
-          if(isCC(d.trim())&&!isPar(d))break;
+          // A caps line mid-dialogue is a new cue only if it survives the
+          // strict cast gate — shouted lines ("HIT HIM AGAIN, CRUMB!") stay
+          // part of the current speech.
+          if(isCC(d.trim())&&!isPar(d)&&isCastMember(d.trim(),{fromCue:true}))break;
           if(isPar(d))par=d.trim();else dl2.push(d.trim());
           i++;
         }
