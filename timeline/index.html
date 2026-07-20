@@ -54,6 +54,7 @@
           <option value="vidu-q3">Vidu Q3 (Multi-Ref)</option>
           <option value="kling-3.0-pro">Kling 3.0 Pro</option>
           <option value="grok-imagine">Grok Imagine (XAI)</option>
+          <option value="comfy-local">🖥 Local ComfyUI (this PC)</option>
         </select>
         <select class="uc-sel" id="gAspect" title="Aspect ratio">
           <option value="16:9" selected>16:9</option>
@@ -82,6 +83,7 @@
       <div class="uc-group"><span class="uc-label">Audio</span><select class="uc-sel" id="gAudio"><option>Cinematic</option><option>Narration</option><option>Dialogue + Music</option></select></div>
       <div class="uc-group"><span class="uc-label">Language</span><select class="uc-sel" id="gLang"><option>English</option><option>French</option><option>Bilingual</option></select></div>
       <div class="uc-group"><span class="uc-label">Verify</span><select class="uc-sel" id="gVerify" title="Continuity verification after each generated clip"><option value="badge" selected>Score + badge</option><option value="retry">Auto-retry low</option><option value="off">Off</option></select></div>
+      <div class="uc-group"><span class="uc-label">ComfyUI</span><input class="uc-sel uc-text" id="gComfyHost" value="http://127.0.0.1:8188" title="Local ComfyUI address (used by the Local ComfyUI model)" spellcheck="false"><button type="button" class="tb-btn" id="btnComfyTest" title="Check the connection to your local ComfyUI">Test</button><button type="button" class="tb-btn" id="btnComfyWf" title="Upload your ComfyUI workflow (export as API Format JSON)">Workflow…</button></div>
     </div>
   </div>
 
@@ -315,7 +317,8 @@
 <script src="timeline-continuity.js?v=20260715a"></script>
 <script src="timeline-locations-enrich.js?v=20260715a"></script>
 <script src="timeline-props.js?v=20260715a"></script>
-<script src="timeline-verify.js?v=20260715a"></script>
+<script src="timeline-verify.js?v=20260716a"></script>
+<script src="timeline-comfy.js?v=20260716a"></script>
 <script src="timeline-enrich.js?v=20260627d"></script>
 <script src="timeline-export.js?v=20260715a"></script>
 <script src="pro-cut.js?v=20260716a"></script>

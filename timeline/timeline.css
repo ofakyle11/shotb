@@ -55,6 +55,7 @@ button,input,select,textarea{font-family:inherit}
 }
 .uc-sel:hover{border-color:var(--border2);color:#fff}
 .uc-sel:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(212,168,67,.12)}
+input.uc-text{appearance:none;-webkit-appearance:none;font-family:var(--mono);min-width:190px;cursor:text}
 
 /* ── main layout ── */
 .main{display:flex;flex:1;min-height:0}

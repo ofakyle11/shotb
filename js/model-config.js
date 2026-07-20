@@ -17,7 +17,8 @@
     'veo-3.1': { label: 'Veo 3.1', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], supportsReferences: true, maxRefImages: 3, description: 'Google Veo 3.1 — 1080p T2V/R2V via WaveSpeed (4/6/8s)' },
     'vidu-q3': { label: 'Vidu Q3 (Multi-Ref)', resolutions: ['480p', '720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [4, 5, 8, 10, 16], supportsReferences: true, maxRefImages: 4, description: 'Vidu Q3 reference-to-video — multi-entity consistency from up to 4 refs (character + wardrobe + prop + location), audio, up to 16s' },
     'grok-imagine': { label: 'Grok Imagine (XAI)', resolutions: ['480p', '720p'], aspectRatios: ['1:1', '16:9', '9:16', '2:3', '3:2'], durations: [4, 5, 6, 8, 10, 12, 15], supportsReferences: true, maxRefImages: 7, description: 'XAI Grok Imagine native - excellent ref coherence + audio' },
-    'kling-3.0-pro': { label: 'Kling 3.0 Pro', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [3, 5, 8, 10, 15], supportsReferences: true, maxRefImages: 1, description: 'Kling 3.0 Pro — cinematic T2V/I2V via WaveSpeed' }
+    'kling-3.0-pro': { label: 'Kling 3.0 Pro', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [3, 5, 8, 10, 15], supportsReferences: true, maxRefImages: 1, description: 'Kling 3.0 Pro — cinematic T2V/I2V via WaveSpeed' },
+    'comfy-local': { label: '🖥 Local ComfyUI (this PC)', resolutions: ['480p', '720p'], aspectRatios: ['16:9', '9:16'], durations: [2, 3, 4, 5, 6, 8], supportsReferences: true, maxRefImages: 1, description: 'Your own GPU via ComfyUI on this machine — free, private, uses your installed models. Launch ComfyUI with --enable-cors-header' }
   };
 
   var _ddDocClickWired = false;
@@ -305,6 +306,7 @@
 
   function inferVideoProvider(model) {
     var m = String(model || '').toLowerCase();
+    if (m.indexOf('comfy') >= 0) return 'comfy-local';
     if (m.indexOf('grok') >= 0) return 'grok-imagine';
     if (m.indexOf('sora') >= 0) return 'aivideoapi';
     return 'wavespeed';

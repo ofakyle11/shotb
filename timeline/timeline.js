@@ -1917,7 +1917,9 @@ function grabVideoFrame(src,atSecondsFromEnd){
     v.muted=true;
     v.playsInline=true;
     v.preload='auto';
-    if(src.startsWith('https://'))v.crossOrigin='anonymous';
+    // CORS mode for hosted clips AND local ComfyUI /view URLs (which send
+    // ACAO when launched with --enable-cors-header) — else the canvas taints.
+    if(src.startsWith('https://')||/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(src))v.crossOrigin='anonymous';
     let settled=false;
     const finish=(val)=>{if(settled)return;settled=true;resolve(val||null)};
     const grab=()=>{
@@ -2025,6 +2027,28 @@ async function runJob(clip){
           if(prevFrame)body.prev_frame_image_url=prevFrame;
         }
       }
+    }
+    // Local ComfyUI provider: the browser drives the GPU on this machine
+    // directly — same enriched prompt/refs/seed, zero cloud cost.
+    if(pollProv==='comfy-local'){
+      if(!window.SBComfy)throw new Error('Local ComfyUI module not loaded — refresh the page');
+      const host=String(state.global.comfyHost||'http://127.0.0.1:8188').replace(/\/+$/,'');
+      if(!(await SBComfy.ping(host)))throw new Error('ComfyUI not reachable at '+host+". Start it on this machine with:  python main.py --enable-cors-header '*'");
+      const refUrl=body.character_image_url||body.prev_frame_image_url||(body.reference_images&&body.reference_images[0])||null;
+      $('queueBar').classList.add('on');
+      try{
+        const out=await SBComfy.generate(host,{
+          prompt:body.prompt,refUrl,duration:dur,seed:body.seed,aspect:asp,
+          workflowJson:state.global.comfyWorkflow||null,
+          onProgress:m=>{$('queueText').textContent='Clip '+clip.num+': '+m}
+        });
+        clip.videoUrl=out.url;
+        clip.provider='comfy-local';
+        clip.continuity=null;
+        clip.status='done';clip.error=null;save();renderAll();
+        verifyClipAsync(clip);
+        return;
+      }finally{if(!state.queue.running)$('queueBar').classList.remove('on')}
     }
     const sub=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify(body)});
     const sd=await sub.json();
@@ -2314,6 +2338,40 @@ function bindUI(){
   };
   $('btnAddChar').onclick=()=>{const n=prompt('Character name:');if(!n)return;pushHistory();state.characters[n.toUpperCase()]=Object.assign({},SBCharacters.DEFAULTS);state.selectedChar=n.toUpperCase();save();renderCharacters()};
   const btnAddProp=$('btnAddProp');if(btnAddProp)btnAddProp.onclick=addProp;
+  /* Local ComfyUI settings */
+  const comfyHostEl=$('gComfyHost');
+  if(comfyHostEl){
+    if(state.global.comfyHost)comfyHostEl.value=state.global.comfyHost;
+    comfyHostEl.onchange=()=>{state.global.comfyHost=comfyHostEl.value.trim();save()};
+  }
+  const btnComfyTest=$('btnComfyTest');
+  if(btnComfyTest)btnComfyTest.onclick=async()=>{
+    const host=String((comfyHostEl&&comfyHostEl.value)||'http://127.0.0.1:8188').replace(/\/+$/,'');
+    btnComfyTest.disabled=true;toast('Checking '+host+'…');
+    const ok=window.SBComfy?await SBComfy.ping(host):false;
+    btnComfyTest.disabled=false;
+    toast(ok?'✓ ComfyUI connected at '+host:'✗ Not reachable — start ComfyUI on this machine with:  python main.py --enable-cors-header');
+  };
+  const btnComfyWf=$('btnComfyWf');
+  if(btnComfyWf){
+    if(state.global.comfyWorkflow)btnComfyWf.textContent='Workflow ✓';
+    btnComfyWf.onclick=()=>{
+      const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
+      inp.onchange=async()=>{
+        const f=inp.files[0];if(!f)return;
+        try{
+          const text=await f.text();
+          const wf=JSON.parse(text);
+          const hasEncode=Object.keys(wf).some(k=>wf[k]&&wf[k].class_type==='CLIPTextEncode');
+          if(!hasEncode)throw new Error('That JSON has no CLIPTextEncode node — export from ComfyUI as "API Format" (enable Dev mode in ComfyUI settings)');
+          state.global.comfyWorkflow=text;save();
+          btnComfyWf.textContent='Workflow ✓';
+          toast('Custom ComfyUI workflow saved — the Local ComfyUI model will use it');
+        }catch(e){toast(e.message)}
+      };
+      inp.click();
+    };
+  }
   const btnEnrichCont=$('btnEnrichContinuity');if(btnEnrichCont)btnEnrichCont.onclick=async()=>{
     btnEnrichCont.disabled=true;
     try{await enrichContinuity()}finally{btnEnrichCont.disabled=false}

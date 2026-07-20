@@ -110,7 +110,7 @@ window.SBVerify = (function () {
     return new Promise(function (resolve) {
       var v = document.createElement('video');
       v.muted = true; v.playsInline = true; v.preload = 'auto';
-      if (src.indexOf('https://') === 0) v.crossOrigin = 'anonymous';
+      if (src.indexOf('https://') === 0 || /^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(src)) v.crossOrigin = 'anonymous';
       var frames = [], idx = 0, settled = false;
       var finish = function () { if (!settled) { settled = true; resolve(frames); } };
       var seekNext = function () {
