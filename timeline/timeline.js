@@ -816,7 +816,7 @@ function gotoStep(step){
 function renderAuthGate(){
   const gate=$('authGate');if(!gate)return;
   gate.classList.toggle('hidden',!!curUser);
-  ['btnGen','btnRegen','btnBatch','btnUpscaleAll'].forEach(id=>{const b=$(id);if(b)b.disabled=!curUser});
+  ['btnGen','btnRegen','btnBatch','btnUpscaleAll','btnBoard','btnBoardAll'].forEach(id=>{const b=$(id);if(b)b.disabled=!curUser});
   const clip=state.clips.find(c=>c.id===state.selectedId);
   const ap=$('btnApprove');
   if(ap)ap.disabled=!clip||!clip.videoUrl;
@@ -1158,7 +1158,8 @@ function renderTimeline(){
     const th=c.videoUrl?'<video src="'+c.videoUrl+'" muted loop playsinline></video>':'<span class="ph">🎬</span>';
     const vd=(window.SBVerify&&SBVerify.verdict(c))||'';
     const vTitle=vd?esc(SBVerify.summaryText(c)):'';
-    return '<div class="clip-card'+(c.id===state.selectedId?' active':'')+(c.status==='approved'?' approved':'')+'" data-id="'+c.id+'" draggable="true"><div class="verify-dot '+vd+'" title="'+vTitle+'"></div><div class="clip-status '+st+'"></div><div class="clip-num">Clip '+String(c.num).padStart(2,'0')+'</div><div class="clip-thumb">'+th+'</div><div class="clip-label">'+esc(c.label)+'</div><div class="clip-dur">~'+c.durationSec+'s</div></div>';
+    const thumb=c.videoUrl?th:(c.boardUrl?'<img src="'+esc(c.boardUrl)+'" alt="" title="Storyboard frame">':th);
+    return '<div class="clip-card'+(c.id===state.selectedId?' active':'')+(c.status==='approved'?' approved':'')+'" data-id="'+c.id+'" draggable="true"><div class="verify-dot '+vd+'" title="'+vTitle+'"></div><div class="clip-status '+st+'"></div><div class="clip-num">Clip '+String(c.num).padStart(2,'0')+'</div><div class="clip-thumb">'+thumb+'</div><div class="clip-label">'+esc(c.label)+'</div><div class="clip-dur">~'+c.durationSec+'s</div></div>';
   }).join('');
   $('clipRow').querySelectorAll('.clip-card').forEach(el=>{
     el.onclick=()=>{state.selectedId=el.dataset.id;renderAll()};
@@ -2028,6 +2029,15 @@ async function runJob(clip){
         }
       }
     }
+    // Storyboard-first: an approved board frame is the clip's start frame when
+    // no previous-video end frame exists, and rides along as an extra ref on
+    // multi-ref models — the video begins from approved canon.
+    if(clip.boardUrl&&String(clip.boardUrl).startsWith('https://')){
+      if(!body.prev_frame_image_url)body.prev_frame_image_url=clip.boardUrl;
+      if(Array.isArray(body.reference_images)&&body.reference_images.length<maxRefs&&body.reference_images.indexOf(clip.boardUrl)<0){
+        body.reference_images.push(clip.boardUrl);
+      }
+    }
     // Local ComfyUI provider: the browser drives the GPU on this machine
     // directly — same enriched prompt/refs/seed, zero cloud cost.
     if(pollProv==='comfy-local'){
@@ -2091,6 +2101,55 @@ function verifyClipAsync(clip){
     if(state.selectedId===clip.id)renderDetail();
     return res;
   }).catch(()=>null);
+}
+
+/* ── Storyboard mode: a still frame per clip BEFORE spending on video.
+   The frame is generated with the same enriched prompt + continuity refs the
+   video would get, renders as the clip's thumbnail (the film strip becomes a
+   storyboard), and once present it seeds the video generation as the start
+   frame — every clip begins from an approved canon image. ── */
+async function boardClip(clip,opts){
+  opts=opts||{};
+  if(!curUser)return toast('Sign in to storyboard');
+  if(!clip)return;
+  if(clip.boardUrl&&!opts.force)return clip.boardUrl;
+  let prompt=buildPrompt(clip);
+  let refs=[];
+  if(window.SBMastery){
+    const m=SBMastery.resolveForTimeline(state,clip,{maxRefs:4});
+    prompt=SBMastery.enrichPrompt(prompt,m,{maxChars:1500});
+    refs=(m.reference_images||[]).slice(0,3);
+  }
+  if(window.SBContinuity)prompt=SBContinuity.enrichPromptWithContinuity(prompt,state,clip,{maxChars:1800});
+  // Previous board frame rides along so consecutive boards flow visually.
+  const ci=state.clips.findIndex(c=>c.id===clip.id);
+  const prevBoard=ci>0?state.clips[ci-1].boardUrl:null;
+  if(prevBoard&&String(prevBoard).startsWith('https://')&&refs.indexOf(prevBoard)<0)refs.unshift(prevBoard);
+  if(!opts.quiet)toast('Boarding clip '+clip.num+'…');
+  const url=await generatePicture({
+    type:'storyboard',name:'Clip '+clip.num,
+    desc:'Cinematic still frame — the exact FIRST FRAME of this shot, matching the reference images for character and location identity. '+prompt,
+    aspect_ratio:state.global.aspectRatio==='9:16'?'9:16':'16:9',
+    referenceImages:refs.slice(0,4).map(u=>({url:u}))
+  });
+  clip.boardUrl=url;
+  save();renderTimeline();if(state.selectedId===clip.id)renderDetail();
+  return url;
+}
+async function boardAll(){
+  if(!curUser)return toast('Sign in to storyboard');
+  const targets=state.clips.filter(c=>!c.boardUrl);
+  if(!targets.length)return toast('All clips already have storyboard frames');
+  if(state.queue.running)return;
+  state.queue.running=true;$('queueBar').classList.add('on');
+  let ok=0;
+  for(let i=0;i<targets.length;i++){
+    $('queueText').textContent='Storyboard '+(i+1)+' / '+targets.length;
+    try{await boardClip(targets[i],{quiet:true});ok++}
+    catch(e){toast('Clip '+targets[i].num+': '+e.message)}
+  }
+  state.queue.running=false;$('queueBar').classList.remove('on');
+  toast('Storyboard: '+ok+' / '+targets.length+' frames — review the strip, then Generate All');
 }
 
 /* ── AI upscaling (WaveSpeed-hosted FlashVSR / SeedVR2, open models) ── */
@@ -2304,6 +2363,8 @@ function bindUI(){
   $('btnRegen').onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(c)c.retryCount=(c.retryCount||0)+1;genSelected()};
   const btnUp=$('btnUpscale');if(btnUp)btnUp.onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(!c)return toast('Select clip');upscaleClip(c,'flashvsr')};
   const btnUpAll=$('btnUpscaleAll');if(btnUpAll)btnUpAll.onclick=upscaleApproved;
+  const btnBoard=$('btnBoard');if(btnBoard)btnBoard.onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(!c)return toast('Select clip');boardClip(c,{force:!!c.boardUrl}).catch(e=>toast(e.message))};
+  const btnBoardAll=$('btnBoardAll');if(btnBoardAll)btnBoardAll.onclick=boardAll;
   $('btnApprove').onclick=approveSelected;
   $('btnPreview').onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(c&&c.videoUrl)window.open(c.videoUrl);else toast('No video')};
   $('btnPreviewAll').onclick=previewAll;
