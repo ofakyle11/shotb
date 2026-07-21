@@ -23,6 +23,19 @@ window.SBComfy = (function () {
     "9": { "inputs": { "filename_prefix": "ShotbreakVideo", "images": ["8", 0] }, "class_type": "SaveImage" }
   };
 
+  // Bundled still-image fallback (from local-backend/workflows/txt2img.api.json,
+  // SDXL base) — used for storyboards/portraits when no custom image workflow
+  // is uploaded.
+  var DEFAULT_IMG_WF = {
+    "4": { "inputs": { "ckpt_name": "sd_xl_base_1.0.safetensors" }, "class_type": "CheckpointLoaderSimple" },
+    "5": { "inputs": { "width": 1024, "height": 1024, "batch_size": 1 }, "class_type": "EmptyLatentImage" },
+    "6": { "inputs": { "text": "cinematic character portrait, production reference", "clip": ["4", 1] }, "class_type": "CLIPTextEncode" },
+    "7": { "inputs": { "text": "blurry, low quality, watermark, text", "clip": ["4", 1] }, "class_type": "CLIPTextEncode" },
+    "3": { "inputs": { "seed": 42, "steps": 20, "cfg": 7, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
+    "8": { "inputs": { "samples": ["3", 0], "vae": ["4", 2] }, "class_type": "VAEDecode" },
+    "9": { "inputs": { "filename_prefix": "Shotbreak", "images": ["8", 0] }, "class_type": "SaveImage" }
+  };
+
   function withTimeout(promise, ms, msg) {
     return Promise.race([promise, new Promise(function (_, rej) { setTimeout(function () { rej(new Error(msg || 'timeout')); }, ms); })]);
   }
@@ -144,7 +157,7 @@ window.SBComfy = (function () {
     host = String(host || 'http://127.0.0.1:8188').replace(/\/+$/, '');
     var onProgress = opts.onProgress || function () {};
 
-    var wf = DEFAULT_WF;
+    var wf = opts.image ? DEFAULT_IMG_WF : DEFAULT_WF;
     if (opts.workflowJson) {
       try { wf = JSON.parse(opts.workflowJson); }
       catch (e) { throw new Error('Custom ComfyUI workflow is not valid JSON'); }
@@ -156,15 +169,15 @@ window.SBComfy = (function () {
       catch (e) { console.warn('[SBComfy] ref upload failed:', e); }
     }
 
-    var portrait = opts.aspect === '9:16';
+    var portrait = opts.aspect === '9:16' || opts.aspect === '2:3';
     var injected = inject(wf, {
       prompt: opts.prompt,
       negative: opts.negative || 'blurry, distorted, low quality, watermark, text',
       refName: refName,
       seed: opts.seed,
-      width: portrait ? 480 : 832,
-      height: portrait ? 832 : 480,
-      frames: Math.max(9, Math.round((opts.duration || 4) * 16) + 1)
+      width: opts.image ? (portrait ? 832 : 1216) : (portrait ? 480 : 832),
+      height: opts.image ? (portrait ? 1216 : 832) : (portrait ? 832 : 480),
+      frames: opts.image ? null : Math.max(9, Math.round((opts.duration || 4) * 16) + 1)
     });
 
     onProgress('Queued on local ComfyUI…');
@@ -206,5 +219,5 @@ window.SBComfy = (function () {
     throw new Error('Local ComfyUI generation timed out (30 min)');
   }
 
-  return { ping: ping, inject: inject, generate: generate, DEFAULT_WF: DEFAULT_WF };
+  return { ping: ping, inject: inject, generate: generate, DEFAULT_WF: DEFAULT_WF, DEFAULT_IMG_WF: DEFAULT_IMG_WF };
 })();

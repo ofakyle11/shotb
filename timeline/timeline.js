@@ -1370,10 +1370,32 @@ async function hostRefImage(fileOrDataUrl,path){
   return SBStorage.uploadDataUrl(fileOrDataUrl,path);
 }
 
-// In-timeline AI reference generation (ports app.html's Character Studio here) —
-// generate_picture returns a hosted https URL synchronously.
+// In-timeline AI reference generation (ports app.html's Character Studio here).
+// The image model is user-selectable (Settings ▾ → Images): nano-banana-pro
+// (best consistency, heavy moderation), flux-xai (Grok — light moderation),
+// wan-2.7 (realism), or comfy-local (your GPU, zero moderation — result is
+// re-hosted on Firebase Storage so cloud video models can still consume it).
 async function generatePicture(opts){
-  const r=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:await hdrs(),body:JSON.stringify(Object.assign({action:'generate_picture',model:'nano-banana-pro'},opts))});
+  opts=opts||{};
+  const model=opts.model||state.global.imageModel||'nano-banana-pro';
+  if(model==='comfy-local'){
+    if(!window.SBComfy)throw new Error('Local ComfyUI module not loaded — refresh the page');
+    const host=String(state.global.comfyHost||'http://127.0.0.1:8188').replace(/\/+$/,'');
+    if(!(await SBComfy.ping(host)))throw new Error("ComfyUI not reachable at "+host+" — start it with: python main.py --enable-cors-header '*'");
+    const refUrl=(opts.referenceImages&&opts.referenceImages[0]&&opts.referenceImages[0].url)||null;
+    const out=await SBComfy.generate(host,{
+      image:true,
+      prompt:String(opts.desc||''),
+      refUrl,
+      seed:stableSeed(state.projectName+'|img|'+(opts.name||'')+'|'+(opts.desc||'').length),
+      aspect:opts.aspect_ratio||'16:9',
+      workflowJson:state.global.comfyImageWorkflow||null
+    });
+    // Re-host locally generated frames so they work as refs for cloud providers.
+    const blob=await fetch(out.url).then(r=>{if(!r.ok)throw new Error('Could not read ComfyUI output');return r.blob()});
+    return await hostRefImage(blob,'refs/comfy-'+String(opts.type||'img'));
+  }
+  const r=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:await hdrs(),body:JSON.stringify(Object.assign({action:'generate_picture'},opts,{model}))});
   const d=await r.json();
   if(!r.ok||!d.url)throw new Error(d.detail||d.error||'Image generation failed');
   return d.url;
@@ -2413,10 +2435,10 @@ function bindUI(){
     btnComfyTest.disabled=false;
     toast(ok?'✓ ComfyUI connected at '+host:'✗ Not reachable — start ComfyUI on this machine with:  python main.py --enable-cors-header');
   };
-  const btnComfyWf=$('btnComfyWf');
-  if(btnComfyWf){
-    if(state.global.comfyWorkflow)btnComfyWf.textContent='Workflow ✓';
-    btnComfyWf.onclick=()=>{
+  function wireComfyWfButton(btnId,stateKey,label){
+    const btn=$(btnId);if(!btn)return;
+    if(state.global[stateKey])btn.textContent=label+' ✓';
+    btn.onclick=()=>{
       const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
       inp.onchange=async()=>{
         const f=inp.files[0];if(!f)return;
@@ -2425,13 +2447,20 @@ function bindUI(){
           const wf=JSON.parse(text);
           const hasEncode=Object.keys(wf).some(k=>wf[k]&&wf[k].class_type==='CLIPTextEncode');
           if(!hasEncode)throw new Error('That JSON has no CLIPTextEncode node — export from ComfyUI as "API Format" (enable Dev mode in ComfyUI settings)');
-          state.global.comfyWorkflow=text;save();
-          btnComfyWf.textContent='Workflow ✓';
-          toast('Custom ComfyUI workflow saved — the Local ComfyUI model will use it');
+          state.global[stateKey]=text;save();
+          btn.textContent=label+' ✓';
+          toast('ComfyUI '+label.toLowerCase()+' workflow saved');
         }catch(e){toast(e.message)}
       };
       inp.click();
     };
+  }
+  wireComfyWfButton('btnComfyWf','comfyWorkflow','Video WF');
+  wireComfyWfButton('btnComfyImgWf','comfyImageWorkflow','Img WF');
+  const imgModelEl=$('gImgModel');
+  if(imgModelEl){
+    if(state.global.imageModel)imgModelEl.value=state.global.imageModel;
+    imgModelEl.onchange=()=>{state.global.imageModel=imgModelEl.value;save()};
   }
   const btnEnrichCont=$('btnEnrichContinuity');if(btnEnrichCont)btnEnrichCont.onclick=async()=>{
     btnEnrichCont.disabled=true;
