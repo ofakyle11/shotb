@@ -1370,6 +1370,53 @@ async function hostRefImage(fileOrDataUrl,path){
   return SBStorage.uploadDataUrl(fileOrDataUrl,path);
 }
 
+// ComfyUI connection doctor. A plain fetch can't tell "ComfyUI isn't running"
+// apart from "running but started without --enable-cors-header" — both reject
+// identically. SBComfy.diagnose separates them (no-cors probe vs CORS ping) so
+// the modal can show the one fix that actually applies.
+function comfyHostValue(){
+  const el=$('gComfyHost');
+  const raw=(el&&el.value)||state.global.comfyHost||'http://127.0.0.1:8188';
+  return String(raw).trim().replace(/\/+$/,'')||'http://127.0.0.1:8188';
+}
+async function runComfyDiagnosis(){
+  const modal=$('comfyModal'),status=$('comfyDiagStatus'),help=$('comfyDiagHelp');
+  if(!modal||!status||!help)return;
+  if(!window.SBComfy){toast('Local ComfyUI module not loaded — refresh the page');return}
+  const host=comfyHostValue();
+  modal.classList.remove('hidden');
+  status.className='callout';
+  status.textContent='Checking '+host+' …';
+  help.innerHTML='';
+  let d;
+  try{d=await SBComfy.diagnose(host)}catch(e){d={running:false,cors:false}}
+  if(d.cors){
+    status.className='callout ok';
+    status.textContent='✓ Connected — ComfyUI at '+host+' is ready.';
+    help.innerHTML='<p>You\'re set. Pick <b>Local ComfyUI</b> as the video provider (or <b>ComfyUI (local)</b> under Settings ▾ → Images) and generate — clips render on this machine\'s GPU at zero cloud cost.</p>';
+  }else if(d.running){
+    status.className='callout warn';
+    status.textContent='ComfyUI IS running at '+host+' — but it was started without the CORS flag, so the browser is blocked from talking to it.';
+    help.innerHTML=
+      '<p>One-time fix, depending on how you run ComfyUI, then hit Re-test:</p>'+
+      '<ul>'+
+      '<li><b>ComfyUI Desktop app</b> — Settings → Server Config → set <code>CORS header</code> to <code>*</code>, then restart the app.</li>'+
+      '<li><b>Windows portable (.bat)</b> — edit <code>run_nvidia_gpu.bat</code> and add <code>--enable-cors-header</code> to the end of the <code>python</code> line, then relaunch.</li>'+
+      '<li><b>Manual / git install</b> — start it with <code>python main.py --enable-cors-header</code></li>'+
+      '</ul>';
+  }else{
+    status.className='callout err';
+    status.textContent='ComfyUI is not reachable at '+host+'.';
+    help.innerHTML=
+      '<ul>'+
+      '<li>ComfyUI must be running on <b>this same computer</b> — this page connects to it directly, not through the cloud.</li>'+
+      '<li>Check the address: the ComfyUI console prints it on startup (e.g. <code>http://127.0.0.1:8188</code>). Make the Host field in Settings ▾ match, including the port.</li>'+
+      '<li>Chrome/Edge may ask to allow access to <b>local network / localhost</b> the first time — click Allow. If it was blocked, click the icon left of the address bar → Site settings → reset the permission.</li>'+
+      '<li>Start it with the CORS flag so the next step works too: <code>python main.py --enable-cors-header</code></li>'+
+      '</ul>';
+  }
+}
+
 // In-timeline AI reference generation (ports app.html's Character Studio here).
 // The image model is user-selectable (Settings ▾ → Images): nano-banana-pro
 // (best consistency, heavy moderation), flux-xai (Grok — light moderation),
@@ -1380,8 +1427,8 @@ async function generatePicture(opts){
   const model=opts.model||state.global.imageModel||'nano-banana-pro';
   if(model==='comfy-local'){
     if(!window.SBComfy)throw new Error('Local ComfyUI module not loaded — refresh the page');
-    const host=String(state.global.comfyHost||'http://127.0.0.1:8188').replace(/\/+$/,'');
-    if(!(await SBComfy.ping(host)))throw new Error("ComfyUI not reachable at "+host+" — start it with: python main.py --enable-cors-header   (Desktop app: Settings / Server Config / CORS header = *)");
+    const host=comfyHostValue();
+    if(!(await SBComfy.ping(host))){runComfyDiagnosis();throw new Error('ComfyUI connection problem — see the setup guide')}
     const refUrl=(opts.referenceImages&&opts.referenceImages[0]&&opts.referenceImages[0].url)||null;
     const out=await SBComfy.generate(host,{
       image:true,
@@ -2064,8 +2111,8 @@ async function runJob(clip){
     // directly — same enriched prompt/refs/seed, zero cloud cost.
     if(pollProv==='comfy-local'){
       if(!window.SBComfy)throw new Error('Local ComfyUI module not loaded — refresh the page');
-      const host=String(state.global.comfyHost||'http://127.0.0.1:8188').replace(/\/+$/,'');
-      if(!(await SBComfy.ping(host)))throw new Error('ComfyUI not reachable at '+host+". Start it on this machine with:  python main.py --enable-cors-header   (Desktop app: Settings / Server Config / CORS header = *)");
+      const host=comfyHostValue();
+      if(!(await SBComfy.ping(host))){runComfyDiagnosis();throw new Error('ComfyUI connection problem — see the setup guide')}
       const refUrl=body.character_image_url||body.prev_frame_image_url||(body.reference_images&&body.reference_images[0])||null;
       $('queueBar').classList.add('on');
       try{
@@ -2428,13 +2475,11 @@ function bindUI(){
     comfyHostEl.onchange=()=>{state.global.comfyHost=comfyHostEl.value.trim();save()};
   }
   const btnComfyTest=$('btnComfyTest');
-  if(btnComfyTest)btnComfyTest.onclick=async()=>{
-    const host=String((comfyHostEl&&comfyHostEl.value)||'http://127.0.0.1:8188').replace(/\/+$/,'');
-    btnComfyTest.disabled=true;toast('Checking '+host+'…');
-    const ok=window.SBComfy?await SBComfy.ping(host):false;
-    btnComfyTest.disabled=false;
-    toast(ok?'✓ ComfyUI connected at '+host:'✗ Not reachable — start ComfyUI on this machine with:  python main.py --enable-cors-header');
-  };
+  if(btnComfyTest)btnComfyTest.onclick=()=>runComfyDiagnosis();
+  const btnCloseComfy=$('btnCloseComfy');
+  if(btnCloseComfy)btnCloseComfy.onclick=()=>$('comfyModal').classList.add('hidden');
+  const btnComfyRetest=$('btnComfyRetest');
+  if(btnComfyRetest)btnComfyRetest.onclick=()=>runComfyDiagnosis();
   function wireComfyWfButton(btnId,stateKey,label){
     const btn=$(btnId);if(!btn)return;
     if(state.global[stateKey])btn.textContent=label+' ✓';

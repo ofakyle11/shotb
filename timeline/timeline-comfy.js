@@ -47,6 +47,22 @@ window.SBComfy = (function () {
     } catch (e) { return false; }
   }
 
+  /* Distinguish the two failure states so the UI can give the exact fix:
+     - a no-cors probe RESOLVES (opaque) whenever the server is up, even
+       without the CORS flag;
+     - the normal CORS probe only succeeds when --enable-cors-header is on.
+     running:false → ComfyUI isn't running (or wrong port / browser blocked
+     local-network access). running:true, cors:false → missing the flag. */
+  async function diagnose(host) {
+    var running = false, cors = false;
+    try {
+      await withTimeout(fetch(host + '/system_stats', { mode: 'no-cors', cache: 'no-store' }), 4000, 'down');
+      running = true;
+    } catch (e) {}
+    if (running) cors = await ping(host);
+    return { running: running, cors: cors };
+  }
+
   /* Inject prompt/ref/seed/size/frames into an API-format workflow, using the
      same heuristics as local-backend/workflow_builder.py. */
   function inject(wf, opts) {
@@ -219,5 +235,5 @@ window.SBComfy = (function () {
     throw new Error('Local ComfyUI generation timed out (30 min)');
   }
 
-  return { ping: ping, inject: inject, generate: generate, DEFAULT_WF: DEFAULT_WF, DEFAULT_IMG_WF: DEFAULT_IMG_WF };
+  return { ping: ping, diagnose: diagnose, inject: inject, generate: generate, DEFAULT_WF: DEFAULT_WF, DEFAULT_IMG_WF: DEFAULT_IMG_WF };
 })();
