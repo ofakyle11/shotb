@@ -1381,7 +1381,7 @@ async function generatePicture(opts){
   if(model==='comfy-local'){
     if(!window.SBComfy)throw new Error('Local ComfyUI module not loaded — refresh the page');
     const host=String(state.global.comfyHost||'http://127.0.0.1:8188').replace(/\/+$/,'');
-    if(!(await SBComfy.ping(host)))throw new Error("ComfyUI not reachable at "+host+" — start it with: python main.py --enable-cors-header '*'");
+    if(!(await SBComfy.ping(host)))throw new Error("ComfyUI not reachable at "+host+" — start it with: python main.py --enable-cors-header   (Desktop app: Settings / Server Config / CORS header = *)");
     const refUrl=(opts.referenceImages&&opts.referenceImages[0]&&opts.referenceImages[0].url)||null;
     const out=await SBComfy.generate(host,{
       image:true,
@@ -2065,7 +2065,7 @@ async function runJob(clip){
     if(pollProv==='comfy-local'){
       if(!window.SBComfy)throw new Error('Local ComfyUI module not loaded — refresh the page');
       const host=String(state.global.comfyHost||'http://127.0.0.1:8188').replace(/\/+$/,'');
-      if(!(await SBComfy.ping(host)))throw new Error('ComfyUI not reachable at '+host+". Start it on this machine with:  python main.py --enable-cors-header '*'");
+      if(!(await SBComfy.ping(host)))throw new Error('ComfyUI not reachable at '+host+". Start it on this machine with:  python main.py --enable-cors-header   (Desktop app: Settings / Server Config / CORS header = *)");
       const refUrl=body.character_image_url||body.prev_frame_image_url||(body.reference_images&&body.reference_images[0])||null;
       $('queueBar').classList.add('on');
       try{
