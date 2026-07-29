@@ -2,7 +2,7 @@
 window.SBCharacters = (function () {
   const DEFAULTS = {
     description: '', refUrl: null, faceLock: false, bodyType: 'Average',
-    wardrobe: '', voice: 'Natural', lipSync: true, emotion: 'Neutral', lockMethod: 'photo',
+    wardrobe: '', voice: 'Natural', ttsVoice: 'auto', lipSync: true, emotion: 'Neutral', lockMethod: 'photo',
     role: 'lead'
   };
 
@@ -419,6 +419,7 @@ window.SBCharacters = (function () {
       field('Body type', 'bodyType', 'select', c.bodyType, ['Slender', 'Average', 'Athletic', 'Stocky', 'Tall', 'Petite']) +
       field('Wardrobe', 'wardrobe', 'input', c.wardrobe) +
       field('Voice profile', 'voice', 'select', c.voice, ['Natural', 'Deep', 'Soft', 'Gravel', 'Young', 'Elder']) +
+      '<div class="field"><label>Dialogue voice (AI, at export)</label><select data-k="ttsVoice">' + ttsVoiceOptions(c.ttsVoice) + '</select></div>' +
       field('Default emotion', 'emotion', 'select', c.emotion, ['Neutral', 'Tense', 'Joy', 'Fear', 'Anger', 'Sad', 'Noir']) +
       field('Cast role', 'role', 'select', c.role || 'lead', ['lead', 'supporting', 'background', 'crowd', 'voice_only']) +
       '<div class="field"><label><span>Face lock (I2V)</span><span class="toggle' + (c.faceLock ? ' on' : '') + '" data-k="faceLock"></span></label></div>' +
@@ -435,6 +436,15 @@ window.SBCharacters = (function () {
       (c.refUrl ? '<button type="button" class="tb-btn" id="btnClearRef">Remove reference</button>' : '') +
       '<button type="button" class="tb-btn char-delete-btn" id="btnDeleteChar">Delete character</button>' +
       '</div>';
+  }
+
+  function ttsVoiceOptions (cur) {
+    cur = cur || 'auto';
+    var base = [{ id: 'auto', label: 'Auto (stable per character)' }, { id: 'none', label: 'None (no spoken dialogue)' }];
+    var list = (window.SBVoice && window.SBVoice.VOICES) || [];
+    return base.concat(list).map(function (v) {
+      return '<option value="' + v.id + '"' + (v.id === cur ? ' selected' : '') + '>' + esc(v.label) + '</option>';
+    }).join('');
   }
 
   function field (label, key, type, val, opts) {

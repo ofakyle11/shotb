@@ -132,7 +132,8 @@ window.SBExport = (function(){
     opts=opts||{};
     const segs=blobs.map((b,i)=>({
       blob:b,trimIn:0,trimOut:null,transition:'cut',transitionDur:0,
-      group:(opts.groups&&opts.groups[i]!=null)?opts.groups[i]:0
+      group:(opts.groups&&opts.groups[i]!=null)?opts.groups[i]:0,
+      voiceWav:(opts.voices&&opts.voices[i])||null
     }));
     return window.SBFFmpeg.stitchTimeline(segs, onProgress, {matchColor:!!opts.matchColor});
   }

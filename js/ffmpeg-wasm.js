@@ -269,6 +269,13 @@ window.SBFFmpeg = (function () {
     return stitchTimeline(segs, onProgress, opts);
   }
 
+  // exec resolves with ffmpeg's exit code rather than throwing — the fallback
+  // ladders below need a real rejection on failure.
+  async function runFF(ff, args, timeout) {
+    const ret = await ff.exec(args, timeout);
+    if (ret) throw new Error('ffmpeg exited with code ' + ret);
+  }
+
   async function stitchTimeline(segments, onProgress, opts) {
     if (!segments || !segments.length) throw new Error('No clips to stitch');
     opts = opts || {};
@@ -295,26 +302,57 @@ window.SBFFmpeg = (function () {
       if (onProgress) onProgress('Trimming clip ' + (i + 1) + '/' + segments.length);
       const clut = cluts && cluts[i] ? 'clut' + i + '.png' : null;
       if (clut) await ff.writeFile(clut, cluts[i]);
+      const vw = s.voiceWav ? 'voice' + i + '.wav' : null;
+      if (vw) await ff.writeFile(vw, s.voiceWav instanceof Uint8Array ? s.voiceWav : new Uint8Array(s.voiceWav));
 
-      const buildArgs = (withClut) => {
+      // voiceMode: 'mix' ducks the clip's own audio under the dialogue track;
+      // 'solo' is the fallback when the clip has no audio stream (apad +
+      // -shortest keeps the video length authoritative).
+      const buildArgs = (withClut, voiceMode) => {
         const a = ['-ss', String(ti), '-i', raw];
         if (dur != null) a.push('-t', String(dur));
-        if (withClut) {
-          a.push('-i', clut, '-filter_complex', '[0:v][1:v]haldclut[v]', '-map', '[v]', '-map', '0:a?');
+        let idx = 1, clutIdx = -1, voiceIdx = -1;
+        if (withClut) { a.push('-i', clut); clutIdx = idx++; }
+        if (voiceMode) { a.push('-i', vw); voiceIdx = idx++; }
+        const fc = [];
+        let vmap = '0:v', amap = '0:a?';
+        if (withClut) { fc.push('[0:v][' + clutIdx + ':v]haldclut[v]'); vmap = '[v]'; }
+        if (voiceMode === 'mix') {
+          fc.push('[0:a]volume=0.55[bga]');
+          fc.push('[' + voiceIdx + ':a]volume=1.0[vox]');
+          fc.push('[bga][vox]amix=inputs=2:duration=first:normalize=0[a]');
+          amap = '[a]';
+        } else if (voiceMode === 'solo') {
+          fc.push('[' + voiceIdx + ':a]apad[a]');
+          amap = '[a]';
         }
+        if (fc.length) a.push('-filter_complex', fc.join(';'));
+        a.push('-map', vmap, '-map', amap);
+        if (voiceMode === 'solo') a.push('-shortest');
         a.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', out);
         return a;
       };
-      try {
-        await ff.exec(buildArgs(!!clut));
-      } catch (e) {
-        if (!clut) throw e;
-        // haldclut unavailable in this core build (or filter failed) — plain trim.
-        if (onProgress) onProgress('Color match unavailable — plain cut for clip ' + (i + 1));
-        await ff.exec(buildArgs(false));
+      const attempts = [];
+      if (vw) {
+        if (clut) attempts.push([true, 'mix'], [true, 'solo']);
+        attempts.push([false, 'mix'], [false, 'solo']);
       }
+      if (clut) attempts.push([true, null]);
+      attempts.push([false, null]);
+      let stitched = false, lastErr = null;
+      for (const [wc, vm] of attempts) {
+        try { await runFF(ff, buildArgs(wc, vm)); stitched = true; break; }
+        catch (e) {
+          lastErr = e;
+          await ff.deleteFile(out).catch(() => {});
+          if (onProgress && vm) onProgress('Audio mix retry for clip ' + (i + 1) + '…');
+          else if (onProgress && wc) onProgress('Color match unavailable — plain cut for clip ' + (i + 1));
+        }
+      }
+      if (!stitched) throw lastErr;
       await ff.deleteFile(raw).catch(() => {});
       if (clut) await ff.deleteFile(clut).catch(() => {});
+      if (vw) await ff.deleteFile(vw).catch(() => {});
       trimmed.push({
         name: out,
         dur: dur || 5,
@@ -341,7 +379,7 @@ window.SBFFmpeg = (function () {
       const list = trimmed.map((t) => "file '" + t.name + "'").join('\n');
       await ff.writeFile('concat.txt', new TextEncoder().encode(list));
       if (onProgress) onProgress('Stitching clips…');
-      await ff.exec([
+      await runFF(ff, [
         '-f', 'concat', '-safe', '0', '-i', 'concat.txt',
         '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
         '-c:a', 'aac', '-b:a', '128k',
@@ -375,12 +413,12 @@ window.SBFFmpeg = (function () {
       args.push('-map', '[' + lastV + ']', '-map', '[' + lastA + ']');
       args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', outName);
       try {
-        await ff.exec(args);
+        await runFF(ff, args);
       } catch (e) {
         if (onProgress) onProgress('Dissolve failed — hard-cut fallback…');
         const list = trimmed.map((t) => "file '" + t.name + "'").join('\n');
         await ff.writeFile('concat.txt', new TextEncoder().encode(list));
-        await ff.exec([
+        await runFF(ff, [
           '-f', 'concat', '-safe', '0', '-i', 'concat.txt',
           '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23',
           '-c:a', 'aac', '-movflags', '+faststart',

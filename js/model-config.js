@@ -458,8 +458,22 @@
     refresh(skipInitialSync === true ? false : true);
   }
 
+  /* Rough $/second by video model (WaveSpeed/API list pricing, 720p tier) —
+     estimates only, surfaced in the Export panel so batch cost is visible
+     before spending. comfy-local is the user's own GPU. */
+  var EST_COST_PER_SEC = {
+    'seedance-2.0-turbo': 0.03, 'wan-2.7': 0.025, 'sora-2': 0.10, 'veo-3.1': 0.25,
+    'vidu-q3': 0.15, 'kling-3.0-pro': 0.07, 'grok-imagine': 0.05, 'comfy-local': 0
+  };
+  function estimateClipCost(model, seconds) {
+    var r = EST_COST_PER_SEC[model];
+    if (r == null) return null;
+    return r * (Number(seconds) || 5);
+  }
+
   window.PHOTO_MODELS = PHOTO_MODELS;
   window.VIDEO_MODELS = VIDEO_MODELS;
+  window.estimateClipCost = estimateClipCost;
   window.getModelConfig = getModelConfig;
   window.populateModelSelect = populateModelSelect;
   window.updateOptionsForModel = updateOptionsForModel;

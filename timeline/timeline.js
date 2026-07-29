@@ -36,7 +36,10 @@ function undo(){if(!history.past.length)return;history.future.push(snapshot());r
 function redo(){if(!history.future.length)return;history.past.push(snapshot());restore(history.future.pop());save();renderAll();toast('Redo')}
 function updateUndo(){if($('btnUndo'))$('btnUndo').disabled=!history.past.length;if($('btnRedo'))$('btnRedo').disabled=!history.future.length}
 
-function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({clips:state.clips,characters:state.characters,locationBible:state.locationBible,propBible:state.propBible,continuityRules:state.continuityRules,global:state.global,assembly:state.assembly,parseResult:state.parseResult,projectName:state.projectName,scriptText:state.scriptText}))}catch(e){}}
+function save(){
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify({savedAt:Date.now(),clips:state.clips,characters:state.characters,locationBible:state.locationBible,propBible:state.propBible,continuityRules:state.continuityRules,global:state.global,assembly:state.assembly,parseResult:state.parseResult,projectName:state.projectName,scriptText:state.scriptText}))}catch(e){}
+  if(window.SBSync)SBSync.queueBackup(state);
+}
 function load(){try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(!d)return;if(d.clips)state.clips=d.clips;if(d.characters)state.characters=SBCharacters.normalize(d.characters);if(d.locationBible)state.locationBible=d.locationBible;if(d.propBible)state.propBible=d.propBible;if(d.continuityRules)state.continuityRules=d.continuityRules;if(d.global)Object.assign(state.global,d.global);if(d.assembly)Object.assign(state.assembly,d.assembly);if(d.parseResult)state.parseResult=d.parseResult;if(d.projectName)state.projectName=d.projectName;if(d.scriptText)state.scriptText=d.scriptText;state.clips.forEach(ensureClip);warnStaleRefs()}catch(e){}}
 // Legacy demo-echo uploads left data: URLs in saved projects — those never reach providers.
 function warnStaleRefs(){
@@ -79,9 +82,15 @@ function initAuth(){
   if(!firebase.apps.length)firebase.initializeApp(window.SHOTBREAK_CONFIG.firebase);
   auth=firebase.auth();
   auth.onAuthStateChanged(u=>{
-    if(u){const e=(u.email||'').toLowerCase();curUser={name:u.displayName||e.split('@')[0],email:e,isOwner:OWNER_EMAILS.has(e),uid:u.uid};$('loginOverlay').classList.add('hidden');$('userMeta').textContent=curUser.name}
-    else{curUser=null;$('loginOverlay').classList.remove('hidden');$('userMeta').textContent='—'}
+    if(u){const e=(u.email||'').toLowerCase();curUser={name:u.displayName||e.split('@')[0],email:e,isOwner:OWNER_EMAILS.has(e),uid:u.uid};$('loginOverlay').classList.add('hidden');$('userMeta').textContent=curUser.name;checkCloudRestore()}
+    else{curUser=null;$('loginOverlay').classList.remove('hidden');$('userMeta').textContent='—';const sm=$('syncMeta');if(sm)sm.textContent='☁ —'}
     renderAuthGate();
+  });
+  if(window.SBSync)SBSync.onStatus((s,detail)=>{
+    const el=$('syncMeta');if(!el)return;
+    if(s==='saving')el.textContent='☁ saving…';
+    else if(s==='synced')el.textContent='☁ '+new Date(detail).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    else if(s==='error')el.textContent='☁ retry pending';
   });
   const err=$('loginErr'),ok=$('loginOk');
   const showErr=m=>{if(ok)ok.style.display='none';err.textContent=m;err.style.display='block'};
@@ -1159,7 +1168,8 @@ function renderTimeline(){
     const vd=(window.SBVerify&&SBVerify.verdict(c))||'';
     const vTitle=vd?esc(SBVerify.summaryText(c)):'';
     const thumb=c.videoUrl?th:(c.boardUrl?'<img src="'+esc(c.boardUrl)+'" alt="" title="Storyboard frame">':th);
-    return '<div class="clip-card'+(c.id===state.selectedId?' active':'')+(c.status==='approved'?' approved':'')+'" data-id="'+c.id+'" draggable="true"><div class="verify-dot '+vd+'" title="'+vTitle+'"></div><div class="clip-status '+st+'"></div><div class="clip-num">Clip '+String(c.num).padStart(2,'0')+'</div><div class="clip-thumb">'+thumb+'</div><div class="clip-label">'+esc(c.label)+'</div><div class="clip-dur">~'+c.durationSec+'s</div></div>';
+    const draftChip=(c.draftQuality&&c.videoUrl)?'<span class="clip-draft" title="Rendered in draft quality — ★ Finalize re-renders with your selected model">DRAFT</span>':'';
+    return '<div class="clip-card'+(c.id===state.selectedId?' active':'')+(c.status==='approved'?' approved':'')+'" data-id="'+c.id+'" draggable="true"><div class="verify-dot '+vd+'" title="'+vTitle+'"></div><div class="clip-status '+st+'"></div>'+draftChip+'<div class="clip-num">Clip '+String(c.num).padStart(2,'0')+'</div><div class="clip-thumb">'+thumb+'</div><div class="clip-label">'+esc(c.label)+'</div><div class="clip-dur">~'+c.durationSec+'s</div></div>';
   }).join('');
   $('clipRow').querySelectorAll('.clip-card').forEach(el=>{
     el.onclick=()=>{state.selectedId=el.dataset.id;renderAll()};
@@ -1583,7 +1593,24 @@ async function uploadLocPlate(locKey){
   inp.click();
 }
 
-function renderOutput(){$('queuePanel').innerHTML=SBExport.renderQueue(state.clips,state.queue);$('outputStats').textContent=state.clips.filter(c=>c.status==='approved').length+' approved · '+state.clips.filter(c=>c.videoUrl).length+' rendered'}
+function renderOutput(){
+  $('queuePanel').innerHTML=SBExport.renderQueue(state.clips,state.queue);
+  const approved=state.clips.filter(c=>c.status==='approved').length;
+  const rendered=state.clips.filter(c=>c.videoUrl).length;
+  let extra='';
+  if(typeof window.estimateClipCost==='function'){
+    const model=state.global.draftMode==='on'?DRAFT_MODEL:state.global.model;
+    const remaining=state.clips.filter(c=>!c.videoUrl);
+    const est=remaining.reduce((s,c)=>s+(window.estimateClipCost(model,c.durationSec||5)||0),0);
+    if(remaining.length&&est>0)extra=' · ~$'+est.toFixed(2)+' est. for '+remaining.length+' left';
+    const drafts=state.clips.filter(c=>c.draftQuality&&c.videoUrl);
+    if(drafts.length){
+      const fest=drafts.reduce((s,c)=>s+(window.estimateClipCost(state.global.model,c.durationSec||5)||0),0);
+      extra+=' · '+drafts.length+' draft'+(drafts.length>1?'s':'')+(fest>0?' (~$'+fest.toFixed(2)+' to finalize)':'');
+    }
+  }
+  $('outputStats').textContent=approved+' approved · '+rendered+' rendered'+extra;
+}
 
 /* ── props panel ── */
 function renderProps(){
@@ -2052,7 +2079,9 @@ function stableSeed(str){
   return (h>>>0)%2147483647;
 }
 
-async function runJob(clip){
+const DRAFT_MODEL='wan-2.7';
+async function runJob(clip,opts){
+  opts=opts||{};
   clip.status='generating';clip.error=null;renderAll();
   let prompt=buildPrompt(clip);
   const ref=SBCharacters.getRefForClip(state.characters,clip);
@@ -2067,9 +2096,16 @@ async function runJob(clip){
       clip.durationSec=dur;
     }
     const asp=vs?vs.aspect_ratio:(state.global.aspectRatio||'16:9');
-    const pollModel=vs?vs.model:state.global.model;
-    const pollProv=vs?vs.provider:((typeof window.inferVideoProvider==='function')?window.inferVideoProvider(pollModel):(pollModel&&pollModel.includes('grok')?'grok-imagine':pollModel&&pollModel.includes('sora')?'aivideoapi':'wavespeed'));
-    const body={action:'submit',model:pollModel,prompt,duration:dur,aspect_ratio:asp,resolution:vs?vs.resolution:(state.global.quality||'720p'),provider:pollProv};
+    let pollModel=vs?vs.model:state.global.model;
+    let pollProv=vs?vs.provider:((typeof window.inferVideoProvider==='function')?window.inferVideoProvider(pollModel):(pollModel&&pollModel.includes('grok')?'grok-imagine':pollModel&&pollModel.includes('sora')?'aivideoapi':'wavespeed'));
+    // Draft mode: cheap fast model, SAME seed/refs/prompt — ★ Finalize
+    // (opts.final) re-renders with the model actually selected.
+    const isDraftRun=state.global.draftMode==='on'&&!opts.final&&pollProv!=='comfy-local'&&pollModel!==DRAFT_MODEL;
+    if(isDraftRun){
+      pollModel=DRAFT_MODEL;
+      pollProv=(typeof window.inferVideoProvider==='function')?window.inferVideoProvider(DRAFT_MODEL):'wavespeed';
+    }
+    const body={action:'submit',model:pollModel,prompt,duration:dur,aspect_ratio:asp,resolution:isDraftRun?'720p':(vs?vs.resolution:(state.global.quality||'720p')),provider:pollProv};
     // Deterministic seed: same clip + retry count → same request params (Wan/Seedance/Vidu honor it).
     body.seed=stableSeed(state.projectName+'|'+clip.id+'|'+(clip.retryCount||0));
     const modelCfg=(typeof window.getModelConfig==='function')?window.getModelConfig(pollModel,true):{};
@@ -2124,6 +2160,7 @@ async function runJob(clip){
         clip.videoUrl=out.url;
         clip.provider='comfy-local';
         clip.continuity=null;
+        clip.draftQuality=false;
         clip.status='done';clip.error=null;save();renderAll();
         verifyClipAsync(clip);
         return;
@@ -2151,6 +2188,7 @@ async function runJob(clip){
         if(!videoUrl)throw new Error('No video URL in provider response');
         clip.videoUrl=videoUrl;
         clip.continuity=null;
+        clip.draftQuality=isDraftRun;
         clip.status='done';clip.error=null;save();renderAll();
         verifyClipAsync(clip);
         return;
@@ -2274,6 +2312,35 @@ async function upscaleApproved(){
 }
 
 async function genSelected(){if(!curUser)return toast('Sign in');const c=state.clips.find(x=>x.id===state.selectedId);if(!c)return toast('Select clip');await runJob(c)}
+async function finalizeSelected(){
+  if(!curUser)return toast('Sign in');
+  const c=state.clips.find(x=>x.id===state.selectedId);
+  if(!c)return toast('Select clip');
+  if(!c.draftQuality||!c.videoUrl)return toast('This clip is already final quality');
+  await runJob(c,{final:true});
+}
+// Re-render every approved draft at final quality — same seed & refs, so the
+// finalized shot keeps the draft's composition.
+async function finalizeApproved(){
+  if(!curUser)return toast('Sign in');
+  const targets=state.clips.filter(c=>c.draftQuality&&c.videoUrl&&(c.status==='approved'||c.status==='done'));
+  if(!targets.length)return toast('No draft clips to finalize');
+  const model=state.global.model;
+  const est=(typeof window.estimateClipCost==='function')?targets.reduce((s,c)=>s+(window.estimateClipCost(model,c.durationSec||5)||0),0):0;
+  if(!confirm('Re-render '+targets.length+' draft clip'+(targets.length>1?'s':'')+' at final quality with '+model+(est>0?' (~$'+est.toFixed(2)+' est.)':'')+'?'))return;
+  state.queue.running=true;
+  try{
+    for(let i=0;i<targets.length;i++){
+      $('queueBar').classList.add('on');
+      $('queueText').textContent='Finalizing '+(i+1)+'/'+targets.length+' (clip '+targets[i].num+')…';
+      await runJob(targets[i],{final:true});
+    }
+  }finally{
+    state.queue.running=false;
+    $('queueBar').classList.remove('on');
+  }
+  toast('Finalize pass complete — re-approve the finalized clips');
+}
 async function batchGen(){
   if(!curUser)return toast('Sign in');if(state.queue.running)return;
   state.queue.running=true;$('queueBar').classList.add('on');
@@ -2318,6 +2385,7 @@ function syncGlobal(){['gFilm','gColor','gAspect','gQuality','gAudio','gModel','
   state.global.quality=$('gQuality').value;state.global.audioProfile=$('gAudio').value;state.global.model=$('gModel').value;
   state.global.clipDuration=$('gDuration').value==='auto'?'auto':(parseInt($('gDuration').value,10)||5);state.global.language=$('gLang').value;
   const gv=$('gVerify');if(gv)state.global.verifyMode=gv.value;
+  const gd=$('gDraft');if(gd)state.global.draftMode=gd.value;
   save()}
 
 function exportEDL(){
@@ -2325,19 +2393,93 @@ function exportEDL(){
   SBExport.exportEDL(approved.length?approved:state.clips);
   toast('EDL downloaded');
 }
-function exportProject(){SBExport.exportProject({clips:state.clips,characters:state.characters,locationBible:state.locationBible,global:state.global,assembly:state.assembly,projectName:state.projectName,scriptText:state.scriptText,parseResult:state.parseResult});toast('Project saved')}
+function exportProject(){SBExport.exportProject({clips:state.clips,characters:state.characters,locationBible:state.locationBible,propBible:state.propBible,continuityRules:state.continuityRules,global:state.global,assembly:state.assembly,projectName:state.projectName,scriptText:state.scriptText,parseResult:state.parseResult});toast('Project saved')}
+// Shared by file load, cloud restore, and cloud load.
+function applyProjectData(d){
+  state.clips=d.clips||[];state.characters=SBCharacters.normalize(d.characters||{});state.locationBible=d.locationBible||[];
+  if(d.propBible)state.propBible=d.propBible;
+  if(d.continuityRules)state.continuityRules=d.continuityRules;
+  state.global=Object.assign(state.global,d.global||{});
+  state.assembly=Object.assign(state.assembly,d.assembly||{});state.projectName=d.projectName||'Imported';
+  state.scriptText=d.scriptText||'';state.parseResult=d.parseResult||null;
+  const ta=$('scriptEditor');if(ta){ta.value=state.scriptText;ta._focused=false}
+  state.clips.forEach(ensureClip);syncLocationBibleFromClips();
+  if(window.SBSync)SBSync.markClean(state);
+  save();renderAll();
+}
 function loadProject(){
   const inp=document.createElement('input');inp.type='file';inp.accept='.json';
   inp.onchange=async()=>{const f=inp.files[0];if(!f)return;pushHistory();const d=JSON.parse(await f.text());
-    state.clips=d.clips||[];state.characters=SBCharacters.normalize(d.characters||{});state.locationBible=d.locationBible||[];
-    state.global=Object.assign(state.global,d.global||{});
-    state.assembly=Object.assign(state.assembly,d.assembly||{});state.projectName=d.projectName||'Imported';
-    state.scriptText=d.scriptText||'';state.parseResult=d.parseResult||null;
-    const ta=$('scriptEditor');if(ta){ta.value=state.scriptText;ta._focused=false}
-    state.clips.forEach(ensureClip);syncLocationBibleFromClips();save();renderAll();openScriptPanel();toast('Project loaded')};
+    applyProjectData(d);openScriptPanel();toast('Project loaded')};
   inp.click();
 }
+// On login: if the newest cloud backup is meaningfully newer than what this
+// browser has, offer to restore it — the project follows the account.
+async function checkCloudRestore(){
+  if(!window.SBSync||!SBSync.ready())return;
+  try{
+    const latest=await SBSync.latest();
+    if(!latest||!latest.data)return;
+    let localSavedAt=0;
+    try{localSavedAt=(JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')||{}).savedAt||0}catch(e){}
+    const cloudAt=latest.data.savedAt||0;
+    const localEmpty=!state.clips.length&&!state.scriptText;
+    if(cloudAt<=localSavedAt+15000&&!localEmpty)return;
+    if(!localEmpty&&!confirm('A newer cloud backup of "'+(latest.data.projectName||latest.meta.name)+'" exists (saved '+new Date(cloudAt).toLocaleString()+').\n\nLoad it on this computer? Your current local copy will be replaced.'))return;
+    pushHistory();
+    applyProjectData(latest.data);
+    toast('Cloud backup restored — "'+(state.projectName||'project')+'"');
+  }catch(e){}
+}
+async function cloudLoadPicker(){
+  toggleMoreMenu(false);
+  if(!curUser)return toast('Sign in first');
+  if(!window.SBSync||!SBSync.ready())return toast('Cloud sync unavailable — refresh the page');
+  try{
+    const items=await SBSync.list();
+    if(!items.length)return toast('No cloud backups yet — projects save automatically while you work');
+    const pick=prompt('Cloud projects:\n'+items.map((it,i)=>(i+1)+'. '+it.name+'  ('+new Date(it.updated).toLocaleString()+')').join('\n')+'\n\nEnter a number to load:','1');
+    const idx=parseInt(pick,10)-1;
+    if(!(idx>=0&&idx<items.length))return;
+    pushHistory();
+    applyProjectData(await SBSync.fetchProject(items[idx].path));
+    openScriptPanel();
+    toast('Loaded "'+items[idx].name+'" from cloud');
+  }catch(e){toast(e.message||'Cloud load failed')}
+}
 
+function clipSpeaker(clip){
+  return (clip.characters&&clip.characters[0])||(clip.characters_in_frame&&clip.characters_in_frame[0])||'';
+}
+// The line a clip speaks at export, with its character's assigned AI voice.
+function voiceLineForClip(clip){
+  const text=String(clip.dialogue||'').trim();
+  if(!text||!window.SBVoice)return null;
+  const voice=SBVoice.voiceFor(clipSpeaker(clip),state.characters);
+  if(!voice)return null;
+  return {text:text,speaker:clipSpeaker(clip)||'—',voice:voice};
+}
+function srtTime(sec){
+  sec=Math.max(0,sec);
+  const h=Math.floor(sec/3600),m=Math.floor(sec/60)%60,s=Math.floor(sec)%60,ms=Math.round((sec%1)*1000);
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+','+String(ms).padStart(3,'0');
+}
+// Subtitles straight from the script's dialogue + clip timings — no
+// transcription model needed because we KNOW what every clip says.
+function buildSrt(clips){
+  let t=0,n=0,out='';
+  clips.forEach(c=>{
+    const dur=Math.max(0.5,((c.edit&&c.edit.trimOut!=null?c.edit.trimOut:(c.durationSec||5))-((c.edit&&c.edit.trimIn)||0)));
+    const line=String(c.dialogue||'').trim();
+    if(line){
+      n++;
+      const sp=clipSpeaker(c);
+      out+=n+'\n'+srtTime(t)+' --> '+srtTime(t+Math.max(1,dur-0.2))+'\n'+(sp?sp+': ':'')+line+'\n\n';
+    }
+    t+=dur;
+  });
+  return n?out:null;
+}
 async function finalExport(){
   const clips=state.clips.filter(c=>c.status==='approved'&&c.videoUrl);
   if(!clips.length)return toast('Approve clips with video first');
@@ -2351,8 +2493,31 @@ async function finalExport(){
     const blk=(window.SBContinuity&&SBContinuity.blockForClip)?SBContinuity.blockForClip(state,ci):null;
     return blk?blk.id:(c.sceneIdx!=null?'s'+c.sceneIdx:'all');
   });
+  if($('chkCaptions')&&$('chkCaptions').checked){
+    const srt=buildSrt(clips);
+    if(srt)SBExport.download('shotbreak-captions.srt',srt,'text/plain');
+    else toast('No dialogue found for captions');
+  }
+  // Per-character dialogue voices, synthesized on this device and mixed over
+  // each clip's own audio at stitch time.
+  let voices=null;
+  if($('chkVoices')&&$('chkVoices').checked&&window.SBVoice){
+    voices=[];
+    try{
+      for(let i=0;i<clips.length;i++){
+        const line=voiceLineForClip(clips[i]);
+        if(!line){voices.push(null);continue}
+        $('exportStatus').textContent='Voicing clip '+clips[i].num+' — '+line.speaker+'…';
+        voices.push(await SBVoice.synthWav(line.text,line.voice,m=>$('exportStatus').textContent=m));
+      }
+      if(!voices.some(Boolean)){voices=null;toast('No dialogue lines to voice')}
+    }catch(e){
+      voices=null;
+      toast('Voice synthesis unavailable ('+(e.message||'model load failed')+') — exporting without voices');
+    }
+  }
   try{
-    const blob=await SBExport.stitchClips(clips,{fade:state.assembly.masterFade||0.3,matchColor,groups},m=>$('exportStatus').textContent=m);
+    const blob=await SBExport.stitchClips(clips,{fade:state.assembly.masterFade||0.3,matchColor,groups,voices},m=>$('exportStatus').textContent=m);
     SBExport.download('shotbreak-final.'+(blob.type.includes('zip')?'zip':'mp4'),blob,blob.type);
     $('exportStatus').textContent='Done!';
     toast('Final export downloaded');
@@ -2432,6 +2597,9 @@ function bindUI(){
   $('btnRegen').onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(c)c.retryCount=(c.retryCount||0)+1;genSelected()};
   const btnUp=$('btnUpscale');if(btnUp)btnUp.onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(!c)return toast('Select clip');upscaleClip(c,'flashvsr')};
   const btnUpAll=$('btnUpscaleAll');if(btnUpAll)btnUpAll.onclick=upscaleApproved;
+  const btnFin=$('btnFinalize');if(btnFin)btnFin.onclick=finalizeSelected;
+  const btnFinAll=$('btnFinalizeAll');if(btnFinAll)btnFinAll.onclick=finalizeApproved;
+  const btnCloud=$('btnCloudLoad');if(btnCloud)btnCloud.onclick=cloudLoadPicker;
   const btnBoard=$('btnBoard');if(btnBoard)btnBoard.onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(!c)return toast('Select clip');boardClip(c,{force:!!c.boardUrl}).catch(e=>toast(e.message))};
   const btnBoardAll=$('btnBoardAll');if(btnBoardAll)btnBoardAll.onclick=boardAll;
   $('btnApprove').onclick=approveSelected;
@@ -2513,7 +2681,7 @@ function bindUI(){
   };
   $('btnClosePreview').onclick=()=>$('previewModal').classList.add('hidden');
   $('btnCloseExport').onclick=()=>$('exportModal').classList.add('hidden');
-  ['gFilm','gColor','gAspect','gQuality','gAudio','gModel','gDuration','gLang','gVerify'].forEach(id=>{const el=$(id);if(el)el.onchange=syncGlobal});
+  ['gFilm','gColor','gAspect','gQuality','gAudio','gModel','gDuration','gLang','gVerify','gDraft'].forEach(id=>{const el=$(id);if(el)el.onchange=syncGlobal});
   const btnMore=$('btnSettingsMore'), panelFull=$('settingsFull');
   if(btnMore&&panelFull){
     btnMore.onclick=()=>{
@@ -2554,6 +2722,7 @@ function bindUI(){
       if(ok)$('gDuration').value=dv;
     }
     if(state.global.quality&&$('gQuality')){const ok=[...$('gQuality').options].some(o=>o.value===state.global.quality);if(ok)$('gQuality').value=state.global.quality;}
+    if($('gDraft')&&state.global.draftMode)$('gDraft').value=state.global.draftMode==='on'?'on':'off';
     ['gFilm','gColor','gAudio','gLang'].forEach(id=>{
       const m={gFilm:'filmStyle',gColor:'colorGrade',gAudio:'audioProfile',gLang:'language'};
       const el=$(id);if(!el)return;

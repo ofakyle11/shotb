@@ -31,6 +31,7 @@
       <div class="tb-dropdown hidden" id="moreMenu">
         <button class="tb-dd" id="btnSaveProj">Save project</button>
         <button class="tb-dd" id="btnLoadProj">Load project</button>
+        <button class="tb-dd" id="btnCloudLoad">☁ Load from cloud</button>
         <button class="tb-dd" id="btnMenuScript">Edit script</button>
         <button class="tb-dd" id="btnDup">Duplicate clip</button>
         <button class="tb-dd" id="btnUndo">Undo</button>
@@ -40,6 +41,7 @@
     </div>
     <div class="tb-spacer"></div>
     <span class="tb-meta" id="projectTitle">Untitled Film</span>
+    <span class="tb-meta" id="syncMeta" title="Cloud backup — projects auto-save to your account a few seconds after each change">☁ —</span>
     <span class="tb-meta" id="userMeta">—</span>
   </header>
 
@@ -83,6 +85,7 @@
 
       <div class="uc-group"><span class="uc-label">Audio</span><select class="uc-sel" id="gAudio"><option>Cinematic</option><option>Narration</option><option>Dialogue + Music</option></select></div>
       <div class="uc-group"><span class="uc-label">Language</span><select class="uc-sel" id="gLang"><option>English</option><option>French</option><option>Bilingual</option></select></div>
+      <div class="uc-group"><span class="uc-label">Draft</span><select class="uc-sel" id="gDraft" title="Draft renders every clip fast &amp; cheap (Wan 2.7) with the same seeds and refs — then ★ Finalize re-renders only the keepers with your selected model"><option value="off" selected>Off — final quality</option><option value="on">On — fast &amp; cheap</option></select></div>
       <div class="uc-group"><span class="uc-label">Verify</span><select class="uc-sel" id="gVerify" title="Continuity verification after each generated clip"><option value="badge" selected>Score + badge</option><option value="retry">Auto-retry low</option><option value="off">Off</option></select></div>
       <div class="uc-group"><span class="uc-label">Images</span><select class="uc-sel" id="gImgModel" title="Model for storyboards, portraits, kits, plates, and prop cards"><option value="nano-banana-pro" selected>Nano Banana Pro (consistency)</option><option value="flux-xai">Flux / Grok (light moderation)</option><option value="wan-2.7">Wan 2.7 (realism)</option><option value="comfy-local">🖥 Local ComfyUI (no moderation)</option></select></div>
       <div class="uc-group"><span class="uc-label">ComfyUI</span><input class="uc-sel uc-text" id="gComfyHost" value="http://127.0.0.1:8188" title="Local ComfyUI address (used by the Local ComfyUI model)" spellcheck="false"><button type="button" class="tb-btn" id="btnComfyTest" title="Check the connection to your local ComfyUI">Test</button><button type="button" class="tb-btn" id="btnComfyWf" title="Upload your ComfyUI VIDEO workflow (export as API Format JSON)">Video WF…</button><button type="button" class="tb-btn" id="btnComfyImgWf" title="Upload your ComfyUI IMAGE workflow (export as API Format JSON) — used for storyboards/portraits on Local ComfyUI">Img WF…</button></div>
@@ -233,7 +236,10 @@
             <p class="panel-desc" id="outputStats">0 approved</p>
             <div id="queuePanel"></div>
             <label class="export-opt"><input type="checkbox" id="chkMatchColor" checked> Match scene color at export <span class="export-opt-hint">(grades each scene's clips to its first shot)</span></label>
+            <label class="export-opt"><input type="checkbox" id="chkVoices"> AI dialogue voices <span class="export-opt-hint">(per-character, generated on this device — first use downloads the ~80MB voice model)</span></label>
+            <label class="export-opt"><input type="checkbox" id="chkCaptions"> Captions file (.srt) <span class="export-opt-hint">(subtitles built from your script's dialogue)</span></label>
             <div class="output-btns">
+              <button class="tb-btn" id="btnFinalizeAll" title="Re-render approved DRAFT clips at final quality with the selected model (same seed &amp; refs)">★ Finalize approved</button>
               <button class="tb-btn" id="btnUpscaleAll" title="AI-upscale every approved clip before export (FlashVSR, ~$0.05/clip)">⬆ Upscale approved</button>
               <button class="tb-btn gold" id="btnFinal">Final Export (MP4)</button>
               <button class="tb-btn" id="btnEDL">Export EDL</button>
@@ -256,6 +262,7 @@
           <button class="tb-btn" id="btnRegen">Regenerate</button>
           <button class="tb-btn" id="btnPreview">Preview</button>
         </div>
+        <button class="tb-btn" id="btnFinalize" title="Re-render this DRAFT clip at final quality with the selected model (same seed &amp; refs)">★ Finalize</button>
         <button class="tb-btn" id="btnUpscale" title="AI upscale this clip (FlashVSR via WaveSpeed)">⬆ Upscale</button>
         <button class="tb-btn approve-btn" id="btnApprove">Approve</button>
       </div>
@@ -321,11 +328,13 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script src="/js/model-config.js?v=20260716a"></script>
+<script src="/js/model-config.js?v=20260729a"></script>
 <script src="/js/mastery-resolver.js?v=20260715a"></script>
 <script src="/js/sb-storage.js?v=20260715a"></script>
+<script src="timeline-sync.js?v=20260729a"></script>
+<script src="timeline-voice.js?v=20260729a"></script>
 <script src="parser.js?v=20260716a"></script>
-<script src="timeline-characters.js?v=20260715a"></script>
+<script src="timeline-characters.js?v=20260729a"></script>
 <script src="timeline-refkit.js?v=20260715a"></script>
 <script src="timeline-locations.js?v=20260627d"></script>
 <script src="timeline-continuity.js?v=20260715a"></script>
@@ -334,10 +343,10 @@
 <script src="timeline-verify.js?v=20260716a"></script>
 <script src="timeline-comfy.js?v=20260716a"></script>
 <script src="timeline-enrich.js?v=20260627d"></script>
-<script src="timeline-export.js?v=20260715a"></script>
+<script src="timeline-export.js?v=20260729a"></script>
 <script src="pro-cut.js?v=20260716a"></script>
-<script src="/js/ffmpeg-wasm.js?v=20260715a"></script>
+<script src="/js/ffmpeg-wasm.js?v=20260729a"></script>
 <script src="/editor/timeline-engine.js?v=20260628a"></script>
-<script src="timeline.js?v=20260716a"></script>
+<script src="timeline.js?v=20260729a"></script>
 </body>
 </html>
