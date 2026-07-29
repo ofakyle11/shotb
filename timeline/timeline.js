@@ -247,32 +247,20 @@ function getClipLocationRaw(clip){
   return'';
 }
 
-function parseLocFromText(raw){
-  const t=String(raw||'').trim();
-  if(!t)return'';
-  const locTag=t.match(/\bLocation:\s*([^.;\n]{3,120})/i);
-  if(locTag){
-    const n=canonicalLocName(locTag[1].trim());
-    if(n.length>2&&!/^SCENE\s*\d*$/i.test(n))return n;
-  }
-  const slug=t.match(/\b(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.?)\s+([^\n.!?\]]{2,120})/i);
-  if(slug){
-    const n=canonicalLocName(slug[1].split(/\s*[-—–]\s*/)[0].trim());
-    if(n.length>2&&!/^SCENE\s*\d*$/i.test(n)&&!/^(DAY|NIGHT|MORNING|EVENING|CONTINUOUS)$/i.test(n))return n;
-  }
-  const atM=t.match(/\b(?:at|in|inside|outside|near)\s+(?:the\s+)?([A-Za-z][A-Za-z0-9 .'\-/&,]{4,100})/i);
-  if(atM){
-    const n=canonicalLocName(atM[1].replace(/[.,;]+$/, '').trim());
-    if(n.length>4&&!/^SCENE\s*\d*$/i.test(n))return n;
-  }
-  const direct=canonicalLocName(t);
-  if(direct.length>2&&!/^SCENE\s*\d*$/i.test(direct)&&!/^(DAY|NIGHT|MORNING|EVENING|OPENING|DIALOGUE|ACTION)$/i.test(direct))return direct;
-  return'';
+// Delegates to SBLocations' gated parser (sentence/dialogue text can never
+// become a location name), then canonicalizes through project anchors.
+function parseLocFromText(raw,opts){
+  if(!window.SBLocations||!SBLocations.parseLocFromText)return'';
+  const n=SBLocations.parseLocFromText(raw,opts);
+  if(!n)return'';
+  const c=canonicalLocName(n);
+  return(SBLocations.plausibleLocationName&&!SBLocations.plausibleLocationName(c))?'':c;
 }
 
 function upsertLocEntry(bible,byKey,name,heading,ci){
   const clean=canonicalLocName(name);
   if(!clean||clean.length<2||/^SCENE\s*\d*$/i.test(clean))return false;
+  if(window.SBLocations&&SBLocations.plausibleLocationName&&!SBLocations.plausibleLocationName(clean))return false;
   const key=locKeyName(clean);
   if(!key)return false;
   let loc=byKey[key];
@@ -346,9 +334,11 @@ function isDescriptiveTrait(s){
 }
 
 function inferLocFromClipText(clip){
-  const fields=[getClipLocationRaw(clip),clip.heading,clip.description,clip.dialogue,clip.label];
+  // Dialogue and labels are speech, not places — only explicit fields and
+  // headings may BE a name; descriptions need a Location:/INT./at-the pattern.
+  const fields=[[getClipLocationRaw(clip),true],[clip.heading,true],[clip.description,false]];
   for(let i=0;i<fields.length;i++){
-    const loc=parseLocFromText(fields[i]);
+    const loc=parseLocFromText(fields[i][0],{direct:fields[i][1]});
     if(loc)return loc;
   }
   return'';
@@ -434,6 +424,7 @@ function bootstrapLocationsInline(){
   const bible=state.locationBible||[];
   const byKey={};
   bible.forEach(l=>{if(l&&l.key){if(!l.clipIndices)l.clipIndices=[];byKey[l.key]=l}});
+  let lastKey='';
   state.clips.forEach((clip,ci)=>{
     ensureClip(clip);
     const heading=clip.heading||'';
@@ -449,7 +440,12 @@ function bootstrapLocationsInline(){
     if(sc&&sc.heading){
       name=name||parseLocFromText(sc.heading)||(SBParser.inferLocation?cleanLocName(SBParser.inferLocation(sc.heading)):'');
     }
-    upsertLocEntry(bible,byKey,name,heading||sc&&sc.heading,ci);
+    if(upsertLocEntry(bible,byKey,name,heading||sc&&sc.heading,ci)){
+      lastKey=locKeyName(name);
+    }else if(lastKey&&byKey[lastKey]){
+      // No location of its own → the clip stays in the scene we're already in.
+      if(byKey[lastKey].clipIndices.indexOf(ci)<0)byKey[lastKey].clipIndices.push(ci);
+    }
   });
   const scriptBlob=extractionText();
   Object.values(locationsFromScriptText(scriptBlob)).forEach(row=>{

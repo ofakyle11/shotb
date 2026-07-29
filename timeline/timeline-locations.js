@@ -12,8 +12,28 @@ window.SBLocations = (function () {
       .trim();
   }
 
-  function parseLocFromText (raw) {
+  /* A location NAME looks like a place — never a sentence, a dialogue line,
+     a "NAME:" cue, or a parser beat label. Transcript-style scripts (no
+     INT./EXT. headings) used to spray every line into the location bible. */
+  const LOC_BEAT_LABELS = /^(SCENE(\s+TRANSITION)?|OPENING(\s+SCENE)?|CHARACTER\s+INTRO|DIALOGUE|ACTION(\s+BEAT)?|REACTION(\s+SHOT)?|TRANSITION|CLIMAX|RESOLUTION|EPILOGUE|TEASER|PROLOGUE|MONTAGE|TITLE|CREDITS?|THE\s+END|END|CLOSE\s+ON\b.*|FADE\b.*|CUT\b.*)$/i;
+  const LOC_SENTENCE_WORDS = /(^|[^A-Za-z'])(I|I'M|I'VE|I'LL|I'D|YOU|YOU'RE|YOUR|WE|WE'RE|HE|HE'S|SHE|SHE'S|THEY|THEY'RE|IT'S|THAT'S|WHAT|WHAT'RE|WHY|WHEN|WHO|OH|HI|HEY|HELLO|YES|NO|OKAY|OK|PLEASE|SORRY|THANKS|THANK|DON'T|CAN'T|WON'T|DIDN'T|DOESN'T|ISN'T|AREN'T|GONNA|GOTTA|MY|ME)([^A-Za-z']|$)/i;
+  function plausibleLocationName (name) {
+    const n = String(name || '').replace(/\s+/g, ' ').trim();
+    if (n.length < 3 || n.length > 60) return false;
+    if (!/[A-Za-z]/.test(n)) return false;
+    if (/[!?;:,@#"“”]/.test(n)) return false;   // sentence / cue punctuation
+    if (/\.$/.test(n)) return false;                        // trailing period = sentence
+    if (n.split(' ').length > 7) return false;              // sentences are long, places are short
+    if (LOC_BEAT_LABELS.test(n)) return false;
+    if (LOC_SENTENCE_WORDS.test(n)) return false;
+    return true;
+  }
+
+  /* opts.direct: allow the whole text to BE the name (only for explicit
+     location fields / headings — never for descriptions or dialogue). */
+  function parseLocFromText (raw, opts) {
     const t = String(raw || '').trim();
+    const allowDirect = !opts || opts.direct !== false;
     if (!t) return '';
     const locTag = t.match(/\bLocation:\s*([^.;\n]{3,120})/i);
     if (locTag) {
@@ -28,10 +48,11 @@ window.SBLocations = (function () {
     const atM = t.match(/\b(?:at|in|inside|outside|near)\s+(?:the\s+)?([A-Za-z][A-Za-z0-9 .'\-/&,]{4,100})/i);
     if (atM) {
       const n = cleanLocName(atM[1].replace(/[.,;]+$/, '').trim());
-      if (n.length > 4 && !/^SCENE\s*\d*$/i.test(n)) return n;
+      if (n.length > 4 && plausibleLocationName(n)) return n;
     }
+    if (!allowDirect) return '';
     const direct = cleanLocName(t);
-    if (direct.length > 2 && !/^SCENE\s*\d*$/i.test(direct) && !/^(DAY|NIGHT|MORNING|EVENING)$/i.test(direct)) return direct;
+    if (plausibleLocationName(direct)) return direct;
     return '';
   }
 
@@ -65,10 +86,17 @@ window.SBLocations = (function () {
 
   function clipLocationMeta (clip) {
     const heading = clip.heading || '';
-    const fields = [getClipLocationRaw(clip), heading, clip.description, clip.dialogue, clip.label];
+    // Explicit location fields and headings may BE a location name; the
+    // description only yields one via Location:/INT./at-the patterns.
+    // Dialogue and labels are never mined — that's speech, not places.
+    const fields = [
+      [getClipLocationRaw(clip), true],
+      [heading, true],
+      [clip.description, false]
+    ];
     let fromAny = '';
     for (let i = 0; i < fields.length; i++) {
-      fromAny = parseLocFromText(fields[i]);
+      fromAny = parseLocFromText(fields[i][0], { direct: fields[i][1] });
       if (fromAny) break;
     }
     const meta = parseHeading(heading);
@@ -120,17 +148,54 @@ window.SBLocations = (function () {
       if (loc.key) byKey[loc.key] = loc;
     });
 
+    let lastKey = '';
     (clips || []).forEach(function (clip, ci) {
       const meta = clipLocationMeta(clip);
-      upsertLocation(bible, byKey, {
-        key: meta.key,
-        name: meta.name,
-        heading: clip.heading || meta.raw,
-        description: (clip.heading || meta.name || '').slice(0, 160)
-      }, ci);
+      if (meta.key) {
+        upsertLocation(bible, byKey, {
+          key: meta.key,
+          name: meta.name,
+          heading: clip.heading || meta.raw,
+          description: (clip.heading || meta.name || '').slice(0, 160)
+        }, ci);
+        if (byKey[meta.key]) lastKey = meta.key;
+      } else if (lastKey && byKey[lastKey]) {
+        // Scene continuity: a clip with no location of its own stays where
+        // the story already is instead of spawning a junk card.
+        if (byKey[lastKey].clipIndices.indexOf(ci) < 0) byKey[lastKey].clipIndices.push(ci);
+      }
     });
 
     return bible;
+  }
+
+  /* Drop junk entries (sentence/dialogue names with no user investment) and
+     merge exact duplicates that normalize to the same key. Runs on every
+     sync, so bibles polluted by earlier versions self-heal on load. */
+  function scrubBible (bible) {
+    const keep = [], seen = {};
+    (bible || []).forEach(function (l) {
+      if (!l || !l.name) return;
+      const invested = l.locked || l.plateUrl || String(l.consistencyPhrase || '').trim();
+      if (!invested && !plausibleLocationName(l.name)) return;
+      const k = locKey(l.name);
+      if (!k) return;
+      const dupe = seen[k];
+      if (dupe) {
+        (l.clipIndices || []).forEach(function (ci) {
+          if (dupe.clipIndices.indexOf(ci) < 0) dupe.clipIndices.push(ci);
+        });
+        if (!dupe.plateUrl && l.plateUrl) dupe.plateUrl = l.plateUrl;
+        if (!dupe.locked && l.locked) dupe.locked = true;
+        if (!String(dupe.consistencyPhrase || '').trim() && l.consistencyPhrase) dupe.consistencyPhrase = l.consistencyPhrase;
+        return;
+      }
+      ensureEntry(l);
+      l.key = k;
+      seen[k] = l;
+      keep.push(l);
+    });
+    return keep;
   }
 
   function mergeFromScenes (scenes, clips, bible) {
@@ -190,7 +255,7 @@ window.SBLocations = (function () {
 
   function syncAll (state, scriptOverride) {
     state = state || {};
-    let bible = state.locationBible || [];
+    let bible = scrubBible(state.locationBible || []);
     bible = syncFromClips(state.clips || [], bible);
     if (state.parseResult && state.parseResult.scenes) {
       bible = mergeFromScenes(state.parseResult.scenes, state.clips || [], bible);
@@ -253,6 +318,9 @@ window.SBLocations = (function () {
     mergeFromScenes: mergeFromScenes,
     mergeFromScript: mergeFromScript,
     syncAll: syncAll,
+    scrubBible: scrubBible,
+    plausibleLocationName: plausibleLocationName,
+    parseLocFromText: parseLocFromText,
     renderList: renderList,
     renderEditor: renderEditor,
     lockedNames: lockedNames,
