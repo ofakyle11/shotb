@@ -28,6 +28,8 @@ button,input,select,textarea{font-family:inherit}
 .tb-btn.tb-icon{padding:6px 10px;font-size:16px;line-height:1;letter-spacing:.1em}
 .tb-spacer{flex:1}
 .tb-meta{font-size:11px;color:var(--dim);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.tb-meta.clickable{cursor:pointer}
+.tb-meta.clickable:hover{color:var(--gold)}
 
 /* ── more menu ── */
 .tb-more-wrap{position:relative}

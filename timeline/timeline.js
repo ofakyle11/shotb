@@ -82,10 +82,12 @@ function initAuth(){
   if(!firebase.apps.length)firebase.initializeApp(window.SHOTBREAK_CONFIG.firebase);
   auth=firebase.auth();
   auth.onAuthStateChanged(u=>{
-    if(u){const e=(u.email||'').toLowerCase();curUser={name:u.displayName||e.split('@')[0],email:e,isOwner:OWNER_EMAILS.has(e),uid:u.uid};$('loginOverlay').classList.add('hidden');$('userMeta').textContent=curUser.name;checkCloudRestore()}
-    else{curUser=null;$('loginOverlay').classList.remove('hidden');$('userMeta').textContent='—';const sm=$('syncMeta');if(sm)sm.textContent='☁ —'}
+    const um=$('userMeta');
+    if(u){const e=(u.email||'').toLowerCase();curUser={name:u.displayName||e.split('@')[0],email:e,isOwner:OWNER_EMAILS.has(e),uid:u.uid};$('loginOverlay').classList.add('hidden');um.textContent=curUser.name+' ⏻';um.title='Signed in as '+e+' — click to sign out';um.classList.add('clickable');checkCloudRestore()}
+    else{curUser=null;$('loginOverlay').classList.remove('hidden');um.textContent='—';um.title='';um.classList.remove('clickable');const sm=$('syncMeta');if(sm)sm.textContent='☁ —'}
     renderAuthGate();
   });
+  $('userMeta').onclick=()=>{if(curUser&&confirm('Sign out of Cinamate on this browser?'))auth.signOut()};
   if(window.SBSync)SBSync.onStatus((s,detail)=>{
     const el=$('syncMeta');if(!el)return;
     if(s==='saving')el.textContent='☁ saving…';
