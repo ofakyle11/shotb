@@ -1416,11 +1416,44 @@ async function runComfyDiagnosis(){
     help.innerHTML=
       '<ul>'+
       '<li>ComfyUI must be running on <b>this same computer</b> — this page connects to it directly, not through the cloud.</li>'+
+      '<li><b>Desktop app?</b> It usually serves on port <code>8000</code>, not 8188 (scanning for it now…).</li>'+
       '<li>Check the address: the ComfyUI console prints it on startup (e.g. <code>http://127.0.0.1:8188</code>). Make the Host field in Settings ▾ match, including the port.</li>'+
       '<li>Chrome/Edge may ask to allow access to <b>local network / localhost</b> the first time — click Allow. If it was blocked, click the icon left of the address bar → Site settings → reset the permission.</li>'+
       '<li>Start it with the CORS flag so the next step works too: <code>python main.py --enable-cors-header</code></li>'+
-      '</ul>';
+      '</ul>'+
+      '<div id="comfyPortScan"></div>';
+    scanComfyPorts(host);
   }
+}
+// The entered address is down — quietly sweep the ports ComfyUI actually
+// ships on (Desktop app: 8000; portable/manual: 8188; common alt: 8888)
+// and offer a one-click switch when one answers.
+async function scanComfyPorts(curHost){
+  const slot=$('comfyPortScan');
+  if(!slot||!window.SBComfy)return;
+  const m=curHost.match(/^(https?:\/\/[^:/]+)(?::(\d+))?$/);
+  const base=m?m[1]:'http://127.0.0.1';
+  const curPort=(m&&m[2])||'';
+  const ports=['8000','8188','8888'].filter(p=>p!==curPort);
+  for(const p of ports){
+    const cand=base+':'+p;
+    let d=null;
+    try{d=await SBComfy.diagnose(cand)}catch(e){}
+    if(comfyHostValue()!==curHost)return; // user changed the field mid-scan
+    if(d&&d.running){
+      slot.innerHTML='<div class="callout '+(d.cors?'ok':'warn')+'">Found ComfyUI at <b>'+cand+'</b>'+(d.cors?' — ready to use.':' (still needs the CORS flag — fix above, then re-test).')+'</div>'+
+        '<button class="tb-btn gold" id="btnComfyUseFound">Use '+cand+'</button>';
+      const b=$('btnComfyUseFound');
+      if(b)b.onclick=()=>{
+        const el=$('gComfyHost');
+        if(el)el.value=cand;
+        state.global.comfyHost=cand;save();
+        runComfyDiagnosis();
+      };
+      return;
+    }
+  }
+  slot.innerHTML='<div class="hint-chip quiet">Scanned ports 8000 / 8188 / 8888 — nothing answered. ComfyUI isn\'t running yet, or Edge blocked local-network access for this site.</div>';
 }
 
 // In-timeline AI reference generation (ports app.html's Character Studio here).
