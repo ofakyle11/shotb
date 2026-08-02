@@ -483,5 +483,50 @@ window.SBFFmpeg = (function () {
     return new Blob([data.buffer], { type: 'video/mp4' });
   }
 
-  return { loadFFmpeg, stitchBlobs, stitchTimeline };
+  /* Still + Motion: one storyboard frame → cinematic Ken Burns clip
+     (push-in / pull-out / pan, picked by seed so cuts don't all move the
+     same way). Runs entirely in-browser; the still can come from local
+     ComfyUI, so this is the fastest zero-cloud "video" on any hardware. */
+  async function stillMotion(imageBlob, opts) {
+    opts = opts || {};
+    const ff = await loadFFmpeg(opts.onProgress);
+    if (ff.setProgress) ff.setProgress(opts.onProgress || null);
+    const fps = 24;
+    const dur = Math.min(15, Math.max(2, opts.duration || 6));
+    const frames = Math.round(dur * fps);
+    const portrait = opts.aspect === '9:16' || opts.aspect === '2:3';
+    const W = portrait ? 720 : 1280, H = portrait ? 1280 : 720;
+    const t = String(imageBlob.type || '').toLowerCase();
+    const inName = 'still.' + (t.indexOf('png') >= 0 ? 'png' : t.indexOf('webp') >= 0 ? 'webp' : 'jpg');
+    await ff.writeFile(inName, new Uint8Array(await imageBlob.arrayBuffer()));
+
+    const zMax = 1.12, zStep = ((zMax - 1) / frames).toFixed(6);
+    const centerX = 'iw/2-(iw/zoom/2)', centerY = 'ih/2-(ih/zoom/2)';
+    const variant = Math.abs(opts.seed || 0) % 4;
+    let z, x, y;
+    if (variant === 0) { z = 'min(zoom+' + zStep + ',' + zMax + ')'; x = centerX; y = centerY; }            // push in
+    else if (variant === 1) { z = 'max(' + zMax + '-' + zStep + '*on,1.001)'; x = centerX; y = centerY; }   // pull out
+    else if (variant === 2) { z = String(zMax); x = '(iw-iw/zoom)*on/' + frames; y = centerY; }             // pan right
+    else { z = String(zMax); x = '(iw-iw/zoom)*(1-on/' + frames + ')'; y = centerY; }                       // pan left
+    // Oversample 2x before zoompan so the move stays smooth and sharp.
+    const filter = '[0:v]scale=' + (W * 2) + ':' + (H * 2) + ':force_original_aspect_ratio=increase,crop=' + (W * 2) + ':' + (H * 2) +
+      ",zoompan=z='" + z + "':x='" + x + "':y='" + y + "':d=" + frames + ':s=' + W + 'x' + H + ':fps=' + fps + '[v]';
+    if (opts.onProgress) opts.onProgress('Animating still (' + dur + 's)…');
+    await runFF(ff, [
+      '-i', inName,
+      '-filter_complex', filter,
+      '-map', '[v]',
+      '-frames:v', String(frames),
+      '-r', String(fps),
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '21', '-pix_fmt', 'yuv420p',
+      '-movflags', '+faststart',
+      'sm.mp4'
+    ]);
+    const data = await ff.readFile('sm.mp4');
+    await ff.deleteFile(inName).catch(() => {});
+    await ff.deleteFile('sm.mp4').catch(() => {});
+    return new Blob([data.buffer], { type: 'video/mp4' });
+  }
+
+  return { loadFFmpeg, stitchBlobs, stitchTimeline, stillMotion };
 })();

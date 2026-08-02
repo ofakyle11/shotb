@@ -2129,7 +2129,7 @@ async function runJob(clip,opts){
     let pollProv=vs?vs.provider:((typeof window.inferVideoProvider==='function')?window.inferVideoProvider(pollModel):(pollModel&&pollModel.includes('grok')?'grok-imagine':pollModel&&pollModel.includes('sora')?'aivideoapi':'wavespeed'));
     // Draft mode: cheap fast model, SAME seed/refs/prompt — ★ Finalize
     // (opts.final) re-renders with the model actually selected.
-    const isDraftRun=state.global.draftMode==='on'&&!opts.final&&pollProv!=='comfy-local'&&pollModel!==DRAFT_MODEL;
+    const isDraftRun=state.global.draftMode==='on'&&!opts.final&&pollProv!=='comfy-local'&&pollProv!=='comfy-still'&&pollModel!==DRAFT_MODEL;
     if(isDraftRun){
       pollModel=DRAFT_MODEL;
       pollProv=(typeof window.inferVideoProvider==='function')?window.inferVideoProvider(DRAFT_MODEL):'wavespeed';
@@ -2171,6 +2171,36 @@ async function runJob(clip,opts){
       if(Array.isArray(body.reference_images)&&body.reference_images.length<maxRefs&&body.reference_images.indexOf(clip.boardUrl)<0){
         body.reference_images.push(clip.boardUrl);
       }
+    }
+    // Still + Motion: storyboard frame (local ComfyUI by default) animated
+    // into a push-in/pan clip by in-browser FFmpeg, then hosted like any
+    // other clip. Fastest zero-cloud video on any hardware — animatics/drafts.
+    if(pollProv==='comfy-still'){
+      $('queueBar').classList.add('on');
+      try{
+        $('queueText').textContent='Clip '+clip.num+': storyboard frame…';
+        const boardUrl=clip.boardUrl||await boardClip(clip,{quiet:true});
+        if(!boardUrl||typeof boardUrl!=='string')throw new Error('Storyboard frame failed — check the Images engine (Settings ▾)');
+        let still=null;
+        try{const r=await fetch(boardUrl);if(r.ok)still=await r.blob()}catch(e){}
+        if(!still){
+          const p=await fetch('/.netlify/functions/proxy-media?url='+encodeURIComponent(boardUrl),{headers:h});
+          if(p.ok)still=await p.blob();
+        }
+        if(!still)throw new Error('Could not fetch the storyboard frame');
+        const mp4=await SBFFmpeg.stillMotion(still,{
+          duration:dur,seed:body.seed,aspect:asp,
+          onProgress:m=>{$('queueText').textContent='Clip '+clip.num+': '+m}
+        });
+        $('queueText').textContent='Clip '+clip.num+': hosting clip…';
+        clip.videoUrl=await hostRefImage(mp4,'clips/still-'+clip.id);
+        clip.provider='comfy-still';
+        clip.continuity=null;
+        clip.draftQuality=false;
+        clip.status='done';clip.error=null;save();renderAll();
+        verifyClipAsync(clip);
+        return;
+      }finally{if(!state.queue.running)$('queueBar').classList.remove('on')}
     }
     // Local ComfyUI provider: the browser drives the GPU on this machine
     // directly — same enriched prompt/refs/seed, zero cloud cost.

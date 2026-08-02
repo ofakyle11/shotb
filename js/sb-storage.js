@@ -22,6 +22,7 @@
     if (t.indexOf('png') >= 0) return 'png';
     if (t.indexOf('webp') >= 0) return 'webp';
     if (t.indexOf('gif') >= 0) return 'gif';
+    if (t.indexOf('mp4') >= 0) return 'mp4';
     return 'jpg';
   }
 
