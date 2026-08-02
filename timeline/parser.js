@@ -216,6 +216,7 @@ window.SBParser = (function(){
     if(!cn||cn.length<2||cn.length>40)return false;
     if(/^(INT|EXT|I\/E|INT\/EXT)\b/.test(cn))return false;
     if(isLocationCaps(cn))return false;
+    if(isDirectionOrAction(cn))return false;
     const words=cn.split(/\s+/);
     // Screenplay names/cues are rarely more than 4 words; longer ALL-CAPS runs
     // are almost always misread dialogue or action-line fragments.
@@ -240,6 +241,21 @@ window.SBParser = (function(){
   // starting with one ("SHE RUNS TOWARD THE DOOR") is an action-line fragment.
   const SUBJECT_PRONOUNS=new Set(['SHE','HE','THEY','WE','YOU','I','IT']);
 
+  // Camera/editing directions that screenplays write in ALL CAPS mid-action —
+  // they read like cues but are never people.
+  const DIRECTION_TERMS=new Set(['STEADICAM','CLOSEUP','CLOSE-UP','ANGLE','POV','INSERT','MONTAGE','FLASHBACK','FREEZE','SUPER','TITLE','TITLES','CREDITS','DISSOLVE','FADE','CUT','SMASH','INTERCUT','NORMAL','SLOW','MOTION','CONTINUOUS','CAMERA','LENS','ZOOM','PAN','TILT','TRACKING','CRANE','AERIAL','WIDE','TIGHT','MATCH','JUMP','SPLIT','SCREEN','FOOT','FEET']);
+  // Third-person action verbs: "JULES NODS HIS HEAD" is a sentence, not a cast
+  // cue — any of these past the first word marks an action-line fragment.
+  const ACTION_VERBS=new Set(['NODS','LOOKS','TURNS','WALKS','RUNS','SMILES','GRABS','SHAKES','STARES','POINTS','SITS','STANDS','MOVES','ENTERS','EXITS','OPENS','CLOSES','PICKS','PULLS','PUSHES','PUTS','TAKES','GOES','COMES','WATCHES','RAISES','DROPS','LAUGHS','SCREAMS','YELLS','FIRES','SHOOTS','THROWS','LEANS','STEPS','JUMPS','FALLS','RISES','SPINS','WHIPS','SLAMS','KICKS','KNOCKS','WAVES','GLANCES','FROWNS','SIGHS','GRINS','SHRUGS']);
+  function isDirectionOrAction(cn){
+    const words=String(cn||'').split(/\s+/).filter(Boolean);
+    if(!words.length)return true;
+    if(LABEL_CUE_RE.test(cn))return true;
+    if(words.every(w=>DIRECTION_TERMS.has(w)))return true;
+    if(words.length>=2&&words.slice(1).some(w=>ACTION_VERBS.has(w)))return true;
+    return false;
+  }
+
   /** Looser gate: dialogue leads + background role titles (FLIGHT ATTENDANT, CUSTOMS AGENT). */
   function isCastMember(name,opts){
     opts=opts||{};
@@ -248,6 +264,7 @@ window.SBParser = (function(){
     if(!cn||cn.length<2||cn.length>40)return false;
     if(/^(INT|EXT|I\/E|INT\/EXT)\b/.test(cn))return false;
     if(isLocationCaps(cn))return false;
+    if(isDirectionOrAction(cn))return false;
     const allWords=cn.split(/\s+/);
     if(allWords.length>1&&IMPERATIVE_OPENERS.has(allWords[0]))return false;
     if(isLikelyPersonName(cn,{fromCue:!!opts.fromCue}))return true;

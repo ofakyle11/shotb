@@ -409,10 +409,32 @@ window.SBComfy = (function () {
     }
 
     onProgress('Queued on local ComfyUI…');
+    // Live step progress: ComfyUI streams sampler steps over its websocket
+    // (ws:// to 127.0.0.1 is allowed from https pages in modern browsers).
+    // Opened BEFORE submitting so no events are missed; everything is
+    // best-effort — if the socket fails, the HTTP poll below still works.
+    var cid = 'shotbreak-' + Date.now();
+    var ws = null, lastWsAt = 0;
+    try {
+      ws = new WebSocket(host.replace(/^http/, 'ws') + '/ws?clientId=' + cid);
+      ws.onmessage = function (ev) {
+        if (typeof ev.data !== 'string') return;   // binary frames are live previews
+        var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+        if (m.type === 'progress' && m.data && m.data.max > 0) {
+          lastWsAt = Date.now();
+          var pct = Math.round((m.data.value / m.data.max) * 100);
+          onProgress('rendering step ' + m.data.value + ' / ' + m.data.max, pct);
+        } else if (m.type === 'status' && m.data && m.data.status && m.data.status.exec_info) {
+          var qr = m.data.status.exec_info.queue_remaining;
+          if (qr > 1) { lastWsAt = Date.now(); onProgress('queued — ' + (qr - 1) + ' job(s) ahead'); }
+        }
+      };
+      ws.onerror = function () {};
+    } catch (e) { ws = null; }
     var res = await fetch(host + '/prompt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: injected, client_id: 'shotbreak-' + Date.now() })
+      body: JSON.stringify({ prompt: injected, client_id: cid })
     });
     var body = await res.json().catch(function () { return {}; });
     if (!res.ok || !body.prompt_id) {
@@ -427,25 +449,33 @@ window.SBComfy = (function () {
 
     var id = body.prompt_id;
     var t0 = Date.now();
-    while (Date.now() - t0 < 60 * 60 * 1000) {
-      await new Promise(function (r) { setTimeout(r, 2000); });
-      var h = await fetch(host + '/history/' + id).then(function (r) { return r.json(); }).catch(function () { return null; });
-      var entry = h && h[id];
-      if (entry) {
-        var st = entry.status || {};
-        if (st.status_str === 'error') {
-          var msgs = (st.messages || []).filter(function (m) { return m[0] === 'execution_error'; })
-            .map(function (m) { return (m[1] && m[1].exception_message) || ''; }).join('; ');
-          throw new Error('ComfyUI execution failed: ' + (msgs || 'see the ComfyUI console'));
+    try {
+      while (Date.now() - t0 < 60 * 60 * 1000) {
+        await new Promise(function (r) { setTimeout(r, 2000); });
+        var h = await fetch(host + '/history/' + id).then(function (r) { return r.json(); }).catch(function () { return null; });
+        var entry = h && h[id];
+        if (entry) {
+          var st = entry.status || {};
+          if (st.status_str === 'error') {
+            var msgs = (st.messages || []).filter(function (m) { return m[0] === 'execution_error'; })
+              .map(function (m) { return (m[1] && m[1].exception_message) || ''; }).join('; ');
+            throw new Error('ComfyUI execution failed: ' + (msgs || 'see the ComfyUI console'));
+          }
+          var out = firstOutput(entry);
+          if (out) return { url: viewUrl(host, out.file), kind: out.kind };
+          if (st.completed) throw new Error('ComfyUI finished but produced no image/video output');
         }
-        var out = firstOutput(entry);
-        if (out) return { url: viewUrl(host, out.file), kind: out.kind };
-        if (st.completed) throw new Error('ComfyUI finished but produced no image/video output');
+        // The websocket owns the message while step events are flowing; the
+        // elapsed-time fallback only speaks when the socket has gone quiet.
+        if (Date.now() - lastWsAt > 6000) {
+          var secs = Math.round((Date.now() - t0) / 1000);
+          onProgress('Local ComfyUI rendering… ' + secs + 's' + (secs > 90 ? ' (CPU machines can take several minutes per image — leave this tab open)' : ''));
+        }
       }
-      var secs = Math.round((Date.now() - t0) / 1000);
-      onProgress('Local ComfyUI rendering… ' + secs + 's' + (secs > 90 ? ' (CPU machines can take several minutes per image — leave this tab open)' : ''));
+      throw new Error('Local ComfyUI generation timed out (60 min)');
+    } finally {
+      if (ws) { try { ws.close(); } catch (e) {} }
     }
-    throw new Error('Local ComfyUI generation timed out (60 min)');
   }
 
   return { ping: ping, diagnose: diagnose, inject: inject, generate: generate, DEFAULT_WF: DEFAULT_WF, DEFAULT_IMG_WF: DEFAULT_IMG_WF };

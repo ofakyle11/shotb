@@ -6,6 +6,7 @@ window.SBLocations = (function () {
 
   function cleanLocName (name) {
     return String(name || '')
+      .replace(/�/g, '-')   // encoding-mangled dashes from PDF imports
       .replace(/^\s*(?:at|inside|outside|near)\s+(?:the\s+)?/i, '')
       .replace(/^\s*in\s+(?:the\s+)?/i, '')
       .replace(/\s+/g, ' ')

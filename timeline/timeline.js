@@ -560,6 +560,27 @@ function mineCharactersFromClips(){
   return added;
 }
 
+/* Self-heal: drop cast entries that are really camera directions or action
+   fragments ("CREDIT SEQUENCE", "STEADICAM", "JULES NODS HIS HEAD") — unless
+   the user invested in them (reference photo, kit, locked description). Runs
+   on boot and after every import, so bibles polluted by earlier parses heal
+   themselves. */
+function scrubCharacterBible(){
+  let n=0;
+  Object.keys(state.characters||{}).forEach(name=>{
+    const c=state.characters[name]||{};
+    if(c.refUrl||c.kit||c._descLocked||c.locked)return;
+    if(!isValidCharacterName(name)){delete state.characters[name];n++}
+  });
+  if(n){
+    state.clips.forEach(c=>{
+      if(Array.isArray(c.characters))c.characters=c.characters.filter(x=>state.characters[String(x).toUpperCase().trim()]||isValidCharacterName(x));
+    });
+    save();
+  }
+  return n;
+}
+
 function repairAllCharacterDescriptions(){
   if(window.SBEnrich&&typeof SBEnrich.repairAllCharacterDescriptions==='function'){
     return SBEnrich.repairAllCharacterDescriptions(state.characters);
@@ -1065,6 +1086,9 @@ function startNewScript(){
 }
 
 function normalizeImportedScript(raw){
+  // PDFs/odd encodings turn em-dashes and smart quotes into U+FFFD (�) —
+  // scrub them so sluglines like "COFFEE SHOP – MORNING" still parse.
+  raw=String(raw||'').replace(/\s*�\s*/g,' - ');
   if(SBParser.normalizeScriptTextDetailed)return SBParser.normalizeScriptTextDetailed(raw);
   const norm=SBParser.normalizeScriptText?SBParser.normalizeScriptText(raw):raw;
   const before=String(raw||'').split('\n').filter(l=>l.trim()).length;
@@ -1167,7 +1191,9 @@ function renderTimeline(){
     const vTitle=vd?esc(SBVerify.summaryText(c)):'';
     const thumb=c.videoUrl?th:(c.boardUrl?'<img src="'+esc(c.boardUrl)+'" alt="" title="Storyboard frame">':th);
     const draftChip=(c.draftQuality&&c.videoUrl)?'<span class="clip-draft" title="Rendered in draft quality — ★ Finalize re-renders with your selected model">DRAFT</span>':'';
-    return '<div class="clip-card'+(c.id===state.selectedId?' active':'')+(c.status==='approved'?' approved':'')+'" data-id="'+c.id+'" draggable="true"><div class="verify-dot '+vd+'" title="'+vTitle+'"></div><div class="clip-status '+st+'"></div>'+draftChip+'<div class="clip-num">Clip '+String(c.num).padStart(2,'0')+'</div><div class="clip-thumb">'+thumb+'</div><div class="clip-label">'+esc(c.label)+'</div><div class="clip-dur">~'+c.durationSec+'s</div></div>';
+    const prog=c.status==='generating'?'<div class="clip-prog" id="prog-'+c.id+'"><i></i><span>0%</span></div>':'';
+    const errChip=(c.status!=='generating'&&c.error)?'<div class="clip-err" title="'+esc(c.error)+'">⚠ failed — hover</div>':'';
+    return '<div class="clip-card'+(c.id===state.selectedId?' active':'')+(c.status==='approved'?' approved':'')+'" data-id="'+c.id+'" draggable="true"><div class="verify-dot '+vd+'" title="'+vTitle+'"></div><div class="clip-status '+st+'"></div>'+draftChip+'<div class="clip-num">Clip '+String(c.num).padStart(2,'0')+'</div><div class="clip-thumb">'+thumb+'</div>'+prog+errChip+'<div class="clip-label">'+esc(c.label)+'</div><div class="clip-dur">~'+c.durationSec+'s</div></div>';
   }).join('');
   $('clipRow').querySelectorAll('.clip-card').forEach(el=>{
     el.onclick=()=>{state.selectedId=el.dataset.id;renderAll()};
@@ -1494,28 +1520,47 @@ async function scanComfyPorts(curHost){
 async function generatePicture(opts){
   opts=opts||{};
   const model=opts.model||state.global.imageModel||'comfy-local';
-  if(model==='comfy-local'){
-    if(!window.SBComfy)throw new Error('Local ComfyUI module not loaded — refresh the page');
-    const host=comfyHostValue();
-    if(!(await SBComfy.ping(host))){runComfyDiagnosis();throw new Error('ComfyUI connection problem — see the setup guide')}
-    const refUrl=(opts.referenceImages&&opts.referenceImages[0]&&opts.referenceImages[0].url)||null;
-    const out=await SBComfy.generate(host,{
-      image:true,
-      prompt:String(opts.desc||''),
-      refUrl,
-      initUrl:opts.initUrl||null,
-      seed:stableSeed(state.projectName+'|img|'+(opts.name||'')+'|'+(opts.desc||'').length),
-      aspect:opts.aspect_ratio||'16:9',
-      workflowJson:state.global.comfyImageWorkflow||null
-    });
-    // Re-host locally generated frames so they work as refs for cloud providers.
-    const blob=await fetch(out.url).then(r=>{if(!r.ok)throw new Error('Could not read ComfyUI output');return r.blob()});
-    return await hostRefImage(blob,'refs/comfy-'+String(opts.type||'img'));
+  const label=opts.name?String(opts.name):'Image';
+  // Own progress session only when no clip-level one is already running.
+  const ownProg=!genProg.active;
+  let ok=false;
+  try{
+    if(model==='comfy-local'){
+      if(!window.SBComfy)throw new Error('Local ComfyUI module not loaded — refresh the page');
+      const host=comfyHostValue();
+      if(!(await SBComfy.ping(host))){runComfyDiagnosis();throw new Error('ComfyUI connection problem — see the setup guide')}
+      if(ownProg)startGenProgress(null,'comfy-image',240);
+      const refUrl=(opts.referenceImages&&opts.referenceImages[0]&&opts.referenceImages[0].url)||null;
+      const out=await SBComfy.generate(host,{
+        image:true,
+        prompt:String(opts.desc||''),
+        refUrl,
+        initUrl:opts.initUrl||null,
+        seed:stableSeed(state.projectName+'|img|'+(opts.name||'')+'|'+(opts.desc||'').length),
+        aspect:opts.aspect_ratio||'16:9',
+        workflowJson:state.global.comfyImageWorkflow||null,
+        onProgress:(m,pct)=>setGenProgress(label+': '+m,pct)
+      });
+      // Re-host locally generated frames so they work as refs for cloud providers.
+      setGenProgress(label+': hosting image…',97);
+      const blob=await fetch(out.url).then(r=>{if(!r.ok)throw new Error('Could not read ComfyUI output');return r.blob()});
+      const hosted=await hostRefImage(blob,'refs/comfy-'+String(opts.type||'img'));
+      ok=true;
+      return hosted;
+    }
+    if(ownProg)startGenProgress(null,'cloud-image-'+model,45);
+    setGenProgress(label+': generating with '+model+'…');
+    const r=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:await hdrs(),body:JSON.stringify(Object.assign({action:'generate_picture'},opts,{model}))});
+    const d=await r.json();
+    if(!r.ok||!d.url)throw new Error(d.detail||d.error||'Image generation failed');
+    ok=true;
+    return d.url;
+  }catch(e){
+    showGenAlert(label+': '+(e.message||'Image generation failed'));
+    throw e;
+  }finally{
+    if(ownProg)endGenProgress(ok);
   }
-  const r=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:await hdrs(),body:JSON.stringify(Object.assign({action:'generate_picture'},opts,{model}))});
-  const d=await r.json();
-  if(!r.ok||!d.url)throw new Error(d.detail||d.error||'Image generation failed');
-  return d.url;
 }
 async function generateCharPortrait(name){
   const c=state.characters[name];if(!c)return;
@@ -2141,6 +2186,73 @@ function stableSeed(str){
 }
 
 const DRAFT_MODEL='wan-2.7';
+/* ── Live generation progress: one active session at a time. Real step
+   percentages stream from ComfyUI's websocket; cloud providers (no progress
+   API) get a time-based estimate from learned per-engine durations. Painted
+   on the queue bar AND the generating clip's card: %, elapsed, expected. ── */
+let genProg={active:false,real:false,clipId:null,pct:0,msg:'',t0:0,expect:0,timer:null,engine:''};
+function fmtClock(s){s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+function engineExpect(engine,fallback){const t=(state.global._genTimes||{})[engine];return t&&t>10?t:fallback}
+function recordGenTime(engine,secs){
+  if(!engine||secs<3)return;
+  state.global._genTimes=state.global._genTimes||{};
+  const prev=state.global._genTimes[engine];
+  state.global._genTimes[engine]=prev?Math.round(prev*0.6+secs*0.4):Math.round(secs);
+  save();
+}
+function startGenProgress(clip,engine,expectDefault){
+  if(genProg.timer)clearInterval(genProg.timer);
+  genProg={active:true,real:false,clipId:clip?clip.id:null,pct:0,msg:'Starting…',t0:Date.now(),expect:engineExpect(engine,expectDefault),engine,timer:setInterval(tickGenProgress,1000)};
+  $('queueBar').classList.add('on');
+  paintGenProgress();
+}
+function setGenProgress(msg,pct){
+  if(!genProg.active)return;
+  if(msg)genProg.msg=msg;
+  if(typeof pct==='number'&&pct>=0){genProg.real=true;genProg.pct=Math.max(genProg.pct,Math.min(100,Math.round(pct)))}
+  paintGenProgress();
+}
+function tickGenProgress(){
+  if(!genProg.active)return;
+  if(!genProg.real){
+    const el=(Date.now()-genProg.t0)/1000;
+    genProg.pct=Math.min(95,Math.round(el/Math.max(30,genProg.expect)*100));
+  }
+  paintGenProgress();
+}
+function paintGenProgress(){
+  const el=(Date.now()-genProg.t0)/1000;
+  const qt=$('queueText');
+  if(qt)qt.textContent=(genProg.msg||'Generating…')+' · '+fmtClock(el)+(genProg.expect?' / ~'+fmtClock(genProg.expect):'')+' · '+genProg.pct+'%';
+  const qp=$('queueProg');if(qp&&qp.firstElementChild)qp.firstElementChild.style.width=genProg.pct+'%';
+  if(genProg.clipId){
+    const cp=document.getElementById('prog-'+genProg.clipId);
+    if(cp){
+      const bar=cp.querySelector('i');if(bar)bar.style.width=genProg.pct+'%';
+      const txt=cp.querySelector('span');if(txt)txt.textContent=genProg.pct+'% · '+fmtClock(el);
+    }
+  }
+}
+function endGenProgress(ok){
+  if(!genProg.active)return;
+  if(genProg.timer){clearInterval(genProg.timer);genProg.timer=null}
+  if(ok)recordGenTime(genProg.engine,(Date.now()-genProg.t0)/1000);
+  genProg.active=false;
+  const qp=$('queueProg');if(qp&&qp.firstElementChild)qp.firstElementChild.style.width='0%';
+  if(!state.queue.running)$('queueBar').classList.remove('on');
+}
+/* Persistent failure banner — a toast vanishes in 3s; a dead API key or empty
+   credit balance must stay on screen until dismissed. */
+function showGenAlert(msg){
+  const a=$('genAlert');if(!a)return;
+  let hint='';
+  const m=String(msg||'');
+  if(/invalid key|unauthorized|401|credential/i.test(m))hint=' — the provider rejected the API key. Tell Claude to update it, or switch the engine to Local ComfyUI (free).';
+  else if(/insufficient|balance|credit|quota|402/i.test(m))hint=' — the provider account is out of credits. Top it up, or switch the engine to Local ComfyUI (free).';
+  a.innerHTML='<span>⚠ '+esc(m)+esc(hint)+'</span><button type="button" title="Dismiss">×</button>';
+  a.classList.add('on');
+  a.querySelector('button').onclick=()=>a.classList.remove('on');
+}
 async function runJob(clip,opts){
   opts=opts||{};
   clip.status='generating';clip.error=null;renderAll();
@@ -2211,9 +2323,10 @@ async function runJob(clip,opts){
     // into a push-in/pan clip by in-browser FFmpeg, then hosted like any
     // other clip. Fastest zero-cloud video on any hardware — animatics/drafts.
     if(pollProv==='comfy-still'){
-      $('queueBar').classList.add('on');
+      startGenProgress(clip,'comfy-still',clip.boardUrl?90:300);
+      let ok=false;
       try{
-        $('queueText').textContent='Clip '+clip.num+': storyboard frame…';
+        setGenProgress('Clip '+clip.num+': storyboard frame…');
         const boardUrl=clip.boardUrl||await boardClip(clip,{quiet:true});
         if(!boardUrl||typeof boardUrl!=='string')throw new Error('Storyboard frame failed — check the Images engine (Settings ▾)');
         let still=null;
@@ -2225,17 +2338,17 @@ async function runJob(clip,opts){
         if(!still)throw new Error('Could not fetch the storyboard frame');
         const mp4=await SBFFmpeg.stillMotion(still,{
           duration:dur,seed:body.seed,aspect:asp,
-          onProgress:m=>{$('queueText').textContent='Clip '+clip.num+': '+m}
+          onProgress:m=>setGenProgress('Clip '+clip.num+': '+m)
         });
-        $('queueText').textContent='Clip '+clip.num+': hosting clip…';
+        setGenProgress('Clip '+clip.num+': hosting clip…',97);
         clip.videoUrl=await hostRefImage(mp4,'clips/still-'+clip.id);
         clip.provider='comfy-still';
         clip.continuity=null;
         clip.draftQuality=false;
-        clip.status='done';clip.error=null;save();renderAll();
+        clip.status='done';clip.error=null;ok=true;save();renderAll();
         verifyClipAsync(clip);
         return;
-      }finally{if(!state.queue.running)$('queueBar').classList.remove('on')}
+      }finally{endGenProgress(ok)}
     }
     // Local ComfyUI provider: the browser drives the GPU on this machine
     // directly — same enriched prompt/refs/seed, zero cloud cost.
@@ -2244,22 +2357,25 @@ async function runJob(clip,opts){
       const host=comfyHostValue();
       if(!(await SBComfy.ping(host))){runComfyDiagnosis();throw new Error('ComfyUI connection problem — see the setup guide')}
       const refUrl=body.character_image_url||body.prev_frame_image_url||(body.reference_images&&body.reference_images[0])||null;
-      $('queueBar').classList.add('on');
+      startGenProgress(clip,'comfy-video',420);
+      let ok=false;
       try{
         const out=await SBComfy.generate(host,{
           prompt:body.prompt,refUrl,duration:dur,seed:body.seed,aspect:asp,
           workflowJson:state.global.comfyWorkflow||null,
-          onProgress:m=>{$('queueText').textContent='Clip '+clip.num+': '+m}
+          onProgress:(m,pct)=>setGenProgress('Clip '+clip.num+': '+m,pct)
         });
         clip.videoUrl=out.url;
         clip.provider='comfy-local';
         clip.continuity=null;
         clip.draftQuality=false;
-        clip.status='done';clip.error=null;save();renderAll();
+        clip.status='done';clip.error=null;ok=true;save();renderAll();
         verifyClipAsync(clip);
         return;
-      }finally{if(!state.queue.running)$('queueBar').classList.remove('on')}
+      }finally{endGenProgress(ok)}
     }
+    startGenProgress(clip,'cloud-'+pollModel,isDraftRun?100:210);
+    setGenProgress('Clip '+clip.num+': sending to '+pollModel+'…');
     const sub=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify(body)});
     const sd=await sub.json();
     if(!sub.ok||!sd.request_id)throw new Error(formatGenError(sd,sub.status));
@@ -2269,6 +2385,7 @@ async function runJob(clip,opts){
     const t0=Date.now();
     while(Date.now()-t0<480000){
       await new Promise(r=>setTimeout(r,5000));
+      setGenProgress('Clip '+clip.num+': '+pollModel+' rendering ('+jobProv+')…');
       const pollBody={action:'status',request_id:clip.requestId,model:pollModel,provider:jobProv};
       const pr=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify(pollBody)});
       const pd=await pr.json();const st=(pd.status||pd.state||'').toUpperCase();
@@ -2283,14 +2400,18 @@ async function runJob(clip,opts){
         clip.videoUrl=videoUrl;
         clip.continuity=null;
         clip.draftQuality=isDraftRun;
-        clip.status='done';clip.error=null;save();renderAll();
+        clip.status='done';clip.error=null;endGenProgress(true);save();renderAll();
         verifyClipAsync(clip);
         return;
       }
       if(st==='FAILED'||st==='ERROR')throw new Error(formatGenError(pd,pr.status));
     }
     throw new Error('Timed out');
-  }catch(e){clip.status='draft';clip.error=e.message;save();renderAll();toast(e.message)}
+  }catch(e){
+    endGenProgress(false);
+    clip.status='draft';clip.error=e.message;save();renderAll();
+    toast(e.message);showGenAlert('Clip '+clip.num+': '+e.message);
+  }
 }
 
 // Fire-and-forget continuity scoring after a clip finishes (badge appears when done).
@@ -3030,6 +3151,7 @@ function bindUI(){
     });
     syncGlobal();
   }
+  scrubCharacterBible();
   renderAll();
   try{
     if(!localStorage.getItem('SB_Timeline_script_hint_v3')){

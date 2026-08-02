@@ -242,6 +242,18 @@ input.uc-text{appearance:none;-webkit-appearance:none;font-family:var(--mono);mi
 .char-editor h4{font-family:var(--display);margin-bottom:10px;font-size:13px}
 .ref-preview{margin:8px 0;border-radius:6px;overflow:hidden;max-height:100px}
 .ref-preview img{width:100%;object-fit:cover}
+/* ── live generation progress ── */
+.queue-prog{height:5px;border-radius:3px;background:rgba(160,190,255,.12);overflow:hidden;margin-top:6px}
+.queue-prog i{display:block;height:100%;width:0%;border-radius:3px;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width .6s ease;box-shadow:0 0 8px rgba(255,115,80,.5)}
+.clip-prog{position:absolute;left:6px;right:6px;bottom:34px;height:14px;border-radius:4px;background:rgba(6,9,15,.82);border:1px solid rgba(160,190,255,.25);overflow:hidden;z-index:3}
+.clip-prog i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--gold2));opacity:.85;transition:width .6s ease}
+.clip-prog span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000}
+.clip-err{position:absolute;left:6px;right:6px;bottom:34px;padding:2px 4px;border-radius:4px;background:rgba(255,107,129,.16);border:1px solid rgba(255,107,129,.5);color:var(--red);font-size:9px;font-weight:700;text-align:center;z-index:3;cursor:help}
+.gen-alert{display:none;align-items:flex-start;gap:10px;margin:8px 0 0;padding:10px 12px;border-radius:8px;background:rgba(255,107,129,.1);border:1px solid rgba(255,107,129,.45);color:var(--red);font-size:12px;line-height:1.45}
+.gen-alert.on{display:flex}
+.gen-alert span{flex:1}
+.gen-alert button{background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;line-height:1;padding:0 2px}
+
 /* time-of-day variant strip: same set, relit */
 .loc-variants{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 8px}
 .loc-variant{width:104px;margin:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden}
