@@ -756,7 +756,7 @@ function renderAll(){
   $('projectTitle').textContent=state.projectName;
   repairCorruptClips();
   if(state.clips.length||state.scriptText)bootstrapMastery(false,{skipHydrate:true});
-  renderTimeline();renderScriptEditor();renderAssembly();renderCharacters();renderLocations();renderProps();renderOutput();renderDetail();updateUndo();
+  renderTimeline();renderScriptEditor();renderAssembly();renderCharacters();renderLocations();renderProps();renderStoryboard();renderOutput();renderDetail();updateUndo();
   renderStepper();renderAuthGate();
   openSidePanelsIfNeeded();
 }
@@ -2341,7 +2341,7 @@ async function boardClip(clip,opts){
     initUrl:chainInit
   });
   clip.boardUrl=url;
-  save();renderTimeline();if(state.selectedId===clip.id)renderDetail();
+  save();renderTimeline();renderStoryboard();if(state.selectedId===clip.id)renderDetail();
   return url;
 }
 /* Storyboard viewer/editor: big preview + editable shot description +
@@ -2387,6 +2387,40 @@ function boardModalUpload(){
     }catch(e){toast(e.message)}
   };
   inp.click();
+}
+/* Storyboard wall: every shot's frame in timeline order, grouped by scene
+   block. Click a frame → the board editor modal for that clip. */
+function renderStoryboard(){
+  const grid=$('boardGrid');if(!grid)return;
+  const stats=$('boardStats');
+  if(!state.clips.length){
+    grid.innerHTML='';
+    if(stats)stats.textContent='No shots yet — import a script first.';
+    return;
+  }
+  const boarded=state.clips.filter(c=>c.boardUrl).length;
+  if(stats)stats.textContent=boarded+' / '+state.clips.length+' shots boarded';
+  let html='',lastBlockId=null;
+  state.clips.forEach((c,ci)=>{
+    const blk=(window.SBContinuity&&SBContinuity.blockForClip)?SBContinuity.blockForClip(state,ci):null;
+    if(blk&&blk.id!==lastBlockId){
+      lastBlockId=blk.id;
+      html+='<div class="board-scene">'+esc(blk.locationName||'Scene')+(blk.timeOfDay?' · '+esc(blk.timeOfDay):'')+'</div>';
+    }
+    const thumb=c.boardUrl?'<img src="'+esc(c.boardUrl)+'" alt="" loading="lazy">':'<span class="ph">🎬</span>';
+    html+='<div class="board-cell'+(c.boardUrl?'':' unboarded')+'" data-id="'+c.id+'" title="'+(c.boardUrl?'Preview / edit this frame':'Not boarded yet — click to generate')+'">'+
+      '<div class="board-cell-thumb">'+thumb+'</div>'+
+      '<div class="board-cell-label">'+String(c.num).padStart(2,'0')+' · '+esc(c.label||'')+'</div></div>';
+  });
+  grid.innerHTML=html;
+  grid.querySelectorAll('.board-cell').forEach(el=>{
+    el.onclick=()=>{
+      const clip=state.clips.find(x=>x.id===el.dataset.id);if(!clip)return;
+      state.selectedId=clip.id;renderTimeline();renderDetail();
+      if(clip.boardUrl)openBoardModal(clip);
+      else boardClip(clip).then(()=>{renderStoryboard();if(clip.boardUrl)openBoardModal(clip)}).catch(e=>toast(e.message));
+    };
+  });
 }
 async function boardAll(){
   if(!curUser)return toast('Sign in to storyboard');
@@ -2750,6 +2784,7 @@ function bindUI(){
   const btnBoardRegen=$('btnBoardRegen');if(btnBoardRegen)btnBoardRegen.onclick=()=>boardModalRegen(false);
   const btnBoardVary=$('btnBoardVary');if(btnBoardVary)btnBoardVary.onclick=()=>boardModalRegen(true);
   const btnBoardUpload=$('btnBoardUpload');if(btnBoardUpload)btnBoardUpload.onclick=boardModalUpload;
+  const btnBoardAllPanel=$('btnBoardAllPanel');if(btnBoardAllPanel)btnBoardAllPanel.onclick=boardAll;
   const btnBoardAll=$('btnBoardAll');if(btnBoardAll)btnBoardAll.onclick=boardAll;
   $('btnApprove').onclick=approveSelected;
   $('btnPreview').onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(c&&c.videoUrl)window.open(c.videoUrl);else toast('No video')};
