@@ -20,97 +20,133 @@
    * ════════════════════════════════════════════════════════════════════ */
 
   /* AI video model billing — USD per second of finished footage, by output
-   * resolution, plus typical queue+render wall-clock per clip. Aggregator
-   * list prices drift monthly; treat as defaults and adjust in one place. */
+   * resolution, plus median queue+render wall-clock per clip. Verified against
+   * provider list prices (Aug 2026): WaveSpeed (Seedance/Wan/Veo — this app's
+   * default provider), fal.ai, Replicate, OpenAI, Google Gemini API, xAI.
+   * List prices drift monthly; adjust here. Sources: docs/PRODUCTION_PRICING.md */
   var AI_MODEL_RATES = {
-    'seedance-2.0-turbo': { label: 'Seedance 2.0 Turbo', usdPerSec: { '480p': 0.02, '720p': 0.03, '1080p': 0.06 }, genSecPerClip: 55 },
-    'wan-2.7':            { label: 'Wan 2.7',            usdPerSec: { '720p': 0.05, '1080p': 0.10 },               genSecPerClip: 95 },
-    'sora-2':             { label: 'Sora 2',             usdPerSec: { '720p': 0.10 },                              genSecPerClip: 170 },
-    'veo-3.1':            { label: 'Veo 3.1',            usdPerSec: { '720p': 0.20, '1080p': 0.40 },               genSecPerClip: 120 },
-    'kling-3.0-pro':      { label: 'Kling 3.0 Pro',      usdPerSec: { '720p': 0.09, '1080p': 0.14 },               genSecPerClip: 210 },
-    'grok-imagine':       { label: 'Grok Imagine',       usdPerSec: { '480p': 0.02, '720p': 0.04 },                genSecPerClip: 45 }
+    // WaveSpeed Seedance 2.0 Fast: $0.50/5s 480p, $1.00/5s 720p, $2.50/5s 1080p; median e2e ~156s
+    'seedance-2.0-turbo': { label: 'Seedance 2.0 Turbo', usdPerSec: { '480p': 0.10, '720p': 0.20, '1080p': 0.50 }, genSecPerClip: 150 },
+    // fal/Replicate Wan 2.7: $0.10/s flat; Alibaba official wan2.6 $0.086 (720p) / $0.143 (1080p); Wan family median e2e ~47s
+    'wan-2.7':            { label: 'Wan 2.7',            usdPerSec: { '720p': 0.10, '1080p': 0.14 },               genSecPerClip: 60 },
+    // OpenAI official: sora-2 $0.10/s (720p); 30-90s typical render
+    'sora-2':             { label: 'Sora 2',             usdPerSec: { '720p': 0.10 },                              genSecPerClip: 75 },
+    // Google Gemini API Veo 3.1 standard (w/ audio): $0.40/s at 720p and 1080p; jobs 11s-6min
+    'veo-3.1':            { label: 'Veo 3.1',            usdPerSec: { '720p': 0.40, '1080p': 0.40 },               genSecPerClip: 120 },
+    // Kling 3.0 official per-unit: standard $0.084/s (720p), pro $0.112-$0.14/s w/ audio (1080p); 5s clip ~60-120s
+    'kling-3.0-pro':      { label: 'Kling 3.0 Pro',      usdPerSec: { '720p': 0.112, '1080p': 0.14 },              genSecPerClip: 120 },
+    // xAI official grok-imagine-video: $0.05/s output, audio included (480p/720p); ~25s for 6s clip
+    'grok-imagine':       { label: 'Grok Imagine',       usdPerSec: { '480p': 0.05, '720p': 0.05 },                genSecPerClip: 40 }
   };
 
   var AI_DEFAULTS = {
     retakeFactor: 1.6,   // avg generations per kept clip (regens + rejects)
     concurrency: 3,      // clips rendering in parallel
-    imageUsd: 0.06,      // one still (portrait / location plate)
+    imageUsd: 0.04,      // one still — Nano Banana $0.039, FLUX dev $0.025, gpt-image med ~$0.042
     imageTakes: 2,       // takes per kept still
     setupMinutes: 12     // parse, character/location enrichment, prompt passes
   };
 
   /* Real-world tiers. range = [low, high] USD unless noted.
-   * Sources: SAG-AFTRA / IATSE / DGA published scale, indie line-producer
-   * rules of thumb, trade-press deal reporting. See docs/PRODUCTION_PRICING.md. */
+   * Calibrated against 2025-26 published union scale (SAG-AFTRA, IATSE,
+   * DGA, WGA official rate sheets), FilmLA/NYC permit schedules, rental
+   * house price lists and trade-press deal reporting.
+   * Full source list + methodology: docs/PRODUCTION_PRICING.md. */
   var TIERS = {
     scale: [
-      { id: 'micro',    label: 'Micro-budget (< $500k)',   pagesPerDay: 7,   crewSize: 12,  crewAvgDay: 350, artPerDay: [500, 2000],     scriptRights: [2e3, 25e3],    producers: [10e3, 40e3],   sound: [8e3, 25e3],    music: [3e3, 20e3],   di: [3e3, 12e3],   editorialWk: [1500, 3500],  castingFee: [2e3, 8e3] },
-      { id: 'low',      label: 'Low budget ($500k–$2M)',   pagesPerDay: 5.5, crewSize: 30,  crewAvgDay: 450, artPerDay: [1500, 5000],    scriptRights: [15e3, 80e3],   producers: [40e3, 150e3],  sound: [20e3, 60e3],   music: [15e3, 60e3],  di: [10e3, 35e3],  editorialWk: [3000, 6000],  castingFee: [8e3, 25e3] },
-      { id: 'indie',    label: 'Indie ($2M–$10M)',         pagesPerDay: 4.5, crewSize: 60,  crewAvgDay: 600, artPerDay: [4000, 15000],   scriptRights: [50e3, 300e3],  producers: [150e3, 600e3], sound: [50e3, 150e3],  music: [50e3, 250e3], di: [30e3, 90e3],  editorialWk: [6000, 12000], castingFee: [25e3, 75e3] },
-      { id: 'mid',      label: 'Mid-level ($10M–$40M)',    pagesPerDay: 3.5, crewSize: 110, crewAvgDay: 750, artPerDay: [12000, 45000],  scriptRights: [250e3, 1.5e6], producers: [600e3, 2.5e6], sound: [150e3, 450e3], music: [250e3, 1e6],  di: [80e3, 250e3], editorialWk: [10000, 20000], castingFee: [75e3, 200e3] },
-      { id: 'studio',   label: 'Studio ($40M–$100M)',      pagesPerDay: 3,   crewSize: 180, crewAvgDay: 850, artPerDay: [35000, 120000], scriptRights: [1e6, 4e6],     producers: [2e6, 6e6],     sound: [400e3, 1e6],   music: [1e6, 3e6],    di: [200e3, 600e3], editorialWk: [15000, 30000], castingFee: [150e3, 400e3] },
-      { id: 'tentpole', label: 'Tentpole ($100M+)',        pagesPerDay: 2.2, crewSize: 300, crewAvgDay: 950, artPerDay: [90000, 350000], scriptRights: [2.5e6, 12e6],  producers: [5e6, 15e6],    sound: [1e6, 3e6],     music: [2.5e6, 8e6],  di: [500e3, 1.5e6], editorialWk: [25000, 50000], castingFee: [300e3, 800e3] }
+      /* scriptRights anchored to WGA minimums: original screenplay incl. treatment
+       * = $90,904 low-budget (<$5M) / $170,655 high-budget (2025-26 MBA). */
+      { id: 'micro',    label: 'Micro-budget (< $500k)',   pagesPerDay: 7,   crewSize: 12,  crewAvgDay: 350, artPerDay: [500, 2000],     scriptRights: [2e3, 30e3],    producers: [10e3, 30e3],   sound: [3e3, 20e3],    music: [3e3, 20e3],   di: [1e3, 10e3],   editorialWk: [1500, 3500],  castingFee: [1500, 5e3] },
+      { id: 'low',      label: 'Low budget ($500k–$2M)',   pagesPerDay: 5.5, crewSize: 30,  crewAvgDay: 450, artPerDay: [1500, 5000],    scriptRights: [30e3, 95e3],   producers: [25e3, 100e3],  sound: [20e3, 60e3],   music: [15e3, 60e3],  di: [8e3, 30e3],   editorialWk: [3000, 6000],  castingFee: [5e3, 15e3] },
+      { id: 'indie',    label: 'Indie ($2M–$10M)',         pagesPerDay: 4.5, crewSize: 60,  crewAvgDay: 600, artPerDay: [4000, 15000],   scriptRights: [91e3, 350e3],  producers: [100e3, 500e3], sound: [50e3, 150e3],  music: [50e3, 250e3], di: [25e3, 85e3],  editorialWk: [6000, 12000], castingFee: [15e3, 40e3] },
+      { id: 'mid',      label: 'Mid-level ($10M–$40M)',    pagesPerDay: 3.5, crewSize: 110, crewAvgDay: 700, artPerDay: [12000, 45000],  scriptRights: [250e3, 1.5e6], producers: [500e3, 2e6],   sound: [150e3, 450e3], music: [200e3, 1e6],  di: [65e3, 200e3], editorialWk: [10000, 20000], castingFee: [40e3, 100e3] },
+      { id: 'studio',   label: 'Studio ($40M–$100M)',      pagesPerDay: 3,   crewSize: 180, crewAvgDay: 800, artPerDay: [35000, 120000], scriptRights: [1e6, 4e6],     producers: [1.5e6, 5e6],   sound: [400e3, 1e6],   music: [1e6, 3e6],    di: [150e3, 500e3], editorialWk: [15000, 30000], castingFee: [100e3, 250e3] },
+      { id: 'tentpole', label: 'Tentpole ($100M+)',        pagesPerDay: 2.2, crewSize: 300, crewAvgDay: 900, artPerDay: [90000, 350000], scriptRights: [2.5e6, 12e6],  producers: [5e6, 15e6],    sound: [1e6, 3e6],     music: [2.5e6, 8e6],  di: [400e3, 1.2e6], editorialWk: [25000, 50000], castingFee: [200e3, 500e3] }
     ],
+    /* DGA low-budget sideletter ≈ $9k-$20k min on micro films; DGA basic scale
+     * ≈ $320k min run on $11M+ films; THR: veterans $2.5M-$7M; reported
+     * A-list fees $15M-$25M upfront plus gross points (Nolan class). */
     director: [
-      { id: 'first',       label: 'First-time director',            range: [15e3, 75e3] },
-      { id: 'emerging',    label: 'Emerging (festival credits)',    range: [75e3, 250e3] },
-      { id: 'established', label: 'Established (DGA scale+)',       range: [250e3, 750e3] },
-      { id: 'veteran',     label: 'Veteran hitmaker',               range: [750e3, 2.5e6] },
-      { id: 'alist',       label: 'A-list director',                range: [2.5e6, 10e6] },
-      { id: 'legend',      label: 'Legend (fee + gross points)',    range: [10e6, 20e6] }
+      { id: 'first',       label: 'First-time director',            range: [10e3, 75e3] },
+      { id: 'emerging',    label: 'Emerging (festival credits)',    range: [85e3, 500e3] },
+      { id: 'established', label: 'Established (DGA scale+)',       range: [500e3, 2.5e6] },
+      { id: 'veteran',     label: 'Veteran hitmaker',               range: [2.5e6, 7e6] },
+      { id: 'alist',       label: 'A-list director',                range: [7e6, 15e6] },
+      { id: 'legend',      label: 'Legend (fee + gross points)',    range: [15e6, 25e6] }
     ],
+    /* SAG scale day rate $1,246 (25-26); Schedule F run-of-picture ~$65k-$80k.
+     * Reported deals: rising $300k-$2M (Zendaya/Chalamet Dune 1), name $2M-$5M,
+     * star $8M-$15M (Murphy, Robbie/Gosling Barbie), A-list $20M-$35M
+     * (DiCaprio, Pitt, Smith), megastar $50M+ (Johnson Red One, Cruise). */
     lead: [
-      { id: 'unknown',  label: 'Unknown (SAG scale)',           range: [25e3, 75e3] },
-      { id: 'rising',   label: 'Rising talent',                 range: [75e3, 300e3] },
-      { id: 'name',     label: 'Recognizable name',             range: [300e3, 1.5e6] },
-      { id: 'star',     label: 'Star',                          range: [1.5e6, 8e6] },
-      { id: 'alist',    label: 'A-list star',                   range: [8e6, 20e6] },
-      { id: 'megastar', label: 'Megastar (fee + backend)',      range: [20e6, 40e6] }
+      { id: 'unknown',  label: 'Unknown (SAG scale)',           range: [15e3, 80e3] },
+      { id: 'rising',   label: 'Rising talent',                 range: [100e3, 2e6] },
+      { id: 'name',     label: 'Recognizable name',             range: [2e6, 5e6] },
+      { id: 'star',     label: 'Star',                          range: [8e6, 15e6] },
+      { id: 'alist',    label: 'A-list star',                   range: [20e6, 35e6] },
+      { id: 'megastar', label: 'Megastar (fee + backend)',      range: [50e6, 100e6] }
     ],
+    /* Per-role: indie character actors $5k-$50k total; studio supporting
+     * $20k-$200k; prestige name supporting up to $2M-$4M (Oppenheimer). */
     supporting: [
-      { id: 'scale',    label: 'Scale players',                 range: [8e3, 25e3] },
-      { id: 'seasoned', label: 'Seasoned character actors',     range: [25e3, 150e3] },
-      { id: 'name',     label: 'Name supporting cast',          range: [150e3, 750e3] },
-      { id: 'starcameo',label: 'Star cameos',                   range: [750e3, 3e6] }
+      { id: 'scale',    label: 'Scale / indie character actors', range: [5e3, 50e3] },
+      { id: 'seasoned', label: 'Seasoned character actors',      range: [20e3, 200e3] },
+      { id: 'name',     label: 'Name supporting cast',           range: [200e3, 2e6] },
+      { id: 'starcameo',label: 'Star cameos / prestige names',   range: [250e3, 4e6] }
     ],
+    /* All-in fringe rules of thumb: non-union ~28-30% (payroll tax + WC +
+     * handling); IATSE ~40% (MPI H&P $9.97/hr + IAP 6% + vacation/holiday);
+     * SAG cast ~45% — cast fringe is applied at a 0.6 weighting because
+     * P&H contributions cap out on large star fees. */
     crew: [
-      { id: 'nonunion', label: 'Non-union',                          fringe: 0.18, rateMult: 0.75 },
-      { id: 'hybrid',   label: 'Hybrid / low-budget agreements',     fringe: 0.25, rateMult: 0.90 },
-      { id: 'union',    label: 'Full union (IATSE / DGA / SAG)',     fringe: 0.35, rateMult: 1.15 }
+      { id: 'nonunion', label: 'Non-union',                          fringe: 0.28, rateMult: 0.75 },
+      { id: 'hybrid',   label: 'Hybrid / low-budget agreements',     fringe: 0.32, rateMult: 0.90 },
+      { id: 'union',    label: 'Full union (IATSE / DGA / SAG)',     fringe: 0.40, rateMult: 1.15 }
     ],
+    /* Residential $500-$2.5k/day, commercial $2k-$15k/day, landmark $10k+/day.
+     * perLocFee = permits + prep/restore per unique location (FilmLA permit
+     * $931 + $232 notification; NYC $500/14 days). Stage: indie stages
+     * $900-$1,800/day + set construction per built set. */
     locations: [
-      { id: 'local',         label: 'Local practical locations',      perDay: [300, 1500],   perLocFee: [100, 600],    travelPct: 0 },
-      { id: 'city',          label: 'Major-city streets & permits',   perDay: [1500, 6000],  perLocFee: [500, 3000],   travelPct: 0.02 },
-      { id: 'premium',       label: 'Premium / landmark locations',   perDay: [6000, 25000], perLocFee: [2500, 15000], travelPct: 0.03 },
-      { id: 'stage',         label: 'Stage builds (soundstage)',      perDay: [3000, 15000], perLocFee: [40e3, 400e3], travelPct: 0 },
+      { id: 'local',         label: 'Local practical locations',      perDay: [500, 2500],   perLocFee: [150, 950],    travelPct: 0 },
+      { id: 'city',          label: 'Major-city streets & permits',   perDay: [2000, 10000], perLocFee: [1000, 3500],  travelPct: 0.02 },
+      { id: 'premium',       label: 'Premium / landmark locations',   perDay: [8000, 30000], perLocFee: [2500, 15000], travelPct: 0.03 },
+      { id: 'stage',         label: 'Stage builds (soundstage)',      perDay: [1000, 12000], perLocFee: [15e3, 400e3], travelPct: 0 },
       { id: 'international', label: 'International / remote exotic',  perDay: [4000, 20000], perLocFee: [2000, 12000], travelPct: 0.08 }
     ],
+    /* Weekly = 3x day rate ("3-day week" rental convention). Alexa 35 /
+     * Venice 2 packaged ≈ $2.5k/day; 5-ton G&E truck ≈ $650/day. */
     equipment: [
-      { id: 'indie', label: 'Indie kit (mirrorless / prosumer)',        perWeek: [1500, 5000] },
-      { id: 'pro',   label: 'Pro package (cine camera + G&E truck)',    perWeek: [8000, 25000] },
-      { id: 'studio',label: 'Studio package (Alexa/Venice, multi-cam)', perWeek: [25000, 80000] },
+      { id: 'indie', label: 'Indie kit (mirrorless / prosumer)',        perWeek: [800, 4000] },
+      { id: 'pro',   label: 'Pro package (cine camera + G&E truck)',    perWeek: [9000, 30000] },
+      { id: 'studio',label: 'Studio package (Alexa/Venice, multi-cam)', perWeek: [30000, 90000] },
       { id: 'imax',  label: 'Large-format / IMAX',                      perWeek: [80000, 200000] }
     ],
+    /* perShot from vendor guides: cleanup $100-$1k, comps/set ext $1k-$5k,
+     * creatures/sims $5k-$50k, hero CG $75k-$200k (blockbuster avg
+     * $46k-$62k/shot). shotsPerMin floors mirror real shot counts: even
+     * "no-VFX" features carry 50-100 invisible fixes; blockbusters run
+     * 1,600-3,300 shots (Rogue One, Avatar 2). */
     vfx: [
-      { id: 'none',     label: 'None / practical only', shotsPct: 0,    perShot: [0, 0] },
-      { id: 'light',    label: 'Light (cleanup, comps)', shotsPct: 0.10, perShot: [800, 2500] },
-      { id: 'moderate', label: 'Moderate (set ext., sims)', shotsPct: 0.25, perShot: [2500, 8000] },
-      { id: 'heavy',    label: 'Heavy (creatures, environments)', shotsPct: 0.45, perShot: [8000, 25000] },
-      { id: 'full',     label: 'Full-scale CG spectacle', shotsPct: 0.70, perShot: [20000, 80000] }
+      { id: 'none',     label: 'None / practical only',           shotsPct: 0,    shotsPerMin: 0,   perShot: [0, 0] },
+      { id: 'light',    label: 'Light (cleanup, comps)',          shotsPct: 0.10, shotsPerMin: 0.5, perShot: [300, 1500] },
+      { id: 'moderate', label: 'Moderate (set ext., sims)',       shotsPct: 0.25, shotsPerMin: 2,   perShot: [1000, 5000] },
+      { id: 'heavy',    label: 'Heavy (creatures, environments)', shotsPct: 0.45, shotsPerMin: 6,   perShot: [5000, 40000] },
+      { id: 'full',     label: 'Full-scale CG spectacle',         shotsPct: 0.70, shotsPerMin: 15,  perShot: [40000, 120000] }
     ]
   };
 
-  var EXTRA_DAY_RATE = [130, 250];        // background performer per person-day (non-union → SAG)
-  var DAY_PLAYER_RANGE = [1500, 6000];    // small speaking part, whole run
-  var STUNT_DAY = [3500, 12000];          // coordinator + riggers + adjustments per stunt day
-  var PYRO_DAY = [8000, 40000];           // licensed pyro/SFX unit per effects day
-  var WATER_DAY = [10000, 60000];         // marine unit / tank day
+  var EXTRA_DAY_RATE = [120, 270];        // background per person-day: non-union ~$100-200 → SAG $224 + 20.5% P&H
+  var DAY_PLAYER_RANGE = [1500, 6000];    // small speaking part, whole run (SAG day $1,246 / LBA $810 × 2-5 days)
+  var STUNT_DAY = [4000, 15000];          // coordinator ($1,938 flat-deal day) + performers ($1,246/day) + rigging + adjustments
+  var PYRO_DAY = [6000, 40000];           // licensed pyrotechnician $1.2k-$2.5k/day + SFX crew + materials + fire safety
+  var WATER_DAY = [8000, 50000];          // tank rental ($1.2k-$2k/day small) to full marine/dive-safety unit
   var ANIMAL_DAY = [1500, 8000];          // wrangler + humane officer per animal day
-  var OT_FACTOR = 0.12;                   // average overtime bleed on crew labor
-  var INSURANCE_PCT = 0.025;
+  var OT_FACTOR = 0.12;                   // overtime bleed beyond the blended 12-hr day baked into crewAvgDay
+  var INSURANCE_PCT = 0.025;              // production insurance: 2-3% of budget
   var LEGAL_PCT = 0.015;
-  var BOND_PCT = 0.025;                   // completion bond (indie financing only)
-  var CONTINGENCY_PCT = 0.10;
+  var BOND_PCT = 0.025;                   // completion bond ~2-3% net (indie financing only)
+  var CONTINGENCY_PCT = 0.10;             // standard bond-company requirement
 
   /* ════════════════════════════════════════════════════════════════════
    *  2. SCRIPT ANALYSIS
@@ -422,7 +458,10 @@
     btl['Travel & living'] = travel;
 
     /* ── Post-production ─────────────────────────────────────────── */
-    var vfxShots = Math.round((analysis.clips || analysis.scenes * 3) * vfx.shotsPct);
+    var vfxShots = Math.max(
+      Math.round((analysis.clips || analysis.scenes * 3) * vfx.shotsPct),
+      Math.round(analysis.runtimeMin * (vfx.shotsPerMin || 0))
+    );
     var vfxCost = [vfxShots * vfx.perShot[0], vfxShots * vfx.perShot[1]];
     var editorial = [scale.editorialWk[0] * postWeeks, scale.editorialWk[1] * postWeeks];
     var post = {};
