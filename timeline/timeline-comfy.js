@@ -126,6 +126,23 @@ window.SBComfy = (function () {
     } catch (e) { return null; }
   }
 
+  /* Board-chaining graph: the previous board (or an identity still) becomes
+     the init image at partial denoise, so consecutive shots share palette,
+     lighting, and composition VISUALLY — stock nodes only, works on SD1.5. */
+  function buildImg2ImgWf(ckpt, w, h) {
+    return {
+      "10": { "inputs": { "image": "example.png" }, "class_type": "LoadImage" },
+      "11": { "inputs": { "upscale_method": "lanczos", "width": w, "height": h, "crop": "center", "image": ["10", 0] }, "class_type": "ImageScale" },
+      "4": { "inputs": { "ckpt_name": ckpt }, "class_type": "CheckpointLoaderSimple" },
+      "12": { "inputs": { "pixels": ["11", 0], "vae": ["4", 2] }, "class_type": "VAEEncode" },
+      "6": { "inputs": { "text": "cinematic still frame", "clip": ["4", 1] }, "class_type": "CLIPTextEncode" },
+      "7": { "inputs": { "text": "blurry, low quality, watermark, text", "clip": ["4", 1] }, "class_type": "CLIPTextEncode" },
+      "3": { "inputs": { "seed": 42, "steps": 24, "cfg": 7, "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 0.6, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["12", 0] }, "class_type": "KSampler" },
+      "8": { "inputs": { "samples": ["3", 0], "vae": ["4", 2] }, "class_type": "VAEDecode" },
+      "9": { "inputs": { "filename_prefix": "Cinamate", "images": ["8", 0] }, "class_type": "SaveImage" }
+    };
+  }
+
   function wfCheckpointNode(wf) {
     var ids = Object.keys(wf || {});
     for (var i = 0; i < ids.length; i++) {
@@ -333,6 +350,19 @@ window.SBComfy = (function () {
       dims = portrait ? { w: 512, h: 768 } : { w: 512, h: 512 };
     } else {
       dims = portrait ? { w: 480, h: 832 } : { w: 832, h: 480 };
+    }
+
+    // Board chaining: an initUrl (previous board / identity still) switches
+    // the bundled stills path to img2img — the shot literally grows out of
+    // the prior image, carrying palette, light, and composition forward.
+    if (opts.image && !isCustom && opts.initUrl) {
+      var initName = null;
+      try { initName = await uploadRef(host, opts.initUrl, onProgress); }
+      catch (e) { console.warn('[SBComfy] init upload failed:', e); }
+      if (initName) {
+        wf = buildImg2ImgWf(wfCkpt || wf[ckptNodeId].inputs.ckpt_name, dims.w, dims.h);
+        refName = initName;
+      }
     }
     var injected = inject(wf, {
       prompt: opts.prompt,

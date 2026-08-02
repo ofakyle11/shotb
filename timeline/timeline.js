@@ -1475,6 +1475,7 @@ async function generatePicture(opts){
       image:true,
       prompt:String(opts.desc||''),
       refUrl,
+      initUrl:opts.initUrl||null,
       seed:stableSeed(state.projectName+'|img|'+(opts.name||'')+'|'+(opts.desc||'').length),
       aspect:opts.aspect_ratio||'16:9',
       workflowJson:state.global.comfyImageWorkflow||null
@@ -2289,16 +2290,26 @@ async function boardClip(clip,opts){
     refs=(m.reference_images||[]).slice(0,3);
   }
   if(window.SBContinuity)prompt=SBContinuity.enrichPromptWithContinuity(prompt,state,clip,{maxChars:1800});
-  // Previous board frame rides along so consecutive boards flow visually.
+  // Previous board frame rides along so consecutive boards flow visually —
+  // as an image ref on cloud models, and as the img2img INIT image on local
+  // ComfyUI (the shot literally grows out of the prior board). Chain only
+  // within a continuity block: a new scene starts fresh.
   const ci=state.clips.findIndex(c=>c.id===clip.id);
   const prevBoard=ci>0?state.clips[ci-1].boardUrl:null;
-  if(prevBoard&&String(prevBoard).startsWith('https://')&&refs.indexOf(prevBoard)<0)refs.unshift(prevBoard);
+  let chainInit=null;
+  if(prevBoard&&String(prevBoard).startsWith('https://')){
+    if(refs.indexOf(prevBoard)<0)refs.unshift(prevBoard);
+    const blk=(window.SBContinuity&&SBContinuity.blockForClip)?SBContinuity.blockForClip(state,ci):null;
+    const prevBlk=(window.SBContinuity&&SBContinuity.blockForClip)?SBContinuity.blockForClip(state,ci-1):null;
+    if(!blk||!prevBlk||blk.id===prevBlk.id)chainInit=prevBoard;
+  }
   if(!opts.quiet)toast('Boarding clip '+clip.num+'…');
   const url=await generatePicture({
     type:'storyboard',name:'Clip '+clip.num,
     desc:'Cinematic still frame — the exact FIRST FRAME of this shot, matching the reference images for character and location identity. '+prompt,
     aspect_ratio:state.global.aspectRatio==='9:16'?'9:16':'16:9',
-    referenceImages:refs.slice(0,4).map(u=>({url:u}))
+    referenceImages:refs.slice(0,4).map(u=>({url:u})),
+    initUrl:chainInit
   });
   clip.boardUrl=url;
   save();renderTimeline();if(state.selectedId===clip.id)renderDetail();
