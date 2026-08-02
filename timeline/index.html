@@ -87,7 +87,7 @@
       <div class="uc-group"><span class="uc-label">Language</span><select class="uc-sel" id="gLang"><option>English</option><option>French</option><option>Bilingual</option></select></div>
       <div class="uc-group"><span class="uc-label">Draft</span><select class="uc-sel" id="gDraft" title="Draft renders every clip fast &amp; cheap (Wan 2.7) with the same seeds and refs — then ★ Finalize re-renders only the keepers with your selected model"><option value="off" selected>Off — final quality</option><option value="on">On — fast &amp; cheap</option></select></div>
       <div class="uc-group"><span class="uc-label">Verify</span><select class="uc-sel" id="gVerify" title="Continuity verification after each generated clip"><option value="badge" selected>Score + badge</option><option value="retry">Auto-retry low</option><option value="off">Off</option></select></div>
-      <div class="uc-group"><span class="uc-label">Images</span><select class="uc-sel" id="gImgModel" title="Model for storyboards, portraits, kits, plates, and prop cards"><option value="nano-banana-pro" selected>Nano Banana Pro (consistency)</option><option value="flux-xai">Flux / Grok (light moderation)</option><option value="wan-2.7">Wan 2.7 (realism)</option><option value="comfy-local">🖥 Local ComfyUI (no moderation)</option></select></div>
+      <div class="uc-group"><span class="uc-label">Images</span><select class="uc-sel" id="gImgModel" title="Engine for ALL still images — storyboards, portraits, kits, plates, prop cards. Default: your own ComfyUI (free, no moderation); cloud models are the fallback"><option value="comfy-local" selected>🖥 Local ComfyUI (default)</option><option value="nano-banana-pro">Nano Banana Pro (consistency)</option><option value="flux-xai">Flux / Grok (light moderation)</option><option value="wan-2.7">Wan 2.7 (realism)</option></select></div>
       <div class="uc-group"><span class="uc-label">ComfyUI</span><input class="uc-sel uc-text" id="gComfyHost" value="http://127.0.0.1:8188" title="Local ComfyUI address (used by the Local ComfyUI model)" spellcheck="false"><button type="button" class="tb-btn" id="btnComfyTest" title="Check the connection to your local ComfyUI">Test</button><button type="button" class="tb-btn" id="btnComfyWf" title="Upload your ComfyUI VIDEO workflow (export as API Format JSON)">Video WF…</button><button type="button" class="tb-btn" id="btnComfyImgWf" title="Upload your ComfyUI IMAGE workflow (export as API Format JSON) — used for storyboards/portraits on Local ComfyUI">Img WF…</button></div>
     </div>
   </div>
@@ -347,6 +347,6 @@
 <script src="pro-cut.js?v=20260716a"></script>
 <script src="/js/ffmpeg-wasm.js?v=20260729a"></script>
 <script src="/editor/timeline-engine.js?v=20260628a"></script>
-<script src="timeline.js?v=20260730a"></script>
+<script src="timeline.js?v=20260730b"></script>
 </body>
 </html>

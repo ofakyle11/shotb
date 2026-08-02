@@ -1430,7 +1430,7 @@ async function runComfyDiagnosis(){
 // re-hosted on Firebase Storage so cloud video models can still consume it).
 async function generatePicture(opts){
   opts=opts||{};
-  const model=opts.model||state.global.imageModel||'nano-banana-pro';
+  const model=opts.model||state.global.imageModel||'comfy-local';
   if(model==='comfy-local'){
     if(!window.SBComfy)throw new Error('Local ComfyUI module not loaded — refresh the page');
     const host=comfyHostValue();
@@ -2668,7 +2668,6 @@ function bindUI(){
   wireComfyWfButton('btnComfyImgWf','comfyImageWorkflow','Img WF');
   const imgModelEl=$('gImgModel');
   if(imgModelEl){
-    if(state.global.imageModel)imgModelEl.value=state.global.imageModel;
     imgModelEl.onchange=()=>{state.global.imageModel=imgModelEl.value;save()};
   }
   const btnEnrichCont=$('btnEnrichContinuity');if(btnEnrichCont)btnEnrichCont.onclick=async()=>{
@@ -2719,6 +2718,15 @@ function bindUI(){
     }
     if(state.global.quality&&$('gQuality')){const ok=[...$('gQuality').options].some(o=>o.value===state.global.quality);if(ok)$('gQuality').value=state.global.quality;}
     if($('gDraft')&&state.global.draftMode)$('gDraft').value=state.global.draftMode==='on'?'on':'off';
+    // All still images (portraits, kits, plates, prop cards, storyboards)
+    // default to local ComfyUI; one-time migration moves older projects off
+    // the previous cloud default. Runs AFTER load() so it never clobbers a
+    // saved project, and the select reflects the saved choice on boot.
+    if(!state.global._imgComfyDefault){state.global.imageModel='comfy-local';state.global._imgComfyDefault=true}
+    if($('gImgModel')&&state.global.imageModel){
+      const ok=[...$('gImgModel').options].some(o=>o.value===state.global.imageModel);
+      if(ok)$('gImgModel').value=state.global.imageModel;
+    }
     ['gFilm','gColor','gAudio','gLang'].forEach(id=>{
       const m={gFilm:'filmStyle',gColor:'colorGrade',gAudio:'audioProfile',gLang:'language'};
       const el=$(id);if(!el)return;
