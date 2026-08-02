@@ -2736,6 +2736,10 @@ function bindUI(){
   }
   const modelMigrate={'seedance-turbo':'seedance-2.0-turbo','seedance':'seedance-2.0-turbo','veo':'veo-3.1'};
   if(state.global.model&&modelMigrate[state.global.model])state.global.model=modelMigrate[state.global.model];
+  // Video ALSO defaults to local ComfyUI (user directive: everything local).
+  // Cloud models stay one dropdown away; the one-time flag preserves any
+  // later manual choice. Runs post-load like the image migration.
+  if(!state.global._vidComfyDefault){state.global.model='comfy-local';state.global._vidComfyDefault=true}
   if(typeof window.initTimelineVideoSettings==='function'){
     if($('gModel')&&state.global.model)$('gModel').value=state.global.model;
     window.initTimelineVideoSettings(syncGlobal,true);

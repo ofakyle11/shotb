@@ -31,7 +31,7 @@ window.SBComfy = (function () {
     "5": { "inputs": { "width": 1024, "height": 1024, "batch_size": 1 }, "class_type": "EmptyLatentImage" },
     "6": { "inputs": { "text": "cinematic character portrait, production reference", "clip": ["4", 1] }, "class_type": "CLIPTextEncode" },
     "7": { "inputs": { "text": "blurry, low quality, watermark, text", "clip": ["4", 1] }, "class_type": "CLIPTextEncode" },
-    "3": { "inputs": { "seed": 42, "steps": 20, "cfg": 7, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
+    "3": { "inputs": { "seed": 42, "steps": 28, "cfg": 7, "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 1, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
     "8": { "inputs": { "samples": ["3", 0], "vae": ["4", 2] }, "class_type": "VAEDecode" },
     "9": { "inputs": { "filename_prefix": "Shotbreak", "images": ["8", 0] }, "class_type": "SaveImage" }
   };
@@ -97,16 +97,33 @@ window.SBComfy = (function () {
     };
   }
 
-  /* Best installed checkpoint for STILLS: SD1.5-family first (small, works
-     everywhere incl. CPU), then any other non-video model, SDXL last. */
+  /* Best installed checkpoint for STILLS. Community photoreal fine-tunes
+     (RealisticVision, DreamShaper, epicRealism…) beat the raw SD1.5 base by
+     a mile at identical cost — prefer any non-base SD1.5-class model, then
+     the base, then SDXL last (heavy on CPU boxes). */
   function pickImageCheckpoint(list) {
-    var stills = (list || []).filter(function (n) { return !isVideoCkpt(n); });
+    var stills = (list || []).filter(function (n) { return !isVideoCkpt(n) && !/inpaint|refiner/i.test(n); });
     if (!stills.length) return null;
-    var sd15 = stills.filter(function (n) { return /v1-5|sd.?1[-_.]?5|emaonly/i.test(n); });
-    if (sd15.length) return sd15[0];
     var nonXL = stills.filter(function (n) { return !isXL(n); });
+    var isBase = function (n) { return /v1-5.*emaonly|sd.?1[-_.]?5.*(base|pruned)/i.test(n); };
+    var tuned = nonXL.filter(function (n) { return !isBase(n); });
+    if (tuned.length) return tuned[0];
     if (nonXL.length) return nonXL[0];
     return stills[0];
+  }
+
+  /* Installed upscale model (the user's RealESRGAN etc.) for a finishing
+     pass on stills — sharp 1024/1536-class output from 512-class gens. */
+  async function upscalerInfo(host) {
+    try {
+      var r = await withTimeout(fetch(host + '/object_info/UpscaleModelLoader', { mode: 'cors' }), 6000, 'timeout');
+      if (!r.ok) return null;
+      var j = await r.json();
+      var req = j && j.UpscaleModelLoader && j.UpscaleModelLoader.input && j.UpscaleModelLoader.input.required;
+      var models = (req && Array.isArray(req.model_name) && Array.isArray(req.model_name[0])) ? req.model_name[0] : [];
+      if (!models.length) return null;
+      return models.filter(function (m) { return /esrgan|ultrasharp|4x/i.test(m); })[0] || models[0];
+    } catch (e) { return null; }
   }
 
   function wfCheckpointNode(wf) {
@@ -319,13 +336,26 @@ window.SBComfy = (function () {
     }
     var injected = inject(wf, {
       prompt: opts.prompt,
-      negative: opts.negative || 'blurry, distorted, low quality, watermark, text',
+      negative: opts.negative || 'blurry, distorted, low quality, watermark, text, deformed hands, extra fingers, bad anatomy',
       refName: refName,
       seed: opts.seed,
       width: dims.w,
       height: dims.h,
       frames: (opts.image || usedAnimateDiff) ? null : Math.max(9, Math.round((opts.duration || 4) * 16) + 1)
     });
+
+    // Finishing pass on bundled stills: run the install's ESRGAN-class
+    // upscaler (SD1.5 gens are 512-class — this lands sharp 1024/1536-class
+    // output), then a clean lanczos downscale from the 4x result.
+    if (opts.image && !isCustom && dims.w <= 768 && injected['9'] && injected['8']) {
+      var up = await upscalerInfo(host);
+      if (up) {
+        injected['20'] = { inputs: { model_name: up }, class_type: 'UpscaleModelLoader' };
+        injected['21'] = { inputs: { upscale_model: ['20', 0], image: ['8', 0] }, class_type: 'ImageUpscaleWithModel' };
+        injected['22'] = { inputs: { upscale_method: 'lanczos', width: dims.w * 2, height: dims.h * 2, crop: 'disabled', image: ['21', 0] }, class_type: 'ImageScale' };
+        injected['9'].inputs.images = ['22', 0];
+      }
+    }
 
     onProgress('Queued on local ComfyUI…');
     var res = await fetch(host + '/prompt', {
