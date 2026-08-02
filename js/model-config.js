@@ -18,7 +18,7 @@
     'vidu-q3': { label: 'Vidu Q3 (Multi-Ref)', resolutions: ['480p', '720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [4, 5, 8, 10, 16], supportsReferences: true, maxRefImages: 4, description: 'Vidu Q3 reference-to-video — multi-entity consistency from up to 4 refs (character + wardrobe + prop + location), audio, up to 16s' },
     'grok-imagine': { label: 'Grok Imagine (XAI)', resolutions: ['480p', '720p'], aspectRatios: ['1:1', '16:9', '9:16', '2:3', '3:2'], durations: [4, 5, 6, 8, 10, 12, 15], supportsReferences: true, maxRefImages: 7, description: 'XAI Grok Imagine native - excellent ref coherence + audio' },
     'kling-3.0-pro': { label: 'Kling 3.0 Pro', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [3, 5, 8, 10, 15], supportsReferences: true, maxRefImages: 1, description: 'Kling 3.0 Pro — cinematic T2V/I2V via WaveSpeed' },
-    'comfy-local': { label: '🖥 Local ComfyUI (this PC)', resolutions: ['480p', '720p'], aspectRatios: ['16:9', '9:16'], durations: [2, 3, 4, 5, 6, 8], supportsReferences: true, maxRefImages: 1, description: 'Your own GPU via ComfyUI on this machine — free, private, uses your installed models. Launch ComfyUI with --enable-cors-header' }
+    'comfy-local': { label: '🖥 Local ComfyUI (this PC)', resolutions: ['480p', '720p'], aspectRatios: ['16:9', '9:16'], durations: [2, 3, 4, 5, 6, 8], supportsReferences: true, maxRefImages: 1, description: 'Your own ComfyUI — adapts to your installed models: Wan/SVD when present, else AnimateDiff (short ~2s experimental clips). CPU-only machines: use a cloud model for real clips; local stills work great. Launch with --enable-cors-header' }
   };
 
   var _ddDocClickWired = false;
