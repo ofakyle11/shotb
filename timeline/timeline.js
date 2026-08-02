@@ -1230,7 +1230,7 @@ function renderDetail(){
     (clip.error?'<div class="err">'+esc(clip.error)+'</div>':'');
   const regenId=$('btnRegenIdentity');
   if(regenId)regenId.onclick=()=>{clip.retryCount=(clip.retryCount||0)+1;clip._forceIdentity=true;runJob(clip)};
-  $('d-desc').oninput=e=>{clip.description=e.target.value;save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)};
+  $('d-desc').oninput=e=>{clip.description=e.target.value;clip._descLocked=true;save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)};
   $('d-emotion').onchange=e=>{clip.emotion=e.target.value;save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)};
   body.querySelectorAll('.toggle').forEach(t=>{t.onclick=()=>{const g=clip.params[t.dataset.grp];g.on[t.dataset.f]=!g.on[t.dataset.f];t.classList.toggle('on',g.on[t.dataset.f]);save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)}});
   body.querySelectorAll('input[data-grp]').forEach(inp=>{inp.oninput=()=>{clip.params[inp.dataset.grp][inp.dataset.f]=inp.value;save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)}});
@@ -2148,6 +2148,9 @@ async function runJob(clip,opts){
   const ref=SBCharacters.getRefForClip(state.characters,clip);
   try{
     const h=await hdrs();
+    // Night/dusk scene at a locked location → relit plate variant first, so
+    // the resolver hands the video model the right light.
+    await ensureLocationVariant(clip);
     const vs=(typeof window.getVideoSettings==='function')?window.getVideoSettings('timeline'):null;
     let dur=vs?vs.duration:Math.min(15,Math.max(3,parseInt(state.global.clipDuration,10)||clip.durationSec||5));
     // Auto duration: fit each clip to its own dialogue/action instead of one
@@ -2311,6 +2314,9 @@ async function boardClip(clip,opts){
   if(!curUser)return toast('Sign in to storyboard');
   if(!clip)return;
   if(clip.boardUrl&&!opts.force)return clip.boardUrl;
+  // Night/dusk scene at a locked location → make sure the relit plate variant
+  // exists BEFORE refs resolve; the resolver prefers it over the day plate.
+  await ensureLocationVariant(clip);
   let prompt=buildPrompt(clip);
   let refs=[];
   if(window.SBMastery){
@@ -2363,7 +2369,7 @@ async function boardModalRegen(vary){
   const btn=vary?$('btnBoardVary'):$('btnBoardRegen');
   const desc=$('boardModalDesc').value.trim();
   pushHistory();
-  if(desc&&desc!==clip.description)clip.description=desc;
+  if(desc&&desc!==clip.description){clip.description=desc;clip._descLocked=true}
   if(vary)clip.boardVary=(clip.boardVary||0)+1;
   if(btn){btn.disabled=true;btn.textContent='Generating…'}
   try{
@@ -2436,6 +2442,100 @@ async function boardAll(){
   }
   state.queue.running=false;$('queueBar').classList.remove('on');
   toast('Storyboard: '+ok+' / '+targets.length+' frames — review the strip, then Generate All');
+}
+
+/* ── AI shot-description builder: transcript-style scripts leave shots with
+   "Close on NAME, delivering dialogue." or the spoken line itself as the
+   description — useless for image generation. One Grok pass rewrites every
+   thin shot into a real VISUAL description (who's in frame, what they do,
+   setting). Hand-edited descriptions are locked and never overwritten. ── */
+function thinDescription(clip){
+  if(clip._descLocked)return false;
+  const d=String(clip.description||'').trim();
+  if(!d)return true;
+  if(/delivering dialogue\.?/i.test(d))return true;
+  if(d.length<45)return true;
+  const dlg=String(clip.dialogue||'').trim();
+  if(dlg&&(d===dlg||(d.includes(dlg.slice(0,60))&&d.length<dlg.length+30)))return true;
+  return false;
+}
+async function buildShotDescriptions(){
+  if(!curUser)return toast('Sign in to build shot descriptions');
+  const targets=state.clips.map((c,i)=>({c,i})).filter(x=>thinDescription(x.c));
+  if(!targets.length)return toast('Every shot already has a visual description');
+  const btn=$('btnBuildShots');
+  if(btn){btn.disabled=true;btn.textContent='Writing…'}
+  const charNames=Object.keys(state.characters||{});
+  let applied=0;
+  try{
+    const h=await hdrs();
+    for(let off=0;off<targets.length;off+=40){
+      const batch=targets.slice(off,off+40);
+      if(btn&&targets.length>40)btn.textContent='Writing… '+Math.min(off+40,targets.length)+' / '+targets.length;
+      const r=await fetch('/.netlify/functions/enrich-shots',{method:'POST',headers:h,body:JSON.stringify({
+        clips:batch.map(x=>({i:x.i,heading:x.c.heading||'',description:x.c.description||'',dialogue:x.c.dialogue||'',characters:(x.c.characters||[]).slice(0,6)})),
+        characters:charNames,
+        scriptExcerpt:(state.scriptText||'').slice(0,6000)
+      })});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error||('Shot builder failed ('+r.status+')'));
+      const shots=(d&&d.shots)||{};
+      if(d.fallback&&!Object.keys(shots).length)throw new Error(d.detail||'AI writer unavailable — try again in a minute');
+      if(!applied&&Object.keys(shots).length)pushHistory();
+      batch.forEach(x=>{
+        const v=shots[String(x.i)];
+        if(v&&typeof v==='string'&&v.trim().length>15){x.c.description=v.trim();applied++}
+      });
+      save();renderAll();
+    }
+    toast(applied?('✨ '+applied+' shot descriptions written — board them to see the frames'):'The writer returned nothing new');
+  }catch(e){toast(e.message||'Shot builder failed')}
+  if(btn){btn.disabled=false;btn.textContent='✨ Build shot descriptions'}
+}
+
+/* ── Location time-of-day variants: one master plate per location, relit per
+   scene. A locked DAY plate is re-imagined at NIGHT/DUSK/etc — img2img on
+   local ComfyUI, image-ref on cloud — once per time of day, cached on the
+   bible entry, and the resolver prefers the matching variant over the day
+   plate. Same set, different light. ── */
+function clipTimeOfDay(clip){
+  const meta=(window.SBLocations&&SBLocations.clipLocationMeta)?SBLocations.clipLocationMeta(clip):null;
+  const tod=(clip.params&&clip.params.scene&&clip.params.scene.timeOfDay)||(meta&&meta.timeOfDay)||'';
+  return String(tod||'').trim();
+}
+async function ensureLocationVariant(clip){
+  try{
+    if(!curUser||!clip||!window.SBLocations||!SBLocations.clipLocationMeta)return null;
+    const meta=SBLocations.clipLocationMeta(clip);
+    if(!meta||!meta.key)return null;
+    const norm=k=>(window.SBMastery&&SBMastery.normalizeLocationKey)?SBMastery.normalizeLocationKey(k):String(k||'').toUpperCase().trim();
+    const loc=(state.locationBible||[]).find(l=>l.key===meta.key||(l.aliases||[]).some(a=>norm(a)===meta.key));
+    if(!loc||!loc.locked||!/^https:\/\//.test(String(loc.plateUrl||'')))return null;
+    const tod=clipTimeOfDay(clip).toUpperCase();
+    // DAY is the master plate itself; CONTINUOUS/SAME/LATER inherit the scene before.
+    if(!tod||tod==='DAY'||/CONTINUOUS|SAME|LATER/.test(tod))return null;
+    const key=tod.toLowerCase();
+    loc.variants=loc.variants||{};
+    if(/^https:\/\//.test(String(loc.variants[key]||'')))return loc.variants[key];
+    if(loc._variantBusy===key)return null;
+    loc._variantBusy=key;
+    try{
+      toast('Relighting '+loc.name+' for '+key+'…');
+      const url=await generatePicture({
+        type:'location',name:loc.name+' — '+key,
+        desc:'The EXACT same location as the reference image — identical architecture, layout, camera angle and set dressing — now at '+key+'. Only the lighting, sky and practical lights change. No people. '+(loc.consistencyPhrase||loc.description||loc.name),
+        aspect_ratio:'16:9',
+        referenceImages:[{url:loc.plateUrl}],
+        initUrl:loc.plateUrl
+      });
+      if(url&&/^https:\/\//.test(String(url))){
+        delete loc._variantBusy;
+        loc.variants[key]=url;save();renderLocations();
+        toast(loc.name+' relit for '+key+' — every '+key+' scene there now matches');
+      }
+      return loc.variants[key]||null;
+    }finally{delete loc._variantBusy}
+  }catch(e){return null}   // variants are a bonus — never block the shot on them
 }
 
 /* ── AI upscaling (WaveSpeed-hosted FlashVSR / SeedVR2, open models) ── */
@@ -2785,6 +2885,7 @@ function bindUI(){
   const btnBoardVary=$('btnBoardVary');if(btnBoardVary)btnBoardVary.onclick=()=>boardModalRegen(true);
   const btnBoardUpload=$('btnBoardUpload');if(btnBoardUpload)btnBoardUpload.onclick=boardModalUpload;
   const btnBoardAllPanel=$('btnBoardAllPanel');if(btnBoardAllPanel)btnBoardAllPanel.onclick=boardAll;
+  const btnBuildShots=$('btnBuildShots');if(btnBuildShots)btnBuildShots.onclick=buildShotDescriptions;
   const btnBoardAll=$('btnBoardAll');if(btnBoardAll)btnBoardAll.onclick=boardAll;
   $('btnApprove').onclick=approveSelected;
   $('btnPreview').onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(c&&c.videoUrl)window.open(c.videoUrl);else toast('No video')};

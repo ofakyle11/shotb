@@ -6,7 +6,7 @@
 <title>CINAMATE — AI Film Studio</title>
 <link rel="icon" href="/favicon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Anybody:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="timeline.css?v=20260731b">
+<link rel="stylesheet" href="timeline.css?v=20260802a">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
@@ -192,6 +192,7 @@
             <p class="panel-desc" id="boardStats">No shots yet — import a script first.</p>
             <div class="panel-toolbar">
               <button class="tb-btn gold" id="btnBoardAllPanel" title="Generate a frame for every un-boarded shot">🎬 Board All</button>
+              <button class="tb-btn" id="btnBuildShots" title="AI rewrites thin dialogue-only shots into real visual descriptions before boarding">✨ Build shot descriptions</button>
               <span class="build-ver">Click any frame to preview, rewrite, re-roll, or replace it</span>
             </div>
             <div id="boardGrid" class="board-grid"></div>
@@ -359,14 +360,14 @@
 
 <div class="toast" id="toast"></div>
 <script src="/js/model-config.js?v=20260731a"></script>
-<script src="/js/mastery-resolver.js?v=20260715a"></script>
+<script src="/js/mastery-resolver.js?v=20260802a"></script>
 <script src="/js/sb-storage.js?v=20260730a"></script>
 <script src="timeline-sync.js?v=20260729a"></script>
 <script src="timeline-voice.js?v=20260729a"></script>
 <script src="parser.js?v=20260716a"></script>
 <script src="timeline-characters.js?v=20260729a"></script>
 <script src="timeline-refkit.js?v=20260715a"></script>
-<script src="timeline-locations.js?v=20260729a"></script>
+<script src="timeline-locations.js?v=20260802a"></script>
 <script src="timeline-continuity.js?v=20260715a"></script>
 <script src="timeline-locations-enrich.js?v=20260715a"></script>
 <script src="timeline-props.js?v=20260715a"></script>
@@ -377,6 +378,6 @@
 <script src="pro-cut.js?v=20260716a"></script>
 <script src="/js/ffmpeg-wasm.js?v=20260730b"></script>
 <script src="/editor/timeline-engine.js?v=20260628a"></script>
-<script src="timeline.js?v=20260731b"></script>
+<script src="timeline.js?v=20260802a"></script>
 </body>
 </html>

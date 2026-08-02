@@ -188,6 +188,12 @@ window.SBLocations = (function () {
         if (!dupe.plateUrl && l.plateUrl) dupe.plateUrl = l.plateUrl;
         if (!dupe.locked && l.locked) dupe.locked = true;
         if (!String(dupe.consistencyPhrase || '').trim() && l.consistencyPhrase) dupe.consistencyPhrase = l.consistencyPhrase;
+        if (l.variants) {
+          dupe.variants = dupe.variants || {};
+          Object.keys(l.variants).forEach(function (tk) {
+            if (!dupe.variants[tk]) dupe.variants[tk] = l.variants[tk];
+          });
+        }
         return;
       }
       ensureEntry(l);
@@ -303,10 +309,27 @@ window.SBLocations = (function () {
       '<div class="field"><label><span>Lock location</span><span class="toggle' + (loc.locked ? ' on' : '') + '" data-k="locked"></span></label></div>' +
       (loc.plateUrl ? '<div class="ref-preview"><img src="' + esc(loc.plateUrl) + '" alt="plate"></div>' : '<div class="empty-hint" style="margin:6px 0">No reference plate yet — generate or upload one for image-to-video matching.</div>') +
       (loc.plateUrl && String(loc.plateUrl).indexOf('data:') === 0 ? '<div class="hint-chip gold">⚠ This plate is a stale data URL and never reaches providers — re-upload or regenerate it.</div>' : '') +
+      renderVariants(loc) +
       '<button type="button" class="tb-btn gold" id="btnGenLocPlate">✨ Generate plate</button> ' +
       '<button type="button" class="tb-btn" id="btnUploadLocPlate">Upload location plate</button>' +
       (loc.plateUrl ? '<button type="button" class="tb-btn" id="btnClearLocPlate">Remove plate</button>' : '') +
       '</div>';
+  }
+
+  /* Time-of-day variant strip: the same set relit for NIGHT/DUSK/etc.
+     Variants are generated automatically the first time a non-day scene at a
+     locked location is boarded or generated. */
+  function renderVariants (loc) {
+    const v = loc.variants || {};
+    const keys = Object.keys(v).filter(function (k) { return /^https:\/\//.test(String(v[k] || '')); });
+    if (!keys.length) {
+      return (loc.locked && loc.plateUrl)
+        ? '<div class="empty-hint" style="margin:6px 0">🌙 Night/dusk scenes here auto-generate a relit variant of this plate on first board/generate.</div>'
+        : '';
+    }
+    return '<div class="loc-variants">' + keys.map(function (k) {
+      return '<figure class="loc-variant"><img src="' + esc(v[k]) + '" alt="' + esc(k) + '"><figcaption>' + esc(k) + '</figcaption></figure>';
+    }).join('') + '</div>';
   }
 
   function lockedNames (bible) {

@@ -242,6 +242,11 @@ input.uc-text{appearance:none;-webkit-appearance:none;font-family:var(--mono);mi
 .char-editor h4{font-family:var(--display);margin-bottom:10px;font-size:13px}
 .ref-preview{margin:8px 0;border-radius:6px;overflow:hidden;max-height:100px}
 .ref-preview img{width:100%;object-fit:cover}
+/* time-of-day variant strip: same set, relit */
+.loc-variants{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 8px}
+.loc-variant{width:104px;margin:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.loc-variant img{width:100%;height:60px;object-fit:cover;display:block}
+.loc-variant figcaption{font-size:10px;text-transform:capitalize;color:var(--violet);text-align:center;padding:2px 4px}
 .char-chip.on{border-color:var(--gold);color:var(--gold)}
 
 /* ── reference kit strip (character turnarounds / location angles) ── */

@@ -344,7 +344,13 @@
         return (l.aliases || []).some(function (a) { return normalizeLocationKey(a) === key; });
       });
     if (locEntry && locEntry.locked) {
-      if (locEntry.kit && window.SBRefKit) locUrl = window.SBRefKit.pickLocKitImage(locEntry, shotType);
+      // Time-of-day variant first: a NIGHT/DUSK scene references the relit
+      // plate of the same set instead of the day master.
+      var clipTod = String((clip.params && clip.params.scene && clip.params.scene.timeOfDay) || meta.timeOfDay || '').trim().toLowerCase();
+      if (clipTod && locEntry.variants && isHttpsUrl(locEntry.variants[clipTod])) {
+        locUrl = locEntry.variants[clipTod];
+      }
+      if (!locUrl && locEntry.kit && window.SBRefKit) locUrl = window.SBRefKit.pickLocKitImage(locEntry, shotType);
       if (!locUrl && isHttpsUrl(locEntry.plateUrl)) locUrl = locEntry.plateUrl;
       if (locEntry.consistencyPhrase) {
         promptBits.unshift('Location: ' + locEntry.consistencyPhrase);
