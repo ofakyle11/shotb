@@ -72,6 +72,7 @@
     { id: 'transition-designer',     name: 'Transition Designer',     wing: 'editors',    tier: 2, manager: 'timeline-editor',           credits: 5  },
     { id: 'pacing-doctor',           name: 'Pacing Doctor',           wing: 'editors',    tier: 2, manager: 'pacing-editor',             credits: 5  },
     { id: 'runtime-calculator',      name: 'Runtime Calculator',      wing: 'editors',    tier: 2, manager: 'pacing-editor',             credits: 5  },
+    { id: 'line-producer',           name: 'Line Producer',           wing: 'directors',  tier: 2, manager: 'story-director',            credits: 15 },
     { id: 'trailer-cutter',          name: 'Trailer Cutter',          wing: 'editors',    tier: 2, manager: 'assembly-editor',           credits: 15 },
     { id: 'polish-pass',             name: 'Polish Pass',             wing: 'editors',    tier: 2, manager: 'assembly-editor',           credits: 5  },
     { id: 'music-supervisor',        name: 'Music Supervisor',        wing: 'editors',    tier: 2, manager: 'assembly-editor',           credits: 5  },

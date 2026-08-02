@@ -720,6 +720,7 @@ function renderAll(){
   repairCorruptClips();
   if(state.clips.length||state.scriptText)bootstrapMastery(false,{skipHydrate:true});
   renderTimeline();renderScriptEditor();renderAssembly();renderCharacters();renderLocations();renderOutput();renderDetail();updateUndo();
+  if(window.SBBudget)SBBudget.refresh(state);
   openSidePanelsIfNeeded();
 }
 function openSidePanelsIfNeeded(){
@@ -1841,6 +1842,7 @@ function bindUI(){
     };
   }
   initTimelineEditor();
+  if(window.SBBudget)SBBudget.wire({getState:()=>state,toast});
   load();
   repairCorruptClips();
   if(state.scriptText&&isClipReconstruction(state.scriptText)){
