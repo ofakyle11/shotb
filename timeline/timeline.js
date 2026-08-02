@@ -2491,7 +2491,7 @@ async function finalExport(){
   });
   if($('chkCaptions')&&$('chkCaptions').checked){
     const srt=buildSrt(clips);
-    if(srt)SBExport.download('shotbreak-captions.srt',srt,'text/plain');
+    if(srt)SBExport.download('cinamate-captions.srt',srt,'text/plain');
     else toast('No dialogue found for captions');
   }
   // Per-character dialogue voices, synthesized on this device and mixed over
@@ -2514,7 +2514,7 @@ async function finalExport(){
   }
   try{
     const blob=await SBExport.stitchClips(clips,{fade:state.assembly.masterFade||0.3,matchColor,groups,voices},m=>$('exportStatus').textContent=m);
-    SBExport.download('shotbreak-final.'+(blob.type.includes('zip')?'zip':'mp4'),blob,blob.type);
+    SBExport.download('cinamate-final.'+(blob.type.includes('zip')?'zip':'mp4'),blob,blob.type);
     $('exportStatus').textContent='Done!';
     toast('Final export downloaded');
   }catch(e){$('exportStatus').textContent=e.message;toast(e.message)}

@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SHOTBREAK — Text-to-Video Movie System</title>
+<title>CINAMATE — AI Film Studio</title>
 <link rel="icon" href="/favicon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Anybody:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="timeline.css?v=20260628a">
+<link rel="stylesheet" href="timeline.css?v=20260730a">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
@@ -18,8 +18,8 @@
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="logo">SHOT<span>BREAK</span></div>
-    <span class="test-badge hidden" id="testBadge" title="This is the staging build — the live site is shotbreak.io">TEST BUILD</span>
+    <div class="logo">CINA<span>MATE</span></div>
+    <span class="test-badge hidden" id="testBadge" title="This is the staging build — the production site is unaffected">TEST BUILD</span>
     <div class="tb-group">
       <button class="tb-btn" id="btnImport">Import</button>
       <button class="tb-btn" id="btnAdd">+ Clip</button>
@@ -272,7 +272,7 @@
 
 <div class="login-overlay" id="loginOverlay">
   <div class="login-card">
-    <h1>Text-to-Video <span>Studio</span></h1>
+    <h1>CINAMATE <span>Studio</span></h1>
     <p>Sign in to generate video. Script parsing works offline.</p>
     <div class="login-err" id="loginErr"></div>
     <div class="login-ok" id="loginOk"></div>
@@ -328,7 +328,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script src="/js/model-config.js?v=20260729a"></script>
+<script src="/js/model-config.js?v=20260730a"></script>
 <script src="/js/mastery-resolver.js?v=20260715a"></script>
 <script src="/js/sb-storage.js?v=20260715a"></script>
 <script src="timeline-sync.js?v=20260729a"></script>
@@ -343,10 +343,10 @@
 <script src="timeline-verify.js?v=20260716a"></script>
 <script src="timeline-comfy.js?v=20260716a"></script>
 <script src="timeline-enrich.js?v=20260627d"></script>
-<script src="timeline-export.js?v=20260729a"></script>
+<script src="timeline-export.js?v=20260730a"></script>
 <script src="pro-cut.js?v=20260716a"></script>
 <script src="/js/ffmpeg-wasm.js?v=20260729a"></script>
 <script src="/editor/timeline-engine.js?v=20260628a"></script>
-<script src="timeline.js?v=20260729a"></script>
+<script src="timeline.js?v=20260730a"></script>
 </body>
 </html>
