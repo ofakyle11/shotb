@@ -7,7 +7,9 @@
     'flux-xai': { label: 'Flux (pulling thru XAI API)', resolutions: ['1K', '2K'], aspectRatios: ['1:1', '16:9', '9:16', '2:3', '3:2', '4:3', '3:4', '20:9'], supportsReferences: true, maxRefImages: 3, description: 'High quality via Grok/Flux on XAI' },
     'nano-banana': { label: 'Nano Banana', resolutions: ['1K'], aspectRatios: ['1:1', '16:9', '9:16', '3:2', '2:3'], supportsReferences: true, maxRefImages: 3, description: 'Google Gemini Nano Banana - great for edits & consistency' },
     'nano-banana-pro': { label: 'Nano Banana Pro', resolutions: ['1K', '2K'], aspectRatios: ['1:1', '16:9', '9:16', '3:2', '2:3', '4:3'], supportsReferences: true, maxRefImages: 5, description: 'Nano Banana Pro - higher fidelity, strong character lock' },
-    'gpt-image-2': { label: 'GPT 2.0', resolutions: ['1024x1024', '1792x1024', '1024x1792'], aspectRatios: ['1:1', '16:9', '9:16'], supportsReferences: true, maxRefImages: 2, description: 'OpenAI GPT 2.0 via aggregator' }
+    'gpt-image-2': { label: 'GPT 2.0', resolutions: ['1024x1024', '1792x1024', '1024x1792'], aspectRatios: ['1:1', '16:9', '9:16'], supportsReferences: true, maxRefImages: 2, description: 'OpenAI GPT 2.0 via aggregator' },
+    'fal-flux-schnell': { label: 'FLUX schnell (fal · cheapest)', resolutions: ['1K'], aspectRatios: ['1:1', '16:9', '9:16', '2:3', '3:2'], supportsReferences: false, maxRefImages: 0, description: 'FLUX.1 schnell on fal.ai — excellent stills for ~$0.003 each, near-instant' },
+    'fal-flux-dev': { label: 'FLUX dev (fal · quality)', resolutions: ['1K'], aspectRatios: ['1:1', '16:9', '9:16', '2:3', '3:2'], supportsReferences: true, maxRefImages: 1, description: 'FLUX.1 dev on fal.ai — top-tier stills ~$0.025; with a reference it runs image-to-image for identity/board carry-over' }
   };
 
   var VIDEO_MODELS = {
@@ -19,7 +21,11 @@
     'grok-imagine': { label: 'Grok Imagine (XAI)', resolutions: ['480p', '720p'], aspectRatios: ['1:1', '16:9', '9:16', '2:3', '3:2'], durations: [4, 5, 6, 8, 10, 12, 15], supportsReferences: true, maxRefImages: 7, description: 'XAI Grok Imagine native - excellent ref coherence + audio' },
     'kling-3.0-pro': { label: 'Kling 3.0 Pro', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [3, 5, 8, 10, 15], supportsReferences: true, maxRefImages: 1, description: 'Kling 3.0 Pro — cinematic T2V/I2V via WaveSpeed' },
     'comfy-local': { label: '🖥 Local ComfyUI (this PC)', resolutions: ['480p', '720p'], aspectRatios: ['16:9', '9:16'], durations: [2, 3, 4, 5, 6, 8], supportsReferences: true, maxRefImages: 1, description: 'Your own ComfyUI — adapts to your installed models: Wan/SVD when present, else AnimateDiff (short ~2s experimental clips). CPU-only machines: use a cloud model for real clips; local stills work great. Launch with --enable-cors-header' },
-    'comfy-still': { label: '🖼 Still + Motion (fast local)', resolutions: ['720p'], aspectRatios: ['16:9', '9:16'], durations: [2, 3, 4, 5, 6, 8, 10], supportsReferences: true, maxRefImages: 1, description: 'Storyboard frame from your ComfyUI + cinematic push-in/pan rendered in-browser — the fastest local clip on any hardware. Great for animatics and draft cuts.' }
+    'comfy-still': { label: '🖼 Still + Motion (fast local)', resolutions: ['720p'], aspectRatios: ['16:9', '9:16'], durations: [2, 3, 4, 5, 6, 8, 10], supportsReferences: true, maxRefImages: 1, description: 'Storyboard frame from your ComfyUI + cinematic push-in/pan rendered in-browser — the fastest local clip on any hardware. Great for animatics and draft cuts.' },
+    'fal-wan-i2v': { label: 'Wan 2.1 (fal · cheapest)', resolutions: ['480p', '720p'], aspectRatios: ['16:9', '9:16'], durations: [5], supportsReferences: true, maxRefImages: 1, description: 'Wan 2.1 image-to-video on fal.ai — the cheapest real cloud video (~$0.20–0.40/clip). Board/ref becomes the start frame.' },
+    'fal-ltx': { label: 'LTX Video (fal · fastest cloud)', resolutions: ['480p', '720p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [2, 4, 6, 8], supportsReferences: true, maxRefImages: 1, description: 'LTX-Video distilled on fal.ai — near-instant cloud clips for pennies. Draft-tier motion quality.' },
+    'fal-kling-2.1': { label: 'Kling 2.1 (fal · balanced)', resolutions: ['720p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10], supportsReferences: true, maxRefImages: 1, description: 'Kling 2.1 Standard on fal.ai — strong cinematic motion at ~$0.25/5s. Board/ref becomes the start frame.' },
+    'fal-hailuo': { label: 'Hailuo 02 (fal · lively motion)', resolutions: ['720p'], aspectRatios: ['16:9'], durations: [6, 10], supportsReferences: true, maxRefImages: 1, description: 'MiniMax Hailuo 02 Standard on fal.ai — expressive character motion, ~$0.27/6s.' }
   };
 
   var _ddDocClickWired = false;
@@ -309,6 +315,7 @@
     var m = String(model || '').toLowerCase();
     if (m.indexOf('comfy-still') >= 0) return 'comfy-still';
     if (m.indexOf('comfy') >= 0) return 'comfy-local';
+    if (m.indexOf('fal-') === 0) return 'fal';
     if (m.indexOf('grok') >= 0) return 'grok-imagine';
     if (m.indexOf('sora') >= 0) return 'aivideoapi';
     return 'wavespeed';
@@ -465,7 +472,8 @@
      before spending. comfy-local is the user's own GPU. */
   var EST_COST_PER_SEC = {
     'seedance-2.0-turbo': 0.03, 'wan-2.7': 0.025, 'sora-2': 0.10, 'veo-3.1': 0.25,
-    'vidu-q3': 0.15, 'kling-3.0-pro': 0.07, 'grok-imagine': 0.05, 'comfy-local': 0, 'comfy-still': 0
+    'vidu-q3': 0.15, 'kling-3.0-pro': 0.07, 'grok-imagine': 0.05, 'comfy-local': 0, 'comfy-still': 0,
+    'fal-wan-i2v': 0.05, 'fal-ltx': 0.01, 'fal-kling-2.1': 0.05, 'fal-hailuo': 0.045
   };
   function estimateClipCost(model, seconds) {
     var r = EST_COST_PER_SEC[model];

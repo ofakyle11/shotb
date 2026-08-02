@@ -74,6 +74,120 @@ function callWaveSpeed(path, body, method = 'POST') {
   });
 }
 
+/* ── fal.ai provider (FAL_KEY) — primary cheap cloud for video + stills ──
+   Queue API for video (submit → poll → result), sync fal.run for images.
+   Status/result URLs use the app ROOT (first two path segments), not the
+   full endpoint path. */
+const FAL_VIDEO_MODELS = {
+  'fal-kling-2.1': {
+    i2v: 'fal-ai/kling-video/v2.1/standard/image-to-video',
+    t2v: 'fal-ai/kling-video/v2.1/standard/text-to-video',
+    build: (f, ref) => {
+      const b = { prompt: f.prompt, duration: String((f.duration && f.duration >= 8) ? 10 : 5) };
+      if (ref) b.image_url = ref; else b.aspect_ratio = f.aspect_ratio || '16:9';
+      if (f.negative_prompt) b.negative_prompt = f.negative_prompt;
+      return b;
+    }
+  },
+  'fal-wan-i2v': {
+    i2v: 'fal-ai/wan-i2v',
+    t2v: 'fal-ai/wan-t2v',
+    build: (f, ref) => {
+      const b = { prompt: f.prompt, resolution: (f.resolution === '720p') ? '720p' : '480p' };
+      if (ref) b.image_url = ref; else b.aspect_ratio = f.aspect_ratio || '16:9';
+      if (f.negative_prompt) b.negative_prompt = f.negative_prompt;
+      if (Number.isFinite(f.seed)) b.seed = f.seed;
+      return b;
+    }
+  },
+  'fal-hailuo': {
+    i2v: 'fal-ai/minimax/hailuo-02/standard/image-to-video',
+    t2v: 'fal-ai/minimax/hailuo-02/standard/text-to-video',
+    build: (f, ref) => {
+      const b = { prompt: f.prompt, duration: String((f.duration && f.duration >= 8) ? 10 : 6) };
+      if (ref) b.image_url = ref;
+      return b;
+    }
+  },
+  'fal-ltx': {
+    i2v: 'fal-ai/ltx-video-13b-distilled/image-to-video',
+    t2v: 'fal-ai/ltx-video-13b-distilled',
+    build: (f, ref) => {
+      const b = { prompt: f.prompt, resolution: (f.resolution === '720p') ? '720p' : '480p', aspect_ratio: f.aspect_ratio || '16:9' };
+      if (ref) b.image_url = ref;
+      if (f.negative_prompt) b.negative_prompt = f.negative_prompt;
+      if (Number.isFinite(f.seed)) b.seed = f.seed;
+      return b;
+    }
+  }
+};
+const FAL_IMAGE_MODELS = {
+  'fal-flux-schnell': { path: 'fal-ai/flux/schnell', steps: 4 },
+  'fal-flux-dev': { path: 'fal-ai/flux/dev', steps: 28, i2i: 'fal-ai/flux/dev/image-to-image' }
+};
+
+function falAppRoot(path) {
+  return String(path || '').split('/').slice(0, 2).join('/');
+}
+
+function callFal(hostname, path, body, method = 'POST') {
+  return new Promise((resolve, reject) => {
+    const isGet = method.toUpperCase() === 'GET';
+    let data = '';
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Key ' + (process.env.FAL_KEY || '')
+    };
+    if (!isGet && body) {
+      data = JSON.stringify(body);
+      headers['Content-Length'] = Buffer.byteLength(data);
+    }
+    const req = https.request({ hostname, port: 443, path: path.startsWith('/') ? path : '/' + path, method, headers }, (res) => {
+      let buf = '';
+      res.on('data', c => buf += c);
+      res.on('end', () => {
+        try { const p = JSON.parse(buf); p.httpStatus = res.statusCode; resolve(p); }
+        catch (e) { resolve({ raw: buf, httpStatus: res.statusCode }); }
+      });
+    });
+    req.on('error', reject);
+    if (data) req.write(data);
+    req.end();
+  });
+}
+
+function humanizeFalError(r) {
+  if (!r) return 'No response from fal.ai';
+  if (r.httpStatus === 401 || r.httpStatus === 403) return 'fal.ai key invalid or unauthorized — check FAL_KEY in Netlify env.';
+  if (r.detail) return typeof r.detail === 'string' ? r.detail : JSON.stringify(r.detail).slice(0, 400);
+  if (r.raw) return String(r.raw).slice(0, 300);
+  return 'fal.ai error (HTTP ' + r.httpStatus + ')';
+}
+
+async function falStatusResult(modelId, requestId, wantResult) {
+  const cfg = FAL_VIDEO_MODELS[modelId];
+  if (!cfg) throw new Error('Unknown fal model ' + modelId);
+  const root = falAppRoot(cfg.i2v);
+  const st = await callFal('queue.fal.run', '/' + root + '/requests/' + requestId + '/status', null, 'GET');
+  const s = String(st.status || '').toUpperCase();
+  if (s === 'IN_QUEUE' || s === 'IN_PROGRESS') {
+    return { request_id: requestId, status: 'processing', provider: 'fal', raw: st };
+  }
+  if (s !== 'COMPLETED') {
+    return { request_id: requestId, status: 'FAILED', error: humanizeFalError(st), provider: 'fal', raw: st };
+  }
+  if (!wantResult) {
+    // completed — fetch the payload so the client gets the URL in one poll
+    wantResult = true;
+  }
+  const r = await callFal('queue.fal.run', '/' + root + '/requests/' + requestId, null, 'GET');
+  const url = (r.video && r.video.url) || r.video_url || (r.data && r.data.video && r.data.video.url) || null;
+  if (r.httpStatus >= 400 || !url) {
+    return { request_id: requestId, status: 'FAILED', error: humanizeFalError(r), provider: 'fal', raw: r };
+  }
+  return { request_id: requestId, status: 'COMPLETED', video_url: url, provider: 'fal', raw: r };
+}
+
 // WaveSpeed v3: GET /predictions/{id} is canonical; /result is a fallback alias.
 function normalizeWaveSpeedStatus(st) {
   const s = String(st || '').toLowerCase();
@@ -786,6 +900,41 @@ exports.handler = async function (event) {
       imagePrompt = (grokRes && grokRes.output) ? grokRes.output.trim() : imagePrompt;
     } catch (e) {}
 
+    // fal.ai stills (FLUX schnell/dev) — checked FIRST so the generic
+    // 'flux' match below can't hijack fal- model ids. dev + a reference
+    // becomes image-to-image (identity/board carry-over).
+    if (FAL_IMAGE_MODELS[photoModel]) {
+      if (!process.env.FAL_KEY) {
+        return jsonResponse(event, 503, { error: 'FAL_KEY not configured', detail: 'Set FAL_KEY in Netlify env for ' + photoModel, provider: 'fal' });
+      }
+      const falImg = FAL_IMAGE_MODELS[photoModel];
+      const ar = String(body.aspect_ratio || '16:9');
+      const sizeMap = { '16:9': 'landscape_16_9', '9:16': 'portrait_16_9', '1:1': 'square_hd', '2:3': 'portrait_4_3', '3:2': 'landscape_4_3' };
+      let falImgPath = falImg.path;
+      const falImgBody = { prompt: imagePrompt, image_size: sizeMap[ar] || 'landscape_16_9', num_inference_steps: falImg.steps, num_images: 1 };
+      if (Number.isFinite(Number(body.seed))) falImgBody.seed = Number(body.seed);
+      if (falImg.i2i && picImages.length) {
+        falImgPath = falImg.i2i;
+        falImgBody.image_url = picImages[0].url;
+        falImgBody.strength = 0.9;
+        delete falImgBody.image_size;
+      }
+      const falImgRes = await callFal('fal.run', '/' + falImgPath, falImgBody);
+      const falUrl = falImgRes.images && falImgRes.images[0] && falImgRes.images[0].url;
+      if (falImgRes.httpStatus >= 400 || !falUrl) {
+        return jsonResponse(event, 502, { error: 'fal.ai image failed for ' + photoModel, detail: humanizeFalError(falImgRes), provider: 'fal', raw: falImgRes });
+      }
+      return jsonResponse(event, 200, {
+        prompt: imagePrompt,
+        url: falUrl,
+        grok_enriched: true,
+        vision_used: picImages.length > 0,
+        model: photoModel,
+        provider: 'fal',
+        note: 'FLUX via fal.ai' + (falImgPath.includes('image-to-image') ? ' (image-to-image from reference)' : '')
+      });
+    }
+
     // Route based on model. Client now sends broad choices for res/aspect/refs (no pre-filter); backend forwards exactly what the user picked.
     const isXaiDirectPhoto = photoModel === 'flux-xai' || photoModel.includes('grok-imagine-image') || photoModel.includes('flux');
     if (isXaiDirectPhoto && hasGrokKey) {
@@ -921,14 +1070,15 @@ exports.handler = async function (event) {
   if (action === 'submit') {
     const videoModel = body.model || 'seedance-2.0-turbo';
     const hasWsKey = !!process.env.WAVESPEED_API_KEY;
+    const hasFalKey = !!process.env.FAL_KEY;
     const hasGrokKey = !!(process.env.XAI_API_KEY || process.env.GROK_API_KEY);
     const hasOpenAIKey = !!(await getOpenAIApiKey());
     const hasAIVideoKey = !!(await resolveAIVideoApiKey());
 
-    if (!hasWsKey && !hasGrokKey && !hasOpenAIKey && !hasAIVideoKey) {
+    if (!hasWsKey && !hasFalKey && !hasGrokKey && !hasOpenAIKey && !hasAIVideoKey) {
       return jsonResponse(event, 503, {
         error: 'No video generation API keys configured',
-        detail: 'Set AIVIDEOAPI_API_KEY, OPENAI_API_KEY, WAVESPEED_API_KEY, and/or XAI_API_KEY in Netlify environment variables (Deploy + Preview).',
+        detail: 'Set FAL_KEY, AIVIDEOAPI_API_KEY, OPENAI_API_KEY, WAVESPEED_API_KEY, and/or XAI_API_KEY in Netlify environment variables (Deploy + Preview).',
         model: videoModel
       });
     }
@@ -1030,6 +1180,35 @@ exports.handler = async function (event) {
           model: videoModel,
           note: 'Direct via OpenAI Sora API (OPENAI_API_KEY)',
         });
+      } else if (FAL_VIDEO_MODELS[videoModel]) {
+        // fal.ai — primary cheap cloud. i2v when a ref/start frame exists, t2v otherwise.
+        if (!hasFalKey) {
+          return jsonResponse(event, 503, { error: 'FAL_KEY not configured', detail: 'Set FAL_KEY in Netlify env for ' + videoModel, model: videoModel, provider: 'fal' });
+        }
+        const falCfg = FAL_VIDEO_MODELS[videoModel];
+        const falFields = {
+          prompt: finalPrompt,
+          duration,
+          aspect_ratio,
+          resolution: body.resolution,
+          negative_prompt: body.negative_prompt,
+          seed: Number(body.seed)
+        };
+        const falRef = pickRefImageUrl({
+          prev_frame_image_url: body.prev_frame_image_url,
+          character_image_url,
+          location_image_url: body.location_image_url,
+          reference_images: body.reference_images,
+          ref_strategy: body.ref_strategy,
+        });
+        const falPath = falRef ? falCfg.i2v : falCfg.t2v;
+        const falBody = falCfg.build(falFields, falRef || null);
+        const falRes = await callFal('queue.fal.run', '/' + falPath, falBody);
+        const falRid = falRes.request_id || null;
+        if (falRes.httpStatus >= 400 || !falRid) {
+          return jsonResponse(event, 502, { error: 'fal.ai submit failed for ' + videoModel, detail: humanizeFalError(falRes), provider: 'fal', raw: falRes });
+        }
+        return jsonResponse(event, 200, { request_id: falRid, status: 'processing', model: videoModel, provider: 'fal', note: (falRef ? 'i2v' : 't2v') + ' via fal.ai' });
       } else {
         // WaveSpeed for all other video models (Seedance 2.0 Turbo, Wan 2.7, Sora 2, Veo 3.1, Vidu Q3, Kling 3.0 Pro, etc.)
         // User-selected resolution/duration/aspect/refs forwarded as-is (no client pre-filtering).
@@ -1088,6 +1267,11 @@ exports.handler = async function (event) {
   }
 
   if (action === 'status' && request_id) {
+    if (body.provider === 'fal' || FAL_VIDEO_MODELS[body.model || model]) {
+      if (!process.env.FAL_KEY) return jsonResponse(event, 503, { request_id, status: 'FAILED', error: 'FAL_KEY not configured', provider: 'fal' });
+      try { return jsonResponse(event, 200, await falStatusResult(body.model || model, request_id, false)); }
+      catch (err) { return jsonResponse(event, 500, { request_id, status: 'FAILED', error: err.message, provider: 'fal' }); }
+    }
     const isGrokJob = isGrokVideoJob(request_id, body.provider, body.model || model);
     const isOpenAIJob = isOpenAIVideoJob(request_id, body.provider);
     const isAVJob = isAIVideoAPIJob(request_id, body.provider);
@@ -1169,6 +1353,11 @@ exports.handler = async function (event) {
   }
 
   if (action === 'result' && request_id) {
+    if (body.provider === 'fal' || FAL_VIDEO_MODELS[body.model || model]) {
+      if (!process.env.FAL_KEY) return jsonResponse(event, 503, { request_id, status: 'FAILED', error: 'FAL_KEY not configured', provider: 'fal' });
+      try { return jsonResponse(event, 200, await falStatusResult(body.model || model, request_id, true)); }
+      catch (err) { return jsonResponse(event, 500, { request_id, status: 'FAILED', error: err.message, provider: 'fal' }); }
+    }
     const isGrokJob = isGrokVideoJob(request_id, body.provider, body.model || model);
     const isOpenAIJob = isOpenAIVideoJob(request_id, body.provider);
     const isAVJob = isAIVideoAPIJob(request_id, body.provider);

@@ -99,17 +99,37 @@ window.SBComfy = (function () {
 
   /* Best installed checkpoint for STILLS. Community photoreal fine-tunes
      (RealisticVision, DreamShaper, epicRealism…) beat the raw SD1.5 base by
-     a mile at identical cost — prefer any non-base SD1.5-class model, then
-     the base, then SDXL last (heavy on CPU boxes). */
-  function pickImageCheckpoint(list) {
+     a mile at identical cost — prefer a full fine-tune, then an LCM/Turbo
+     distill, then the base, then SDXL last (heavy on CPU boxes).
+     opts.noFast excludes LCM/Turbo (video graphs need standard sampling). */
+  function isFastCkpt(name) { return /lcm|turbo|lightning|hyper/i.test(String(name || '')); }
+  function pickImageCheckpoint(list, opts) {
     var stills = (list || []).filter(function (n) { return !isVideoCkpt(n) && !/inpaint|refiner/i.test(n); });
     if (!stills.length) return null;
     var nonXL = stills.filter(function (n) { return !isXL(n); });
     var isBase = function (n) { return /v1-5.*emaonly|sd.?1[-_.]?5.*(base|pruned)/i.test(n); };
     var tuned = nonXL.filter(function (n) { return !isBase(n); });
+    if (opts && opts.noFast) tuned = tuned.filter(function (n) { return !isFastCkpt(n); });
+    var full = tuned.filter(function (n) { return !isFastCkpt(n); });
+    if (full.length) return full[0];
     if (tuned.length) return tuned[0];
     if (nonXL.length) return nonXL[0];
     return stills[0];
+  }
+
+  /* LCM/Turbo distills need their own sampling recipe — high CFG or many
+     steps produces garbage on them. Applied to bundled graphs only. */
+  function applyFastSettings(wf) {
+    Object.keys(wf).forEach(function (id) {
+      var n = wf[id];
+      if (n && /KSampler/i.test(n.class_type || '') && n.inputs) {
+        n.inputs.sampler_name = 'lcm';
+        n.inputs.scheduler = 'sgm_uniform';
+        n.inputs.steps = 6;
+        n.inputs.cfg = 1.5;
+      }
+    });
+    return wf;
   }
 
   /* Installed upscale model (the user's RealESRGAN etc.) for a finishing
@@ -321,7 +341,7 @@ window.SBComfy = (function () {
         // to AnimateDiff when this install has the motion stack (short
         // experimental clips: ≤16 frames @ 8fps on the SD1.5 checkpoint).
         var ad = !isCustom ? await animateDiffInfo(host) : null;
-        var stillCkpt = ad ? pickImageCheckpoint(ckpts) : null;
+        var stillCkpt = ad ? pickImageCheckpoint(ckpts, { noFast: true }) : null;
         if (ad && stillCkpt) {
           onProgress('No Wan/SVD model — using AnimateDiff (' + ad.motion + ')…');
           var adFrames = Math.min(12, Math.max(8, Math.round((opts.duration || 2) * 8)));
@@ -364,6 +384,7 @@ window.SBComfy = (function () {
         refName = initName;
       }
     }
+    if (opts.image && !isCustom && isFastCkpt(wfCkpt)) applyFastSettings(wf);
     var injected = inject(wf, {
       prompt: opts.prompt,
       negative: opts.negative || 'blurry, distorted, low quality, watermark, text, deformed hands, extra fingers, bad anatomy',
