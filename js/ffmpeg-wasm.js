@@ -264,6 +264,21 @@ window.SBFFmpeg = (function () {
     return cluts;
   }
 
+  // Native dimensions of a clip (metadata only — no decode needed).
+  function dimsFromBlob(blob) {
+    return new Promise(function (resolve) {
+      var url = URL.createObjectURL(blob);
+      var v = document.createElement('video');
+      v.muted = true; v.preload = 'metadata';
+      var settled = false;
+      var done = function (val) { if (!settled) { settled = true; URL.revokeObjectURL(url); resolve(val); } };
+      v.addEventListener('loadedmetadata', function () { done({ w: v.videoWidth || 0, h: v.videoHeight || 0 }); });
+      v.addEventListener('error', function () { done(null); });
+      setTimeout(function () { done(null); }, 8000);
+      v.src = url;
+    });
+  }
+
   async function stitchBlobs(blobs, onProgress, opts) {
     const segs = (blobs || []).map((b) => ({ blob: b, trimIn: 0, trimOut: null, transition: 'cut', transitionDur: 0 }));
     return stitchTimeline(segs, onProgress, opts);
@@ -289,6 +304,23 @@ window.SBFFmpeg = (function () {
       catch (e) { cluts = null; }
     }
 
+    // Mixed sources (512px local AnimateDiff beside 720p cloud clips) must be
+    // normalized — concat needs one size and one fps across every segment.
+    // Target = the largest segment, capped at 1080p, letterboxing the rest.
+    let targetW = 0, targetH = 0;
+    if (segments.length > 1) {
+      if (onProgress) onProgress('Checking clip formats…');
+      for (let i = 0; i < segments.length; i++) {
+        const d = await dimsFromBlob(segments[i].blob);
+        segments[i]._dims = d;
+        if (d && d.w * d.h > targetW * targetH) { targetW = d.w; targetH = d.h; }
+      }
+      targetW = Math.min(1920, targetW); targetH = Math.min(1080, targetH);
+      targetW -= targetW % 2; targetH -= targetH % 2;
+      const uniform = segments.every((s) => s._dims && s._dims.w === targetW && s._dims.h === targetH);
+      if (uniform || !targetW) { targetW = 0; targetH = 0; }
+    }
+
     const trimmed = [];
     for (let i = 0; i < segments.length; i++) {
       const s = segments[i];
@@ -305,37 +337,54 @@ window.SBFFmpeg = (function () {
       const vw = s.voiceWav ? 'voice' + i + '.wav' : null;
       if (vw) await ff.writeFile(vw, s.voiceWav instanceof Uint8Array ? s.voiceWav : new Uint8Array(s.voiceWav));
 
-      // voiceMode: 'mix' ducks the clip's own audio under the dialogue track;
-      // 'solo' is the fallback when the clip has no audio stream (apad +
-      // -shortest keeps the video length authoritative).
-      const buildArgs = (withClut, voiceMode) => {
+      // audioMode — 'mix': duck clip audio under the dialogue track;
+      // 'solo': voice only (clip had no audio; apad + -shortest keeps video
+      // length authoritative); 'passa': clip audio, strict; 'silence': inject
+      // a silent track so every trim has uniform streams for concat; null:
+      // legacy optional-audio mapping (last resort).
+      const needScale = targetW && s._dims && (s._dims.w !== targetW || s._dims.h !== targetH);
+      const buildArgs = (withClut, audioMode) => {
         const a = ['-ss', String(ti), '-i', raw];
         if (dur != null) a.push('-t', String(dur));
-        let idx = 1, clutIdx = -1, voiceIdx = -1;
+        let idx = 1, clutIdx = -1, voiceIdx = -1, silIdx = -1;
         if (withClut) { a.push('-i', clut); clutIdx = idx++; }
-        if (voiceMode) { a.push('-i', vw); voiceIdx = idx++; }
+        if (audioMode === 'mix' || audioMode === 'solo') { a.push('-i', vw); voiceIdx = idx++; }
+        if (audioMode === 'silence') { a.push('-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100'); silIdx = idx++; }
         const fc = [];
-        let vmap = '0:v', amap = '0:a?';
-        if (withClut) { fc.push('[0:v][' + clutIdx + ':v]haldclut[v]'); vmap = '[v]'; }
-        if (voiceMode === 'mix') {
+        let vsrc = '0:v', amap = '0:a?', shortest = false;
+        if (withClut) { fc.push('[' + vsrc + '][' + clutIdx + ':v]haldclut[vclut]'); vsrc = 'vclut'; }
+        if (needScale) {
+          fc.push('[' + (vsrc === '0:v' ? '0:v' : vsrc) + ']scale=' + targetW + ':' + targetH + ':force_original_aspect_ratio=decrease,pad=' + targetW + ':' + targetH + ':(ow-iw)/2:(oh-ih)/2:color=black[vnorm]');
+          vsrc = 'vnorm';
+        }
+        if (audioMode === 'mix') {
           fc.push('[0:a]volume=0.55[bga]');
           fc.push('[' + voiceIdx + ':a]volume=1.0[vox]');
           fc.push('[bga][vox]amix=inputs=2:duration=first:normalize=0[a]');
           amap = '[a]';
-        } else if (voiceMode === 'solo') {
+        } else if (audioMode === 'solo') {
           fc.push('[' + voiceIdx + ':a]apad[a]');
-          amap = '[a]';
+          amap = '[a]'; shortest = true;
+        } else if (audioMode === 'passa') {
+          amap = '0:a';
+        } else if (audioMode === 'silence') {
+          amap = silIdx + ':a'; shortest = true;
         }
         if (fc.length) a.push('-filter_complex', fc.join(';'));
-        a.push('-map', vmap, '-map', amap);
-        if (voiceMode === 'solo') a.push('-shortest');
-        a.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', out);
+        a.push('-map', (vsrc === '0:v' ? '0:v' : '[' + vsrc + ']'), '-map', amap);
+        if (shortest) a.push('-shortest');
+        a.push('-r', '24', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', out);
         return a;
       };
       const attempts = [];
       if (vw) {
         if (clut) attempts.push([true, 'mix'], [true, 'solo']);
         attempts.push([false, 'mix'], [false, 'solo']);
+      } else {
+        // Strict clip audio first; silent-track fallback keeps concat streams
+        // uniform when a clip (e.g. local AnimateDiff) has no audio at all.
+        if (clut) attempts.push([true, 'passa'], [true, 'silence']);
+        attempts.push([false, 'passa'], [false, 'silence']);
       }
       if (clut) attempts.push([true, null]);
       attempts.push([false, null]);

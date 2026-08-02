@@ -63,7 +63,8 @@ window.SBComfy = (function () {
   function isVideoCkpt(name) { return /wan|svd|i2v|t2v|video|mochi|hunyuan|ltx/i.test(String(name || '')); }
 
   /* AnimateDiff-Evolved support: if the install has the ADE loader node, read
-     its motion-model list so the bundled video path can use it. */
+     its motion-model list so the bundled video path can use it. Frames cap
+     at 12 (safe context for mm_sd_v15_v2 on modest hardware). */
   async function animateDiffInfo(host) {
     try {
       var r = await withTimeout(fetch(host + '/object_info/ADE_AnimateDiffLoaderGen1', { mode: 'cors' }), 6000, 'timeout');
@@ -289,7 +290,7 @@ window.SBComfy = (function () {
         var stillCkpt = ad ? pickImageCheckpoint(ckpts) : null;
         if (ad && stillCkpt) {
           onProgress('No Wan/SVD model — using AnimateDiff (' + ad.motion + ')…');
-          var adFrames = Math.min(16, Math.max(8, Math.round((opts.duration || 2) * 8)));
+          var adFrames = Math.min(12, Math.max(8, Math.round((opts.duration || 2) * 8)));
           wf = buildAnimateDiffWf(stillCkpt, ad, adFrames);
           ckptNodeId = '4';
           wfCkpt = stillCkpt;
@@ -345,7 +346,7 @@ window.SBComfy = (function () {
 
     var id = body.prompt_id;
     var t0 = Date.now();
-    while (Date.now() - t0 < 30 * 60 * 1000) {
+    while (Date.now() - t0 < 60 * 60 * 1000) {
       await new Promise(function (r) { setTimeout(r, 2000); });
       var h = await fetch(host + '/history/' + id).then(function (r) { return r.json(); }).catch(function () { return null; });
       var entry = h && h[id];
@@ -363,7 +364,7 @@ window.SBComfy = (function () {
       var secs = Math.round((Date.now() - t0) / 1000);
       onProgress('Local ComfyUI rendering… ' + secs + 's' + (secs > 90 ? ' (CPU machines can take several minutes per image — leave this tab open)' : ''));
     }
-    throw new Error('Local ComfyUI generation timed out (30 min)');
+    throw new Error('Local ComfyUI generation timed out (60 min)');
   }
 
   return { ping: ping, diagnose: diagnose, inject: inject, generate: generate, DEFAULT_WF: DEFAULT_WF, DEFAULT_IMG_WF: DEFAULT_IMG_WF };
