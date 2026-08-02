@@ -361,6 +361,9 @@ input.uc-text{appearance:none;-webkit-appearance:none;font-family:var(--mono);mi
 .modal{position:fixed;inset:0;background:rgba(5,5,7,.85);display:flex;align-items:center;justify-content:center;z-index:250}
 .modal-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;width:min(720px,92vw)}
 .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-weight:700}
+.board-card{width:min(880px,94vw)}
+.board-preview{width:100%;max-height:52vh;object-fit:contain;background:#000;border-radius:10px;margin-bottom:10px;display:block}
+.board-card .field textarea{width:100%;min-height:70px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px;font-size:12px;line-height:1.5}
 .approve-btn{border-color:rgba(61,220,151,.4)!important;color:var(--green)!important}
 .approve-btn:disabled{border-color:var(--border)!important;color:var(--dim)!important}
 

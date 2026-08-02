@@ -6,7 +6,7 @@
 <title>CINAMATE — AI Film Studio</title>
 <link rel="icon" href="/favicon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Anybody:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="timeline.css?v=20260730b">
+<link rel="stylesheet" href="timeline.css?v=20260731a">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
@@ -302,6 +302,19 @@
   </div>
 </div>
 
+<div class="modal hidden" id="boardModal">
+  <div class="modal-card board-card">
+    <div class="modal-head"><span id="boardModalTitle">Storyboard</span><button class="tb-btn" id="btnCloseBoard">✕</button></div>
+    <img id="boardModalImg" class="board-preview" alt="Storyboard frame">
+    <div class="field"><label>Shot description — drives this board AND the clip's video</label><textarea id="boardModalDesc" rows="3"></textarea></div>
+    <div class="output-btns">
+      <button class="tb-btn gold" id="btnBoardRegen" title="Re-generate this frame from the description above (same seed)">↻ Regenerate board</button>
+      <button class="tb-btn" id="btnBoardVary" title="Same description, different roll of the dice">🎲 New variation</button>
+      <button class="tb-btn" id="btnBoardUpload" title="Use your own image as this shot's storyboard frame">Upload image…</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal hidden" id="previewModal">
   <div class="modal-card">
     <div class="modal-head"><span id="previewLabel">Preview</span><button class="tb-btn" id="btnClosePreview">✕</button></div>
@@ -352,6 +365,6 @@
 <script src="pro-cut.js?v=20260716a"></script>
 <script src="/js/ffmpeg-wasm.js?v=20260730b"></script>
 <script src="/editor/timeline-engine.js?v=20260628a"></script>
-<script src="timeline.js?v=20260730g"></script>
+<script src="timeline.js?v=20260731a"></script>
 </body>
 </html>

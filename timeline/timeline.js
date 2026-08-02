@@ -1366,11 +1366,39 @@ function renderCharEditor(){
       save();
     };
   });
+  injectImgEnginePicker('btnGenPortrait');
   const gen=$('btnGenPortrait');if(gen)gen.onclick=()=>generateCharPortrait(state.selectedChar);
   const up=$('btnUploadRef');if(up)up.onclick=()=>uploadRef(state.selectedChar);
   const clr=$('btnClearRef');if(clr)clr.onclick=()=>{pushHistory();c.refUrl=null;save();renderCharacters()};
   const del=$('btnDeleteChar');if(del)del.onclick=()=>deleteCharacter(state.selectedChar);
 }
+// Image engine picker mirrored into the character/location editors — the
+// Settings ▾ dropdown is easy to miss, and engine choice matters most right
+// where you hit Generate. Both stay in sync (same state.global.imageModel).
+function injectImgEnginePicker(beforeBtnId){
+  const btn=$(beforeBtnId);
+  if(!btn||document.getElementById('imgEngine-'+beforeBtnId))return;
+  const cur=state.global.imageModel||'comfy-local';
+  const opts=[
+    ['comfy-local','🖥 Local ComfyUI (free)'],
+    ['fal-flux-schnell','FLUX schnell (fal · cheapest)'],
+    ['fal-flux-dev','FLUX dev (fal · quality)'],
+    ['nano-banana-pro','Nano Banana Pro'],
+    ['flux-xai','Flux / Grok'],
+    ['wan-2.7','Wan 2.7']
+  ];
+  const row=document.createElement('div');
+  row.className='field';
+  row.innerHTML='<label>Image engine</label><select id="imgEngine-'+beforeBtnId+'">'+
+    opts.map(o=>'<option value="'+o[0]+'"'+(o[0]===cur?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
+  btn.parentNode.insertBefore(row,btn);
+  row.querySelector('select').onchange=e=>{
+    state.global.imageModel=e.target.value;
+    const g=$('gImgModel');if(g)g.value=e.target.value;
+    save();
+  };
+}
+
 // Refs must land on real https hosting (Firebase Storage) — the resolvers drop
 // data: URLs, so anything short of a hosted URL never reaches the video providers.
 async function hostRefImage(fileOrDataUrl,path){
@@ -1609,6 +1637,7 @@ function renderLocEditor(){
     }
     el.oninput=el.onchange=()=>{loc[k]=el.value;save();const pr=$('d-prompt');if(pr&&state.selectedId){const c=state.clips.find(x=>x.id===state.selectedId);if(c)pr.value=buildPrompt(c)}};
   });
+  injectImgEnginePicker('btnGenLocPlate');
   const genP=$('btnGenLocPlate');if(genP)genP.onclick=()=>generateLocPlate(state.selectedLoc);
   const up=$('btnUploadLocPlate');if(up)up.onclick=()=>uploadLocPlate(state.selectedLoc);
   const clr=$('btnClearLocPlate');if(clr)clr.onclick=()=>{pushHistory();loc.plateUrl=null;save();renderLocations();toast('Plate removed')};
@@ -2305,7 +2334,7 @@ async function boardClip(clip,opts){
   }
   if(!opts.quiet)toast('Boarding clip '+clip.num+'…');
   const url=await generatePicture({
-    type:'storyboard',name:'Clip '+clip.num,
+    type:'storyboard',name:'Clip '+clip.num+(clip.boardVary?('#'+clip.boardVary):''),
     desc:'Cinematic still frame — the exact FIRST FRAME of this shot, matching the reference images for character and location identity. '+prompt,
     aspect_ratio:state.global.aspectRatio==='9:16'?'9:16':'16:9',
     referenceImages:refs.slice(0,4).map(u=>({url:u})),
@@ -2314,6 +2343,50 @@ async function boardClip(clip,opts){
   clip.boardUrl=url;
   save();renderTimeline();if(state.selectedId===clip.id)renderDetail();
   return url;
+}
+/* Storyboard viewer/editor: big preview + editable shot description +
+   regenerate / new-variation / upload-your-own. Opened by 🎬 Board when a
+   board already exists (no more accidental re-spends). */
+let boardModalClipId=null;
+function openBoardModal(clip){
+  boardModalClipId=clip.id;
+  $('boardModalTitle').textContent='Storyboard — Clip '+clip.num+' · '+(clip.label||'');
+  const img=$('boardModalImg');
+  img.src=clip.boardUrl||'';
+  img.style.display=clip.boardUrl?'block':'none';
+  $('boardModalDesc').value=clip.description||'';
+  $('boardModal').classList.remove('hidden');
+}
+function boardModalClip(){return state.clips.find(c=>c.id===boardModalClipId)||null}
+async function boardModalRegen(vary){
+  const clip=boardModalClip();if(!clip)return;
+  const btn=vary?$('btnBoardVary'):$('btnBoardRegen');
+  const desc=$('boardModalDesc').value.trim();
+  pushHistory();
+  if(desc&&desc!==clip.description)clip.description=desc;
+  if(vary)clip.boardVary=(clip.boardVary||0)+1;
+  if(btn){btn.disabled=true;btn.textContent='Generating…'}
+  try{
+    await boardClip(clip,{force:true,quiet:true});
+    const img=$('boardModalImg');img.src=clip.boardUrl||'';img.style.display=clip.boardUrl?'block':'none';
+    toast('Board updated');
+  }catch(e){toast(e.message||'Board generation failed')}
+  if(btn){btn.disabled=false;btn.textContent=vary?'🎲 New variation':'↻ Regenerate board'}
+}
+function boardModalUpload(){
+  const clip=boardModalClip();if(!clip)return;
+  const inp=document.createElement('input');inp.type='file';inp.accept='image/*';
+  inp.onchange=async()=>{
+    const f=inp.files[0];if(!f)return;
+    try{
+      pushHistory();
+      clip.boardUrl=await hostRefImage(f,'boards/clip-'+clip.id);
+      save();renderTimeline();if(state.selectedId===clip.id)renderDetail();
+      $('boardModalImg').src=clip.boardUrl;$('boardModalImg').style.display='block';
+      toast('Board replaced with your image');
+    }catch(e){toast(e.message)}
+  };
+  inp.click();
 }
 async function boardAll(){
   if(!curUser)return toast('Sign in to storyboard');
@@ -2672,7 +2745,11 @@ function bindUI(){
   const btnFin=$('btnFinalize');if(btnFin)btnFin.onclick=finalizeSelected;
   const btnFinAll=$('btnFinalizeAll');if(btnFinAll)btnFinAll.onclick=finalizeApproved;
   const btnCloud=$('btnCloudLoad');if(btnCloud)btnCloud.onclick=cloudLoadPicker;
-  const btnBoard=$('btnBoard');if(btnBoard)btnBoard.onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(!c)return toast('Select clip');boardClip(c,{force:!!c.boardUrl}).catch(e=>toast(e.message))};
+  const btnBoard=$('btnBoard');if(btnBoard)btnBoard.onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(!c)return toast('Select clip');if(c.boardUrl)return openBoardModal(c);boardClip(c).then(()=>{if(c.boardUrl)openBoardModal(c)}).catch(e=>toast(e.message))};
+  const btnCloseBoard=$('btnCloseBoard');if(btnCloseBoard)btnCloseBoard.onclick=()=>$('boardModal').classList.add('hidden');
+  const btnBoardRegen=$('btnBoardRegen');if(btnBoardRegen)btnBoardRegen.onclick=()=>boardModalRegen(false);
+  const btnBoardVary=$('btnBoardVary');if(btnBoardVary)btnBoardVary.onclick=()=>boardModalRegen(true);
+  const btnBoardUpload=$('btnBoardUpload');if(btnBoardUpload)btnBoardUpload.onclick=boardModalUpload;
   const btnBoardAll=$('btnBoardAll');if(btnBoardAll)btnBoardAll.onclick=boardAll;
   $('btnApprove').onclick=approveSelected;
   $('btnPreview').onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(c&&c.videoUrl)window.open(c.videoUrl);else toast('No video')};
