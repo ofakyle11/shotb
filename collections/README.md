@@ -13,6 +13,7 @@ command-center UI, login gate, tabbed layout, and all data stored in the browser
 
 - **Locally:** double-click `index.html` (or open it in any modern browser). Everything works offline.
 - **On Netlify (this repo):** it deploys with the site and is served at `/collections/`.
+- **Logo:** `trickster-logo.svg` — the Trickster Inc fox-shield mark (scales to any size; also used as the app favicon and header badge).
 
 First launch shows a one-time setup: your business name, contact info, currency, and a
 username/password (stored as a SHA-256 hash in that browser only).
