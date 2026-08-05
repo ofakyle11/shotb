@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Receivables Command Center — Payment Reminders &amp; Balances</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2300e87b'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-size='16' font-weight='900' fill='%23060610'>$</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<style>
+:root{--bg:#060610;--bg2:#0c0c1d;--bg3:#12122a;--sf:#161630;--bd:rgba(255,255,255,.06);--bd2:rgba(255,255,255,.1);--tx:#eeeef4;--tx2:#7a7a9a;--tx3:#4a4a6a;--g:#00e87b;--g2:#00c265;--gd:rgba(0,232,123,.08);--r:#f43f5e;--o:#f59e0b;--bl:#3b82f6;--p:#8b5cf6;--c:#06b6d4;--y:#eab308}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}.mo{font-family:'IBM Plex Mono',monospace}
+#L,#S{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:var(--bg);overflow-y:auto}
+#L::before,#S::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 30% 20%,rgba(0,232,123,.04),transparent 60%),radial-gradient(ellipse at 70% 80%,rgba(59,130,246,.03),transparent 60%)}
+.lbx{position:relative;width:400px;max-width:94vw;padding:36px 32px;background:linear-gradient(145deg,var(--bg2),var(--bg3));border:1px solid var(--bd2);border-radius:20px;box-shadow:0 40px 80px rgba(0,0,0,.6);margin:20px auto}
+.llo{width:56px;height:56px;margin:0 auto 16px;background:linear-gradient(135deg,var(--g),var(--c));border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:var(--bg)}
+.lti{text-align:center;font-size:21px;font-weight:800;margin-bottom:2px}.lsu{text-align:center;font-size:10px;color:var(--tx2);margin-bottom:24px;letter-spacing:1.5px;text-transform:uppercase}
+.lfd{margin-bottom:12px}.llb{display:block;font-size:10px;color:var(--tx2);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.lin{width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--bd2);border-radius:10px;color:var(--tx);font-family:inherit;font-size:14px}.lin:focus{outline:none;border-color:var(--g)}.lin::placeholder{color:var(--tx3)}
+.lbn{width:100%;padding:13px;margin-top:6px;background:linear-gradient(135deg,var(--g),var(--g2));border:none;border-radius:10px;color:var(--bg);font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}.lbn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,232,123,.25)}
+.ler{color:var(--r);font-size:11px;text-align:center;margin-top:10px;min-height:16px}
+#A{display:none}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:var(--bg2);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:100;gap:8px;flex-wrap:wrap}
+.brl{display:flex;align-items:center;gap:10px}.bico{width:32px;height:32px;background:linear-gradient(135deg,var(--g),var(--c));border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;color:var(--bg)}
+.bnm{font-size:14px;font-weight:800}.bro{font-size:9px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px}
+.brc{display:flex;gap:10px;font-size:10px}.bst{display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--sf);border:1px solid var(--bd);border-radius:16px}
+.brr{display:flex;align-items:center;gap:6px}.bus{padding:4px 9px;background:var(--sf);border:1px solid var(--bd);border-radius:16px;font-size:10px;font-weight:600}
+.blo{padding:3px 7px;background:0;border:1px solid var(--bd);border-radius:6px;color:var(--tx2);font-size:9px;cursor:pointer;font-family:inherit}.blo:hover{border-color:var(--r);color:var(--r)}
+.nv{display:flex;background:var(--bg2);border-bottom:1px solid var(--bd);overflow-x:auto;scrollbar-width:none}.nv::-webkit-scrollbar{display:none}
+.ni{padding:9px 14px;font-size:10px;font-weight:500;color:var(--tx2);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:4px}.ni:hover{color:var(--tx)}.ni.on{color:var(--g);border-bottom-color:var(--g);background:rgba(0,232,123,.02)}
+.cnt{padding:16px;max-width:1500px;margin:0 auto}
+.cd{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:10px}.ct_{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;margin-bottom:12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.mc{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:11px;text-align:center}.mcv{font-size:20px;font-weight:800;margin:1px 0}.mcl{font-size:8px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px}.mcc{font-size:8px;margin-top:1px;font-weight:600;color:var(--tx2)}
+.bt{padding:5px 10px;border-radius:6px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer;border:0;transition:all .15s;display:inline-flex;align-items:center;gap:3px}.bp{background:linear-gradient(135deg,var(--g),var(--g2));color:var(--bg)}.bp:hover{transform:translateY(-1px)}.bo{background:0;border:1px solid var(--bd);color:var(--tx)}.bo:hover{border-color:var(--g);color:var(--g)}.bdanger{background:0;border:1px solid rgba(244,63,94,.3);color:var(--r)}.bdanger:hover{border-color:var(--r)}
+.tb{width:100%;border-collapse:collapse;font-size:10px}.tb th{text-align:left;padding:7px 8px;color:var(--tx2);font-size:8px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--bd);font-weight:600}.tb td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.02)}.tb tr:hover td{background:rgba(255,255,255,.012)}
+.b{padding:2px 6px;border-radius:4px;font-size:8px;font-weight:700;display:inline-flex;align-items:center;gap:2px;letter-spacing:.5px}.bg{background:rgba(0,232,123,.1);color:var(--g)}.br{background:rgba(244,63,94,.12);color:var(--r)}.bor{background:rgba(245,158,11,.12);color:var(--o)}.bb{background:rgba(59,130,246,.1);color:var(--bl)}.bpu{background:rgba(139,92,246,.1);color:var(--p)}.bc{background:rgba(6,182,212,.1);color:var(--c)}.by{background:rgba(234,179,8,.12);color:var(--y)}
+.pb{height:6px;background:var(--bg);border-radius:3px;overflow:hidden}.pf{height:100%;border-radius:3px}
+.ip{background:var(--bg);border:1px solid var(--bd2);border-radius:6px;padding:7px 9px;color:var(--tx);font-family:inherit;font-size:11px;width:100%}.ip:focus{outline:none;border-color:var(--g)}textarea.ip{resize:vertical;min-height:40px}select.ip{cursor:pointer}
+.lg{padding:7px 9px;background:var(--bg);border:1px solid var(--bd);border-radius:5px;margin-bottom:3px;font-size:9px;display:flex;align-items:center;gap:6px}
+.lp{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--g);animation:lpa 1.5s infinite;flex-shrink:0}@keyframes lpa{0%,100%{box-shadow:0 0 0 0 rgba(0,232,123,.4)}50%{box-shadow:0 0 0 4px rgba(0,232,123,0)}}.lpr{background:var(--r)}
+.fa{animation:fI .3s ease}@keyframes fI{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.rowov td{background:rgba(244,63,94,.04)!important}
+.clickable{cursor:pointer}
+@media(max-width:900px){.g2,.g3,.g4,.g5{grid-template-columns:1fr 1fr}.brc{display:none}}
+@media(max-width:560px){.g2,.g3,.g4,.g5{grid-template-columns:1fr}}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:0}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:99999;padding:16px}
+.modal-content{background:var(--bg2);border:1px solid var(--bd);border-radius:12px;width:100%;max-width:640px;max-height:88vh;overflow:auto}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--bd);font-weight:700;position:sticky;top:0;background:var(--bg2);z-index:2}
+.modal-body{padding:16px}
+.email-body{width:100%;background:var(--bg);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:10px;resize:vertical;line-height:1.5}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--g);color:var(--tx);padding:10px 18px;border-radius:10px;font-size:11px;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.toast.err{border-color:var(--r)}
+</style>
+</head>
+<body>
+
+<!-- ===== FIRST-RUN SETUP ===== -->
+<div id="S"><div class="lbx" style="max-width:440px">
+<div class="llo">$</div><div class="lti">Receivables Command Center</div><div class="lsu">First-time setup · Your business &amp; login</div>
+<div class="lfd"><label class="llb">Business Name</label><input class="lin" id="suCo" placeholder="e.g. JF Tire"></div>
+<div class="g2" style="gap:8px"><div class="lfd"><label class="llb">Your Name</label><input class="lin" id="suNm" placeholder="Your name"></div>
+<div class="lfd"><label class="llb">Currency</label><select class="lin" id="suCur"><option value="CAD" selected>CAD $</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select></div></div>
+<div class="lfd"><label class="llb">Business Email (reminders sent from / reply-to)</label><input class="lin" id="suEm" placeholder="ar@yourcompany.com"></div>
+<div class="lfd"><label class="llb">Business Phone</label><input class="lin" id="suPh" placeholder="(555) 555-5555"></div>
+<div class="g2" style="gap:8px"><div class="lfd"><label class="llb">Login Username</label><input class="lin" id="suU" placeholder="admin" autocomplete="off"></div>
+<div class="lfd"><label class="llb">Login Password</label><input type="password" class="lin" id="suP" placeholder="Choose a password" autocomplete="new-password"></div></div>
+<button class="lbn" id="suBtn">Create &amp; Enter</button><div class="ler" id="suErr"></div>
+<div style="text-align:center;font-size:9px;color:var(--tx3);margin-top:14px">🔒 Stored locally in this browser only (SHA-256). No server required.</div>
+</div></div>
+
+<!-- ===== LOGIN ===== -->
+<div id="L"><div class="lbx">
+<div class="llo">$</div><div class="lti">Receivables Command Center</div><div class="lsu" id="lSub">Missed Payments · Balances · Collections</div>
+<div class="lfd"><label class="llb">Username</label><input type="text" class="lin" id="inu" placeholder="Enter username" autocomplete="off" autofocus></div>
+<div class="lfd"><label class="llb">Password</label><input type="password" class="lin" id="inp" placeholder="Enter password" autocomplete="off"></div>
+<button class="lbn" id="lbtn">Sign In</button><div class="ler" id="lerr"></div>
+<div style="text-align:center;font-size:9px;color:var(--tx3);margin-top:16px">🔒 SHA-256 · Data stays in this browser</div>
+</div></div>
+
+<!-- ===== APP ===== -->
+<div id="A">
+<div class="bar">
+  <div class="brl"><div class="bico">$</div><div><div class="bnm" id="zCo">Receivables</div><div class="bro">A/R Command Center · Payment Reminders</div></div></div>
+  <div class="brc">
+    <div class="bst"><span style="color:var(--tx2)">OUTSTANDING</span> <b class="mo" id="zTot" style="color:var(--y)">—</b></div>
+    <div class="bst"><span style="color:var(--tx2)">OVERDUE</span> <b class="mo" id="zOd" style="color:var(--r)">—</b></div>
+    <div class="bst"><span class="lp"></span><span style="color:var(--g);font-weight:600;font-size:9px">LOCAL DATA</span></div>
+  </div>
+  <div class="brr"><div class="bus" id="zU"></div><button class="blo" id="zO">Sign Out</button></div>
+</div>
+<div class="nv" id="zN"></div>
+<div class="cnt" id="zC"></div>
+</div>
+
+<script>
+"use strict";
+
+/* =====================================================================
+   RECEIVABLES COMMAND CENTER
+   Adapted from the PC Staffing Command Center architecture:
+   single-file app · localStorage persistence · login gate · tabbed UI.
+   Purpose: track companies that aren't paying their bills, show the
+   current balance owed, and send escalating missed-payment reminders.
+   ===================================================================== */
+
+// ---------- storage keys ----------
+const K = {
+  user:     'arc_user_v1',
+  settings: 'arc_settings_v1',
+  accounts: 'arc_accounts_v1',
+  invoices: 'arc_invoices_v1',
+  reminders:'arc_reminders_v1',
+  activity: 'arc_activity_v1'
+};
+
+// ---------- state ----------
+let CU = null;              // current user
+let S  = {};                // settings
+let ACCOUNTS = [];          // companies that owe money
+let INVOICES = [];          // invoices (money owed)
+let REMINDERS = [];         // reminder send log
+let ACTIVITY = [];          // activity feed
+let cur = 'dash';           // current tab
+let draftCtx = null;        // account currently in the reminder draft modal
+
+const TB = [
+  {id:'dash',     i:'📊', l:'Dashboard'},
+  {id:'accounts', i:'🏢', l:'Accounts'},
+  {id:'invoices', i:'🧾', l:'Invoices'},
+  {id:'remind',   i:'📧', l:'Reminders'},
+  {id:'log',      i:'📜', l:'Activity'},
+  {id:'settings', i:'⚙️', l:'Settings'}
+];
+
+// Escalation ladder: suggested reminder level by days past due.
+const LEVELS = [
+  {n:1, key:'friendly', label:'Friendly Reminder', minDays:1,  badge:'bb'},
+  {n:2, key:'firstnotice', label:'Past-Due Notice', minDays:15, badge:'by'},
+  {n:3, key:'secondnotice', label:'Urgent — 2nd Notice', minDays:31, badge:'bor'},
+  {n:4, key:'finalnotice', label:'FINAL NOTICE', minDays:61, badge:'br'}
+];
+
+// ---------- utilities ----------
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function uid(p){return p+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7)}
+function todayISO(){return new Date().toISOString().slice(0,10)}
+function r2(n){return Math.round((Number(n)||0)*100)/100}
+function money(n){try{return new Intl.NumberFormat('en-CA',{style:'currency',currency:S.currency||'CAD'}).format(r2(n))}catch(e){return '$'+r2(n).toFixed(2)}}
+function parseMoney(v){const n=parseFloat(String(v==null?'':v).replace(/[^0-9.\-]/g,''));return isNaN(n)?0:r2(n)}
+function fmtDate(iso){if(!iso)return '—';const d=new Date(iso+'T12:00:00');return isNaN(d)?'—':d.toLocaleDateString('en-CA',{year:'numeric',month:'short',day:'numeric'})}
+function daysPast(dueISO){if(!dueISO)return 0;const ms=new Date(todayISO()+'T12:00:00')-new Date(dueISO+'T12:00:00');return Math.floor(ms/86400000)}
+function addDays(iso,d){const dt=new Date((iso||todayISO())+'T12:00:00');dt.setDate(dt.getDate()+Number(d||0));return dt.toISOString().slice(0,10)}
+
+async function sha(s){
+  try{
+    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }catch(e){ // crypto.subtle unavailable (rare non-secure contexts) — fallback hash
+    let h=5381; for(let i=0;i<s.length;i++){h=((h<<5)+h+s.charCodeAt(i))|0}
+    return 'djb2_'+(h>>>0).toString(16);
+  }
+}
+
+function showToast(msg,type){
+  document.querySelectorAll('.toast').forEach(t=>t.remove());
+  const t=document.createElement('div');t.className='toast'+(type==='err'?' err':'');t.textContent=msg;
+  document.body.appendChild(t);setTimeout(()=>t.remove(),3200);
+}
+function closeModals(){document.querySelectorAll('.modal').forEach(m=>m.remove())}
+function modal(html,maxw){
+  closeModals();
+  const m=document.createElement('div');m.className='modal';
+  m.innerHTML='<div class="modal-content"'+(maxw?' style="max-width:'+maxw+'"':'')+'>'+html+'</div>';
+  m.addEventListener('click',e=>{if(e.target===m)m.remove()});
+  document.body.appendChild(m);return m;
+}
+function mhead(title){return '<div class="modal-head"><div>'+title+'</div><button class="bt bo" data-act="closeModal" style="font-size:16px;line-height:1">×</button></div>'}
+
+// ---------- persistence ----------
+function loadAll(){
+  try{S=JSON.parse(localStorage.getItem(K.settings)||'{}')}catch(e){S={}}
+  try{ACCOUNTS=JSON.parse(localStorage.getItem(K.accounts)||'[]')}catch(e){ACCOUNTS=[]}
+  try{INVOICES=JSON.parse(localStorage.getItem(K.invoices)||'[]')}catch(e){INVOICES=[]}
+  try{REMINDERS=JSON.parse(localStorage.getItem(K.reminders)||'[]')}catch(e){REMINDERS=[]}
+  try{ACTIVITY=JSON.parse(localStorage.getItem(K.activity)||'[]')}catch(e){ACTIVITY=[]}
+}
+function saveAccounts(){localStorage.setItem(K.accounts,JSON.stringify(ACCOUNTS))}
+function saveInvoices(){localStorage.setItem(K.invoices,JSON.stringify(INVOICES))}
+function saveReminders(){localStorage.setItem(K.reminders,JSON.stringify(REMINDERS))}
+function saveSettingsLS(){localStorage.setItem(K.settings,JSON.stringify(S))}
+function saveActivity(){localStorage.setItem(K.activity,JSON.stringify(ACTIVITY.slice(0,400)))}
+function logA(msg,icon){ACTIVITY.unshift({ts:new Date().toISOString(),msg,icon:icon||'•'});saveActivity()}
+
+// ---------- computed: balances, aging, status ----------
+function invPaid(inv){return r2((inv.payments||[]).reduce((s,p)=>s+(Number(p.amount)||0),0))}
+function invRemaining(inv){return Math.max(0,r2((Number(inv.amount)||0)-invPaid(inv)))}
+function invStatus(inv){
+  const rem=invRemaining(inv);
+  if(rem<=0)return 'paid';
+  if(invPaid(inv)>0)return 'partial';
+  return 'open';
+}
+function acctInvoices(aId){return INVOICES.filter(i=>i.accountId===aId)}
+function acctBalance(aId){return r2(acctInvoices(aId).reduce((s,i)=>s+invRemaining(i),0))}
+function acctOverdue(aId){return r2(acctInvoices(aId).filter(i=>invRemaining(i)>0&&daysPast(i.dueDate)>0).reduce((s,i)=>s+invRemaining(i),0))}
+function acctMaxDaysLate(aId){
+  let mx=0;
+  acctInvoices(aId).forEach(i=>{if(invRemaining(i)>0){const d=daysPast(i.dueDate);if(d>mx)mx=d}});
+  return mx;
+}
+function acctStatus(a){
+  const bal=acctBalance(a.id);
+  if(bal<=0)return {key:'settled',label:'PAID UP',badge:'bg'};
+  const d=acctMaxDaysLate(a.id);
+  if(d<=0)return {key:'current',label:'CURRENT',badge:'bc'};
+  if(d<=30)return {key:'overdue',label:'OVERDUE '+d+'d',badge:'by'};
+  if(d<=60)return {key:'delinquent',label:'DELINQUENT '+d+'d',badge:'bor'};
+  return {key:'collections',label:'COLLECTIONS '+d+'d',badge:'br'};
+}
+function lastReminder(aId){return REMINDERS.find(r=>r.accountId===aId)||null}
+function suggestedLevel(a){
+  const d=acctMaxDaysLate(a.id);
+  if(d<=0)return null;
+  let lvl=LEVELS[0];
+  LEVELS.forEach(L=>{if(d>=L.minDays)lvl=L});
+  const last=lastReminder(a.id);
+  if(last&&last.level>=lvl.n)lvl=LEVELS[Math.min(last.level,3)]; // escalate one past last sent (cap final)
+  return lvl;
+}
+function daysSinceReminder(aId){
+  const last=lastReminder(aId);
+  if(!last)return Infinity;
+  return Math.floor((Date.now()-new Date(last.ts).getTime())/86400000);
+}
+function reminderDueNow(a){
+  if(acctOverdue(a.id)<=0)return false;
+  if(a.promiseDate&&daysPast(a.promiseDate)<=0)return false;      // active promise-to-pay
+  return daysSinceReminder(a.id)>=(Number(S.cadenceDays)||5);      // don't nag more often than cadence
+}
+function agingBuckets(){
+  const b={current:0,d30:0,d60:0,d90:0,d90p:0};
+  INVOICES.forEach(i=>{
+    const rem=invRemaining(i);if(rem<=0)return;
+    const d=daysPast(i.dueDate);
+    if(d<=0)b.current=r2(b.current+rem);
+    else if(d<=30)b.d30=r2(b.d30+rem);
+    else if(d<=60)b.d60=r2(b.d60+rem);
+    else if(d<=90)b.d90=r2(b.d90+rem);
+    else b.d90p=r2(b.d90p+rem);
+  });
+  return b;
+}
+function totals(){
+  const out=r2(INVOICES.reduce((s,i)=>s+invRemaining(i),0));
+  const od=r2(INVOICES.filter(i=>daysPast(i.dueDate)>0).reduce((s,i)=>s+invRemaining(i),0));
+  const delinquent=ACCOUNTS.filter(a=>acctOverdue(a.id)>0).length;
+  let collected30=0;
+  const cutoff=addDays(todayISO(),-30);
+  INVOICES.forEach(i=>(i.payments||[]).forEach(p=>{if((p.date||'')>=cutoff)collected30=r2(collected30+(Number(p.amount)||0))}));
+  return {out,od,delinquent,collected30};
+}
+
+// ---------- reminder templates ----------
+function invoiceTableText(aId){
+  const rows=acctInvoices(aId).filter(i=>invRemaining(i)>0)
+    .sort((x,y)=>(x.dueDate||'').localeCompare(y.dueDate||''));
+  if(!rows.length)return '  (no open invoices)';
+  const lines=rows.map(i=>{
+    const d=daysPast(i.dueDate);
+    const age=d>0?d+' day'+(d===1?'':'s')+' past due':'due '+fmtDate(i.dueDate);
+    return '  • Invoice '+(i.number||'—')+'  |  issued '+fmtDate(i.issueDate)+'  |  '+age+'  |  '+money(invRemaining(i))+' outstanding';
+  });
+  return lines.join('\n');
+}
+function tplVars(a){
+  const first=(a.contactName||'there').trim().split(/[\s,]+/)[0];
+  return {
+    first, company:a.company,
+    balance:money(acctBalance(a.id)),
+    overdue:money(acctOverdue(a.id)),
+    days:acctMaxDaysLate(a.id),
+    table:invoiceTableText(a.id),
+    us:S.company||'our company',
+    sender:S.senderName||'',
+    email:S.senderEmail||'',
+    phone:S.senderPhone||'',
+    pay:S.payInstructions||'Please contact us to arrange payment.'
+  };
+}
+function sigBlock(v){
+  return 'Thank you,\n'+(v.sender?v.sender+'\n':'')+v.us+(v.phone?'\n'+v.phone:'')+(v.email?'\n'+v.email:'');
+}
+function buildReminder(a,lvlN){
+  const v=tplVars(a);
+  const L=LEVELS.find(x=>x.n===lvlN)||LEVELS[0];
+  const wasReminded=REMINDERS.some(r=>r.accountId===a.id);
+  let subject='',body='';
+  if(L.n===1){
+    subject='Friendly reminder — balance of '+v.balance+' with '+v.us;
+    body='Hi '+v.first+',\n\nJust a friendly reminder from '+v.us+' — our records show '+v.company+' has an outstanding balance of '+v.balance+', of which '+v.overdue+' is now past due.\n\nOpen invoices:\n'+v.table+'\n\nIf payment is already on its way, please disregard this note (and thank you!). Otherwise, we\'d appreciate payment at your earliest convenience.\n\nHow to pay:\n'+v.pay+'\n\nIf anything looks off with these invoices, just reply and we\'ll sort it out quickly.\n\n'+sigBlock(v);
+  }else if(L.n===2){
+    subject='Past-due notice — '+v.overdue+' outstanding ('+v.days+' days)';
+    body='Hi '+v.first+',\n\nThis is a past-due notice from '+v.us+'. '+v.company+'\'s account currently shows a total balance of '+v.balance+', including '+v.overdue+' that is now '+v.days+' days past due.\n\nOpen invoices:\n'+v.table+'\n\nWe\'d appreciate payment within the next 7 days, or a quick reply letting us know when we can expect it.\n\nHow to pay:\n'+v.pay+'\n\nIf there is an issue with any invoice, or you\'d like to discuss a payment plan, please reply or call — we\'re happy to work with you.\n\n'+sigBlock(v);
+  }else if(L.n===3){
+    subject='Second notice — overdue balance of '+v.overdue+' requires attention';
+    body='Hello '+v.first+',\n\n'+(wasReminded?'Despite our previous reminder, ':'Our records show that ')+v.company+'\'s account with '+v.us+' remains unpaid. The current balance is '+v.balance+', with '+v.overdue+' now '+v.days+' days past due.\n\nOpen invoices:\n'+v.table+'\n\nPlease arrange payment, or contact us with a firm payment date, within 5 business days of this notice.'+(S.lateFeeNote?'\n\nPlease note: '+S.lateFeeNote:'')+'\n\nHow to pay:\n'+v.pay+'\n\nWe value the relationship and would much rather resolve this together — please get in touch today.\n\n'+sigBlock(v);
+  }else{
+    subject='FINAL NOTICE — '+v.overdue+' past due on '+v.company+'\'s account';
+    body='Dear '+v.first+',\n\nThis is a final notice regarding '+v.company+'\'s seriously past-due account with '+v.us+'. The outstanding balance is '+v.balance+', of which '+v.overdue+' is '+v.days+' days past due'+(wasReminded?' despite multiple reminders':'')+'.\n\nOpen invoices:\n'+v.table+'\n\nUnless payment — or a written commitment with a firm payment date — is received within 10 days, we may have no choice but to suspend the account and refer the balance to a collection agency, which could affect '+v.company+'\'s credit standing.'+(S.lateFeeNote?'\n\nPlease note: '+S.lateFeeNote:'')+'\n\nHow to pay:\n'+v.pay+'\n\nWe would sincerely prefer to resolve this directly. Please contact us immediately.\n\n'+sigBlock(v);
+  }
+  return {subject,body,level:L.n,levelLabel:L.label};
+}
+
+// ---------- boot / auth ----------
+function show(id){['S','L','A'].forEach(x=>document.getElementById(x).style.display=x===id?(x==='A'?'block':'flex'):'none')}
+
+async function firstRunCreate(){
+  const co=document.getElementById('suCo').value.trim();
+  const nm=document.getElementById('suNm').value.trim();
+  const em=document.getElementById('suEm').value.trim();
+  const ph=document.getElementById('suPh').value.trim();
+  const curcy=document.getElementById('suCur').value;
+  const u=document.getElementById('suU').value.trim().toLowerCase();
+  const p=document.getElementById('suP').value;
+  const err=document.getElementById('suErr');
+  if(!co){err.textContent='Business name is required';return}
+  if(!u||!p){err.textContent='Choose a username and password';return}
+  if(p.length<6){err.textContent='Password must be at least 6 characters';return}
+  const hash=await sha(u+'::'+p);
+  localStorage.setItem(K.user,JSON.stringify({u,hash,name:nm||u}));
+  S=Object.assign({
+    company:co,senderName:nm,senderEmail:em,senderPhone:ph,currency:curcy,
+    cadenceDays:5,
+    payInstructions:'E-transfer: '+(em||'ar@yourcompany.com')+'\nOr call us at '+(ph||'our office')+' to pay by card.',
+    lateFeeNote:'',
+    emailjsPublic:'',emailjsService:'',emailjsTemplate:''
+  },S);
+  saveSettingsLS();
+  logA('Workspace created for '+co,'🟢');
+  CU={u,name:nm||u};
+  boot();
+}
+
+async function login(){
+  const u=document.getElementById('inu').value.toLowerCase().trim();
+  const p=document.getElementById('inp').value;
+  const e=document.getElementById('lerr');
+  let rec=null;try{rec=JSON.parse(localStorage.getItem(K.user))}catch(_){}
+  if(!rec){e.textContent='No account on this browser — reload to run setup';return}
+  const hash=await sha(u+'::'+p);
+  if(u===rec.u&&hash===rec.hash){CU={u,name:rec.name};boot()}
+  else e.textContent='Invalid credentials';
+}
+function logout(){CU=null;show('L');document.getElementById('inu').value='';document.getElementById('inp').value='';document.getElementById('lerr').textContent=''}
+
+function boot(){
+  show('A');
+  document.getElementById('zCo').textContent=S.company||'Receivables';
+  document.getElementById('zU').textContent='👤 '+(CU.name||CU.u);
+  document.getElementById('zN').innerHTML=TB.map(t=>'<div class="ni'+(t.id===cur?' on':'')+'" data-act="go" data-id="'+t.id+'">'+t.i+' '+t.l+'</div>').join('');
+  go(cur);
+}
+function updHeader(){
+  const t=totals();
+  document.getElementById('zTot').textContent=money(t.out);
+  document.getElementById('zOd').textContent=money(t.od);
+}
+
+// ---------- navigation / rendering ----------
+function go(id){
+  cur=id;
+  document.querySelectorAll('.ni').forEach(n=>n.classList.toggle('on',n.dataset.id===id));
+  const el=document.getElementById('zC');
+  if(id==='dash')el.innerHTML=pDash();
+  else if(id==='accounts')el.innerHTML=pAccounts();
+  else if(id==='invoices')el.innerHTML=pInvoices();
+  else if(id==='remind')el.innerHTML=pRemind();
+  else if(id==='log')el.innerHTML=pLog();
+  else if(id==='settings')el.innerHTML=pSettings();
+  updHeader();
+}
+
+// ----- dashboard -----
+function pDash(){
+  const t=totals(),b=agingBuckets();
+  const maxB=Math.max(b.current,b.d30,b.d60,b.d90,b.d90p,1);
+  const bucketRow=(label,val,color)=>'<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:3px"><span style="color:var(--tx2)">'+label+'</span><b class="mo">'+money(val)+'</b></div><div class="pb"><div class="pf" style="width:'+Math.round(val/maxB*100)+'%;background:'+color+'"></div></div></div>';
+  const queue=ACCOUNTS.filter(a=>acctOverdue(a.id)>0)
+    .sort((x,y)=>acctOverdue(y.id)-acctOverdue(x.id));
+  const dueNow=queue.filter(reminderDueNow);
+  const topDebt=[...ACCOUNTS].map(a=>({a,bal:acctBalance(a.id)})).filter(x=>x.bal>0).sort((x,y)=>y.bal-x.bal).slice(0,6);
+  return '<div class="fa">'
+    +'<div class="g4">'
+    +'<div class="mc"><div class="mcl">Total Outstanding</div><div class="mcv mo" style="color:var(--y)">'+money(t.out)+'</div><div class="mcc">all open invoices</div></div>'
+    +'<div class="mc"><div class="mcl">Past Due</div><div class="mcv mo" style="color:var(--r)">'+money(t.od)+'</div><div class="mcc">'+t.delinquent+' account'+(t.delinquent===1?'':'s')+' behind</div></div>'
+    +'<div class="mc"><div class="mcl">Reminders Due Now</div><div class="mcv" style="color:var(--o)">'+dueNow.length+'</div><div class="mcc">ready to send today</div></div>'
+    +'<div class="mc"><div class="mcl">Collected (30d)</div><div class="mcv mo" style="color:var(--g)">'+money(t.collected30)+'</div><div class="mcc">payments recorded</div></div>'
+    +'</div>'
+    +'<div class="g2" style="margin-top:10px">'
+    +'<div class="cd"><div class="ct_">📅 Aging Buckets</div>'
+      +bucketRow('Current (not yet due)',b.current,'var(--c)')
+      +bucketRow('1–30 days past due',b.d30,'var(--y)')
+      +bucketRow('31–60 days past due',b.d60,'var(--o)')
+      +bucketRow('61–90 days past due',b.d90,'#f97316')
+      +bucketRow('90+ days past due',b.d90p,'var(--r)')
+    +'</div>'
+    +'<div class="cd"><div class="ct_">🔥 Top Balances</div>'
+      +(topDebt.length?topDebt.map(x=>{
+        const st=acctStatus(x.a);
+        return '<div class="lg clickable" data-act="openAccount" data-id="'+x.a.id+'"><span class="b '+st.badge+'">'+st.label+'</span><b style="flex:1">'+esc(x.a.company)+'</b><span class="mo" style="color:var(--y)">'+money(x.bal)+'</span></div>';
+      }).join(''):'<div style="font-size:10px;color:var(--tx2)">No open balances. Add accounts and invoices to get started.</div>')
+    +'</div></div>'
+    +'<div class="cd"><div class="ct_">📧 Reminder Queue — Send Today</div>'
+    +(dueNow.length?'<table class="tb"><thead><tr><th>Company</th><th>Contact</th><th>Overdue</th><th>Days Late</th><th>Last Reminder</th><th>Suggested</th><th></th></tr></thead><tbody>'
+      +dueNow.slice(0,8).map(a=>remRow(a)).join('')+'</tbody></table>'
+      +(dueNow.length>8?'<div style="font-size:9px;color:var(--tx2);margin-top:6px">+'+(dueNow.length-8)+' more in the Reminders tab</div>':'')
+     :'<div style="font-size:10px;color:var(--tx2)">Nothing due right now. '+(queue.length?'Accounts recently reminded or under promise-to-pay are held back by your '+(S.cadenceDays||5)+'-day cadence.':'No overdue accounts — nice.')+'</div>')
+    +'</div>'
+    +(ACCOUNTS.length===0?'<div class="cd" style="text-align:center"><div style="font-size:11px;color:var(--tx2);margin-bottom:8px">New here? Import your customer + invoice CSVs in Settings, or try the demo data.</div><button class="bt bp" data-act="loadDemo">Load Demo Data</button> <button class="bt bo" data-act="go" data-id="settings">Open Settings</button></div>':'')
+  +'</div>';
+}
+function remRow(a){
+  const lvl=suggestedLevel(a);
+  const last=lastReminder(a.id);
+  return '<tr class="rowov"><td><b class="clickable" data-act="openAccount" data-id="'+a.id+'">'+esc(a.company)+'</b></td>'
+    +'<td style="font-size:9px">'+esc(a.contactName||'—')+(a.contactEmail?'<br><span style="color:var(--g)">'+esc(a.contactEmail)+'</span>':'<br><span style="color:var(--r)">no email</span>')+'</td>'
+    +'<td class="mo" style="color:var(--r)">'+money(acctOverdue(a.id))+'</td>'
+    +'<td>'+acctMaxDaysLate(a.id)+'d</td>'
+    +'<td style="font-size:9px">'+(last?('L'+last.level+' · '+fmtDate(last.ts.slice(0,10))):'never')+'</td>'
+    +'<td>'+(lvl?'<span class="b '+lvl.badge+'">L'+lvl.n+' '+lvl.label+'</span>':'—')+'</td>'
+    +'<td><button class="bt bp" data-act="draftReminder" data-id="'+a.id+'">Draft Reminder</button></td></tr>';
+}
+
+// ----- accounts -----
+function pAccounts(){
+  const rows=[...ACCOUNTS].sort((x,y)=>acctOverdue(y.id)-acctOverdue(x.id)||acctBalance(y.id)-acctBalance(x.id));
+  return '<div class="fa"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">'
+    +'<h2 style="font-size:14px;font-weight:800">🏢 Accounts — Who Owes What</h2>'
+    +'<div><button class="bt bp" data-act="addAccount">+ Add Account</button> <button class="bt bo" data-act="exportAcctCSV">Export CSV</button></div></div>'
+    +'<div class="cd" style="overflow-x:auto">'
+    +(rows.length?'<table class="tb"><thead><tr><th>Company</th><th>Contact</th><th>Terms</th><th>Balance</th><th>Past Due</th><th>Status</th><th>Last Reminder</th><th></th></tr></thead><tbody>'
+      +rows.map(a=>{
+        const st=acctStatus(a),od=acctOverdue(a.id),last=lastReminder(a.id);
+        return '<tr'+(od>0?' class="rowov"':'')+'><td><b class="clickable" data-act="openAccount" data-id="'+a.id+'">'+esc(a.company)+'</b>'+(a.promiseDate&&daysPast(a.promiseDate)<=0?'<br><span class="b bpu">PTP '+fmtDate(a.promiseDate)+'</span>':'')+'</td>'
+        +'<td style="font-size:9px">'+esc(a.contactName||'—')+'<br>'+(a.contactEmail?'<span style="color:var(--g)">'+esc(a.contactEmail)+'</span>':'<span style="color:var(--r)">no email</span>')+'</td>'
+        +'<td>Net '+(a.terms||30)+'</td>'
+        +'<td class="mo" style="color:var(--y)">'+money(acctBalance(a.id))+'</td>'
+        +'<td class="mo" style="color:'+(od>0?'var(--r)':'var(--tx3)')+'">'+money(od)+'</td>'
+        +'<td><span class="b '+st.badge+'">'+st.label+'</span></td>'
+        +'<td style="font-size:9px">'+(last?'L'+last.level+' · '+fmtDate(last.ts.slice(0,10)):'—')+'</td>'
+        +'<td style="white-space:nowrap"><button class="bt bo" data-act="openAccount" data-id="'+a.id+'">Open</button>'+(od>0?' <button class="bt bp" data-act="draftReminder" data-id="'+a.id+'">Remind</button>':'')+'</td></tr>';
+      }).join('')+'</tbody></table>'
+     :'<div style="font-size:11px;color:var(--tx2);text-align:center;padding:14px">No accounts yet. Add one, import a CSV in Settings, or load demo data from the Dashboard.</div>')
+    +'</div></div>';
+}
+
+// ----- invoices -----
+function pInvoices(){
+  const f=window._invFilter||'unpaid';
+  const all=[...INVOICES].sort((x,y)=>(x.dueDate||'').localeCompare(y.dueDate||''));
+  const rows=all.filter(i=>{
+    const st=invStatus(i);
+    if(f==='all')return true;
+    if(f==='unpaid')return st!=='paid';
+    if(f==='overdue')return st!=='paid'&&daysPast(i.dueDate)>0;
+    return st===f;
+  });
+  return '<div class="fa"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">'
+    +'<h2 style="font-size:14px;font-weight:800">🧾 Invoices</h2>'
+    +'<div style="display:flex;gap:6px;align-items:center">'
+    +'<select class="ip" id="invFilter" style="width:auto"><option value="unpaid"'+(f==='unpaid'?' selected':'')+'>Unpaid</option><option value="overdue"'+(f==='overdue'?' selected':'')+'>Overdue only</option><option value="partial"'+(f==='partial'?' selected':'')+'>Partially paid</option><option value="paid"'+(f==='paid'?' selected':'')+'>Paid</option><option value="all"'+(f==='all'?' selected':'')+'>All</option></select>'
+    +'<button class="bt bp" data-act="addInvoice">+ Add Invoice</button> <button class="bt bo" data-act="exportInvCSV">Export CSV</button></div></div>'
+    +'<div class="cd" style="overflow-x:auto">'
+    +(rows.length?'<table class="tb"><thead><tr><th>Invoice #</th><th>Company</th><th>Issued</th><th>Due</th><th>Age</th><th>Amount</th><th>Paid</th><th>Outstanding</th><th>Status</th><th></th></tr></thead><tbody>'
+      +rows.map(i=>{
+        const a=ACCOUNTS.find(x=>x.id===i.accountId);
+        const st=invStatus(i),d=daysPast(i.dueDate),rem=invRemaining(i);
+        const stB=st==='paid'?'<span class="b bg">PAID</span>':st==='partial'?'<span class="b bb">PARTIAL</span>':(d>0?'<span class="b br">OVERDUE</span>':'<span class="b bc">OPEN</span>');
+        return '<tr'+(st!=='paid'&&d>0?' class="rowov"':'')+'><td class="mo">'+esc(i.number||'—')+'</td>'
+        +'<td><b class="clickable" data-act="openAccount" data-id="'+i.accountId+'">'+esc(a?a.company:'?')+'</b></td>'
+        +'<td style="font-size:9px">'+fmtDate(i.issueDate)+'</td><td style="font-size:9px">'+fmtDate(i.dueDate)+'</td>'
+        +'<td>'+(st==='paid'?'—':(d>0?'<span style="color:var(--r)">'+d+'d late</span>':'due in '+(-d)+'d'))+'</td>'
+        +'<td class="mo">'+money(i.amount)+'</td><td class="mo" style="color:var(--g)">'+money(invPaid(i))+'</td>'
+        +'<td class="mo" style="color:'+(rem>0?'var(--y)':'var(--tx3)')+'">'+money(rem)+'</td>'
+        +'<td>'+stB+'</td>'
+        +'<td style="white-space:nowrap">'+(rem>0?'<button class="bt bp" data-act="payInvoice" data-id="'+i.id+'">Record Payment</button> ':'')+'<button class="bt bdanger" data-act="delInvoice" data-id="'+i.id+'">✕</button></td></tr>';
+      }).join('')+'</tbody></table>'
+     :'<div style="font-size:11px;color:var(--tx2);text-align:center;padding:14px">No invoices match this filter.</div>')
+    +'</div></div>';
+}
+
+// ----- reminders -----
+function pRemind(){
+  const behind=ACCOUNTS.filter(a=>acctOverdue(a.id)>0).sort((x,y)=>acctOverdue(y.id)-acctOverdue(x.id));
+  const dueNow=behind.filter(reminderDueNow);
+  const held=behind.filter(a=>!reminderDueNow(a));
+  return '<div class="fa"><h2 style="font-size:14px;font-weight:800;margin-bottom:4px">📧 Payment Reminders</h2>'
+    +'<div style="font-size:9px;color:var(--tx2);margin-bottom:10px">Escalation ladder: '+LEVELS.map(L=>'L'+L.n+' '+L.label+' ('+L.minDays+'d+)').join(' → ')+' · cadence '+(S.cadenceDays||5)+' days between reminders</div>'
+    +'<div class="cd"><div class="ct_">🚨 Due Now ('+dueNow.length+')</div>'
+    +(dueNow.length?'<div style="overflow-x:auto"><table class="tb"><thead><tr><th>Company</th><th>Contact</th><th>Overdue</th><th>Days Late</th><th>Last Reminder</th><th>Suggested</th><th></th></tr></thead><tbody>'+dueNow.map(a=>remRow(a)).join('')+'</tbody></table></div>'
+     :'<div style="font-size:10px;color:var(--tx2)">No reminders due right now.</div>')+'</div>'
+    +(held.length?'<div class="cd"><div class="ct_">⏸ Held Back ('+held.length+')</div><div style="font-size:9px;color:var(--tx2);margin-bottom:8px">Overdue, but recently reminded or under an active promise-to-pay.</div>'
+      +held.map(a=>{
+        const ptp=a.promiseDate&&daysPast(a.promiseDate)<=0;
+        const ds=daysSinceReminder(a.id);
+        return '<div class="lg"><b class="clickable" data-act="openAccount" data-id="'+a.id+'" style="flex:1">'+esc(a.company)+'</b>'
+        +(ptp?'<span class="b bpu">PTP '+fmtDate(a.promiseDate)+(a.promiseAmount?' · '+money(a.promiseAmount):'')+'</span>':'<span class="b bb">reminded '+(isFinite(ds)?ds+'d ago':'—')+'</span>')
+        +'<span class="mo" style="color:var(--r)">'+money(acctOverdue(a.id))+'</span>'
+        +'<button class="bt bo" data-act="draftReminder" data-id="'+a.id+'">Draft Anyway</button></div>';
+      }).join('')+'</div>':'')
+    +'<div class="cd"><div class="ct_">📜 Reminders Sent ('+REMINDERS.length+')</div>'
+    +(REMINDERS.length?'<div style="overflow-x:auto"><table class="tb"><thead><tr><th>When</th><th>Company</th><th>Level</th><th>Subject</th><th>Balance Then</th><th>Via</th></tr></thead><tbody>'
+      +REMINDERS.slice(0,50).map(r=>{
+        const a=ACCOUNTS.find(x=>x.id===r.accountId);
+        const L=LEVELS.find(x=>x.n===r.level)||LEVELS[0];
+        return '<tr><td style="font-size:9px">'+fmtDate(r.ts.slice(0,10))+'</td><td><b>'+esc(a?a.company:'?')+'</b></td><td><span class="b '+L.badge+'">L'+r.level+'</span></td><td style="font-size:9px">'+esc(r.subject)+'</td><td class="mo">'+money(r.balance)+'</td><td style="font-size:9px">'+esc(r.via||'manual')+'</td></tr>';
+      }).join('')+'</tbody></table></div>'
+     :'<div style="font-size:10px;color:var(--tx2)">No reminders logged yet.</div>')+'</div></div>';
+}
+
+// ----- activity log -----
+function pLog(){
+  return '<div class="fa"><h2 style="font-size:14px;font-weight:800;margin-bottom:10px">📜 Activity Log</h2><div class="cd">'
+    +(ACTIVITY.length?ACTIVITY.slice(0,200).map(x=>'<div class="lg"><span>'+(x.icon||'•')+'</span><span style="flex:1">'+esc(x.msg)+'</span><span style="color:var(--tx3);font-size:8px">'+new Date(x.ts).toLocaleString('en-CA',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+'</span></div>').join('')
+     :'<div style="font-size:10px;color:var(--tx2)">Nothing yet.</div>')+'</div></div>';
+}
+
+// ----- settings -----
+function pSettings(){
+  return '<div class="fa"><h2 style="font-size:14px;font-weight:800;margin-bottom:10px">⚙️ Settings</h2>'
+  +'<div class="g2">'
+  +'<div class="cd"><div class="ct_">🏢 Business Profile</div>'
+    +'<label class="llb">Business name</label><input class="ip" id="stCo" value="'+esc(S.company||'')+'" style="margin-bottom:8px">'
+    +'<label class="llb">Sender name</label><input class="ip" id="stNm" value="'+esc(S.senderName||'')+'" style="margin-bottom:8px">'
+    +'<label class="llb">Email</label><input class="ip" id="stEm" value="'+esc(S.senderEmail||'')+'" style="margin-bottom:8px">'
+    +'<label class="llb">Phone</label><input class="ip" id="stPh" value="'+esc(S.senderPhone||'')+'" style="margin-bottom:8px">'
+    +'<label class="llb">Currency</label><select class="ip" id="stCur" style="margin-bottom:8px">'+['CAD','USD','EUR','GBP'].map(c=>'<option value="'+c+'"'+((S.currency||'CAD')===c?' selected':'')+'>'+c+'</option>').join('')+'</select>'
+  +'</div>'
+  +'<div class="cd"><div class="ct_">📧 Reminder Behaviour</div>'
+    +'<label class="llb">Minimum days between reminders (cadence)</label><input class="ip" id="stCad" type="number" min="1" value="'+esc(S.cadenceDays||5)+'" style="margin-bottom:8px">'
+    +'<label class="llb">How to pay (appears in every reminder)</label><textarea class="ip" id="stPay" style="height:64px;margin-bottom:8px">'+esc(S.payInstructions||'')+'</textarea>'
+    +'<label class="llb">Late fee / interest note (optional, used in L3+L4)</label><input class="ip" id="stFee" value="'+esc(S.lateFeeNote||'')+'" placeholder="e.g. overdue balances accrue 2% monthly interest" style="margin-bottom:8px">'
+    +'<div style="font-size:9px;color:var(--tx2)">Escalation ladder is automatic: L1 at 1+ days late, L2 at 15+, L3 at 31+, L4 at 61+. Each new reminder escalates one level past the last one sent.</div>'
+  +'</div>'
+  +'<div class="cd"><div class="ct_">✉️ EmailJS (optional — one-click send)</div>'
+    +'<div style="font-size:9px;color:var(--tx2);margin-bottom:8px">Without this, use "Open in Mail App" or "Copy" on any draft — no setup needed. With EmailJS (emailjs.com), reminders send straight from the app. Template must accept: to_email, to_name, subject, message.</div>'
+    +'<label class="llb">Public key</label><input class="ip" id="stEjP" value="'+esc(S.emailjsPublic||'')+'" style="margin-bottom:8px">'
+    +'<label class="llb">Service ID</label><input class="ip" id="stEjS" value="'+esc(S.emailjsService||'')+'" style="margin-bottom:8px">'
+    +'<label class="llb">Template ID</label><input class="ip" id="stEjT" value="'+esc(S.emailjsTemplate||'')+'" style="margin-bottom:8px">'
+  +'</div>'
+  +'<div class="cd"><div class="ct_">💾 Data</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">'
+    +'<button class="bt bp" data-act="backup">Backup (JSON)</button>'
+    +'<label class="bt bo" style="cursor:pointer">Restore JSON<input type="file" id="fileRestore" accept=".json" style="display:none"></label>'
+    +'<button class="bt bo" data-act="exportAcctCSV">Accounts CSV</button>'
+    +'<button class="bt bo" data-act="exportInvCSV">Invoices CSV</button>'
+    +'<label class="bt bo" style="cursor:pointer">Import Accounts CSV<input type="file" id="fileAcct" accept=".csv" style="display:none"></label>'
+    +'<label class="bt bo" style="cursor:pointer">Import Invoices CSV<input type="file" id="fileInv" accept=".csv" style="display:none"></label>'
+    +'</div>'
+    +'<div style="font-size:9px;color:var(--tx2);line-height:1.6;margin-bottom:10px">'
+    +'<b>Accounts CSV columns:</b> company, contactName, contactEmail, contactPhone, terms, notes<br>'
+    +'<b>Invoices CSV columns:</b> company, number, issueDate (YYYY-MM-DD), dueDate, amount, amountPaid — unknown companies are auto-created, so a single invoice CSV export from QuickBooks/Sage is enough to get running.'
+    +'</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    +'<button class="bt bo" data-act="loadDemo">Load Demo Data</button>'
+    +'<button class="bt bo" data-act="changePass">Change Password</button>'
+    +'<button class="bt bdanger" data-act="resetAll">Reset Everything</button>'
+    +'</div>'
+  +'</div>'
+  +'</div>'
+  +'<button class="bt bp" data-act="saveSettings" style="margin-top:4px;padding:9px 22px;font-size:12px">Save Settings</button>'
+  +'</div>';
+}
+function saveSettings(){
+  S.company=document.getElementById('stCo').value.trim();
+  S.senderName=document.getElementById('stNm').value.trim();
+  S.senderEmail=document.getElementById('stEm').value.trim();
+  S.senderPhone=document.getElementById('stPh').value.trim();
+  S.currency=document.getElementById('stCur').value;
+  S.cadenceDays=Math.max(1,parseInt(document.getElementById('stCad').value)||5);
+  S.payInstructions=document.getElementById('stPay').value;
+  S.lateFeeNote=document.getElementById('stFee').value.trim();
+  S.emailjsPublic=document.getElementById('stEjP').value.trim();
+  S.emailjsService=document.getElementById('stEjS').value.trim();
+  S.emailjsTemplate=document.getElementById('stEjT').value.trim();
+  saveSettingsLS();
+  document.getElementById('zCo').textContent=S.company||'Receivables';
+  logA('Settings updated','⚙️');
+  showToast('Settings saved');
+  go('settings');
+}
+
+// ---------- account modals ----------
+function acctForm(a){
+  a=a||{};
+  return '<div class="g2" style="gap:8px">'
+  +'<div><label class="llb">Company *</label><input class="ip" id="afCo" value="'+esc(a.company||'')+'"></div>'
+  +'<div><label class="llb">Contact name</label><input class="ip" id="afNm" value="'+esc(a.contactName||'')+'"></div>'
+  +'<div><label class="llb">Contact email</label><input class="ip" id="afEm" value="'+esc(a.contactEmail||'')+'"></div>'
+  +'<div><label class="llb">Contact phone</label><input class="ip" id="afPh" value="'+esc(a.contactPhone||'')+'"></div>'
+  +'<div><label class="llb">Payment terms (net days)</label><input class="ip" id="afTe" type="number" min="0" value="'+esc(a.terms!=null?a.terms:30)+'"></div>'
+  +'<div><label class="llb">Notes</label><input class="ip" id="afNo" value="'+esc(a.notes||'')+'"></div>'
+  +'</div>';
+}
+function addAccountModal(){
+  modal(mhead('➕ Add Account')+'<div class="modal-body">'+acctForm()
+  +'<div style="margin-top:12px"><button class="bt bp" data-act="saveAccount">Save Account</button></div></div>');
+}
+function editAccountModal(id){
+  const a=ACCOUNTS.find(x=>x.id===id);if(!a)return;
+  modal(mhead('✏️ Edit — '+esc(a.company))+'<div class="modal-body">'+acctForm(a)
+  +'<div style="margin-top:12px"><button class="bt bp" data-act="saveAccount" data-id="'+a.id+'">Save Changes</button> <button class="bt bdanger" data-act="delAccount" data-id="'+a.id+'">Delete Account</button></div></div>');
+}
+function saveAccount(id){
+  const co=document.getElementById('afCo').value.trim();
+  if(!co){showToast('Company name required','err');return}
+  const data={
+    company:co,
+    contactName:document.getElementById('afNm').value.trim(),
+    contactEmail:document.getElementById('afEm').value.trim(),
+    contactPhone:document.getElementById('afPh').value.trim(),
+    terms:Math.max(0,parseInt(document.getElementById('afTe').value)||30),
+    notes:document.getElementById('afNo').value.trim()
+  };
+  if(id){
+    const a=ACCOUNTS.find(x=>x.id===id);if(!a)return;
+    Object.assign(a,data);logA('Account updated: '+co,'✏️');
+  }else{
+    ACCOUNTS.push(Object.assign({id:uid('a'),createdAt:new Date().toISOString(),promiseDate:'',promiseAmount:0},data));
+    logA('Account added: '+co,'🏢');
+  }
+  saveAccounts();closeModals();go(id?cur:'accounts');
+  if(id)openAccountModal(id);
+}
+function delAccount(id){
+  const a=ACCOUNTS.find(x=>x.id===id);if(!a)return;
+  if(!confirm('Delete '+a.company+' and ALL its invoices + reminder history? This cannot be undone.'))return;
+  ACCOUNTS=ACCOUNTS.filter(x=>x.id!==id);
+  INVOICES=INVOICES.filter(x=>x.accountId!==id);
+  REMINDERS=REMINDERS.filter(x=>x.accountId!==id);
+  saveAccounts();saveInvoices();saveReminders();
+  logA('Account deleted: '+a.company,'🗑️');
+  closeModals();go('accounts');
+}
+function openAccountModal(id){
+  const a=ACCOUNTS.find(x=>x.id===id);if(!a)return;
+  const st=acctStatus(a);
+  const invs=acctInvoices(id).sort((x,y)=>(x.dueDate||'').localeCompare(y.dueDate||''));
+  const hist=REMINDERS.filter(r=>r.accountId===id);
+  modal(mhead('🏢 '+esc(a.company)+' &nbsp;<span class="b '+st.badge+'">'+st.label+'</span>')
+  +'<div class="modal-body">'
+  +'<div class="g3" style="gap:8px;margin-bottom:10px">'
+  +'<div class="mc"><div class="mcl">Balance</div><div class="mcv mo" style="font-size:16px;color:var(--y)">'+money(acctBalance(id))+'</div></div>'
+  +'<div class="mc"><div class="mcl">Past Due</div><div class="mcv mo" style="font-size:16px;color:var(--r)">'+money(acctOverdue(id))+'</div></div>'
+  +'<div class="mc"><div class="mcl">Oldest Late</div><div class="mcv" style="font-size:16px">'+acctMaxDaysLate(id)+'d</div></div>'
+  +'</div>'
+  +'<div style="font-size:10px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:8px;margin-bottom:10px;line-height:1.6">'
+  +'<b>Contact:</b> '+esc(a.contactName||'—')+' · '+(a.contactEmail?'<a style="color:var(--g)" href="mailto:'+esc(a.contactEmail)+'">'+esc(a.contactEmail)+'</a>':'<span style="color:var(--r)">no email</span>')+' · '+esc(a.contactPhone||'—')
+  +'<br><b>Terms:</b> Net '+(a.terms||30)+(a.notes?' &nbsp; <b>Notes:</b> '+esc(a.notes):'')
+  +'</div>'
+  +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'
+  +(acctOverdue(id)>0?'<button class="bt bp" data-act="draftReminder" data-id="'+id+'">📧 Draft Reminder</button>':'')
+  +'<button class="bt bo" data-act="addInvoice" data-id="'+id+'">+ Invoice</button>'
+  +'<button class="bt bo" data-act="printStatement" data-id="'+id+'">🖨 Statement</button>'
+  +'<button class="bt bo" data-act="editAccount" data-id="'+id+'">✏️ Edit</button>'
+  +'</div>'
+  +'<div class="ct_" style="font-size:11px">🧾 Invoices</div>'
+  +(invs.length?'<div style="overflow-x:auto"><table class="tb"><thead><tr><th>#</th><th>Due</th><th>Amount</th><th>Outstanding</th><th>Status</th><th></th></tr></thead><tbody>'
+    +invs.map(i=>{
+      const stI=invStatus(i),d=daysPast(i.dueDate),rem=invRemaining(i);
+      return '<tr><td class="mo">'+esc(i.number||'—')+'</td><td style="font-size:9px">'+fmtDate(i.dueDate)+(stI!=='paid'&&d>0?' <span style="color:var(--r)">('+d+'d)</span>':'')+'</td><td class="mo">'+money(i.amount)+'</td><td class="mo" style="color:'+(rem>0?'var(--y)':'var(--tx3)')+'">'+money(rem)+'</td>'
+      +'<td>'+(stI==='paid'?'<span class="b bg">PAID</span>':stI==='partial'?'<span class="b bb">PARTIAL</span>':(d>0?'<span class="b br">OVERDUE</span>':'<span class="b bc">OPEN</span>'))+'</td>'
+      +'<td>'+(rem>0?'<button class="bt bo" data-act="payInvoice" data-id="'+i.id+'">Pay</button>':'')+'</td></tr>';
+    }).join('')+'</tbody></table></div>':'<div style="font-size:10px;color:var(--tx2);margin-bottom:8px">No invoices for this account yet.</div>')
+  +'<div class="ct_" style="font-size:11px;margin-top:12px">🤝 Promise to Pay</div>'
+  +'<div class="g3" style="gap:8px;align-items:end">'
+  +'<div><label class="llb">Promised date</label><input class="ip" id="ptpDate" type="date" value="'+esc(a.promiseDate||'')+'"></div>'
+  +'<div><label class="llb">Promised amount</label><input class="ip" id="ptpAmt" value="'+(a.promiseAmount?esc(a.promiseAmount):'')+'" placeholder="optional"></div>'
+  +'<div><button class="bt bo" data-act="savePtp" data-id="'+id+'" style="width:100%">Save PTP</button></div>'
+  +'</div>'
+  +'<div style="font-size:9px;color:var(--tx2);margin-top:4px">An active promise-to-pay holds this account out of the reminder queue until the promised date passes.</div>'
+  +'<div class="ct_" style="font-size:11px;margin-top:12px">📧 Reminder History ('+hist.length+')</div>'
+  +(hist.length?hist.slice(0,10).map(r=>{
+      const L=LEVELS.find(x=>x.n===r.level)||LEVELS[0];
+      return '<div class="lg"><span class="b '+L.badge+'">L'+r.level+'</span><span style="flex:1">'+esc(r.subject)+'</span><span style="color:var(--tx3);font-size:8px">'+fmtDate(r.ts.slice(0,10))+'</span></div>';
+    }).join(''):'<div style="font-size:10px;color:var(--tx2)">Never reminded.</div>')
+  +'</div>');
+}
+function savePtp(id){
+  const a=ACCOUNTS.find(x=>x.id===id);if(!a)return;
+  a.promiseDate=document.getElementById('ptpDate').value||'';
+  a.promiseAmount=parseMoney(document.getElementById('ptpAmt').value);
+  saveAccounts();
+  logA('Promise-to-pay '+(a.promiseDate?('set for '+a.company+' — '+fmtDate(a.promiseDate)+(a.promiseAmount?' ('+money(a.promiseAmount)+')':'')):('cleared for '+a.company)),'🤝');
+  showToast(a.promiseDate?'Promise to pay saved':'Promise to pay cleared');
+  go(cur);openAccountModal(id);
+}
+
+// ---------- invoice modals ----------
+function addInvoiceModal(presetAcctId){
+  if(!ACCOUNTS.length){showToast('Add an account first','err');return}
+  const opts=ACCOUNTS.map(a=>'<option value="'+a.id+'"'+(a.id===presetAcctId?' selected':'')+'>'+esc(a.company)+'</option>').join('');
+  const preset=ACCOUNTS.find(a=>a.id===presetAcctId)||ACCOUNTS[0];
+  modal(mhead('🧾 Add Invoice')+'<div class="modal-body">'
+  +'<div class="g2" style="gap:8px">'
+  +'<div><label class="llb">Account *</label><select class="ip" id="ifAcct">'+opts+'</select></div>'
+  +'<div><label class="llb">Invoice #</label><input class="ip" id="ifNum" placeholder="INV-1001"></div>'
+  +'<div><label class="llb">Issue date</label><input class="ip" id="ifIss" type="date" value="'+todayISO()+'"></div>'
+  +'<div><label class="llb">Due date</label><input class="ip" id="ifDue" type="date" value="'+addDays(todayISO(),preset.terms||30)+'"></div>'
+  +'<div><label class="llb">Amount *</label><input class="ip" id="ifAmt" placeholder="0.00"></div>'
+  +'<div><label class="llb">Already paid (optional)</label><input class="ip" id="ifPaid" placeholder="0.00"></div>'
+  +'</div>'
+  +'<div style="margin-top:12px"><button class="bt bp" data-act="saveInvoice">Save Invoice</button></div></div>');
+  document.getElementById('ifAcct').addEventListener('change',function(){
+    const a=ACCOUNTS.find(x=>x.id===this.value);
+    const iss=document.getElementById('ifIss').value||todayISO();
+    if(a)document.getElementById('ifDue').value=addDays(iss,a.terms||30);
+  });
+}
+function saveInvoice(){
+  const accountId=document.getElementById('ifAcct').value;
+  const amount=parseMoney(document.getElementById('ifAmt').value);
+  if(!accountId||amount<=0){showToast('Account and a positive amount are required','err');return}
+  const paid=parseMoney(document.getElementById('ifPaid').value);
+  const inv={
+    id:uid('i'),accountId,
+    number:document.getElementById('ifNum').value.trim()||('INV-'+String(INVOICES.length+1001)),
+    issueDate:document.getElementById('ifIss').value||todayISO(),
+    dueDate:document.getElementById('ifDue').value||addDays(todayISO(),30),
+    amount,payments:[],createdAt:new Date().toISOString()
+  };
+  if(paid>0)inv.payments.push({date:todayISO(),amount:Math.min(paid,amount),method:'import',note:'entered with invoice'});
+  INVOICES.push(inv);saveInvoices();
+  const a=ACCOUNTS.find(x=>x.id===accountId);
+  logA('Invoice '+inv.number+' added for '+(a?a.company:'?')+' — '+money(amount),'🧾');
+  closeModals();go(cur);
+}
+function payInvoiceModal(id){
+  const i=INVOICES.find(x=>x.id===id);if(!i)return;
+  const a=ACCOUNTS.find(x=>x.id===i.accountId);
+  modal(mhead('💵 Record Payment — '+esc(i.number||'')+' ('+esc(a?a.company:'?')+')')+'<div class="modal-body">'
+  +'<div style="font-size:10px;color:var(--tx2);margin-bottom:10px">Invoice total '+money(i.amount)+' · paid '+money(invPaid(i))+' · <b style="color:var(--y)">outstanding '+money(invRemaining(i))+'</b></div>'
+  +'<div class="g3" style="gap:8px">'
+  +'<div><label class="llb">Date</label><input class="ip" id="pfDate" type="date" value="'+todayISO()+'"></div>'
+  +'<div><label class="llb">Amount *</label><input class="ip" id="pfAmt" value="'+invRemaining(i)+'"></div>'
+  +'<div><label class="llb">Method</label><select class="ip" id="pfMeth"><option>e-transfer</option><option>cheque</option><option>card</option><option>cash</option><option>wire</option><option>other</option></select></div>'
+  +'</div>'
+  +'<div style="margin-top:8px"><label class="llb">Note</label><input class="ip" id="pfNote" placeholder="optional"></div>'
+  +'<div style="margin-top:12px"><button class="bt bp" data-act="savePayment" data-id="'+i.id+'">Record Payment</button></div></div>');
+}
+function savePayment(id){
+  const i=INVOICES.find(x=>x.id===id);if(!i)return;
+  const amt=parseMoney(document.getElementById('pfAmt').value);
+  if(amt<=0){showToast('Enter a positive amount','err');return}
+  i.payments=i.payments||[];
+  i.payments.push({date:document.getElementById('pfDate').value||todayISO(),amount:amt,method:document.getElementById('pfMeth').value,note:document.getElementById('pfNote').value.trim()});
+  saveInvoices();
+  const a=ACCOUNTS.find(x=>x.id===i.accountId);
+  logA('Payment '+money(amt)+' recorded on '+i.number+' ('+(a?a.company:'?')+')'+(invRemaining(i)<=0?' — PAID IN FULL':''),'💵');
+  showToast('Payment recorded'+(invRemaining(i)<=0?' — invoice paid in full 🎉':''));
+  closeModals();go(cur);
+}
+function delInvoice(id){
+  const i=INVOICES.find(x=>x.id===id);if(!i)return;
+  if(!confirm('Delete invoice '+(i.number||'')+'? This cannot be undone.'))return;
+  INVOICES=INVOICES.filter(x=>x.id!==id);saveInvoices();
+  logA('Invoice deleted: '+i.number,'🗑️');
+  go(cur);
+}
+
+// ---------- reminder draft modal ----------
+function draftReminderModal(aId){
+  const a=ACCOUNTS.find(x=>x.id===aId);if(!a)return;
+  if(acctBalance(aId)<=0){showToast('This account has no balance owing','err');return}
+  const lvl=suggestedLevel(a)||LEVELS[0];
+  const d=buildReminder(a,lvl.n);
+  draftCtx={accountId:aId,level:lvl.n};
+  const lvlBtns=LEVELS.map(L=>'<button class="bt '+(L.n===lvl.n?'bp':'bo')+'" data-act="setLevel" data-id="'+L.n+'">L'+L.n+' '+L.label+'</button>').join(' ');
+  modal(mhead('📧 Payment Reminder — '+esc(a.company))+'<div class="modal-body">'
+  +'<div style="font-size:10px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:8px;margin-bottom:10px;line-height:1.6">'
+  +'<b>To:</b> '+esc(a.contactName||'—')+' '+(a.contactEmail?'&lt;'+esc(a.contactEmail)+'&gt;':'<span style="color:var(--r)">— no email on file (edit the account)</span>')
+  +'<br><b>Balance:</b> '+money(acctBalance(aId))+' &nbsp; <b>Past due:</b> <span style="color:var(--r)">'+money(acctOverdue(aId))+'</span> &nbsp; <b>Oldest:</b> '+acctMaxDaysLate(aId)+' days late'
+  +'</div>'
+  +'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px" id="lvlRow">'+lvlBtns+'</div>'
+  +'<label class="llb">Subject</label><input class="ip" id="rSubj" value="'+esc(d.subject)+'" style="margin-bottom:8px">'
+  +'<label class="llb">Body</label><textarea id="rBody" class="email-body" style="height:280px">'+esc(d.body)+'</textarea>'
+  +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">'
+  +'<button class="bt bp" data-act="copyDraft">📋 Copy</button>'
+  +(a.contactEmail?'<button class="bt bp" data-act="mailtoDraft">📨 Open in Mail App</button>':'')
+  +(S.emailjsPublic&&S.emailjsService&&S.emailjsTemplate&&a.contactEmail?'<button class="bt bp" data-act="sendEmailJs">🚀 Send Now (EmailJS)</button>':'')
+  +'<button class="bt bo" data-act="markSent">✓ Mark as Sent</button>'
+  +'</div>'
+  +'<div id="rStatus" style="margin-top:8px;font-size:10px;color:var(--tx2)">Copy / open the draft, send it, then click "Mark as Sent" so the escalation ladder and cadence stay accurate.</div>'
+  +'</div>','700px');
+}
+function setDraftLevel(n){
+  if(!draftCtx)return;
+  const a=ACCOUNTS.find(x=>x.id===draftCtx.accountId);if(!a)return;
+  draftCtx.level=Number(n)||1;
+  const d=buildReminder(a,draftCtx.level);
+  document.getElementById('rSubj').value=d.subject;
+  document.getElementById('rBody').value=d.body;
+  document.querySelectorAll('#lvlRow .bt').forEach(b=>{b.className='bt '+(Number(b.dataset.id)===draftCtx.level?'bp':'bo')});
+}
+function logReminder(via){
+  const a=ACCOUNTS.find(x=>x.id===draftCtx.accountId);if(!a)return;
+  REMINDERS.unshift({
+    id:uid('r'),accountId:a.id,level:draftCtx.level,
+    subject:document.getElementById('rSubj').value,
+    body:document.getElementById('rBody').value,
+    via,balance:acctBalance(a.id),ts:new Date().toISOString()
+  });
+  saveReminders();
+  logA('L'+draftCtx.level+' reminder sent to '+a.company+' ('+via+') — balance '+money(acctBalance(a.id)),'📧');
+}
+async function copyDraft(){
+  const txt='Subject: '+document.getElementById('rSubj').value+'\n\n'+document.getElementById('rBody').value;
+  try{await navigator.clipboard.writeText(txt);showToast('Draft copied to clipboard')}
+  catch(e){
+    const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');showToast('Draft copied to clipboard')}catch(_){showToast('Copy failed — select the text manually','err')}
+    ta.remove();
+  }
+}
+function mailtoDraft(){
+  const a=ACCOUNTS.find(x=>x.id===draftCtx.accountId);if(!a||!a.contactEmail)return;
+  const url='mailto:'+encodeURIComponent(a.contactEmail)
+    +'?subject='+encodeURIComponent(document.getElementById('rSubj').value)
+    +'&body='+encodeURIComponent(document.getElementById('rBody').value);
+  window.open(url,'_blank');
+  document.getElementById('rStatus').innerHTML='Mail app opened — after sending, click <b>Mark as Sent</b> to log it.';
+}
+async function sendEmailJs(){
+  const a=ACCOUNTS.find(x=>x.id===draftCtx.accountId);if(!a)return;
+  const st=document.getElementById('rStatus');
+  if(!window.emailjs){st.innerHTML='<span style="color:var(--r)">EmailJS library not loaded (offline?) — use Copy or Mail App instead.</span>';return}
+  st.textContent='Sending…';
+  try{
+    if(!window._ejInit){window.emailjs.init(S.emailjsPublic);window._ejInit=true}
+    await window.emailjs.send(S.emailjsService,S.emailjsTemplate,{
+      to_email:a.contactEmail,
+      to_name:a.contactName||a.company,
+      company:a.company,
+      subject:document.getElementById('rSubj').value,
+      message:document.getElementById('rBody').value,
+      balance:money(acctBalance(a.id)),
+      sender_name:S.senderName||S.company,
+      sender_email:S.senderEmail||'',
+      reply_to:S.senderEmail||''
+    });
+    logReminder('emailjs');
+    st.innerHTML='<span style="color:var(--g)">✓ Sent and logged.</span>';
+    showToast('Reminder sent to '+a.company);
+    setTimeout(()=>{closeModals();go(cur)},900);
+  }catch(e){
+    st.innerHTML='<span style="color:var(--r)">Send failed: '+esc(e&&e.text||e&&e.message||'unknown error')+'</span>';
+  }
+}
+function markSent(){
+  logReminder('manual');
+  showToast('Reminder logged');
+  closeModals();go(cur);
+}
+
+// ---------- printable statement ----------
+function printStatement(aId){
+  const a=ACCOUNTS.find(x=>x.id===aId);if(!a)return;
+  const invs=acctInvoices(aId).filter(i=>invRemaining(i)>0).sort((x,y)=>(x.dueDate||'').localeCompare(y.dueDate||''));
+  const rows=invs.map(i=>{
+    const d=daysPast(i.dueDate);
+    return '<tr><td>'+esc(i.number||'—')+'</td><td>'+fmtDate(i.issueDate)+'</td><td>'+fmtDate(i.dueDate)+'</td><td style="text-align:right">'+money(i.amount)+'</td><td style="text-align:right">'+money(invPaid(i))+'</td><td style="text-align:right"><b>'+money(invRemaining(i))+'</b></td><td>'+(d>0?d+' days past due':'current')+'</td></tr>';
+  }).join('');
+  const w=window.open('','_blank');
+  if(!w){showToast('Popup blocked — allow popups to print statements','err');return}
+  w.document.write('<!DOCTYPE html><html><head><title>Statement — '+esc(a.company)+'</title><style>'
+  +'body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:40px;font-size:13px}h1{font-size:20px;margin:0}h2{font-size:14px;color:#555;font-weight:normal;margin:2px 0 20px}'
+  +'table{width:100%;border-collapse:collapse;margin-top:14px}th{text-align:left;border-bottom:2px solid #111;padding:6px 8px;font-size:11px;text-transform:uppercase}td{padding:6px 8px;border-bottom:1px solid #ddd}'
+  +'.tot{margin-top:14px;text-align:right;font-size:16px}.pay{margin-top:24px;padding:12px;border:1px solid #ccc;background:#f8f8f8;white-space:pre-wrap;font-size:12px}'
+  +'@media print{.np{display:none}}</style></head><body>'
+  +'<h1>'+esc(S.company||'Statement of Account')+'</h1><h2>Statement of Account — prepared '+fmtDate(todayISO())+'</h2>'
+  +'<div><b>Bill to:</b> '+esc(a.company)+(a.contactName?' — Attn: '+esc(a.contactName):'')+(a.contactEmail?' ('+esc(a.contactEmail)+')':'')+'</div>'
+  +'<table><thead><tr><th>Invoice</th><th>Issued</th><th>Due</th><th style="text-align:right">Amount</th><th style="text-align:right">Paid</th><th style="text-align:right">Outstanding</th><th>Status</th></tr></thead><tbody>'
+  +(rows||'<tr><td colspan="7">No open invoices.</td></tr>')+'</tbody></table>'
+  +'<div class="tot"><b>TOTAL BALANCE DUE: '+money(acctBalance(aId))+'</b></div>'
+  +'<div class="pay"><b>How to pay</b>\n'+esc(S.payInstructions||'')+'</div>'
+  +'<p class="np" style="margin-top:24px"><button onclick="window.print()">Print / Save as PDF</button></p>'
+  +'</body></html>');
+  w.document.close();
+  logA('Statement generated for '+a.company,'🖨️');
+}
+
+// ---------- CSV / backup ----------
+function dlFile(name,content,type){
+  const blob=new Blob([content],{type:type||'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const el=document.createElement('a');el.href=url;el.download=name;el.click();
+  URL.revokeObjectURL(url);
+}
+function csvCell(v){
+  v=(v==null?'':String(v)).replace(/"/g,'""');
+  return /[",\n]/.test(v)?'"'+v+'"':v;
+}
+function exportAcctCSV(){
+  const head=['company','contactName','contactEmail','contactPhone','terms','notes','balance','pastDue','daysLate','status'];
+  const lines=[head.join(',')].concat(ACCOUNTS.map(a=>{
+    return [a.company,a.contactName,a.contactEmail,a.contactPhone,a.terms||30,a.notes,acctBalance(a.id),acctOverdue(a.id),acctMaxDaysLate(a.id),acctStatus(a).key].map(csvCell).join(',');
+  }));
+  dlFile('accounts-'+todayISO()+'.csv',lines.join('\n'),'text/csv');
+}
+function exportInvCSV(){
+  const head=['company','number','issueDate','dueDate','amount','amountPaid','outstanding','status','daysLate'];
+  const lines=[head.join(',')].concat(INVOICES.map(i=>{
+    const a=ACCOUNTS.find(x=>x.id===i.accountId);
+    return [a?a.company:'?',i.number,i.issueDate,i.dueDate,i.amount,invPaid(i),invRemaining(i),invStatus(i),Math.max(0,daysPast(i.dueDate))].map(csvCell).join(',');
+  }));
+  dlFile('invoices-'+todayISO()+'.csv',lines.join('\n'),'text/csv');
+}
+function parseCSV(text){
+  const rows=[];let row=[],cell='',inQ=false;
+  text=text.replace(/\r\n?/g,'\n');
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(inQ){
+      if(ch==='"'){if(text[i+1]==='"'){cell+='"';i++}else inQ=false}
+      else cell+=ch;
+    }else{
+      if(ch==='"')inQ=true;
+      else if(ch===','){row.push(cell);cell=''}
+      else if(ch==='\n'){row.push(cell);cell='';if(row.some(c=>c.trim()!==''))rows.push(row);row=[]}
+      else cell+=ch;
+    }
+  }
+  row.push(cell);if(row.some(c=>c.trim()!==''))rows.push(row);
+  return rows;
+}
+function findOrCreateAccount(company){
+  const key=company.trim().toLowerCase();
+  let a=ACCOUNTS.find(x=>x.company.trim().toLowerCase()===key);
+  if(!a){a={id:uid('a'),company:company.trim(),contactName:'',contactEmail:'',contactPhone:'',terms:30,notes:'',promiseDate:'',promiseAmount:0,createdAt:new Date().toISOString()};ACCOUNTS.push(a)}
+  return a;
+}
+function importAcctCSV(text){
+  const rows=parseCSV(text);if(rows.length<2){showToast('CSV appears empty','err');return}
+  const head=rows[0].map(h=>h.trim().toLowerCase());
+  const col=n=>head.indexOf(n.toLowerCase());
+  const iCo=col('company');if(iCo<0){showToast('CSV needs a "company" column','err');return}
+  let added=0,updated=0;
+  rows.slice(1).forEach(r=>{
+    const co=(r[iCo]||'').trim();if(!co)return;
+    const existing=ACCOUNTS.find(x=>x.company.trim().toLowerCase()===co.toLowerCase());
+    const a=findOrCreateAccount(co);
+    if(existing)updated++;else added++;
+    const set=(name,field,tf)=>{const ix=col(name);if(ix>=0&&r[ix]!=null&&r[ix].trim()!=='')a[field]=tf?tf(r[ix].trim()):r[ix].trim()};
+    set('contactname','contactName');set('contactemail','contactEmail');set('contactphone','contactPhone');
+    set('terms','terms',v=>Math.max(0,parseInt(v)||30));set('notes','notes');
+  });
+  saveAccounts();
+  logA('Accounts CSV imported — '+added+' added, '+updated+' updated','📥');
+  showToast(added+' accounts added, '+updated+' updated');
+  go('accounts');
+}
+function importInvCSV(text){
+  const rows=parseCSV(text);if(rows.length<2){showToast('CSV appears empty','err');return}
+  const head=rows[0].map(h=>h.trim().toLowerCase());
+  const col=n=>head.indexOf(n.toLowerCase());
+  const iCo=col('company'),iAmt=col('amount');
+  if(iCo<0||iAmt<0){showToast('CSV needs "company" and "amount" columns','err');return}
+  let added=0;
+  rows.slice(1).forEach((r,ix)=>{
+    const co=(r[iCo]||'').trim();const amount=parseMoney(r[iAmt]);
+    if(!co||amount<=0)return;
+    const a=findOrCreateAccount(co);
+    const num=col('number')>=0?(r[col('number')]||'').trim():'';
+    const iss=col('issuedate')>=0?(r[col('issuedate')]||'').trim():'';
+    const due=col('duedate')>=0?(r[col('duedate')]||'').trim():'';
+    const paid=col('amountpaid')>=0?parseMoney(r[col('amountpaid')]):0;
+    const inv={
+      id:uid('i'),accountId:a.id,
+      number:num||('IMP-'+Date.now().toString(36)+'-'+ix),
+      issueDate:/^\d{4}-\d{2}-\d{2}$/.test(iss)?iss:todayISO(),
+      dueDate:/^\d{4}-\d{2}-\d{2}$/.test(due)?due:addDays(iss||todayISO(),a.terms||30),
+      amount,payments:[],createdAt:new Date().toISOString()
+    };
+    if(paid>0)inv.payments.push({date:todayISO(),amount:Math.min(paid,amount),method:'import',note:'from CSV'});
+    INVOICES.push(inv);added++;
+  });
+  saveAccounts();saveInvoices();
+  logA('Invoices CSV imported — '+added+' invoices','📥');
+  showToast(added+' invoices imported');
+  go('invoices');
+}
+function backup(){
+  dlFile('receivables-backup-'+todayISO()+'.json',JSON.stringify({
+    exportedAt:new Date().toISOString(),settings:S,accounts:ACCOUNTS,invoices:INVOICES,reminders:REMINDERS,activity:ACTIVITY
+  },null,2),'application/json');
+  logA('Backup exported','💾');
+}
+function restore(text){
+  let d;try{d=JSON.parse(text)}catch(e){showToast('Not a valid backup file','err');return}
+  if(!d||!Array.isArray(d.accounts)||!Array.isArray(d.invoices)){showToast('Not a valid backup file','err');return}
+  if(!confirm('Restore this backup? It REPLACES all current accounts, invoices and reminder history.'))return;
+  S=Object.assign({},S,d.settings||{});ACCOUNTS=d.accounts;INVOICES=d.invoices;REMINDERS=d.reminders||[];ACTIVITY=d.activity||[];
+  saveSettingsLS();saveAccounts();saveInvoices();saveReminders();saveActivity();
+  logA('Backup restored','💾');
+  boot();showToast('Backup restored');
+}
+
+// ---------- demo data ----------
+function loadDemo(){
+  if(ACCOUNTS.length&&!confirm('Add demo companies alongside your existing data?'))return;
+  const t=todayISO();
+  const mk=(company,contactName,contactEmail,terms,invs)=>{
+    const a={id:uid('a'),company,contactName,contactEmail,contactPhone:'',terms,notes:'demo data',promiseDate:'',promiseAmount:0,createdAt:new Date().toISOString()};
+    ACCOUNTS.push(a);
+    invs.forEach((iv,ix)=>{
+      const inv={id:uid('i'),accountId:a.id,number:'DEMO-'+company.replace(/[^A-Z]/gi,'').slice(0,3).toUpperCase()+'-'+(ix+1),issueDate:addDays(t,iv.iss),dueDate:addDays(t,iv.due),amount:iv.amt,payments:[],createdAt:new Date().toISOString()};
+      if(iv.paid)inv.payments.push({date:addDays(t,-5),amount:iv.paid,method:'e-transfer',note:'demo'});
+      INVOICES.push(inv);
+    });
+  };
+  mk('Northline Freight Ltd.','Dana Whitfield','ap@northlinefreight.example',30,[{iss:-140,due:-110,amt:4820.50},{iss:-95,due:-65,amt:2210.00},{iss:-40,due:-10,amt:1890.25}]);
+  mk('Maple Ridge Landscaping','Carlos Rivera','carlos@mapleridge.example',15,[{iss:-75,due:-60,amt:3350.00,paid:1000},{iss:-30,due:-15,amt:980.00}]);
+  mk('Harbourview Auto Group','Priya Shah','accounts@harbourview.example',30,[{iss:-55,due:-25,amt:7642.80}]);
+  mk('GTA Courier Collective','Sam Osei','sam@gtacourier.example',30,[{iss:-24,due:6,amt:1240.00},{iss:-50,due:-20,amt:660.00,paid:660}]);
+  mk('Bluewater Contracting','Marie Tremblay','ar@bluewater.example',45,[{iss:-130,due:-85,amt:12400.00,paid:4000}]);
+  saveAccounts();saveInvoices();
+  logA('Demo data loaded','🧪');
+  showToast('Demo data loaded — explore the Reminders tab');
+  go('dash');
+}
+function resetAll(){
+  if(!confirm('Reset EVERYTHING? All accounts, invoices, reminders, settings and your login will be erased from this browser.'))return;
+  if(!confirm('Really erase everything? Consider exporting a JSON backup first.'))return;
+  Object.values(K).forEach(k=>localStorage.removeItem(k));
+  location.reload();
+}
+async function changePass(){
+  const p1=prompt('New password (min 6 characters):');
+  if(p1==null)return;
+  if(p1.length<6){showToast('Too short — 6 characters minimum','err');return}
+  let rec=null;try{rec=JSON.parse(localStorage.getItem(K.user))}catch(_){}
+  if(!rec)return;
+  rec.hash=await sha(rec.u+'::'+p1);
+  localStorage.setItem(K.user,JSON.stringify(rec));
+  logA('Password changed','🔒');
+  showToast('Password updated');
+}
+
+// ---------- event wiring (delegation — safe with any company names) ----------
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');
+  if(!el)return;
+  const act=el.dataset.act,id=el.dataset.id;
+  const fns={
+    go:()=>go(id),
+    openAccount:()=>openAccountModal(id),
+    addAccount:addAccountModal,
+    editAccount:()=>editAccountModal(id),
+    saveAccount:()=>saveAccount(id||null),
+    delAccount:()=>delAccount(id),
+    savePtp:()=>savePtp(id),
+    addInvoice:()=>addInvoiceModal(id||null),
+    saveInvoice:saveInvoice,
+    payInvoice:()=>payInvoiceModal(id),
+    savePayment:()=>savePayment(id),
+    delInvoice:()=>delInvoice(id),
+    draftReminder:()=>draftReminderModal(id),
+    setLevel:()=>setDraftLevel(id),
+    copyDraft:copyDraft,
+    mailtoDraft:mailtoDraft,
+    sendEmailJs:sendEmailJs,
+    markSent:markSent,
+    printStatement:()=>printStatement(id),
+    exportAcctCSV:exportAcctCSV,
+    exportInvCSV:exportInvCSV,
+    backup:backup,
+    loadDemo:loadDemo,
+    resetAll:resetAll,
+    changePass:changePass,
+    saveSettings:saveSettings,
+    closeModal:closeModals
+  };
+  if(fns[act])fns[act]();
+});
+document.addEventListener('change',e=>{
+  if(e.target.id==='invFilter'){window._invFilter=e.target.value;go('invoices')}
+  if(e.target.id==='fileRestore'||e.target.id==='fileAcct'||e.target.id==='fileInv'){
+    const f=e.target.files[0];if(!f)return;
+    const which=e.target.id;
+    const rd=new FileReader();
+    rd.onload=ev=>{
+      if(which==='fileRestore')restore(ev.target.result);
+      else if(which==='fileAcct')importAcctCSV(ev.target.result);
+      else importInvCSV(ev.target.result);
+    };
+    rd.readAsText(f);e.target.value='';
+  }
+});
+document.getElementById('lbtn').addEventListener('click',login);
+document.getElementById('inp').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+document.getElementById('inu').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+document.getElementById('suBtn').addEventListener('click',firstRunCreate);
+document.getElementById('zO').addEventListener('click',logout);
+
+// ---------- start ----------
+loadAll();
+(function start(){
+  let rec=null;try{rec=JSON.parse(localStorage.getItem(K.user))}catch(_){}
+  if(!rec)show('S');
+  else show('L');
+})();
+</script>
+</body>
+</html>
