@@ -3,56 +3,58 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>Receivables Command Center — Payment Reminders &amp; Balances</title>
+<title>Trickster Inc — Receivables Command Center</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex,nofollow">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2300e87b'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-size='16' font-weight='900' fill='%23060610'>$</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23a855f7'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-size='16' font-weight='900' fill='%23ffffff'>$</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 <style>
-:root{--bg:#060610;--bg2:#0c0c1d;--bg3:#12122a;--sf:#161630;--bd:rgba(255,255,255,.06);--bd2:rgba(255,255,255,.1);--tx:#eeeef4;--tx2:#7a7a9a;--tx3:#4a4a6a;--g:#00e87b;--g2:#00c265;--gd:rgba(0,232,123,.08);--r:#f43f5e;--o:#f59e0b;--bl:#3b82f6;--p:#8b5cf6;--c:#06b6d4;--y:#eab308}
+:root{--bg:#0b0420;--bg2:#150a35;--bg3:#1c0e46;--sf:#170c3d;--bd:rgba(167,139,250,.16);--bd2:rgba(167,139,250,.3);--tx:#f3eeff;--tx2:#a294d1;--tx3:#635694;--ac:#a855f7;--ac2:#ec4899;--ac3:#22d3ee;--g:#2ae98d;--g2:#0fc46e;--gd:rgba(42,233,141,.1);--r:#ff4d6d;--o:#ff9f1c;--bl:#4f8bff;--p:#a855f7;--c:#22d3ee;--y:#ffd60a}
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}.mo{font-family:'IBM Plex Mono',monospace}
-#L,#S{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:var(--bg);overflow-y:auto}
-#L::before,#S::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 30% 20%,rgba(0,232,123,.04),transparent 60%),radial-gradient(ellipse at 70% 80%,rgba(59,130,246,.03),transparent 60%)}
-.lbx{position:relative;width:400px;max-width:94vw;padding:36px 32px;background:linear-gradient(145deg,var(--bg2),var(--bg3));border:1px solid var(--bd2);border-radius:20px;box-shadow:0 40px 80px rgba(0,0,0,.6);margin:20px auto}
-.llo{width:56px;height:56px;margin:0 auto 16px;background:linear-gradient(135deg,var(--g),var(--c));border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:var(--bg)}
+body::before{content:'';position:fixed;inset:-12%;z-index:-1;pointer-events:none;background:radial-gradient(900px 620px at 15% 8%,rgba(168,85,247,.28),transparent 62%),radial-gradient(820px 600px at 88% 15%,rgba(34,211,238,.16),transparent 60%),radial-gradient(950px 720px at 72% 92%,rgba(236,72,153,.2),transparent 62%),radial-gradient(700px 520px at 22% 85%,rgba(79,139,255,.14),transparent 60%);animation:aur 16s ease-in-out infinite alternate}
+@keyframes aur{0%{transform:translate3d(0,0,0) scale(1);filter:hue-rotate(0deg)}50%{filter:hue-rotate(18deg)}100%{transform:translate3d(-2.5%,2%,0) scale(1.08);filter:hue-rotate(-14deg)}}
+#L,#S{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;background:transparent;overflow-y:auto}
+#L::before,#S::before{content:'';position:fixed;inset:0;background:rgba(11,4,32,.55)}
+.lbx{position:relative;width:400px;max-width:94vw;padding:36px 32px;background:linear-gradient(145deg,rgba(28,14,70,.92),rgba(21,10,53,.96));border:1px solid var(--bd2);border-radius:20px;box-shadow:0 40px 90px rgba(0,0,0,.65),0 0 60px rgba(168,85,247,.22),inset 0 1px 0 rgba(255,255,255,.06);margin:20px auto;backdrop-filter:blur(10px)}
+.llo{width:56px;height:56px;margin:0 auto 16px;background:linear-gradient(135deg,var(--ac),var(--ac2) 60%,var(--ac3));border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:#fff;box-shadow:0 8px 24px rgba(168,85,247,.45)}
 .lti{text-align:center;font-size:21px;font-weight:800;margin-bottom:2px}.lsu{text-align:center;font-size:10px;color:var(--tx2);margin-bottom:24px;letter-spacing:1.5px;text-transform:uppercase}
 .lfd{margin-bottom:12px}.llb{display:block;font-size:10px;color:var(--tx2);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px;font-weight:600}
-.lin{width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--bd2);border-radius:10px;color:var(--tx);font-family:inherit;font-size:14px}.lin:focus{outline:none;border-color:var(--g)}.lin::placeholder{color:var(--tx3)}
-.lbn{width:100%;padding:13px;margin-top:6px;background:linear-gradient(135deg,var(--g),var(--g2));border:none;border-radius:10px;color:var(--bg);font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}.lbn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(0,232,123,.25)}
+.lin{width:100%;padding:11px 14px;background:rgba(11,4,32,.7);border:1px solid var(--bd2);border-radius:10px;color:var(--tx);font-family:inherit;font-size:14px}.lin:focus{outline:none;border-color:var(--ac2);box-shadow:0 0 0 3px rgba(236,72,153,.15)}.lin::placeholder{color:var(--tx3)}
+.lbn{width:100%;padding:13px;margin-top:6px;background:linear-gradient(135deg,var(--ac),var(--ac2));border:none;border-radius:10px;color:#fff;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 8px 22px rgba(168,85,247,.35)}.lbn:hover{transform:translateY(-1px);box-shadow:0 10px 28px rgba(236,72,153,.4)}
 .ler{color:var(--r);font-size:11px;text-align:center;margin-top:10px;min-height:16px}
 #A{display:none}
-.bar{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:var(--bg2);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:100;gap:8px;flex-wrap:wrap}
-.brl{display:flex;align-items:center;gap:10px}.bico{width:32px;height:32px;background:linear-gradient(135deg,var(--g),var(--c));border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;color:var(--bg)}
+.bar{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:rgba(21,10,53,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:100;gap:8px;flex-wrap:wrap}
+.brl{display:flex;align-items:center;gap:10px}.bico{width:32px;height:32px;background:linear-gradient(135deg,var(--ac),var(--ac2) 60%,var(--ac3));border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;color:#fff;box-shadow:0 4px 14px rgba(168,85,247,.45)}
 .bnm{font-size:14px;font-weight:800}.bro{font-size:9px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px}
 .brc{display:flex;gap:10px;font-size:10px}.bst{display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--sf);border:1px solid var(--bd);border-radius:16px}
 .brr{display:flex;align-items:center;gap:6px}.bus{padding:4px 9px;background:var(--sf);border:1px solid var(--bd);border-radius:16px;font-size:10px;font-weight:600}
 .blo{padding:3px 7px;background:0;border:1px solid var(--bd);border-radius:6px;color:var(--tx2);font-size:9px;cursor:pointer;font-family:inherit}.blo:hover{border-color:var(--r);color:var(--r)}
-.nv{display:flex;background:var(--bg2);border-bottom:1px solid var(--bd);overflow-x:auto;scrollbar-width:none}.nv::-webkit-scrollbar{display:none}
-.ni{padding:9px 14px;font-size:10px;font-weight:500;color:var(--tx2);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:4px}.ni:hover{color:var(--tx)}.ni.on{color:var(--g);border-bottom-color:var(--g);background:rgba(0,232,123,.02)}
+.nv{display:flex;background:rgba(21,10,53,.7);backdrop-filter:blur(8px);border-bottom:1px solid var(--bd);overflow-x:auto;scrollbar-width:none}.nv::-webkit-scrollbar{display:none}
+.ni{padding:9px 14px;font-size:10px;font-weight:500;color:var(--tx2);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:4px}.ni:hover{color:var(--tx)}.ni.on{color:#f0abfc;border-bottom-color:var(--ac2);background:linear-gradient(180deg,rgba(168,85,247,.12),rgba(236,72,153,.05));text-shadow:0 0 14px rgba(236,72,153,.5)}
 .cnt{padding:16px;max-width:1500px;margin:0 auto}
-.cd{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:10px}.ct_{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;margin-bottom:12px}
+.cd{background:linear-gradient(160deg,rgba(168,85,247,.09),rgba(23,12,61,.4)),var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:10px;box-shadow:0 10px 28px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.04);transition:border-color .2s,box-shadow .2s}.cd:hover{border-color:rgba(167,139,250,.3);box-shadow:0 12px 32px rgba(0,0,0,.35),0 0 24px rgba(168,85,247,.12),inset 0 1px 0 rgba(255,255,255,.05)}.ct_{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;margin-bottom:12px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
-.mc{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:11px;text-align:center}.mcv{font-size:20px;font-weight:800;margin:1px 0}.mcl{font-size:8px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px}.mcc{font-size:8px;margin-top:1px;font-weight:600;color:var(--tx2)}
-.bt{padding:5px 10px;border-radius:6px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer;border:0;transition:all .15s;display:inline-flex;align-items:center;gap:3px}.bp{background:linear-gradient(135deg,var(--g),var(--g2));color:var(--bg)}.bp:hover{transform:translateY(-1px)}.bo{background:0;border:1px solid var(--bd);color:var(--tx)}.bo:hover{border-color:var(--g);color:var(--g)}.bdanger{background:0;border:1px solid rgba(244,63,94,.3);color:var(--r)}.bdanger:hover{border-color:var(--r)}
-.tb{width:100%;border-collapse:collapse;font-size:10px}.tb th{text-align:left;padding:7px 8px;color:var(--tx2);font-size:8px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--bd);font-weight:600}.tb td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.02)}.tb tr:hover td{background:rgba(255,255,255,.012)}
-.b{padding:2px 6px;border-radius:4px;font-size:8px;font-weight:700;display:inline-flex;align-items:center;gap:2px;letter-spacing:.5px}.bg{background:rgba(0,232,123,.1);color:var(--g)}.br{background:rgba(244,63,94,.12);color:var(--r)}.bor{background:rgba(245,158,11,.12);color:var(--o)}.bb{background:rgba(59,130,246,.1);color:var(--bl)}.bpu{background:rgba(139,92,246,.1);color:var(--p)}.bc{background:rgba(6,182,212,.1);color:var(--c)}.by{background:rgba(234,179,8,.12);color:var(--y)}
-.pb{height:6px;background:var(--bg);border-radius:3px;overflow:hidden}.pf{height:100%;border-radius:3px}
-.ip{background:var(--bg);border:1px solid var(--bd2);border-radius:6px;padding:7px 9px;color:var(--tx);font-family:inherit;font-size:11px;width:100%}.ip:focus{outline:none;border-color:var(--g)}textarea.ip{resize:vertical;min-height:40px}select.ip{cursor:pointer}
-.lg{padding:7px 9px;background:var(--bg);border:1px solid var(--bd);border-radius:5px;margin-bottom:3px;font-size:9px;display:flex;align-items:center;gap:6px}
+.mc{background:linear-gradient(170deg,rgba(168,85,247,.12),rgba(23,12,61,.5)),var(--sf);border:1px solid var(--bd);border-radius:10px;padding:11px;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}.mcv{font-size:20px;font-weight:800;margin:1px 0}.mcl{font-size:8px;color:var(--tx2);text-transform:uppercase;letter-spacing:1px}.mcc{font-size:8px;margin-top:1px;font-weight:600;color:var(--tx2)}
+.bt{padding:5px 10px;border-radius:6px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer;border:0;transition:all .15s;display:inline-flex;align-items:center;gap:3px}.bp{background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;box-shadow:0 3px 12px rgba(168,85,247,.35)}.bp:hover{transform:translateY(-1px);box-shadow:0 5px 16px rgba(236,72,153,.45)}.bo{background:0;border:1px solid var(--bd2);color:var(--tx)}.bo:hover{border-color:var(--ac2);color:#f0abfc}.bdanger{background:0;border:1px solid rgba(255,77,109,.35);color:var(--r)}.bdanger:hover{border-color:var(--r)}
+.tb{width:100%;border-collapse:collapse;font-size:10px}.tb th{text-align:left;padding:7px 8px;color:var(--tx2);font-size:8px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--bd);font-weight:600}.tb td{padding:7px 8px;border-bottom:1px solid rgba(167,139,250,.06)}.tb tr:hover td{background:rgba(168,85,247,.06)}
+.b{padding:2px 6px;border-radius:4px;font-size:8px;font-weight:700;display:inline-flex;align-items:center;gap:2px;letter-spacing:.5px}.bg{background:rgba(42,233,141,.14);color:var(--g)}.br{background:rgba(255,77,109,.16);color:var(--r)}.bor{background:rgba(255,159,28,.16);color:var(--o)}.bb{background:rgba(79,139,255,.15);color:var(--bl)}.bpu{background:rgba(168,85,247,.16);color:#c084fc}.bc{background:rgba(34,211,238,.14);color:var(--c)}.by{background:rgba(255,214,10,.14);color:var(--y)}
+.pb{height:6px;background:rgba(11,4,32,.8);border-radius:3px;overflow:hidden}.pf{height:100%;border-radius:3px;box-shadow:0 0 8px currentColor}
+.ip{background:rgba(11,4,32,.7);border:1px solid var(--bd2);border-radius:6px;padding:7px 9px;color:var(--tx);font-family:inherit;font-size:11px;width:100%}.ip:focus{outline:none;border-color:var(--ac2);box-shadow:0 0 0 3px rgba(236,72,153,.12)}textarea.ip{resize:vertical;min-height:40px}select.ip{cursor:pointer}
+.lg{padding:7px 9px;background:rgba(11,4,32,.55);border:1px solid var(--bd);border-radius:5px;margin-bottom:3px;font-size:9px;display:flex;align-items:center;gap:6px}
 .lp{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--g);animation:lpa 1.5s infinite;flex-shrink:0}@keyframes lpa{0%,100%{box-shadow:0 0 0 0 rgba(0,232,123,.4)}50%{box-shadow:0 0 0 4px rgba(0,232,123,0)}}.lpr{background:var(--r)}
 .fa{animation:fI .3s ease}@keyframes fI{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-.rowov td{background:rgba(244,63,94,.04)!important}
+.rowov td{background:rgba(255,77,109,.07)!important}
 .clickable{cursor:pointer}
 @media(max-width:900px){.g2,.g3,.g4,.g5{grid-template-columns:1fr 1fr}.brc{display:none}}
 @media(max-width:560px){.g2,.g3,.g4,.g5{grid-template-columns:1fr}}
 ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:0}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:99999;padding:16px}
-.modal-content{background:var(--bg2);border:1px solid var(--bd);border-radius:12px;width:100%;max-width:640px;max-height:88vh;overflow:auto}
+.modal{position:fixed;inset:0;background:rgba(5,2,16,.8);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:99999;padding:16px}
+.modal-content{background:linear-gradient(160deg,rgba(168,85,247,.1),transparent 40%),var(--bg2);border:1px solid var(--bd2);border-radius:12px;width:100%;max-width:640px;max-height:88vh;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 50px rgba(168,85,247,.18)}
 .modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--bd);font-weight:700;position:sticky;top:0;background:var(--bg2);z-index:2}
 .modal-body{padding:16px}
 .email-body{width:100%;background:var(--bg);border:1px solid var(--bd);border-radius:8px;color:var(--tx);font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:10px;resize:vertical;line-height:1.5}
-.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--g);color:var(--tx);padding:10px 18px;border-radius:10px;font-size:11px;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--ac);color:var(--tx);padding:10px 18px;border-radius:10px;font-size:11px;z-index:999999;box-shadow:0 10px 30px rgba(0,0,0,.5),0 0 24px rgba(168,85,247,.3)}
 .toast.err{border-color:var(--r)}
 </style>
 </head>
@@ -60,8 +62,8 @@
 
 <!-- ===== FIRST-RUN SETUP ===== -->
 <div id="S"><div class="lbx" style="max-width:440px">
-<div class="llo">$</div><div class="lti">Receivables Command Center</div><div class="lsu">First-time setup · Your business &amp; login</div>
-<div class="lfd"><label class="llb">Business Name</label><input class="lin" id="suCo" placeholder="e.g. JF Tire"></div>
+<div class="llo">$</div><div class="lti">Trickster Inc</div><div class="lsu">Receivables · First-time setup</div>
+<div class="lfd"><label class="llb">Business Name</label><input class="lin" id="suCo" value="Trickster Inc"></div>
 <div class="g2" style="gap:8px"><div class="lfd"><label class="llb">Your Name</label><input class="lin" id="suNm" placeholder="Your name"></div>
 <div class="lfd"><label class="llb">Currency</label><select class="lin" id="suCur"><option value="CAD" selected>CAD $</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select></div></div>
 <div class="lfd"><label class="llb">Business Email (reminders sent from / reply-to)</label><input class="lin" id="suEm" placeholder="ar@yourcompany.com"></div>
@@ -74,7 +76,7 @@
 
 <!-- ===== LOGIN ===== -->
 <div id="L"><div class="lbx">
-<div class="llo">$</div><div class="lti">Receivables Command Center</div><div class="lsu" id="lSub">Missed Payments · Balances · Collections</div>
+<div class="llo">$</div><div class="lti" id="lTi">Trickster Inc</div><div class="lsu" id="lSub">Receivables · Missed Payments · Balances</div>
 <div class="lfd"><label class="llb">Username</label><input type="text" class="lin" id="inu" placeholder="Enter username" autocomplete="off" autofocus></div>
 <div class="lfd"><label class="llb">Password</label><input type="password" class="lin" id="inp" placeholder="Enter password" autocomplete="off"></div>
 <button class="lbn" id="lbtn">Sign In</button><div class="ler" id="lerr"></div>
@@ -84,7 +86,7 @@
 <!-- ===== APP ===== -->
 <div id="A">
 <div class="bar">
-  <div class="brl"><div class="bico">$</div><div><div class="bnm" id="zCo">Receivables</div><div class="bro">A/R Command Center · Payment Reminders</div></div></div>
+  <div class="brl"><div class="bico">$</div><div><div class="bnm" id="zCo">Trickster Inc</div><div class="bro">A/R Command Center · Payment Reminders</div></div></div>
   <div class="brc">
     <div class="bst"><span style="color:var(--tx2)">OUTSTANDING</span> <b class="mo" id="zTot" style="color:var(--y)">—</b></div>
     <div class="bst"><span style="color:var(--tx2)">OVERDUE</span> <b class="mo" id="zOd" style="color:var(--r)">—</b></div>
@@ -359,7 +361,7 @@ function logout(){CU=null;show('L');document.getElementById('inu').value='';docu
 
 function boot(){
   show('A');
-  document.getElementById('zCo').textContent=S.company||'Receivables';
+  document.getElementById('zCo').textContent=S.company||'Trickster Inc';
   document.getElementById('zU').textContent='👤 '+(CU.name||CU.u);
   document.getElementById('zN').innerHTML=TB.map(t=>'<div class="ni'+(t.id===cur?' on':'')+'" data-act="go" data-id="'+t.id+'">'+t.i+' '+t.l+'</div>').join('');
   go(cur);
@@ -588,7 +590,7 @@ function saveSettings(){
   S.emailjsService=document.getElementById('stEjS').value.trim();
   S.emailjsTemplate=document.getElementById('stEjT').value.trim();
   saveSettingsLS();
-  document.getElementById('zCo').textContent=S.company||'Receivables';
+  document.getElementById('zCo').textContent=S.company||'Trickster Inc';
   logA('Settings updated','⚙️');
   showToast('Settings saved');
   go('settings');
@@ -1109,6 +1111,7 @@ document.getElementById('zO').addEventListener('click',logout);
 // ---------- start ----------
 loadAll();
 (function start(){
+  if(S.company)document.getElementById('lTi').textContent=S.company;
   let rec=null;try{rec=JSON.parse(localStorage.getItem(K.user))}catch(_){}
   if(!rec)show('S');
   else show('L');
