@@ -1,0 +1,22 @@
+# Trickster Inc — Receivables Command Center (standalone Netlify site)
+# Used when this folder is deployed as its own site:
+#   - via drag & drop of the folder/zip onto https://app.netlify.com/drop, or
+#   - via "New site from Git" with Base directory = collections
+# The app is a single static HTML file — no build step, no functions.
+
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Robots-Tag = "noindex"
+
+# Keep the docs out of the public site
+[[redirects]]
+  from = "/README.md"
+  to = "/"
+  status = 302

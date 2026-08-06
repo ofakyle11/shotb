@@ -13,6 +13,9 @@ command-center UI, login gate, tabbed layout, and all data stored in the browser
 
 - **Locally:** double-click `index.html` (or open it in any modern browser). Everything works offline.
 - **On Netlify (this repo):** it deploys with the site and is served at `/collections/`.
+- **As its own Netlify site (recommended for Trickster Inc):**
+  - *Drag & drop:* zip this folder (or just drag the folder) onto <https://app.netlify.com/drop> — a new site with its own URL exists in ~30 seconds; or
+  - *From Git:* Netlify → Add new site → Import from Git → pick this repo → set **Base directory** = `collections` (the `netlify.toml` here handles the rest). Publishes automatically on every push.
 - **Logo:** `trickster-logo.svg` — the Trickster Inc jester-shield mark: a three-point jester cap with bells and a jagged grin on a hexagonal shield (scales to any size; also used as the app favicon and header badge).
 
 First launch shows a one-time setup for your business name, contact info, and currency.
