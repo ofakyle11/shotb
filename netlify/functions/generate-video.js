@@ -119,6 +119,57 @@ const FAL_VIDEO_MODELS = {
       if (Number.isFinite(f.seed)) b.seed = f.seed;
       return b;
     }
+  },
+  // ── Non-Chinese labs with NATIVE AUDIO (dialogue/SFX baked into the clip) ──
+  'fal-ltx2-fast': {
+    // Lightricks (Israel) — cheapest audio video anywhere: $0.04/s at 1080p.
+    // No aspect param: output is landscape 1080p.
+    i2v: 'fal-ai/ltx-2/image-to-video/fast',
+    t2v: 'fal-ai/ltx-2/text-to-video/fast',
+    build: (f, ref) => {
+      const allowed = [6, 8, 10, 12, 14, 16, 18, 20];
+      const want = Number(f.duration) || 6;
+      const b = {
+        prompt: f.prompt, resolution: '1080p', fps: 25, generate_audio: true,
+        duration: allowed.reduce((a, c) => Math.abs(c - want) < Math.abs(a - want) ? c : a, 6)
+      };
+      if (ref) b.image_url = ref;
+      return b;
+    }
+  },
+  'fal-veo31-lite': {
+    // Google — $0.05/s at 720p with audio ($0.08/s at 1080p).
+    i2v: 'fal-ai/veo3.1/lite/image-to-video',
+    t2v: 'fal-ai/veo3.1/lite',
+    build: (f, ref) => {
+      const d = Number(f.duration) || 6;
+      const b = {
+        prompt: f.prompt, generate_audio: true,
+        resolution: (f.resolution === '1080p') ? '1080p' : '720p',
+        duration: d <= 5 ? '4s' : d <= 7 ? '6s' : '8s'
+      };
+      if (ref) { b.image_url = ref; b.aspect_ratio = 'auto'; }
+      else b.aspect_ratio = (f.aspect_ratio === '9:16') ? '9:16' : '16:9';
+      if (f.negative_prompt) b.negative_prompt = f.negative_prompt;
+      if (Number.isFinite(f.seed)) b.seed = f.seed;
+      return b;
+    }
+  },
+  'fal-sora-2': {
+    // OpenAI — $0.10/s at 720p with audio.
+    i2v: 'fal-ai/sora-2/image-to-video',
+    t2v: 'fal-ai/sora-2/text-to-video',
+    build: (f, ref) => {
+      const allowed = [4, 8, 12];
+      const want = Number(f.duration) || 4;
+      const b = {
+        prompt: f.prompt, resolution: '720p',
+        duration: allowed.reduce((a, c) => Math.abs(c - want) < Math.abs(a - want) ? c : a, 4),
+        aspect_ratio: (f.aspect_ratio === '9:16') ? '9:16' : '16:9'
+      };
+      if (ref) b.image_url = ref;
+      return b;
+    }
   }
 };
 const FAL_IMAGE_MODELS = {

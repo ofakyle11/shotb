@@ -25,7 +25,10 @@
     'fal-wan-i2v': { label: 'Wan 2.1 (fal · cheapest)', resolutions: ['480p', '720p'], aspectRatios: ['16:9', '9:16'], durations: [5], supportsReferences: true, maxRefImages: 1, description: 'Wan 2.1 image-to-video on fal.ai — the cheapest real cloud video (~$0.20–0.40/clip). Board/ref becomes the start frame.' },
     'fal-ltx': { label: 'LTX Video (fal · fastest cloud)', resolutions: ['480p', '720p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [2, 4, 6, 8], supportsReferences: true, maxRefImages: 1, description: 'LTX-Video distilled on fal.ai — near-instant cloud clips for pennies. Draft-tier motion quality.' },
     'fal-kling-2.1': { label: 'Kling 2.1 (fal · balanced)', resolutions: ['720p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10], supportsReferences: true, maxRefImages: 1, description: 'Kling 2.1 Standard on fal.ai — strong cinematic motion at ~$0.25/5s. Board/ref becomes the start frame.' },
-    'fal-hailuo': { label: 'Hailuo 02 (fal · lively motion)', resolutions: ['720p'], aspectRatios: ['16:9'], durations: [6, 10], supportsReferences: true, maxRefImages: 1, description: 'MiniMax Hailuo 02 Standard on fal.ai — expressive character motion, ~$0.27/6s.' }
+    'fal-hailuo': { label: 'Hailuo 02 (fal · lively motion)', resolutions: ['720p'], aspectRatios: ['16:9'], durations: [6, 10], supportsReferences: true, maxRefImages: 1, description: 'MiniMax Hailuo 02 Standard on fal.ai — expressive character motion, ~$0.27/6s.' },
+    'fal-ltx2-fast': { label: '🔊 LTX-2 (fal · AUDIO · cheapest)', resolutions: ['1080p'], aspectRatios: ['16:9'], durations: [6, 8, 10], supportsReferences: true, maxRefImages: 1, description: 'Lightricks LTX-2 Fast — NATIVE AUDIO (dialogue + SFX) at 1080p for ~$0.04/s (~$0.24/6s). The cheapest talking video anywhere. Non-Chinese (Israel). Landscape only.' },
+    'fal-veo31-lite': { label: '🔊 Veo 3.1 Lite (fal · AUDIO)', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], supportsReferences: true, maxRefImages: 1, description: 'Google Veo 3.1 Lite — NATIVE AUDIO with strong prompt following, ~$0.05/s at 720p (~$0.30/6s). Non-Chinese (US).' },
+    'fal-sora-2': { label: '🔊 Sora 2 (fal · AUDIO)', resolutions: ['720p'], aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12], supportsReferences: true, maxRefImages: 1, description: 'OpenAI Sora 2 — NATIVE AUDIO with the best physical realism, ~$0.10/s (~$0.40/4s). Non-Chinese (US).' }
   };
 
   var _ddDocClickWired = false;
@@ -473,7 +476,8 @@
   var EST_COST_PER_SEC = {
     'seedance-2.0-turbo': 0.03, 'wan-2.7': 0.025, 'sora-2': 0.10, 'veo-3.1': 0.25,
     'vidu-q3': 0.15, 'kling-3.0-pro': 0.07, 'grok-imagine': 0.05, 'comfy-local': 0, 'comfy-still': 0,
-    'fal-wan-i2v': 0.05, 'fal-ltx': 0.01, 'fal-kling-2.1': 0.05, 'fal-hailuo': 0.045
+    'fal-wan-i2v': 0.05, 'fal-ltx': 0.01, 'fal-kling-2.1': 0.05, 'fal-hailuo': 0.045,
+    'fal-ltx2-fast': 0.04, 'fal-veo31-lite': 0.05, 'fal-sora-2': 0.10
   };
   function estimateClipCost(model, seconds) {
     var r = EST_COST_PER_SEC[model];
