@@ -466,6 +466,7 @@ function pAccounts(){
   return '<div class="fa"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">'
     +'<h2 style="font-size:14px;font-weight:800">🏢 Accounts — Who Owes What</h2>'
     +'<div><button class="bt bp" data-act="addAccount">+ Add Account</button> <button class="bt bo" data-act="exportAcctCSV">Export CSV</button></div></div>'
+    +(ACCOUNTS.length&&!INVOICES.length?'<div class="cd" style="border-color:rgba(255,122,0,.4)"><div style="font-size:10px;line-height:1.6">💡 <b>Balances show $0 because no money is recorded yet.</b> Open a customer and hit <b>+ Invoice</b> to enter what they owe — or when adding a new customer, fill in the <b>"What do they owe right now?"</b> amount and it\'s handled automatically.</div></div>':'')
     +'<div class="cd" style="overflow-x:auto">'
     +(rows.length?'<table class="tb"><thead><tr><th>Company</th><th>Contact</th><th>Terms</th><th>Balance</th><th>Past Due</th><th>Status</th><th>Last Reminder</th><th></th></tr></thead><tbody>'
       +rows.map(a=>{
@@ -634,6 +635,12 @@ function acctForm(a){
 }
 function addAccountModal(){
   modal(mhead('➕ Add Account')+'<div class="modal-body">'+acctForm()
+  +'<div class="ct_" style="font-size:11px;margin-top:14px">💰 What do they owe right now?</div>'
+  +'<div class="g2" style="gap:8px">'
+  +'<div><label class="llb">Amount owed</label><input class="ip" id="afOwed" placeholder="0.00"></div>'
+  +'<div><label class="llb">Was due on</label><input class="ip" id="afDue" type="date" value="'+todayISO()+'"></div>'
+  +'</div>'
+  +'<div style="font-size:9px;color:var(--tx2);margin-top:4px">This creates their first invoice automatically, so the balance shows the moment you save. Pick the real due date — if it\'s in the past, they\'ll land straight in the reminder queue. Leave the amount empty if you\'d rather add invoices one by one.</div>'
   +'<div style="margin-top:12px"><button class="bt bp" data-act="saveAccount">Save Account</button></div></div>');
 }
 function editAccountModal(id){
@@ -656,8 +663,27 @@ function saveAccount(id){
     const a=ACCOUNTS.find(x=>x.id===id);if(!a)return;
     Object.assign(a,data);logA('Account updated: '+co,'✏️');
   }else{
-    ACCOUNTS.push(Object.assign({id:uid('a'),createdAt:new Date().toISOString(),promiseDate:'',promiseAmount:0},data));
+    const acct=Object.assign({id:uid('a'),createdAt:new Date().toISOString(),promiseDate:'',promiseAmount:0},data);
+    ACCOUNTS.push(acct);
     logA('Account added: '+co,'🏢');
+    // opening balance → auto-create their first invoice so money shows immediately
+    const owedEl=document.getElementById('afOwed');
+    const owed=owedEl?parseMoney(owedEl.value):0;
+    if(owed>0){
+      const due=(document.getElementById('afDue')||{}).value||todayISO();
+      INVOICES.push({
+        id:uid('i'),accountId:acct.id,
+        number:'BAL-'+String(INVOICES.length+1001),
+        issueDate:addDays(due,-(acct.terms||30)),
+        dueDate:due,
+        amount:owed,payments:[],createdAt:new Date().toISOString()
+      });
+      saveInvoices();
+      logA('Opening balance '+money(owed)+' recorded for '+co+' (due '+fmtDate(due)+')','🧾');
+      showToast(co+' added — owes '+money(owed));
+    }else{
+      showToast(co+' added — balance is $0 until you add an invoice');
+    }
   }
   saveAccounts();closeModals();go(id?cur:'accounts');
   if(id)openAccountModal(id);
