@@ -9,15 +9,17 @@
   </defs>
   <!-- shield -->
   <path d="M32 1.5 L59 11 V39 L32 62.5 L5 39 V11 Z" fill="#0d0d11" stroke="url(#tfire)" stroke-width="3"/>
-  <path d="M32 5.5 L55.5 13.8 V37.4 L32 57.8 L8.5 37.4 V13.8 Z" fill="none" stroke="#ff7a00" stroke-opacity=".25" stroke-width="1"/>
-  <!-- fox head -->
-  <path d="M14 9 L26 17 L32 21 L38 17 L50 9 L52 27 L41 40 L32 55 L23 40 L12 27 Z" fill="url(#tfire)"/>
+  <!-- jester cap: three curved spikes -->
+  <path d="M10 10 C18 16 22 20 25 25 L32 11 L39 25 C42 20 46 16 54 10 C52 18 50 24 47 29 L17 29 C14 24 12 18 10 10 Z" fill="url(#tfire)"/>
+  <!-- bells -->
+  <circle cx="10" cy="9.5" r="2.6" fill="#ffc400"/>
+  <circle cx="32" cy="9" r="2.6" fill="#ffc400"/>
+  <circle cx="54" cy="9.5" r="2.6" fill="#ffc400"/>
+  <!-- face -->
+  <path d="M17 29 L47 29 L44 41 L32 55 L20 41 Z" fill="url(#tfire)"/>
   <!-- eyes -->
-  <path d="M22 28 L30 30.5 L24 34.5 Z" fill="#0d0d11"/>
-  <path d="M42 28 L34 30.5 L40 34.5 Z" fill="#0d0d11"/>
-  <!-- nose -->
-  <path d="M28.5 44 L35.5 44 L32 49.5 Z" fill="#0d0d11"/>
-  <!-- inner-ear shading -->
-  <path d="M17 12.5 L24.5 17.5 L20.5 23 Z" fill="#0d0d11" fill-opacity=".55"/>
-  <path d="M47 12.5 L39.5 17.5 L43.5 23 Z" fill="#0d0d11" fill-opacity=".55"/>
+  <path d="M21.5 33 L30 34.5 L23.5 39 Z" fill="#0d0d11"/>
+  <path d="M42.5 33 L34 34.5 L40.5 39 Z" fill="#0d0d11"/>
+  <!-- jagged grin -->
+  <path d="M22.5 42 L26 44.8 L29 42.8 L32 45 L35 42.8 L38 44.8 L41.5 42 L32 50.5 Z" fill="#0d0d11"/>
 </svg>
