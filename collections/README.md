@@ -18,20 +18,14 @@ command-center UI, login gate, tabbed layout, and all data stored in the browser
   - *From Git:* Netlify → Add new site → Import from Git → pick this repo → set **Base directory** = `collections` (the `netlify.toml` here handles the rest). Publishes automatically on every push.
 - **Logo:** `trickster-logo.svg` — the Trickster Inc jester-shield mark: a three-point jester cap with bells and a jagged grin on a hexagonal shield (scales to any size; also used as the app favicon and header badge).
 
-First launch shows a one-time setup for your business name, contact info, and currency.
+The landing page is login-only. Two team accounts are built in — `mauruch` and `kfran`
+(passwords were provided privately at handoff; SHA-256 hashed, stored in that browser
+only). **Change both passwords after first sign-in** via Settings → Change Password
+(applies to whichever user is signed in). After the first login, a one-time setup asks
+for the business name, contact info, and currency.
 
-## Logins
-
-Two team accounts are built in (SHA-256 hashed, stored in that browser only):
-
-| Username | Default password |
-|----------|------------------|
-| `mauruch` | `Trickster2026!Mau` |
-| `kfran` | `Trickster2026!KFran` |
-
-Change the defaults after first sign-in via **Settings → Change Password** (applies to
-whichever user is signed in). Both users share the same accounts/invoice data in that
-browser; the activity log records who signed in and what was done.
+Both users share the same accounts/invoice data in a given browser; the activity log
+records who signed in and what was done.
 
 ## What it does
 
