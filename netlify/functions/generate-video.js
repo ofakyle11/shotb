@@ -170,6 +170,56 @@ const FAL_VIDEO_MODELS = {
       if (ref) b.image_url = ref;
       return b;
     }
+  },
+  'fal-ltx2-pro': {
+    // Lightricks pro tier — $0.06/s at 1080p with audio, broadcast quality.
+    i2v: 'fal-ai/ltx-2/image-to-video',
+    t2v: 'fal-ai/ltx-2/text-to-video',
+    build: (f, ref) => {
+      const allowed = [6, 8, 10];
+      const want = Number(f.duration) || 6;
+      const b = {
+        prompt: f.prompt, resolution: '1080p', fps: 25, generate_audio: true,
+        duration: allowed.reduce((a, c) => Math.abs(c - want) < Math.abs(a - want) ? c : a, 6)
+      };
+      if (ref) b.image_url = ref;
+      return b;
+    }
+  },
+  'fal-veo31-fast': {
+    // Google fast tier — $0.15/s with audio at 720p/1080p.
+    i2v: 'fal-ai/veo3.1/fast/image-to-video',
+    t2v: 'fal-ai/veo3.1/fast',
+    build: (f, ref) => {
+      const d = Number(f.duration) || 6;
+      const b = {
+        prompt: f.prompt, generate_audio: true,
+        resolution: (f.resolution === '1080p') ? '1080p' : '720p',
+        duration: d <= 5 ? '4s' : d <= 7 ? '6s' : '8s'
+      };
+      if (ref) { b.image_url = ref; b.aspect_ratio = 'auto'; }
+      else b.aspect_ratio = (f.aspect_ratio === '9:16') ? '9:16' : '16:9';
+      if (f.negative_prompt) b.negative_prompt = f.negative_prompt;
+      if (Number.isFinite(f.seed)) b.seed = f.seed;
+      return b;
+    }
+  },
+  'fal-sora-2-pro': {
+    // OpenAI pro tier — $0.30/s at 720p, $0.50/s at 1080p, with audio.
+    i2v: 'fal-ai/sora-2/image-to-video/pro',
+    t2v: 'fal-ai/sora-2/text-to-video/pro',
+    build: (f, ref) => {
+      const allowed = [4, 8, 12];
+      const want = Number(f.duration) || 4;
+      const b = {
+        prompt: f.prompt,
+        resolution: (f.resolution === '1080p') ? '1080p' : '720p',
+        duration: allowed.reduce((a, c) => Math.abs(c - want) < Math.abs(a - want) ? c : a, 4),
+        aspect_ratio: (f.aspect_ratio === '9:16') ? '9:16' : '16:9'
+      };
+      if (ref) b.image_url = ref;
+      return b;
+    }
   }
 };
 const FAL_IMAGE_MODELS = {

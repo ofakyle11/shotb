@@ -18,7 +18,7 @@
     'sora-2': { label: 'Sora 2', resolutions: ['720p'], aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12], supportsReferences: true, maxRefImages: 1, description: 'Sora 2 via aivideoapi.ai — 4/8/12s, 16:9 or 9:16' },
     'veo-3.1': { label: 'Veo 3.1', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], supportsReferences: true, maxRefImages: 3, description: 'Google Veo 3.1 — 1080p T2V/R2V via WaveSpeed (4/6/8s)' },
     'vidu-q3': { label: 'Vidu Q3 (Multi-Ref)', resolutions: ['480p', '720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [4, 5, 8, 10, 16], supportsReferences: true, maxRefImages: 4, description: 'Vidu Q3 reference-to-video — multi-entity consistency from up to 4 refs (character + wardrobe + prop + location), audio, up to 16s' },
-    'grok-imagine': { label: 'Grok Imagine (XAI)', resolutions: ['480p', '720p'], aspectRatios: ['1:1', '16:9', '9:16', '2:3', '3:2'], durations: [4, 5, 6, 8, 10, 12, 15], supportsReferences: true, maxRefImages: 7, description: 'XAI Grok Imagine native - excellent ref coherence + audio' },
+    'grok-imagine': { label: '🔊 Grok Imagine (xAI · AUDIO)', resolutions: ['480p', '720p'], aspectRatios: ['1:1', '16:9', '9:16', '2:3', '3:2'], durations: [4, 5, 6, 8, 10, 12, 15], supportsReferences: true, maxRefImages: 7, description: 'xAI Grok Imagine — NATIVE AUDIO, best reference coherence (up to 7 ref images), ~$0.05/s. Runs on your working xAI key. Non-Chinese (US).' },
     'kling-3.0-pro': { label: 'Kling 3.0 Pro', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [3, 5, 8, 10, 15], supportsReferences: true, maxRefImages: 1, description: 'Kling 3.0 Pro — cinematic T2V/I2V via WaveSpeed' },
     'comfy-local': { label: '🖥 Local ComfyUI (this PC)', resolutions: ['480p', '720p'], aspectRatios: ['16:9', '9:16'], durations: [2, 3, 4, 5, 6, 8], supportsReferences: true, maxRefImages: 1, description: 'Your own ComfyUI — adapts to your installed models: Wan/SVD when present, else AnimateDiff (short ~2s experimental clips). CPU-only machines: use a cloud model for real clips; local stills work great. Launch with --enable-cors-header' },
     'comfy-still': { label: '🖼 Still + Motion (fast local)', resolutions: ['720p'], aspectRatios: ['16:9', '9:16'], durations: [2, 3, 4, 5, 6, 8, 10], supportsReferences: true, maxRefImages: 1, description: 'Storyboard frame from your ComfyUI + cinematic push-in/pan rendered in-browser — the fastest local clip on any hardware. Great for animatics and draft cuts.' },
@@ -28,7 +28,10 @@
     'fal-hailuo': { label: 'Hailuo 02 (fal · lively motion)', resolutions: ['720p'], aspectRatios: ['16:9'], durations: [6, 10], supportsReferences: true, maxRefImages: 1, description: 'MiniMax Hailuo 02 Standard on fal.ai — expressive character motion, ~$0.27/6s.' },
     'fal-ltx2-fast': { label: '🔊 LTX-2 (fal · AUDIO · cheapest)', resolutions: ['1080p'], aspectRatios: ['16:9'], durations: [6, 8, 10], supportsReferences: true, maxRefImages: 1, description: 'Lightricks LTX-2 Fast — NATIVE AUDIO (dialogue + SFX) at 1080p for ~$0.04/s (~$0.24/6s). The cheapest talking video anywhere. Non-Chinese (Israel). Landscape only.' },
     'fal-veo31-lite': { label: '🔊 Veo 3.1 Lite (fal · AUDIO)', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], supportsReferences: true, maxRefImages: 1, description: 'Google Veo 3.1 Lite — NATIVE AUDIO with strong prompt following, ~$0.05/s at 720p (~$0.30/6s). Non-Chinese (US).' },
-    'fal-sora-2': { label: '🔊 Sora 2 (fal · AUDIO)', resolutions: ['720p'], aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12], supportsReferences: true, maxRefImages: 1, description: 'OpenAI Sora 2 — NATIVE AUDIO with the best physical realism, ~$0.10/s (~$0.40/4s). Non-Chinese (US).' }
+    'fal-sora-2': { label: '🔊 Sora 2 (fal · AUDIO)', resolutions: ['720p'], aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12], supportsReferences: true, maxRefImages: 1, description: 'OpenAI Sora 2 — NATIVE AUDIO with the best physical realism, ~$0.10/s (~$0.40/4s). Non-Chinese (US).' },
+    'fal-ltx2-pro': { label: '🔊 LTX-2 Pro (fal · AUDIO · quality)', resolutions: ['1080p'], aspectRatios: ['16:9'], durations: [6, 8, 10], supportsReferences: true, maxRefImages: 1, description: 'Lightricks LTX-2 Pro — NATIVE AUDIO, broadcast-quality 1080p at ~$0.06/s (~$0.36/6s). Non-Chinese (Israel). Landscape only.' },
+    'fal-veo31-fast': { label: '🔊 Veo 3.1 Fast (fal · AUDIO · quality)', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16'], durations: [4, 6, 8], supportsReferences: true, maxRefImages: 1, description: 'Google Veo 3.1 Fast — NATIVE AUDIO, best prompt/dialogue following in its class, ~$0.15/s (~$0.90/6s). Non-Chinese (US).' },
+    'fal-sora-2-pro': { label: '🔊 Sora 2 Pro (fal · AUDIO · hero shots)', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16'], durations: [4, 8, 12], supportsReferences: true, maxRefImages: 1, description: 'OpenAI Sora 2 Pro — NATIVE AUDIO at max fidelity, ~$0.30/s 720p / $0.50/s 1080p (~$1.20-2.00/4s). For the shots that carry the film. Non-Chinese (US).' }
   };
 
   var _ddDocClickWired = false;
@@ -477,7 +480,8 @@
     'seedance-2.0-turbo': 0.03, 'wan-2.7': 0.025, 'sora-2': 0.10, 'veo-3.1': 0.25,
     'vidu-q3': 0.15, 'kling-3.0-pro': 0.07, 'grok-imagine': 0.05, 'comfy-local': 0, 'comfy-still': 0,
     'fal-wan-i2v': 0.05, 'fal-ltx': 0.01, 'fal-kling-2.1': 0.05, 'fal-hailuo': 0.045,
-    'fal-ltx2-fast': 0.04, 'fal-veo31-lite': 0.05, 'fal-sora-2': 0.10
+    'fal-ltx2-fast': 0.04, 'fal-veo31-lite': 0.05, 'fal-sora-2': 0.10,
+    'fal-ltx2-pro': 0.06, 'fal-veo31-fast': 0.15, 'fal-sora-2-pro': 0.30
   };
   function estimateClipCost(model, seconds) {
     var r = EST_COST_PER_SEC[model];
