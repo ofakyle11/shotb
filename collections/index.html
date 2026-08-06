@@ -72,9 +72,12 @@ h2{text-transform:uppercase;letter-spacing:1.5px}.ct_{text-transform:uppercase;l
 <div class="lfd"><label class="llb">Currency</label><select class="lin" id="suCur"><option value="CAD" selected>CAD $</option><option value="USD">USD $</option><option value="EUR">EUR €</option><option value="GBP">GBP £</option></select></div></div>
 <div class="lfd"><label class="llb">Business Email (reminders sent from / reply-to)</label><input class="lin" id="suEm" placeholder="ar@yourcompany.com"></div>
 <div class="lfd"><label class="llb">Business Phone</label><input class="lin" id="suPh" placeholder="(555) 555-5555"></div>
-<div class="g2" style="gap:8px"><div class="lfd"><label class="llb">Login Username</label><input class="lin" id="suU" placeholder="admin" autocomplete="off"></div>
-<div class="lfd"><label class="llb">Login Password</label><input type="password" class="lin" id="suP" placeholder="Choose a password" autocomplete="new-password"></div></div>
-<button class="lbn" id="suBtn">Create &amp; Enter</button><div class="ler" id="suErr"></div>
+<div style="padding:10px;background:rgba(255,122,0,.06);border:1px solid rgba(255,122,0,.3);border-radius:8px;font-size:10px;line-height:1.7;margin-bottom:12px">
+<b style="color:var(--ac)">SIGN-IN ACCOUNTS</b><br>
+👤 <b>mauruch</b> — password: <span class="mo">Trickster2026!Mau</span><br>
+👤 <b>kfran</b> — password: <span class="mo">Trickster2026!KFran</span><br>
+<span style="color:var(--tx2)">Each user can change their password in Settings after signing in.</span></div>
+<button class="lbn" id="suBtn">Save &amp; Continue</button><div class="ler" id="suErr"></div>
 <div style="text-align:center;font-size:9px;color:var(--tx3);margin-top:14px">🔒 Stored locally in this browser only (SHA-256). No server required.</div>
 </div></div>
 
@@ -115,7 +118,7 @@ h2{text-transform:uppercase;letter-spacing:1.5px}.ct_{text-transform:uppercase;l
 
 // ---------- storage keys ----------
 const K = {
-  user:     'arc_user_v1',
+  users:    'arc_users_v1',
   settings: 'arc_settings_v1',
   accounts: 'arc_accounts_v1',
   invoices: 'arc_invoices_v1',
@@ -140,6 +143,12 @@ const TB = [
   {id:'remind',   i:'📧', l:'Reminders'},
   {id:'log',      i:'📜', l:'Activity'},
   {id:'settings', i:'⚙️', l:'Settings'}
+];
+
+// Team accounts (passwords are only defaults — change them in Settings).
+const DEFAULT_USERS = [
+  {u:'mauruch', name:'Mauruch', pw:'Trickster2026!Mau'},
+  {u:'kfran',   name:'KFran',   pw:'Trickster2026!KFran'}
 ];
 
 // Escalation ladder: suggested reminder level by days past due.
@@ -324,20 +333,27 @@ function buildReminder(a,lvlN){
 // ---------- boot / auth ----------
 function show(id){['S','L','A'].forEach(x=>document.getElementById(x).style.display=x===id?(x==='A'?'block':'flex'):'none')}
 
-async function firstRunCreate(){
+function getUsers(){
+  try{return JSON.parse(localStorage.getItem(K.users))||[]}catch(e){return []}
+}
+async function ensureUsers(){
+  if(localStorage.getItem(K.users))return;
+  const users=[];
+  for(const d of DEFAULT_USERS)users.push({u:d.u,hash:await sha(d.u+'::'+d.pw),name:d.name});
+  // migrate a single-admin account created by an older version
+  let old=null;try{old=JSON.parse(localStorage.getItem('arc_user_v1'))}catch(_){}
+  if(old&&old.u&&old.hash&&!users.some(x=>x.u===old.u))users.push(old);
+  localStorage.setItem(K.users,JSON.stringify(users));
+}
+
+function firstRunCreate(){
   const co=document.getElementById('suCo').value.trim();
   const nm=document.getElementById('suNm').value.trim();
   const em=document.getElementById('suEm').value.trim();
   const ph=document.getElementById('suPh').value.trim();
   const curcy=document.getElementById('suCur').value;
-  const u=document.getElementById('suU').value.trim().toLowerCase();
-  const p=document.getElementById('suP').value;
   const err=document.getElementById('suErr');
   if(!co){err.textContent='Business name is required';return}
-  if(!u||!p){err.textContent='Choose a username and password';return}
-  if(p.length<6){err.textContent='Password must be at least 6 characters';return}
-  const hash=await sha(u+'::'+p);
-  localStorage.setItem(K.user,JSON.stringify({u,hash,name:nm||u}));
   S=Object.assign({
     company:co,senderName:nm,senderEmail:em,senderPhone:ph,currency:curcy,
     cadenceDays:5,
@@ -345,20 +361,21 @@ async function firstRunCreate(){
     lateFeeNote:'',
     emailjsPublic:'',emailjsService:'',emailjsTemplate:''
   },S);
+  S.setupDone=true;
   saveSettingsLS();
   logA('Workspace created for '+co,'🟢');
-  CU={u,name:nm||u};
-  boot();
+  document.getElementById('lTi').textContent=S.company;
+  show('L');
 }
 
 async function login(){
   const u=document.getElementById('inu').value.toLowerCase().trim();
   const p=document.getElementById('inp').value;
   const e=document.getElementById('lerr');
-  let rec=null;try{rec=JSON.parse(localStorage.getItem(K.user))}catch(_){}
-  if(!rec){e.textContent='No account on this browser — reload to run setup';return}
+  const rec=getUsers().find(x=>x.u===u);
+  if(!rec){e.textContent='Unknown user — accounts: '+DEFAULT_USERS.map(d=>d.u).join(', ');return}
   const hash=await sha(u+'::'+p);
-  if(u===rec.u&&hash===rec.hash){CU={u,name:rec.name};boot()}
+  if(hash===rec.hash){CU={u,name:rec.name};logA(rec.name+' signed in','👤');boot()}
   else e.textContent='Invalid credentials';
 }
 function logout(){CU=null;show('L');document.getElementById('inu').value='';document.getElementById('inp').value='';document.getElementById('lerr').textContent=''}
@@ -576,6 +593,7 @@ function pSettings(){
     +'<button class="bt bo" data-act="changePass">Change Password</button>'
     +'<button class="bt bdanger" data-act="resetAll">Reset Everything</button>'
     +'</div>'
+    +'<div style="font-size:9px;color:var(--tx2);margin-top:8px">👤 Signed in as <b>'+esc(CU?CU.name:'')+'</b> · Team accounts: '+getUsers().map(x=>'<b>'+esc(x.u)+'</b>').join(' · ')+' — Change Password applies to the signed-in user. All users share this browser\'s data.</div>'
   +'</div>'
   +'</div>'
   +'<button class="bt bp" data-act="saveSettings" style="margin-top:4px;padding:9px 22px;font-size:12px">Save Settings</button>'
@@ -1042,18 +1060,21 @@ function resetAll(){
   if(!confirm('Reset EVERYTHING? All accounts, invoices, reminders, settings and your login will be erased from this browser.'))return;
   if(!confirm('Really erase everything? Consider exporting a JSON backup first.'))return;
   Object.values(K).forEach(k=>localStorage.removeItem(k));
+  localStorage.removeItem('arc_user_v1');
   location.reload();
 }
 async function changePass(){
-  const p1=prompt('New password (min 6 characters):');
+  if(!CU)return;
+  const p1=prompt('New password for '+CU.u+' (min 6 characters):');
   if(p1==null)return;
   if(p1.length<6){showToast('Too short — 6 characters minimum','err');return}
-  let rec=null;try{rec=JSON.parse(localStorage.getItem(K.user))}catch(_){}
+  const users=getUsers();
+  const rec=users.find(x=>x.u===CU.u);
   if(!rec)return;
   rec.hash=await sha(rec.u+'::'+p1);
-  localStorage.setItem(K.user,JSON.stringify(rec));
-  logA('Password changed','🔒');
-  showToast('Password updated');
+  localStorage.setItem(K.users,JSON.stringify(users));
+  logA('Password changed for '+CU.u,'🔒');
+  showToast('Password updated for '+CU.u);
 }
 
 // ---------- event wiring (delegation — safe with any company names) ----------
@@ -1114,10 +1135,11 @@ document.getElementById('zO').addEventListener('click',logout);
 
 // ---------- start ----------
 loadAll();
-(function start(){
+(async function start(){
+  await ensureUsers();
+  if(S.company&&!S.setupDone){S.setupDone=true;saveSettingsLS()} // migrate pre-multi-user saves
   if(S.company)document.getElementById('lTi').textContent=S.company;
-  let rec=null;try{rec=JSON.parse(localStorage.getItem(K.user))}catch(_){}
-  if(!rec)show('S');
+  if(!S.setupDone)show('S');
   else show('L');
 })();
 </script>

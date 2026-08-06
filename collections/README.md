@@ -15,8 +15,20 @@ command-center UI, login gate, tabbed layout, and all data stored in the browser
 - **On Netlify (this repo):** it deploys with the site and is served at `/collections/`.
 - **Logo:** `trickster-logo.svg` — the Trickster Inc jester-shield mark: a three-point jester cap with bells and a jagged grin on a hexagonal shield (scales to any size; also used as the app favicon and header badge).
 
-First launch shows a one-time setup: your business name, contact info, currency, and a
-username/password (stored as a SHA-256 hash in that browser only).
+First launch shows a one-time setup for your business name, contact info, and currency.
+
+## Logins
+
+Two team accounts are built in (SHA-256 hashed, stored in that browser only):
+
+| Username | Default password |
+|----------|------------------|
+| `mauruch` | `Trickster2026!Mau` |
+| `kfran` | `Trickster2026!KFran` |
+
+Change the defaults after first sign-in via **Settings → Change Password** (applies to
+whichever user is signed in). Both users share the same accounts/invoice data in that
+browser; the activity log records who signed in and what was done.
 
 ## What it does
 
