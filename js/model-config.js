@@ -231,6 +231,18 @@
     return list[model] || Object.values(list)[0] || {};
   }
 
+  /* Timeline picker offers ONLY fal models with native audio, cheapest first
+     — the catalog keeps every model (server routing, saved projects, cost
+     estimates) but the UI stays a short, all-working list. */
+  function timelineVideoModels() {
+    var out = {};
+    Object.keys(VIDEO_MODELS)
+      .filter(function (k) { return /^fal-/.test(k) && AUDIO_MODELS.has(k); })
+      .sort(function (a, b) { return (EST_COST_PER_SEC[a] || 9) - (EST_COST_PER_SEC[b] || 9); })
+      .forEach(function (k) { out[k] = VIDEO_MODELS[k]; });
+    return out;
+  }
+
   function populateModelSelect(selectId, modelsObj) {
     var sel = document.getElementById(selectId);
     if (!sel || !modelsObj) return;
@@ -337,7 +349,7 @@
     if (isTimeline) {
       var gModel = document.getElementById('gModel');
       if (gModel && !gModel.options.length) {
-        populateModelSelect('gModel', VIDEO_MODELS);
+        populateModelSelect('gModel', timelineVideoModels());
         if (VIDEO_MODELS['seedance-2.0-turbo']) gModel.value = 'seedance-2.0-turbo';
         updateOptionsForModel(gModel.value, true, 'gQuality', 'gAspect', 'gDuration');
       }
@@ -451,7 +463,7 @@
     var modelSel = document.getElementById('gModel');
     if (!modelSel) return;
     restoreNativeSelects(TL_ALL_SETTING_IDS);
-    populateModelSelect('gModel', VIDEO_MODELS);
+    populateModelSelect('gModel', timelineVideoModels());
     var migrate = { 'seedance-turbo': 'seedance-2.0-turbo', seedance: 'seedance-2.0-turbo', veo: 'veo-3.1' };
     if (modelSel.value && migrate[modelSel.value]) modelSel.value = migrate[modelSel.value];
     if (!modelSel.value || !VIDEO_MODELS[modelSel.value]) {
