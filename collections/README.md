@@ -58,7 +58,8 @@ Sending options (any of):
 
 1. **Copy** — paste into any email client.
 2. **Open in Mail App** — pre-filled `mailto:` draft to the account's contact.
-3. **Send Now (EmailJS)** — optional one-click sending if you add free [EmailJS](https://www.emailjs.com) keys in Settings (template params: `to_email`, `to_name`, `subject`, `message`).
+3. **Send Email Now (EmailJS)** — one-click sending with free [EmailJS](https://www.emailjs.com) keys in Settings (template params: `to_email`, `to_name`, `subject`, `message`). Settings has a **Send Test Email** button, and the Reminders queue gets an **Email All Due** bulk button once configured.
+4. **Text message** — every reminder also builds a short SMS with the balance. Free path: **Copy Text** / **Open SMS App** (sends from your own phone). One-click path: paste a prepaid [Textbelt](https://textbelt.com) key in Settings (~1–3¢/text, US/Canada) — **Send Text Now** delivers via the site's `/api/send-sms` relay function (Textbelt blocks direct browser calls, so this needs the Netlify-hosted site, not a local file). Give a customer several comma-separated phone numbers and one click texts all of them. Settings has a **Send Test Text** button.
 
 Click **Mark as Sent** after sending so the escalation ladder and the anti-nag cadence
 (default: minimum 5 days between reminders per account, configurable) stay accurate.

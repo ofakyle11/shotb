@@ -325,6 +325,32 @@ function buildReminder(a,lvlN){
   return {subject,body,level:L.n,levelLabel:L.label};
 }
 
+// ---------- outgoing: email (EmailJS) + text (Textbelt via Netlify relay) ----------
+function emailReady(){return !!(S.emailjsPublic&&S.emailjsService&&S.emailjsTemplate)}
+function ejInit(pub){
+  if(!window.emailjs)return false;
+  if(window._ejKey!==pub){window.emailjs.init(pub);window._ejKey=pub}
+  return true;
+}
+function phoneList(a){
+  return String(a.contactPhone||'').split(/[,;/]+/)
+    .map(s=>s.replace(/[^\d+]/g,''))
+    .filter(s=>s.replace(/\D/g,'').length>=7);
+}
+function buildSms(a){
+  const v=tplVars(a);
+  return v.us+': Hi '+v.first+', '+a.company+"'s account shows "+v.overdue+' past due ('+v.days+' days) — total balance '+v.balance+'. Please '+(S.senderPhone?'call '+S.senderPhone:'contact us')+(S.senderEmail?' or email '+S.senderEmail:'')+' to arrange payment. Thank you.';
+}
+async function smsSend(phone,message,key){
+  const opts={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,message,key})};
+  if(location.protocol!=='file:'){
+    const r=await fetch('/api/send-sms',opts);
+    if(r.status!==404)return r.json();      // relay missing → old deploy; try direct
+  }
+  const r2=await fetch('https://textbelt.com/text',opts);
+  return r2.json();
+}
+
 // ---------- boot / auth ----------
 function show(id){['S','L','A'].forEach(x=>document.getElementById(x).style.display=x===id?(x==='A'?'block':'flex'):'none')}
 
@@ -526,7 +552,9 @@ function pRemind(){
   const held=behind.filter(a=>!reminderDueNow(a));
   return '<div class="fa"><h2 style="font-size:14px;font-weight:800;margin-bottom:4px">📧 Payment Reminders</h2>'
     +'<div style="font-size:9px;color:var(--tx2);margin-bottom:10px">Escalation ladder: '+LEVELS.map(L=>'L'+L.n+' '+L.label+' ('+L.minDays+'d+)').join(' → ')+' · cadence '+(S.cadenceDays||5)+' days between reminders</div>'
-    +'<div class="cd"><div class="ct_">🚨 Due Now ('+dueNow.length+')</div>'
+    +'<div class="cd"><div class="ct_">🚨 Due Now ('+dueNow.length+')'
+    +(dueNow.length&&emailReady()?'<button class="bt bp" data-act="emailAllDue" style="margin-left:auto">🚀 Email All Due</button>':'')
+    +'</div>'
     +(dueNow.length?'<div style="overflow-x:auto"><table class="tb"><thead><tr><th>Company</th><th>Contact</th><th>Overdue</th><th>Days Late</th><th>Last Reminder</th><th>Suggested</th><th></th></tr></thead><tbody>'+dueNow.map(a=>remRow(a)).join('')+'</tbody></table></div>'
      :'<div style="font-size:10px;color:var(--tx2)">No reminders due right now.</div>')+'</div>'
     +(held.length?'<div class="cd"><div class="ct_">⏸ Held Back ('+held.length+')</div><div style="font-size:9px;color:var(--tx2);margin-bottom:8px">Overdue, but recently reminded or under an active promise-to-pay.</div>'
@@ -572,11 +600,18 @@ function pSettings(){
     +'<label class="llb">Late fee / interest note (optional, used in L3+L4)</label><input class="ip" id="stFee" value="'+esc(S.lateFeeNote||'')+'" placeholder="e.g. overdue balances accrue 2% monthly interest" style="margin-bottom:8px">'
     +'<div style="font-size:9px;color:var(--tx2)">Escalation ladder is automatic: L1 at 1+ days late, L2 at 15+, L3 at 31+, L4 at 61+. Each new reminder escalates one level past the last one sent.</div>'
   +'</div>'
-  +'<div class="cd"><div class="ct_">✉️ EmailJS (optional — one-click send)</div>'
-    +'<div style="font-size:9px;color:var(--tx2);margin-bottom:8px">Without this, use "Open in Mail App" or "Copy" on any draft — no setup needed. With EmailJS (emailjs.com), reminders send straight from the app. Template must accept: to_email, to_name, subject, message.</div>'
+  +'<div class="cd"><div class="ct_">✉️ Outgoing Email (EmailJS)</div>'
+    +'<div style="font-size:9px;color:var(--tx2);margin-bottom:8px;line-height:1.6">One-click sending from the app. Free at <a href="https://www.emailjs.com" target="_blank" style="color:var(--ac)">emailjs.com</a> (200 emails/month): connect your Gmail/Outlook as a Service, make a Template whose To address is {{to_email}} and body is {{message}}, then paste the three IDs here, Save, and hit test. Without this, "Open in Mail App" and "Copy" always work.</div>'
     +'<label class="llb">Public key</label><input class="ip" id="stEjP" value="'+esc(S.emailjsPublic||'')+'" style="margin-bottom:8px">'
     +'<label class="llb">Service ID</label><input class="ip" id="stEjS" value="'+esc(S.emailjsService||'')+'" style="margin-bottom:8px">'
     +'<label class="llb">Template ID</label><input class="ip" id="stEjT" value="'+esc(S.emailjsTemplate||'')+'" style="margin-bottom:8px">'
+    +'<button class="bt bo" data-act="testEmail">✅ Send Test Email (to yourself)</button>'
+  +'</div>'
+  +'<div class="cd"><div class="ct_">💬 Outgoing Text (SMS)</div>'
+    +'<div style="font-size:9px;color:var(--tx2);margin-bottom:8px;line-height:1.6">Every reminder has free <b>Copy Text</b> / <b>Open SMS App</b> buttons (sends from your own phone). For one-click sending from the app, buy a prepaid key at <a href="https://textbelt.com" target="_blank" style="color:var(--ac)">textbelt.com</a> (~1–3¢ per text, US/Canada) and paste it here. One-click texts need the Netlify-hosted site. Give a customer several numbers separated by commas and "Send Text Now" hits all of them.</div>'
+    +'<label class="llb">Textbelt key</label><input class="ip" id="stTb" value="'+esc(S.textbeltKey||'')+'" style="margin-bottom:8px">'
+    +'<label class="llb">Your mobile (for the test)</label><input class="ip" id="stTbPhone" placeholder="+1 416 555 0000" style="margin-bottom:8px">'
+    +'<button class="bt bo" data-act="testText">✅ Send Test Text (to yourself)</button>'
   +'</div>'
   +'<div class="cd"><div class="ct_">💾 Data</div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">'
@@ -614,6 +649,7 @@ function saveSettings(){
   S.emailjsPublic=document.getElementById('stEjP').value.trim();
   S.emailjsService=document.getElementById('stEjS').value.trim();
   S.emailjsTemplate=document.getElementById('stEjT').value.trim();
+  S.textbeltKey=document.getElementById('stTb').value.trim();
   saveSettingsLS();
   document.getElementById('zCo').textContent=S.company||'Trickster Inc';
   logA('Settings updated','⚙️');
@@ -628,7 +664,7 @@ function acctForm(a){
   +'<div><label class="llb">Company *</label><input class="ip" id="afCo" value="'+esc(a.company||'')+'"></div>'
   +'<div><label class="llb">Contact name</label><input class="ip" id="afNm" value="'+esc(a.contactName||'')+'"></div>'
   +'<div><label class="llb">Contact email</label><input class="ip" id="afEm" value="'+esc(a.contactEmail||'')+'"></div>'
-  +'<div><label class="llb">Contact phone</label><input class="ip" id="afPh" value="'+esc(a.contactPhone||'')+'"></div>'
+  +'<div><label class="llb">Contact phone(s) — commas for several</label><input class="ip" id="afPh" value="'+esc(a.contactPhone||'')+'" placeholder="+1 416 555 0142, +1 905 555 0199"></div>'
   +'<div><label class="llb">Payment terms (net days)</label><input class="ip" id="afTe" type="number" min="0" value="'+esc(a.terms!=null?a.terms:30)+'"></div>'
   +'<div><label class="llb">Notes</label><input class="ip" id="afNo" value="'+esc(a.notes||'')+'"></div>'
   +'</div>';
@@ -843,10 +879,19 @@ function draftReminderModal(aId){
   +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">'
   +'<button class="bt bp" data-act="copyDraft">📋 Copy</button>'
   +(a.contactEmail?'<button class="bt bp" data-act="mailtoDraft">📨 Open in Mail App</button>':'')
-  +(S.emailjsPublic&&S.emailjsService&&S.emailjsTemplate&&a.contactEmail?'<button class="bt bp" data-act="sendEmailJs">🚀 Send Now (EmailJS)</button>':'')
+  +(emailReady()&&a.contactEmail?'<button class="bt bp" data-act="sendEmailJs">🚀 Send Email Now</button>':'')
   +'<button class="bt bo" data-act="markSent">✓ Mark as Sent</button>'
   +'</div>'
-  +'<div id="rStatus" style="margin-top:8px;font-size:10px;color:var(--tx2)">Copy / open the draft, send it, then click "Mark as Sent" so the escalation ladder and cadence stay accurate.</div>'
+  +(phoneList(a).length
+    ?'<div class="ct_" style="font-size:11px;margin-top:14px">💬 Text Message — '+phoneList(a).length+' number'+(phoneList(a).length>1?'s':'')+' on file</div>'
+    +'<textarea id="rSms" class="email-body" style="height:84px">'+esc(buildSms(a))+'</textarea>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'
+    +'<button class="bt bo" data-act="copySms">📋 Copy Text</button>'
+    +'<button class="bt bo" data-act="smsApp">💬 Open SMS App</button>'
+    +(S.textbeltKey?'<button class="bt bp" data-act="sendText">🚀 Send Text Now</button>':'')
+    +'</div>'
+    :'<div style="font-size:9px;color:var(--tx2);margin-top:10px">No phone number on this account — add one (or several, comma-separated) to enable texting.</div>')
+  +'<div id="rStatus" style="margin-top:8px;font-size:10px;color:var(--tx2)">Send by email or text, then it\'s logged automatically — or click "Mark as Sent" for anything sent outside the app.</div>'
   +'</div>','700px');
 }
 function setDraftLevel(n){
@@ -858,16 +903,111 @@ function setDraftLevel(n){
   document.getElementById('rBody').value=d.body;
   document.querySelectorAll('#lvlRow .bt').forEach(b=>{b.className='bt '+(Number(b.dataset.id)===draftCtx.level?'bp':'bo')});
 }
-function logReminder(via){
+function logReminder(via,subject,body){
   const a=ACCOUNTS.find(x=>x.id===draftCtx.accountId);if(!a)return;
   REMINDERS.unshift({
     id:uid('r'),accountId:a.id,level:draftCtx.level,
-    subject:document.getElementById('rSubj').value,
-    body:document.getElementById('rBody').value,
+    subject:subject!=null?subject:document.getElementById('rSubj').value,
+    body:body!=null?body:document.getElementById('rBody').value,
     via,balance:acctBalance(a.id),ts:new Date().toISOString()
   });
   saveReminders();
   logA('L'+draftCtx.level+' reminder sent to '+a.company+' ('+via+') — balance '+money(acctBalance(a.id)),'📧');
+}
+async function copySms(){
+  const txt=document.getElementById('rSms').value;
+  try{await navigator.clipboard.writeText(txt);showToast('Text copied — paste into any messaging app')}
+  catch(e){showToast('Copy failed — select the text manually','err')}
+}
+function smsApp(){
+  const a=ACCOUNTS.find(x=>x.id===draftCtx.accountId);if(!a)return;
+  const phones=phoneList(a);if(!phones.length)return;
+  window.open('sms:'+phones[0]+'?&body='+encodeURIComponent(document.getElementById('rSms').value),'_blank');
+  document.getElementById('rStatus').innerHTML='SMS app opened — after sending, click <b>Mark as Sent</b> to log it.';
+}
+async function sendTextNow(){
+  const a=ACCOUNTS.find(x=>x.id===draftCtx.accountId);if(!a)return;
+  const st=document.getElementById('rStatus');
+  if(!S.textbeltKey){st.innerHTML='<span style="color:var(--r)">Add your Textbelt key in Settings first.</span>';return}
+  const phones=phoneList(a);
+  if(!phones.length){st.innerHTML='<span style="color:var(--r)">No valid phone number on this account.</span>';return}
+  const msg=document.getElementById('rSms').value;
+  st.textContent='Sending text'+(phones.length>1?'s to '+phones.length+' numbers':'')+'…';
+  let ok=0,fail=0,quota=null,lastErr='';
+  for(const ph of phones){
+    try{
+      const d=await smsSend(ph,msg,S.textbeltKey);
+      if(d.success){ok++;if(d.quotaRemaining!=null)quota=d.quotaRemaining}
+      else{fail++;lastErr=d.error||'unknown error'}
+    }catch(e){fail++;lastErr='network blocked — one-click texting works on the Netlify site (redeploy the latest zip)'}
+  }
+  if(ok){
+    logReminder('sms ('+ok+' number'+(ok>1?'s':'')+')','SMS reminder',msg);
+    showToast('Text sent to '+a.company);
+  }
+  st.innerHTML=ok
+    ?'<span style="color:var(--g)">✓ '+ok+' text'+(ok>1?'s':'')+' sent'+(quota!=null?' · '+quota+' credits left':'')+'</span>'+(fail?' <span style="color:var(--r)">('+fail+' failed: '+esc(lastErr)+')</span>':'')
+    :'<span style="color:var(--r)">Send failed: '+esc(lastErr)+'</span>';
+}
+async function testEmail(){
+  const pub=(document.getElementById('stEjP')||{value:''}).value.trim();
+  const svc=(document.getElementById('stEjS')||{value:''}).value.trim();
+  const tpl=(document.getElementById('stEjT')||{value:''}).value.trim();
+  const to=(document.getElementById('stEm')||{value:''}).value.trim()||S.senderEmail;
+  if(!pub||!svc||!tpl){showToast('Fill in the three EmailJS fields first','err');return}
+  if(!to){showToast('Set your business email first — the test goes there','err');return}
+  if(!ejInit(pub)){showToast('EmailJS library not loaded (offline?)','err');return}
+  showToast('Sending test email…');
+  try{
+    await window.emailjs.send(svc,tpl,{
+      to_email:to,to_name:S.senderName||'Test',
+      company:S.company||'Trickster Inc',
+      subject:'✅ Test — Receivables Command Center',
+      message:'If you can read this, outgoing email from the Receivables Command Center works.\n\n— '+(S.company||'Trickster Inc'),
+      balance:'',sender_name:S.senderName||S.company||'',sender_email:to,reply_to:to
+    });
+    logA('Test email sent to '+to,'✅');
+    showToast('Test email sent to '+to+' — check the inbox (and spam)');
+  }catch(e){showToast('Test failed: '+(e&&e.text||e&&e.message||'unknown'),'err')}
+}
+async function testText(){
+  const key=(document.getElementById('stTb')||{value:''}).value.trim();
+  const ph=String((document.getElementById('stTbPhone')||{value:''}).value).replace(/[^\d+]/g,'');
+  if(!key){showToast('Paste your Textbelt key first','err');return}
+  if(ph.replace(/\D/g,'').length<7){showToast('Enter your mobile number for the test','err');return}
+  showToast('Sending test text…');
+  try{
+    const d=await smsSend(ph,(S.company||'Trickster Inc')+': test message — outgoing SMS works. ✅',key);
+    if(d.success){logA('Test text sent to '+ph,'✅');showToast('Test text sent'+(d.quotaRemaining!=null?' · '+d.quotaRemaining+' credits left':''))}
+    else showToast('Textbelt: '+(d.error||'failed'),'err');
+  }catch(e){showToast('Blocked — one-click texting needs the Netlify-hosted site (redeploy latest zip)','err')}
+}
+async function emailAllDue(){
+  if(!emailReady()){showToast('Configure EmailJS in Settings first','err');return}
+  const list=ACCOUNTS.filter(a=>reminderDueNow(a)&&a.contactEmail);
+  if(!list.length){showToast('Nobody in the queue has an email on file','err');return}
+  if(!confirm('Send '+list.length+' reminder email'+(list.length>1?'s':'')+' now via EmailJS?\n\nEach account gets its suggested escalation level with its own invoice list and balance.'))return;
+  if(!ejInit(S.emailjsPublic)){showToast('EmailJS library not loaded (offline?)','err');return}
+  let ok=0,fail=0;
+  for(const a of list){
+    const lvl=suggestedLevel(a)||LEVELS[0];
+    const d=buildReminder(a,lvl.n);
+    try{
+      await window.emailjs.send(S.emailjsService,S.emailjsTemplate,{
+        to_email:a.contactEmail,to_name:a.contactName||a.company,
+        company:a.company,subject:d.subject,message:d.body,
+        balance:money(acctBalance(a.id)),
+        sender_name:S.senderName||S.company,sender_email:S.senderEmail||'',reply_to:S.senderEmail||''
+      });
+      REMINDERS.unshift({id:uid('r'),accountId:a.id,level:lvl.n,subject:d.subject,body:d.body,via:'emailjs (bulk)',balance:acctBalance(a.id),ts:new Date().toISOString()});
+      ok++;
+    }catch(e){fail++}
+    await new Promise(r=>setTimeout(r,400));
+  }
+  saveReminders();
+  logA('Bulk reminders: '+ok+' emailed'+(fail?', '+fail+' failed':''),'🚀');
+  showToast(ok+' reminder'+(ok!==1?'s':'')+' sent'+(fail?' — '+fail+' failed':''));
+  go('remind');
 }
 async function copyDraft(){
   const txt='Subject: '+document.getElementById('rSubj').value+'\n\n'+document.getElementById('rBody').value;
@@ -892,7 +1032,7 @@ async function sendEmailJs(){
   if(!window.emailjs){st.innerHTML='<span style="color:var(--r)">EmailJS library not loaded (offline?) — use Copy or Mail App instead.</span>';return}
   st.textContent='Sending…';
   try{
-    if(!window._ejInit){window.emailjs.init(S.emailjsPublic);window._ejInit=true}
+    if(!ejInit(S.emailjsPublic))throw new Error('EmailJS library not loaded');
     await window.emailjs.send(S.emailjsService,S.emailjsTemplate,{
       to_email:a.contactEmail,
       to_name:a.contactName||a.company,
@@ -1065,8 +1205,8 @@ function restore(text){
 function loadDemo(){
   if(ACCOUNTS.length&&!confirm('Add demo companies alongside your existing data?'))return;
   const t=todayISO();
-  const mk=(company,contactName,contactEmail,terms,invs)=>{
-    const a={id:uid('a'),company,contactName,contactEmail,contactPhone:'',terms,notes:'demo data',promiseDate:'',promiseAmount:0,createdAt:new Date().toISOString()};
+  const mk=(company,contactName,contactEmail,phone,terms,invs)=>{
+    const a={id:uid('a'),company,contactName,contactEmail,contactPhone:phone,terms,notes:'demo data',promiseDate:'',promiseAmount:0,createdAt:new Date().toISOString()};
     ACCOUNTS.push(a);
     invs.forEach((iv,ix)=>{
       const inv={id:uid('i'),accountId:a.id,number:'DEMO-'+company.replace(/[^A-Z]/gi,'').slice(0,3).toUpperCase()+'-'+(ix+1),issueDate:addDays(t,iv.iss),dueDate:addDays(t,iv.due),amount:iv.amt,payments:[],createdAt:new Date().toISOString()};
@@ -1074,11 +1214,11 @@ function loadDemo(){
       INVOICES.push(inv);
     });
   };
-  mk('Northline Freight Ltd.','Dana Whitfield','ap@northlinefreight.example',30,[{iss:-140,due:-110,amt:4820.50},{iss:-95,due:-65,amt:2210.00},{iss:-40,due:-10,amt:1890.25}]);
-  mk('Maple Ridge Landscaping','Carlos Rivera','carlos@mapleridge.example',15,[{iss:-75,due:-60,amt:3350.00,paid:1000},{iss:-30,due:-15,amt:980.00}]);
-  mk('Harbourview Auto Group','Priya Shah','accounts@harbourview.example',30,[{iss:-55,due:-25,amt:7642.80}]);
-  mk('GTA Courier Collective','Sam Osei','sam@gtacourier.example',30,[{iss:-24,due:6,amt:1240.00},{iss:-50,due:-20,amt:660.00,paid:660}]);
-  mk('Bluewater Contracting','Marie Tremblay','ar@bluewater.example',45,[{iss:-130,due:-85,amt:12400.00,paid:4000}]);
+  mk('Northline Freight Ltd.','Dana Whitfield','ap@northlinefreight.example','+1 416 555 0142',30,[{iss:-140,due:-110,amt:4820.50},{iss:-95,due:-65,amt:2210.00},{iss:-40,due:-10,amt:1890.25}]);
+  mk('Maple Ridge Landscaping','Carlos Rivera','carlos@mapleridge.example','+1 905 555 0163',15,[{iss:-75,due:-60,amt:3350.00,paid:1000},{iss:-30,due:-15,amt:980.00}]);
+  mk('Harbourview Auto Group','Priya Shah','accounts@harbourview.example','+1 647 555 0117, +1 647 555 0189',30,[{iss:-55,due:-25,amt:7642.80}]);
+  mk('GTA Courier Collective','Sam Osei','sam@gtacourier.example','+1 289 555 0170',30,[{iss:-24,due:6,amt:1240.00},{iss:-50,due:-20,amt:660.00,paid:660}]);
+  mk('Bluewater Contracting','Marie Tremblay','ar@bluewater.example','+1 905 555 0148',45,[{iss:-130,due:-85,amt:12400.00,paid:4000}]);
   saveAccounts();saveInvoices();
   logA('Demo data loaded','🧪');
   showToast('Demo data loaded — explore the Reminders tab');
@@ -1128,6 +1268,12 @@ document.addEventListener('click',e=>{
     copyDraft:copyDraft,
     mailtoDraft:mailtoDraft,
     sendEmailJs:sendEmailJs,
+    copySms:copySms,
+    smsApp:smsApp,
+    sendText:sendTextNow,
+    testEmail:testEmail,
+    testText:testText,
+    emailAllDue:emailAllDue,
     markSent:markSent,
     printStatement:()=>printStatement(id),
     exportAcctCSV:exportAcctCSV,
