@@ -249,6 +249,8 @@ input.uc-text{appearance:none;-webkit-appearance:none;font-family:var(--mono);mi
 .clip-prog i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--gold2));opacity:.85;transition:width .6s ease}
 .clip-prog span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 2px #000}
 .clip-err{position:absolute;left:6px;right:6px;bottom:34px;padding:2px 4px;border-radius:4px;background:rgba(255,107,129,.16);border:1px solid rgba(255,107,129,.5);color:var(--red);font-size:9px;font-weight:700;text-align:center;z-index:3;cursor:help}
+.clip-snd{position:absolute;top:24px;right:5px;font-size:11px;z-index:3;filter:drop-shadow(0 1px 2px #000);cursor:help}
+.clip-ovr{position:absolute;top:24px;right:6px;font-size:10px;color:var(--violet);z-index:3;font-weight:700;cursor:help}
 .gen-alert{display:none;align-items:flex-start;gap:10px;margin:8px 0 0;padding:10px 12px;border-radius:8px;background:rgba(255,107,129,.1);border:1px solid rgba(255,107,129,.45);color:var(--red);font-size:12px;line-height:1.45}
 .gen-alert.on{display:flex}
 .gen-alert span{flex:1}

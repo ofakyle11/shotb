@@ -1193,7 +1193,9 @@ function renderTimeline(){
     const draftChip=(c.draftQuality&&c.videoUrl)?'<span class="clip-draft" title="Rendered in draft quality — ★ Finalize re-renders with your selected model">DRAFT</span>':'';
     const prog=c.status==='generating'?'<div class="clip-prog" id="prog-'+c.id+'"><i></i><span>0%</span></div>':'';
     const errChip=(c.status!=='generating'&&c.error)?'<div class="clip-err" title="'+esc(c.error)+'">⚠ failed — hover</div>':'';
-    return '<div class="clip-card'+(c.id===state.selectedId?' active':'')+(c.status==='approved'?' approved':'')+'" data-id="'+c.id+'" draggable="true"><div class="verify-dot '+vd+'" title="'+vTitle+'"></div><div class="clip-status '+st+'"></div>'+draftChip+'<div class="clip-num">Clip '+String(c.num).padStart(2,'0')+'</div><div class="clip-thumb">'+thumb+'</div>'+prog+errChip+'<div class="clip-label">'+esc(c.label)+'</div><div class="clip-dur">~'+c.durationSec+'s</div></div>';
+    const sndChip=(c.videoUrl&&typeof window.modelHasAudio==='function'&&window.modelHasAudio(c.modelUsed))?'<span class="clip-snd" title="Native audio — this clip has its own sound; export keeps it and skips the AI voice pass">🔊</span>':'';
+    const ovrChip=(c.modelOverride&&!c.videoUrl)?'<span class="clip-ovr" title="This clip renders with '+esc(c.modelOverride)+' instead of the project model">★</span>':'';
+    return '<div class="clip-card'+(c.id===state.selectedId?' active':'')+(c.status==='approved'?' approved':'')+'" data-id="'+c.id+'" draggable="true"><div class="verify-dot '+vd+'" title="'+vTitle+'"></div><div class="clip-status '+st+'"></div>'+draftChip+sndChip+ovrChip+'<div class="clip-num">Clip '+String(c.num).padStart(2,'0')+'</div><div class="clip-thumb">'+thumb+'</div>'+prog+errChip+'<div class="clip-label">'+esc(c.label)+'</div><div class="clip-dur">~'+c.durationSec+'s</div></div>';
   }).join('');
   $('clipRow').querySelectorAll('.clip-card').forEach(el=>{
     el.onclick=()=>{state.selectedId=el.dataset.id;renderAll()};
@@ -1249,6 +1251,7 @@ function renderDetail(){
   body.innerHTML=locHint+verifyHint+
     '<div class="field"><label>Scene</label><textarea id="d-desc" rows="3">'+esc(clip.description)+'</textarea></div>'+
     '<div class="field"><label>Emotion</label><select id="d-emotion">'+['Neutral','Tense','Joy','Fear','Anger','Sad','Noir'].map(e=>'<option'+(clip.emotion===e?' selected':'')+'>'+e+'</option>').join('')+'</select></div>'+
+    '<div class="field"><label>Model (this clip only)</label><select id="d-model" title="Override the project video model for just this shot — e.g. Sora 2 Pro for a hero shot while the rest run on LTX-2"><option value="">Project default ('+esc((window.VIDEO_MODELS&&window.VIDEO_MODELS[state.global.model]&&window.VIDEO_MODELS[state.global.model].label)||state.global.model||'—')+')</option>'+Object.keys(window.VIDEO_MODELS||{}).map(m=>'<option value="'+m+'"'+(clip.modelOverride===m?' selected':'')+'>'+esc((window.VIDEO_MODELS[m].label||m))+'</option>').join('')+'</select></div>'+
     '<details class="detail-section"><summary>AI prompt</summary><div class="section-inner"><textarea id="d-prompt" readonly rows="4">'+esc(buildPrompt(clip))+'</textarea></div></details>'+
     '<details class="detail-section"><summary>Scene &amp; setting</summary><div class="section-inner">'+mkTog(p.scene,'location','Location')+mkTog(p.scene,'timeOfDay','Time')+mkTog(p.scene,'weather','Weather')+mkTog(p.scene,'season','Season')+'</div></details>'+
     '<details class="detail-section"><summary>Camera</summary><div class="section-inner">'+mkTog(p.camera,'angle','Angle')+mkTog(p.camera,'filmGrade','Film grade')+mkTog(p.camera,'colorMode','Color')+mkTog(p.camera,'saturation','Saturation')+'</div></details>'+
@@ -1258,6 +1261,7 @@ function renderDetail(){
   if(regenId)regenId.onclick=()=>{clip.retryCount=(clip.retryCount||0)+1;clip._forceIdentity=true;runJob(clip)};
   $('d-desc').oninput=e=>{clip.description=e.target.value;clip._descLocked=true;save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)};
   $('d-emotion').onchange=e=>{clip.emotion=e.target.value;save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)};
+  const dModel=$('d-model');if(dModel)dModel.onchange=e=>{clip.modelOverride=e.target.value||null;save();renderOutput();toast(clip.modelOverride?('Clip '+clip.num+' will render with '+clip.modelOverride):'Clip '+clip.num+' back on the project model')};
   body.querySelectorAll('.toggle').forEach(t=>{t.onclick=()=>{const g=clip.params[t.dataset.grp];g.on[t.dataset.f]=!g.on[t.dataset.f];t.classList.toggle('on',g.on[t.dataset.f]);save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)}});
   body.querySelectorAll('input[data-grp]').forEach(inp=>{inp.oninput=()=>{clip.params[inp.dataset.grp][inp.dataset.f]=inp.value;save();const pr=$('d-prompt');if(pr)pr.value=buildPrompt(clip)}});
 }
@@ -1707,11 +1711,11 @@ function renderOutput(){
   if(typeof window.estimateClipCost==='function'){
     const model=state.global.draftMode==='on'?DRAFT_MODEL:state.global.model;
     const remaining=state.clips.filter(c=>!c.videoUrl);
-    const est=remaining.reduce((s,c)=>s+(window.estimateClipCost(model,c.durationSec||5)||0),0);
+    const est=remaining.reduce((s,c)=>s+(window.estimateClipCost(c.modelOverride||model,c.durationSec||5)||0),0);
     if(remaining.length&&est>0)extra=' · ~$'+est.toFixed(2)+' est. for '+remaining.length+' left';
     const drafts=state.clips.filter(c=>c.draftQuality&&c.videoUrl);
     if(drafts.length){
-      const fest=drafts.reduce((s,c)=>s+(window.estimateClipCost(state.global.model,c.durationSec||5)||0),0);
+      const fest=drafts.reduce((s,c)=>s+(window.estimateClipCost(c.modelOverride||state.global.model,c.durationSec||5)||0),0);
       extra+=' · '+drafts.length+' draft'+(drafts.length>1?'s':'')+(fest>0?' (~$'+fest.toFixed(2)+' to finalize)':'');
     }
   }
@@ -2274,9 +2278,16 @@ async function runJob(clip,opts){
     const asp=vs?vs.aspect_ratio:(state.global.aspectRatio||'16:9');
     let pollModel=vs?vs.model:state.global.model;
     let pollProv=vs?vs.provider:((typeof window.inferVideoProvider==='function')?window.inferVideoProvider(pollModel):(pollModel&&pollModel.includes('grok')?'grok-imagine':pollModel&&pollModel.includes('sora')?'aivideoapi':'wavespeed'));
+    // Per-clip override: this shot renders on ITS model (hero shots on Sora
+    // Pro while the rest run cheap). An override is explicit intent, so it
+    // also skips draft-mode substitution.
+    if(clip.modelOverride){
+      pollModel=clip.modelOverride;
+      pollProv=(typeof window.inferVideoProvider==='function')?window.inferVideoProvider(pollModel):pollProv;
+    }
     // Draft mode: cheap fast model, SAME seed/refs/prompt — ★ Finalize
     // (opts.final) re-renders with the model actually selected.
-    const isDraftRun=state.global.draftMode==='on'&&!opts.final&&pollProv!=='comfy-local'&&pollProv!=='comfy-still'&&pollModel!==DRAFT_MODEL;
+    const isDraftRun=state.global.draftMode==='on'&&!opts.final&&!clip.modelOverride&&pollProv!=='comfy-local'&&pollProv!=='comfy-still'&&pollModel!==DRAFT_MODEL;
     if(isDraftRun){
       pollModel=DRAFT_MODEL;
       pollProv=(typeof window.inferVideoProvider==='function')?window.inferVideoProvider(DRAFT_MODEL):'wavespeed';
@@ -2310,6 +2321,12 @@ async function runJob(clip,opts){
         }
       }
     }
+    // Native-audio models: tell the model to actually SPEAK the scripted line
+    // (Veo/Sora/LTX-2/Grok generate synced dialogue when asked explicitly).
+    if(typeof window.modelHasAudio==='function'&&window.modelHasAudio(pollModel)&&!isDraftRun&&clip.dialogue){
+      const spk=clipSpeaker(clip);
+      body.prompt=(body.prompt+' The characters speak their dialogue aloud in natural voices with synced lips'+(spk?' — '+spk+' says: "'+String(clip.dialogue).trim().slice(0,160)+'"':'')+'.').slice(0,promptBudget+260);
+    }
     // Storyboard-first: an approved board frame is the clip's start frame when
     // no previous-video end frame exists, and rides along as an extra ref on
     // multi-ref models — the video begins from approved canon.
@@ -2342,7 +2359,7 @@ async function runJob(clip,opts){
         });
         setGenProgress('Clip '+clip.num+': hosting clip…',97);
         clip.videoUrl=await hostRefImage(mp4,'clips/still-'+clip.id);
-        clip.provider='comfy-still';
+        clip.provider='comfy-still';clip.modelUsed='comfy-still';
         clip.continuity=null;
         clip.draftQuality=false;
         clip.status='done';clip.error=null;ok=true;save();renderAll();
@@ -2366,7 +2383,7 @@ async function runJob(clip,opts){
           onProgress:(m,pct)=>setGenProgress('Clip '+clip.num+': '+m,pct)
         });
         clip.videoUrl=out.url;
-        clip.provider='comfy-local';
+        clip.provider='comfy-local';clip.modelUsed='comfy-local';
         clip.continuity=null;
         clip.draftQuality=false;
         clip.status='done';clip.error=null;ok=true;save();renderAll();
@@ -2400,6 +2417,7 @@ async function runJob(clip,opts){
         clip.videoUrl=videoUrl;
         clip.continuity=null;
         clip.draftQuality=isDraftRun;
+        clip.modelUsed=pollModel;
         clip.status='done';clip.error=null;endGenProgress(true);save();renderAll();
         verifyClipAsync(clip);
         return;
@@ -2726,7 +2744,7 @@ async function finalizeApproved(){
   const targets=state.clips.filter(c=>c.draftQuality&&c.videoUrl&&(c.status==='approved'||c.status==='done'));
   if(!targets.length)return toast('No draft clips to finalize');
   const model=state.global.model;
-  const est=(typeof window.estimateClipCost==='function')?targets.reduce((s,c)=>s+(window.estimateClipCost(model,c.durationSec||5)||0),0):0;
+  const est=(typeof window.estimateClipCost==='function')?targets.reduce((s,c)=>s+(window.estimateClipCost(c.modelOverride||model,c.durationSec||5)||0),0):0;
   if(!confirm('Re-render '+targets.length+' draft clip'+(targets.length>1?'s':'')+' at final quality with '+model+(est>0?' (~$'+est.toFixed(2)+' est.)':'')+'?'))return;
   state.queue.running=true;
   try{
@@ -2853,6 +2871,9 @@ function clipSpeaker(clip){
 }
 // The line a clip speaks at export, with its character's assigned AI voice.
 function voiceLineForClip(clip){
+  // Clips from native-audio models already speak — layering TTS on top would
+  // double-voice them. Their own soundtrack passes through at export.
+  if(typeof window.modelHasAudio==='function'&&window.modelHasAudio(clip.modelUsed))return null;
   const text=String(clip.dialogue||'').trim();
   if(!text||!window.SBVoice)return null;
   const voice=SBVoice.voiceFor(clipSpeaker(clip),state.characters);

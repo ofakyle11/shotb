@@ -489,9 +489,17 @@
     return r * (Number(seconds) || 5);
   }
 
+  /* Models whose clips come back with NATIVE sound (spoken dialogue, ambience,
+     SFX baked in). Export skips the TTS voice pass for these — their own
+     soundtrack passes through untouched. */
+  var AUDIO_MODELS = new Set(['grok-imagine', 'sora-2', 'veo-3.1',
+    'fal-ltx2-fast', 'fal-ltx2-pro', 'fal-veo31-lite', 'fal-veo31-fast', 'fal-sora-2', 'fal-sora-2-pro']);
+  function modelHasAudio(model) { return AUDIO_MODELS.has(String(model || '')); }
+
   window.PHOTO_MODELS = PHOTO_MODELS;
   window.VIDEO_MODELS = VIDEO_MODELS;
   window.estimateClipCost = estimateClipCost;
+  window.modelHasAudio = modelHasAudio;
   window.getModelConfig = getModelConfig;
   window.populateModelSelect = populateModelSelect;
   window.updateOptionsForModel = updateOptionsForModel;
