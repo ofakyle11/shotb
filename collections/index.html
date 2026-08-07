@@ -887,9 +887,11 @@ function draftReminderModal(aId){
     +'<textarea id="rSms" class="email-body" style="height:84px">'+esc(buildSms(a))+'</textarea>'
     +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'
     +'<button class="bt bo" data-act="copySms">📋 Copy Text</button>'
+    +'<button class="bt bo" data-act="copyPhone">📞 Copy #</button>'
     +'<button class="bt bo" data-act="smsApp">💬 Open SMS App</button>'
     +(S.textbeltKey?'<button class="bt bp" data-act="sendText">🚀 Send Text Now</button>':'')
     +'</div>'
+    +'<div style="font-size:9px;color:var(--tx2);margin-top:5px">Using a free TextNow / TextPlus number? Keep its web app open in another tab — Copy Text, Copy #, paste, send. Then Mark as Sent here.</div>'
     :'<div style="font-size:9px;color:var(--tx2);margin-top:10px">No phone number on this account — add one (or several, comma-separated) to enable texting.</div>')
   +'<div id="rStatus" style="margin-top:8px;font-size:10px;color:var(--tx2)">Send by email or text, then it\'s logged automatically — or click "Mark as Sent" for anything sent outside the app.</div>'
   +'</div>','700px');
@@ -918,6 +920,13 @@ async function copySms(){
   const txt=document.getElementById('rSms').value;
   try{await navigator.clipboard.writeText(txt);showToast('Text copied — paste into any messaging app')}
   catch(e){showToast('Copy failed — select the text manually','err')}
+}
+async function copyPhone(){
+  const a=ACCOUNTS.find(x=>x.id===draftCtx.accountId);if(!a)return;
+  const phones=phoneList(a);
+  if(!phones.length){showToast('No phone number on file','err');return}
+  try{await navigator.clipboard.writeText(phones.join(', '));showToast('Number'+(phones.length>1?'s':'')+' copied: '+phones.join(', '))}
+  catch(e){showToast('Copy failed','err')}
 }
 function smsApp(){
   const a=ACCOUNTS.find(x=>x.id===draftCtx.accountId);if(!a)return;
@@ -1269,6 +1278,7 @@ document.addEventListener('click',e=>{
     mailtoDraft:mailtoDraft,
     sendEmailJs:sendEmailJs,
     copySms:copySms,
+    copyPhone:copyPhone,
     smsApp:smsApp,
     sendText:sendTextNow,
     testEmail:testEmail,
