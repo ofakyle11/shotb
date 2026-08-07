@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SHOTBREAK — App</title>
+<title>CINAMATE — App</title>
 <!-- 
   SELF-CONTAINED GOLDEN FILE
   Firebase keys are already filled in with the real Shotbreak project (shotbreak-9f342).
@@ -17,7 +17,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<meta property="og:title" content="SHOTBREAK — Script to Screen">
+<meta property="og:title" content="CINAMATE — Script to Screen">
 <meta property="og:description" content="Screenplay shot breakdown and script formatting tool for filmmakers.">
 <meta property="og:image" content="https://shotbreak.io/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -219,7 +219,7 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
 <div class="screen active" id="loginScreen">
 <div class="login-wrap">
   <div class="login-card">
-    <div class="login-logo">SHOT<span>BREAK</span></div>
+    <div class="login-logo">CINA<span>MATE</span></div>
     <div class="login-sub">Production Suite</div>
 
     <div class="tab-row">
@@ -301,7 +301,7 @@ window.safeSignIn = safeSignIn;
 <!-- APP -->
 <div class="screen" id="appScreen">
 <header><div class="container hdr">
-  <div class="logo" onclick="showMode('media')">SHOT<span>BREAK</span></div>
+  <div class="logo" onclick="showMode('media')">CINA<span>MATE</span></div>
   <div class="hdr-r">
     <div class="stats-r" id="stats" style="display:none"><div class="st"><b id="sS">0</b><small>Scenes</small></div><div class="st"><b id="sSh">0</b><small>Shots</small></div><div class="st"><b id="sC">0</b><small>Chars</small></div></div>
     <div class="user-pill" onclick="document.getElementById('uMenu').classList.toggle('open')">
@@ -2365,15 +2365,15 @@ function ex(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(
 function ftc(f,fps){fps=fps||24;return String(Math.floor(f/(fps*3600))).padStart(2,'0')+':'+String(Math.floor((f%(fps*3600))/(fps*60))).padStart(2,'0')+':'+String(Math.floor((f%(fps*60))/fps)).padStart(2,'0')+':'+String(f%fps).padStart(2,'0')}
 
 // ===================== EXPORTS =====================
-function xPr(){if(!canUse('export_prompts')){alert('Upgrade to export AI prompts');return}if(!rD)return;let t='AI PROMPTS\n'+curUser.name+' · SHOTBREAK\n'+'='.repeat(50)+'\n\n';let g=0;rD.scenes.forEach((sc,si)=>{t+='=== SCENE '+(si+1)+': '+sc.heading+' ===\n\n';sc.shots.forEach(sh=>{g++;const cs=gCS(sh);t+='--- #'+g+' ('+sh.duration+') ---\n'+sh.description;if(sh.dialogue)t+=' Says: "'+sh.dialogue+'"';t+='. '+sh.type;if(sh.camera!=='STATIC')t+=', '+sh.camera;if(cs)t+='. '+cs;t+='.\n\n'})});dL('prompts.txt',t,'text/plain');trackUsage('exports')}
+function xPr(){if(!canUse('export_prompts')){alert('Upgrade to export AI prompts');return}if(!rD)return;let t='AI PROMPTS\n'+curUser.name+' · CINAMATE\n'+'='.repeat(50)+'\n\n';let g=0;rD.scenes.forEach((sc,si)=>{t+='=== SCENE '+(si+1)+': '+sc.heading+' ===\n\n';sc.shots.forEach(sh=>{g++;const cs=gCS(sh);t+='--- #'+g+' ('+sh.duration+') ---\n'+sh.description;if(sh.dialogue)t+=' Says: "'+sh.dialogue+'"';t+='. '+sh.type;if(sh.camera!=='STATIC')t+=', '+sh.camera;if(cs)t+='. '+cs;t+='.\n\n'})});dL('prompts.txt',t,'text/plain');trackUsage('exports')}
 
 function xEDL(){if(!canUse('export_edl')){alert('Upgrade to export EDL');return}if(!rD)return;const fps=24,dur=parseInt($('durSel').value)||4,sf=Math.round((dur+0.5)*fps),MAX=999;const all=[];rD.scenes.forEach((sc,si)=>{sc.shots.forEach((sh,shi)=>{all.push({sh,si,shi,h:sc.heading})})});const tp=Math.ceil(all.length/MAX);
-for(let p=0;p<tp;p++){const st=p*MAX,en=Math.min(st+MAX,all.length),ps=all.slice(st,en);let edl='TITLE: SHOTBREAK'+(tp>1?' P'+(p+1)+'/'+tp:'')+'\nFCM: NON-DROP FRAME\n\n';let fp=st*sf,ev=1,ls=-1;
+for(let p=0;p<tp;p++){const st=p*MAX,en=Math.min(st+MAX,all.length),ps=all.slice(st,en);let edl='TITLE: CINAMATE'+(tp>1?' P'+(p+1)+'/'+tp:'')+'\nFCM: NON-DROP FRAME\n\n';let fp=st*sf,ev=1,ls=-1;
 ps.forEach(({sh,si,shi,h})=>{if(si!==ls){edl+='* === SCENE '+(si+1)+': '+h+' ===\n\n';ls=si}const cn=('SC'+(si+1)+'_SH'+(shi+1)+'_'+sh.type.replace(/[\s-]/g,'_').replace(/[^A-Z0-9_]/gi,'')).substring(0,32);edl+=String(ev).padStart(3,'0')+'  '+cn.padEnd(8).substring(0,8)+' V     C        '+ftc(0,fps)+' '+ftc(sf,fps)+' '+ftc(fp,fps)+' '+ftc(fp+sf,fps)+'\n';edl+='* FROM CLIP NAME: '+cn+'\n* SHOT: ['+sh.type+']'+(sh.camera!=='STATIC'?' | '+sh.camera:'')+'\n* DESC: '+sh.description.substring(0,200)+'\n';const cs=gCS(sh);if(cs)edl+='* CINE: '+cs.substring(0,200)+'\n';if(sh.dialogue)edl+='* DLG: '+sh.dialogue.substring(0,200)+'\n';edl+='\n';fp+=sf;ev++});
 dL(tp>1?'shotbreak-p'+(p+1)+'.edl':'shotbreak.edl',edl,'text/plain')}if(tp>1)alert(all.length+' shots → '+tp+' EDL files.');trackUsage('exports')}
 
 function xTxt(){if(!rD)return;let t='BREAKDOWN · '+curUser.name+'\n'+'='.repeat(40)+'\n\nCHARS\n';Object.entries(rD.characters).forEach(([n,d])=>{t+='  '+n+(d?': '+d:'')+'\n'});rD.scenes.forEach((sc,si)=>{t+='\n'+'='.repeat(30)+'\nSCENE '+(si+1)+': '+sc.heading+'\n\n';sc.shots.forEach((sh,i)=>{t+='#'+(i+1)+' ['+sh.type+'] ('+sh.duration+')'+(sh.camera!=='STATIC'?' | '+sh.camera:'')+'\n'+sh.description+'\n';const cs=gCS(sh);if(cs)t+='Cine: '+cs+'\n';if(sh.dialogue)t+='DLG: "'+sh.dialogue+'"\n';t+='\n'})});
-if(curUser.tier==='free')t+='\n--- Generated with SHOTBREAK Free Tier ---\n';
+if(curUser.tier==='free')t+='\n--- Generated with CINAMATE Free Tier ---\n';
 dL('breakdown.txt',t,'text/plain');trackUsage('exports')}
 
 function cpAll(){if(!rD)return;let t='';rD.scenes.forEach((s,si)=>{t+='SCENE '+(si+1)+': '+s.heading+'\n\n';s.shots.forEach((sh,i)=>{t+='#'+(i+1)+' ['+sh.type+'] '+sh.description+'\n\n'})});navigator.clipboard.writeText(t)}
@@ -2389,7 +2389,7 @@ function p(t,o){let r='<w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>';if(o.b)r+='<
 function pr(rr){let x='<w:p>';rr.forEach(r=>{let rp='<w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>';if(r.b)rp+='<w:b/>';if(r.i)rp+='<w:i/>';if(r.s)rp+='<w:sz w:val="'+r.s+'"/>';if(r.c)rp+='<w:color w:val="'+r.c+'"/>';x+='<w:r><w:rPr>'+rp+'</w:rPr><w:t xml:space="preserve">'+ex(r.t)+'</w:t></w:r>'});return x+'</w:p>'}
 function h1(t){return'<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/></w:rPr><w:t>'+ex(t)+'</w:t></w:r></w:p>'}
 const pb='<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
-let b=pr([{t:'SHOT BREAKDOWN',b:1,s:44,c:'D4A843'}])+p(curUser.name+' · SHOTBREAK',{s:18,c:'8E8E9E'})+pb;
+let b=pr([{t:'SHOT BREAKDOWN',b:1,s:44,c:'D4A843'}])+p(curUser.name+' · CINAMATE',{s:18,c:'8E8E9E'})+pb;
 b+=h1('CHARACTERS');Object.entries(rD.characters).forEach(([n,d])=>{b+=pr([{t:n,b:1,s:24,c:'D4A843'},{t:d?' — '+d:'',s:22,c:'5A5A6A'}])});b+=pb;
 rD.scenes.forEach((sc,si)=>{b+=h1('SCENE '+(si+1)+': '+sc.heading);sc.shots.forEach((sh,shi)=>{b+=p('',{});b+=pr([{t:'#'+(shi+1),b:1,s:24,c:'D4A843'},{t:' ['+sh.type+']',b:1,s:20,c:'EAB308'},{t:' ('+sh.duration+')',s:20,c:'5A5A6A'}]);b+=p(sh.description,{s:22});const cs=gCS(sh);if(cs)b+=pr([{t:'CINE: ',b:1,s:18,c:'A78BFA'},{t:cs,s:18,c:'A78BFA'}]);if(sh.dialogue)b+=pr([{t:'DLG: ',b:1,s:20,c:'5A5A6A'},{t:'"'+sh.dialogue+'"',s:20,c:'5A5A6A',i:1}])});if(si<rD.scenes.length-1)b+=pb});
 const doc=X+'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'+b+'<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>';
@@ -2766,7 +2766,7 @@ V._hideErr=function(){const e=document.getElementById("vg-error");if(e){e.classL
 
 V._openGallery=function(){let ov=document.getElementById("vg-overlay");if(!ov){ov=document.createElement("div");ov.id="vg-overlay";ov.className="vg-overlay";document.body.appendChild(ov)}
 const clips=[...V.jobs.entries()].filter(([,j])=>j.videoUrl).sort((a,b)=>(a[1].scene*100+a[1].shot)-(b[1].scene*100+b[1].shot));
-let h='<button class="vg-close" onclick="SBVideo._closeGallery()">✕</button><div class="vg-gallery"><h2>SHOT<span>BREAK</span> Generated Clips — '+clips.length+'</h2>';
+let h='<button class="vg-close" onclick="SBVideo._closeGallery()">✕</button><div class="vg-gallery"><h2>CINA<span>MATE</span> Generated Clips — '+clips.length+'</h2>';
 if(!clips.length)h+='<p style="color:var(--dim)">No clips yet. Generate some shots first.</p>';
 else{h+='<div style="margin-bottom:14px"><button class="b b-gold b-s" onclick="SBVideo._zipAll()">⬇ DOWNLOAD ALL AS ZIP</button></div><div class="vg-grid">';
 clips.forEach(([,j])=>{h+='<div class="vg-card"><video src="'+j.videoUrl+'" controls preload="metadata"></video><div class="vg-card-info"><strong>Scene '+j.scene+' — Shot '+j.shot+'</strong><br><a href="'+j.videoUrl+'" download="SC'+j.scene+'_SH'+j.shot+'.mp4" style="color:var(--gold)">Download</a></div></div>'});h+='</div>'}
@@ -2775,8 +2775,8 @@ V._closeGallery=function(){const ov=document.getElementById("vg-overlay");if(ov)
 
 V._zipAll=async function(){if(typeof JSZip==="undefined"){alert("JSZip not loaded");return}
 const clips=[...V.jobs.entries()].filter(([,j])=>j.videoUrl).sort((a,b)=>(a[1].scene*100+a[1].shot)-(b[1].scene*100+b[1].shot));if(!clips.length)return;
-const z=new JSZip(),f=z.folder("SHOTBREAK_Clips");for(const[,j]of clips){try{const b=await(await fetch(j.videoUrl)).blob();f.file("SC"+String(j.scene).padStart(2,"0")+"_SH"+String(j.shot).padStart(2,"0")+".mp4",b)}catch(e){}}
-const content=await z.generateAsync({type:"blob"});const a=document.createElement("a");a.href=URL.createObjectURL(content);a.download="SHOTBREAK_Clips.zip";a.click();URL.revokeObjectURL(a.href)};
+const z=new JSZip(),f=z.folder("CINAMATE_Clips");for(const[,j]of clips){try{const b=await(await fetch(j.videoUrl)).blob();f.file("SC"+String(j.scene).padStart(2,"0")+"_SH"+String(j.shot).padStart(2,"0")+".mp4",b)}catch(e){}}
+const content=await z.generateAsync({type:"blob"});const a=document.createElement("a");a.href=URL.createObjectURL(content);a.download="CINAMATE_Clips.zip";a.click();URL.revokeObjectURL(a.href)};
 
 // ═══════════════════════════════════════════════════════════════════════
 // STITCHER MODULE — FFmpeg.wasm in-browser editor
@@ -3134,7 +3134,7 @@ V._openStitch=function(){
   let ov=document.getElementById("vg-overlay");
   if(!ov){ov=document.createElement("div");ov.id="vg-overlay";ov.className="vg-overlay";document.body.appendChild(ov)}
   let h='<button class="vg-close" onclick="SBVideo._closeGallery()">✕</button><div class="vg-gallery">';
-  h+='<h2>SHOT<span>BREAK</span> Stitch &amp; Edit — '+totalClips+' clip'+(totalClips===1?'':'s')+' ready</h2>';
+  h+='<h2>CINA<span>MATE</span> Stitch &amp; Edit — '+totalClips+' clip'+(totalClips===1?'':'s')+' ready</h2>';
   if(!totalClips){
     h+='<p style="color:var(--dim);margin-bottom:16px">No completed clips yet. Generate some shots first, then come back here to stitch them together.</p>';
     h+='</div>';ov.innerHTML=h;ov.classList.add("open");return;
@@ -3192,7 +3192,7 @@ V._runStitch=async function(){
       const all=Object.keys(byScene).sort((a,b)=>a-b).flatMap(s=>byScene[s].map(j=>j.videoUrl));
       setProg("Stitching "+all.length+" clips into one movie...");
       const blob=await V._stitchClips(all,fade,setProg);
-      outputs.push({name:"SHOTBREAK_FullMovie.mp4",blob,label:"Full Movie"});
+      outputs.push({name:"CINAMATE_FullMovie.mp4",blob,label:"Full Movie"});
     } else {
       // Per-scene
       const sceneNums=Object.keys(byScene).sort((a,b)=>a-b);
@@ -3200,7 +3200,7 @@ V._runStitch=async function(){
         const urls=byScene[sn].map(j=>j.videoUrl);
         setProg("Stitching Scene "+sn+" ("+urls.length+" clips)...");
         const blob=await V._stitchClips(urls,fade,setProg);
-        outputs.push({name:"SHOTBREAK_Scene"+String(sn).padStart(2,"0")+".mp4",blob,label:"Scene "+sn});
+        outputs.push({name:"CINAMATE_Scene"+String(sn).padStart(2,"0")+".mp4",blob,label:"Scene "+sn});
       }
     }
     setProg("✓ Done! "+outputs.length+" file"+(outputs.length===1?"":"s")+" ready.");

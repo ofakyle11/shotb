@@ -20,7 +20,7 @@ window.SBComfy = (function () {
     "3": { "inputs": { "seed": 42, "steps": 20, "cfg": 6, "sampler_name": "euler", "scheduler": "normal", "denoise": 1, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
     "5": { "inputs": { "width": 832, "height": 480, "batch_size": 1 }, "class_type": "EmptyLatentImage" },
     "8": { "inputs": { "samples": ["3", 0], "vae": ["4", 2] }, "class_type": "VAEDecode" },
-    "9": { "inputs": { "filename_prefix": "ShotbreakVideo", "images": ["8", 0] }, "class_type": "SaveImage" }
+    "9": { "inputs": { "filename_prefix": "CinamateVideo", "images": ["8", 0] }, "class_type": "SaveImage" }
   };
 
   // Bundled still-image fallback (from local-backend/workflows/txt2img.api.json,
@@ -33,7 +33,7 @@ window.SBComfy = (function () {
     "7": { "inputs": { "text": "blurry, low quality, watermark, text", "clip": ["4", 1] }, "class_type": "CLIPTextEncode" },
     "3": { "inputs": { "seed": 42, "steps": 28, "cfg": 7, "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 1, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
     "8": { "inputs": { "samples": ["3", 0], "vae": ["4", 2] }, "class_type": "VAEDecode" },
-    "9": { "inputs": { "filename_prefix": "Shotbreak", "images": ["8", 0] }, "class_type": "SaveImage" }
+    "9": { "inputs": { "filename_prefix": "Cinamate", "images": ["8", 0] }, "class_type": "SaveImage" }
   };
 
   function withTimeout(promise, ms, msg) {

@@ -415,3 +415,27 @@ input.uc-text{appearance:none;-webkit-appearance:none;font-family:var(--mono);mi
   .char-grid,.loc-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
   .modal-card{padding:14px}
 }
+/* ── phone pass: thumb-sized targets, 2×2 step grid, full-width sheets ── */
+@media(max-width:700px){
+  .stepper{display:grid;grid-template-columns:1fr 1fr}
+  .step{min-width:0;border-right:none;border-bottom:1px solid var(--border);min-height:48px;padding:8px 10px}
+  .step:nth-child(odd){border-right:1px solid var(--border)}
+  .step-meta{max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tb-btn,.uc-sel,.tb-dd,.settings-more-btn{min-height:40px}
+  .tb-btn{padding:8px 12px}
+  .tb-dropdown{min-width:200px}
+  .tb-dd{padding:10px 14px;font-size:13px}
+  .topbar{padding:8px 10px}
+  .tb-group{flex-wrap:wrap;row-gap:6px}
+  .settings-quick{flex-wrap:wrap;row-gap:6px;width:100%}
+  .settings-quick .uc-sel{flex:1 1 44%;min-width:0}
+  .clip-card{flex:0 0 124px}
+  .clip-thumb{height:74px}
+  .detail-body{max-height:60vh}
+  .board-grid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+  .modal-card{width:calc(100vw - 20px);max-width:none;max-height:88vh;overflow-y:auto}
+  #boardModalImg{max-height:44vh;object-fit:contain}
+  .queue-bar{padding:8px 10px}
+  .gen-alert{margin:8px 10px 0}
+  .loc-variant{width:31%}
+}

@@ -7,7 +7,7 @@ window.SBFFmpeg = (function () {
   function assertIsolated() {
     if (typeof self !== 'undefined' && !self.crossOriginIsolated) {
       throw new Error(
-        'Browser is not cross-origin isolated. Hard-refresh (Ctrl+Shift+R) on shotbreak.io/timeline/ and try again.'
+        'Browser is not cross-origin isolated. Hard-refresh this page (Ctrl+Shift+R) and try again.'
       );
     }
     if (typeof SharedArrayBuffer === 'undefined') {

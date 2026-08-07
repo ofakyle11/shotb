@@ -186,7 +186,7 @@ window.SBProCut = (function () {
     }
     return {
       version: 1,
-      projectName: opts.projectName || 'Shotbreak Pro Cut',
+      projectName: opts.projectName || 'Cinamate Pro Cut',
       pacing: opts.pacing || 'standard',
       clips: out,
       createdAt: Date.now(),
