@@ -136,6 +136,7 @@ const TB = [
   {id:'accounts', i:'🏢', l:'Accounts'},
   {id:'invoices', i:'🧾', l:'Invoices'},
   {id:'remind',   i:'📧', l:'Reminders'},
+  {id:'connect',  i:'🔌', l:'Connect'},
   {id:'log',      i:'📜', l:'Activity'},
   {id:'settings', i:'⚙️', l:'Settings'}
 ];
@@ -430,6 +431,7 @@ function go(id){
   else if(id==='accounts')el.innerHTML=pAccounts();
   else if(id==='invoices')el.innerHTML=pInvoices();
   else if(id==='remind')el.innerHTML=pRemind();
+  else if(id==='connect')el.innerHTML=pConnect();
   else if(id==='log')el.innerHTML=pLog();
   else if(id==='settings')el.innerHTML=pSettings();
   updHeader();
@@ -472,6 +474,7 @@ function pDash(){
      :'<div style="font-size:10px;color:var(--tx2)">Nothing due right now. '+(queue.length?'Accounts recently reminded or under promise-to-pay are held back by your '+(S.cadenceDays||5)+'-day cadence.':'No overdue accounts — nice.')+'</div>')
     +'</div>'
     +(ACCOUNTS.length===0?'<div class="cd" style="text-align:center"><div style="font-size:11px;color:var(--tx2);margin-bottom:8px">New here? Import your customer + invoice CSVs in Settings, or try the demo data.</div><button class="bt bp" data-act="loadDemo">Load Demo Data</button> <button class="bt bo" data-act="go" data-id="settings">Open Settings</button></div>':'')
+    +(!emailReady()&&!S.textbeltKey?'<div class="cd" style="border-color:rgba(255,159,28,.3);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div style="font-size:10px;line-height:1.5">🔌 <b>Set up one-click sending</b> — connect email &amp; text in a few guided steps so you can send reminders straight from the app.</div><button class="bt bp" data-act="go" data-id="connect">Open Connect</button></div>':'')
   +'</div>';
 }
 function remRow(a){
@@ -574,6 +577,60 @@ function pRemind(){
         return '<tr><td style="font-size:9px">'+fmtDate(r.ts.slice(0,10))+'</td><td><b>'+esc(a?a.company:'?')+'</b></td><td><span class="b '+L.badge+'">L'+r.level+'</span></td><td style="font-size:9px">'+esc(r.subject)+'</td><td class="mo">'+money(r.balance)+'</td><td style="font-size:9px">'+esc(r.via||'manual')+'</td></tr>';
       }).join('')+'</tbody></table></div>'
      :'<div style="font-size:10px;color:var(--tx2)">No reminders logged yet.</div>')+'</div></div>';
+}
+
+// ----- connect wizard (guided provider setup) -----
+function connPill(ok){return ok?'<span class="b bg">● CONNECTED</span>':'<span class="b bor">○ NOT SET UP</span>'}
+function stepRow(n,html){return '<div style="display:flex;gap:10px;margin-bottom:9px"><div style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#120802;font-weight:700;font-size:10px;display:flex;align-items:center;justify-content:center">'+n+'</div><div style="font-size:11px;line-height:1.55;padding-top:1px">'+html+'</div></div>'}
+function pConnect(){
+  const eOK=emailReady(),sOK=!!S.textbeltKey;
+  return '<div class="fa">'
+  +'<h2 style="font-size:14px;font-weight:800;margin-bottom:4px">🔌 Connect Sending</h2>'
+  +'<div style="font-size:10px;color:var(--tx2);margin-bottom:12px">Follow the steps in each card — every account is free to create. Paste each key right where you get it, then hit Test. You only do this once.</div>'
+
+  // ---- EMAIL ----
+  +'<div class="cd">'
+  +'<div class="ct_" style="justify-content:space-between"><span>✉️ Email — one-click send &amp; “Email All Due”</span>'+connPill(eOK)+'</div>'
+  +'<div style="font-size:10px;color:var(--tx2);margin-bottom:12px">Free — 200 emails/month, no card. Sends from your own Gmail/Outlook so replies come back to you.</div>'
+  +stepRow(1,'Open <a href="https://dashboard.emailjs.com/sign-up" target="_blank" style="color:var(--ac);font-weight:700">emailjs.com → Sign Up</a> (free) and verify your email.')
+  +stepRow(2,'Left menu → <b>Email Services</b> → <b>Add New Service</b> → pick <b>Gmail</b> (or Outlook) → <b>Connect Account</b>. Copy the <b>Service ID</b> it shows (looks like <span class="mo">service_xxxx</span>).')
+  +stepRow(3,'Left menu → <b>Email Templates</b> → <b>Create New Template</b>. Set <b>To&nbsp;Email</b> = <span class="mo">{{to_email}}</span>, <b>Subject</b> = <span class="mo">{{subject}}</span>, and the message body to <span class="mo">{{message}}</span>. Click <b>Save</b>, then copy the <b>Template ID</b> (<span class="mo">template_xxxx</span>).')
+  +stepRow(4,'Left menu → <b>Account</b> → copy your <b>Public Key</b>.')
+  +stepRow(5,'Paste all three here and hit <b>Save &amp; Test</b> — the test email goes to your business address ('+esc(S.senderEmail||'set it in Settings')+').')
+  +'<div class="g3" style="gap:8px;margin-top:6px">'
+  +'<div><label class="llb">Public Key</label><input class="ip" id="wzEjP" value="'+esc(S.emailjsPublic||'')+'" placeholder="xxxxxxxxxxxx"></div>'
+  +'<div><label class="llb">Service ID</label><input class="ip" id="wzEjS" value="'+esc(S.emailjsService||'')+'" placeholder="service_xxxx"></div>'
+  +'<div><label class="llb">Template ID</label><input class="ip" id="wzEjT" value="'+esc(S.emailjsTemplate||'')+'" placeholder="template_xxxx"></div>'
+  +'</div>'
+  +'<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="bt bo" data-act="connSaveEmail">Save</button><button class="bt bp" data-act="connTestEmail">✅ Save &amp; Send Test Email</button></div>'
+  +'</div>'
+
+  // ---- TEXT ----
+  +'<div class="cd">'
+  +'<div class="ct_" style="justify-content:space-between"><span>💬 Text — one-click SMS from the app</span>'+connPill(sOK)+'</div>'
+  +'<div style="font-size:10px;color:var(--tx2);margin-bottom:12px">~1–3¢ per text (US/Canada), prepaid — no monthly fee, no phone to manage. Want to try it free first? Use the key <span class="mo">textbelt</span> — it sends 1 free text per day.</div>'
+  +stepRow(1,'Open <a href="https://textbelt.com/" target="_blank" style="color:var(--ac);font-weight:700">textbelt.com</a> → <b>Buy credits</b>. Pick an amount (e.g. $10 ≈ 500 texts), pay, and it shows your <b>API key</b>.')
+  +stepRow(2,'Paste the key below, add your own mobile number, and hit <b>Save &amp; Test</b> — you should get a text within seconds.')
+  +stepRow(3,'Done — every reminder now has a <b>🚀 Send Text Now</b> button. <span style="color:var(--tx2)">(One-click texting runs through this site’s relay, so it works on the Netlify site, not a local file.)</span>')
+  +'<div class="g2" style="gap:8px;margin-top:6px">'
+  +'<div><label class="llb">Textbelt API key</label><input class="ip" id="wzTb" value="'+esc(S.textbeltKey||'')+'" placeholder="paste key (or: textbelt)"></div>'
+  +'<div><label class="llb">Your mobile (for the test)</label><input class="ip" id="wzTbPhone" placeholder="+1 416 555 0000"></div>'
+  +'</div>'
+  +'<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="bt bo" data-act="connSaveSms">Save</button><button class="bt bp" data-act="connTestSms">✅ Save &amp; Send Test Text</button></div>'
+  +'</div>'
+
+  // ---- ALWAYS-FREE fallback ----
+  +'<div class="cd" style="border-color:rgba(46,224,111,.25)">'
+  +'<div class="ct_">🆓 No setup needed — these always work</div>'
+  +'<div style="font-size:10px;color:var(--tx2);line-height:1.7">Even with nothing above connected, every reminder has <b>Copy</b> / <b>Open in Mail App</b> for email and <b>Copy Text</b> / <b>Copy #</b> / <b>Open SMS App</b> for texts — send from your own phone or mail app, then hit <b>Mark as Sent</b>. Using a free TextNow / TextPlus number for texts? That’s the flow to use.</div>'
+  +'</div>'
+
+  // ---- NEXT TIER ----
+  +'<div class="cd" style="border-color:rgba(255,159,28,.3)">'
+  +'<div class="ct_">🚀 Next: your own number, auto-send &amp; replies</div>'
+  +'<div style="font-size:10px;color:var(--tx2);line-height:1.7">Want a dedicated Trickster Inc number that texts everyone overdue on a schedule (no clicking) and shows customer replies inside the app? That’s a bigger one-time build — a real number (Telnyx or VoIP.ms, ~$1/mo + pennies/text), a one-time carrier registration, and cloud data sync (which also lets <b>mauruch</b> and <b>kfran</b> share one live set of books). The app is already wired for it. When you’re ready, say the word and it gets set up the same guided way.</div>'
+  +'</div>'
+  +'</div>';
 }
 
 // ----- activity log -----
@@ -958,11 +1015,7 @@ async function sendTextNow(){
     ?'<span style="color:var(--g)">✓ '+ok+' text'+(ok>1?'s':'')+' sent'+(quota!=null?' · '+quota+' credits left':'')+'</span>'+(fail?' <span style="color:var(--r)">('+fail+' failed: '+esc(lastErr)+')</span>':'')
     :'<span style="color:var(--r)">Send failed: '+esc(lastErr)+'</span>';
 }
-async function testEmail(){
-  const pub=(document.getElementById('stEjP')||{value:''}).value.trim();
-  const svc=(document.getElementById('stEjS')||{value:''}).value.trim();
-  const tpl=(document.getElementById('stEjT')||{value:''}).value.trim();
-  const to=(document.getElementById('stEm')||{value:''}).value.trim()||S.senderEmail;
+async function doEmailTest(pub,svc,tpl,to){
   if(!pub||!svc||!tpl){showToast('Fill in the three EmailJS fields first','err');return}
   if(!to){showToast('Set your business email first — the test goes there','err');return}
   if(!ejInit(pub)){showToast('EmailJS library not loaded (offline?)','err');return}
@@ -976,20 +1029,41 @@ async function testEmail(){
       balance:'',sender_name:S.senderName||S.company||'',sender_email:to,reply_to:to
     });
     logA('Test email sent to '+to,'✅');
-    showToast('Test email sent to '+to+' — check the inbox (and spam)');
+    showToast('✓ Test email sent to '+to+' — check the inbox (and spam)');
   }catch(e){showToast('Test failed: '+(e&&e.text||e&&e.message||'unknown'),'err')}
 }
-async function testText(){
-  const key=(document.getElementById('stTb')||{value:''}).value.trim();
-  const ph=String((document.getElementById('stTbPhone')||{value:''}).value).replace(/[^\d+]/g,'');
+async function doSmsTest(key,ph){
+  ph=String(ph||'').replace(/[^\d+]/g,'');
   if(!key){showToast('Paste your Textbelt key first','err');return}
   if(ph.replace(/\D/g,'').length<7){showToast('Enter your mobile number for the test','err');return}
   showToast('Sending test text…');
   try{
     const d=await smsSend(ph,(S.company||'Trickster Inc')+': test message — outgoing SMS works. ✅',key);
-    if(d.success){logA('Test text sent to '+ph,'✅');showToast('Test text sent'+(d.quotaRemaining!=null?' · '+d.quotaRemaining+' credits left':''))}
+    if(d.success){logA('Test text sent to '+ph,'✅');showToast('✓ Test text sent'+(d.quotaRemaining!=null?' · '+d.quotaRemaining+' credits left':''))}
     else showToast('Textbelt: '+(d.error||'failed'),'err');
   }catch(e){showToast('Blocked — one-click texting needs the Netlify-hosted site (redeploy latest zip)','err')}
+}
+function testEmail(){doEmailTest((document.getElementById('stEjP')||{}).value?.trim(),(document.getElementById('stEjS')||{}).value?.trim(),(document.getElementById('stEjT')||{}).value?.trim(),(document.getElementById('stEm')||{}).value?.trim()||S.senderEmail)}
+function testText(){doSmsTest((document.getElementById('stTb')||{}).value?.trim(),(document.getElementById('stTbPhone')||{}).value)}
+
+// ----- Connect wizard: save + test straight from the guided steps -----
+function connSaveEmail(){
+  S.emailjsPublic=(document.getElementById('wzEjP')||{}).value.trim();
+  S.emailjsService=(document.getElementById('wzEjS')||{}).value.trim();
+  S.emailjsTemplate=(document.getElementById('wzEjT')||{}).value.trim();
+  saveSettingsLS();showToast('Email keys saved');go('connect');
+}
+function connTestEmail(){
+  connSaveEmail();
+  doEmailTest(S.emailjsPublic,S.emailjsService,S.emailjsTemplate,S.senderEmail||(document.getElementById('wzTo')||{}).value?.trim());
+}
+function connSaveSms(){
+  S.textbeltKey=(document.getElementById('wzTb')||{}).value.trim();
+  saveSettingsLS();showToast('Text key saved');go('connect');
+}
+function connTestSms(){
+  connSaveSms();
+  doSmsTest(S.textbeltKey,(document.getElementById('wzTbPhone')||{}).value);
 }
 async function emailAllDue(){
   if(!emailReady()){showToast('Configure EmailJS in Settings first','err');return}
@@ -1283,6 +1357,10 @@ document.addEventListener('click',e=>{
     sendText:sendTextNow,
     testEmail:testEmail,
     testText:testText,
+    connSaveEmail:connSaveEmail,
+    connTestEmail:connTestEmail,
+    connSaveSms:connSaveSms,
+    connTestSms:connTestSms,
     emailAllDue:emailAllDue,
     markSent:markSent,
     printStatement:()=>printStatement(id),
