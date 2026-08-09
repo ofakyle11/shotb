@@ -1,7 +1,13 @@
 # Shotbreak Producer's Estimate — Pricing Methodology & Rate Reference
 
 This document backs every number in `timeline/timeline-budget.js` (the
-**Producer's Estimate** panel on the timeline page). It has two halves:
+**Producer's Estimate** panel on the timeline page) and the **Producer
+Suite** at `/producer/` — Shotbreak's own implementations of the classic
+producer toolkit: an editable Movie Magic-style budget top sheet
+(`producer/budget-sheet.js`), a stripboard scheduler with Day-Out-of-Days
+reports (`producer/schedule-board.js`), and a tax-incentive comparison
+table (`producer/incentives.js`). All three seed themselves from the parsed
+screenplay and share the rate tables documented here. It has two halves:
 
 1. **AI rough-draft preview pricing** — what the model APIs bill to generate
    the lighting/set previz cut of a script, and how long the run takes.
