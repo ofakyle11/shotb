@@ -316,3 +316,5 @@ button,input,select,textarea{font-family:inherit}
 .bud-note code{font-family:var(--mono);color:var(--text2)}
 .bud-ai-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
 .bud-ai-out{white-space:pre-wrap;font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;max-height:340px;overflow-y:auto;line-height:1.55}
+.bud-warn{color:var(--red);font-size:10px;font-weight:700}
+.bud-incent{border-left-color:var(--green)}

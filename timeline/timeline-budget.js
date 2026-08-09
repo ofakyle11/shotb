@@ -148,6 +148,67 @@
   var BOND_PCT = 0.025;                   // completion bond ~2-3% net (indie financing only)
   var CONTINGENCY_PCT = 0.10;             // standard bond-company requirement
 
+  /* Film tax incentives — curated from published program terms (2025-26).
+   * rate = [low, high] effective credit/rebate on QUALIFIED spend;
+   * qualPct = fraction of a typical budget that qualifies (labor-only
+   * programs like BC/Quebec qualify less of the budget than all-spend
+   * rebates; UK/Ireland cap claims at 80% of core expenditure).
+   * Recovery arrives months after audit — it reduces net cost, not the
+   * cash you need up front. */
+  var INCENTIVES = [
+    { id: 'none',      label: 'None / not modeled',                   rate: [0, 0],       qualPct: 0,    note: '' },
+    { id: 'georgia',   label: 'Georgia — 30% transferable',           rate: [0.20, 0.30], qualPct: 0.75, minSpend: 5e5,  note: '20% base + 10% logo; no annual cap; credits sellable ~87-92¢' },
+    { id: 'california',label: 'California — 20-35% (Program 4.0)',    rate: [0.20, 0.35], qualPct: 0.55, minSpend: 1e6,  note: 'excludes ATL salaries; annual program cap, lottery-style allocation' },
+    { id: 'newyork',   label: 'New York — 30% refundable',            rate: [0.30, 0.30], qualPct: 0.55, minSpend: 25e4, note: 'BTL costs only; $700M/yr program cap' },
+    { id: 'newmexico', label: 'New Mexico — 25-40% refundable',       rate: [0.25, 0.40], qualPct: 0.70, note: 'uplifts for rural, TV series, NM crew' },
+    { id: 'louisiana', label: 'Louisiana — 25-40% credit',            rate: [0.25, 0.40], qualPct: 0.70, minSpend: 3e5,  note: '$150M annual program cap' },
+    { id: 'ukavec',    label: 'UK — AVEC 25.5% net',                  rate: [0.255, 0.255], qualPct: 0.64, note: '34% gross on up to 80% of core spend' },
+    { id: 'ukiftc',    label: 'UK — Independent Film 39.75% net',     rate: [0.3975, 0.3975], qualPct: 0.64, budgetCap: 30e6, note: 'films ≤ ~£15M core spend; claim capped at 80% of core' },
+    { id: 'ireland',   label: 'Ireland — Section 481 (32%)',          rate: [0.32, 0.32], qualPct: 0.64, note: 'on 80% of eligible spend; €125M per-project cap; +8% lower-budget uplift' },
+    { id: 'hungary',   label: 'Hungary — 30% rebate',                 rate: [0.30, 0.30], qualPct: 0.75, note: 'no per-project cap; extended to 2030' },
+    { id: 'czech',     label: 'Czech Republic — 20-30% rebate',       rate: [0.20, 0.30], qualPct: 0.70, note: '+10% for VFX/animation work' },
+    { id: 'australia', label: 'Australia — 30% offset',               rate: [0.30, 0.30], qualPct: 0.75, note: 'Location Offset (international) or Producer Offset (Australian films)' },
+    { id: 'nz',        label: 'New Zealand — 20-25% (40% domestic)',  rate: [0.20, 0.25], qualPct: 0.75, note: 'NZSPG; 40% for qualifying NZ productions' },
+    { id: 'bc',        label: 'British Columbia — 36% labor (PSTC)',  rate: [0.36, 0.36], qualPct: 0.45, note: 'labor-only credit; stacks with federal PSTC 16%' },
+    { id: 'ontario',   label: 'Ontario — 21.5% all-spend (OPSTC)',    rate: [0.215, 0.215], qualPct: 0.70, note: 'or OFTTC 35% labor-only for Canadian-content films' },
+    { id: 'iceland',   label: 'Iceland — 25-35% rebate',              rate: [0.25, 0.35], qualPct: 0.75, note: '35% above spend/shoot-day thresholds' },
+    { id: 'malta',     label: 'Malta — 30-40% rebate',                rate: [0.30, 0.40], qualPct: 0.75, note: 'uplifts for portraying Malta / local facilities' },
+    { id: 'italy',     label: 'Italy — 40% credit',                   rate: [0.40, 0.40], qualPct: 0.70, note: 'per-project caps apply' },
+    { id: 'greece',    label: 'Greece — 40% rebate',                  rate: [0.40, 0.40], qualPct: 0.70, note: '+5% VFX/digital bonus' },
+    { id: 'germany',   label: 'Germany — DFFF 25%',                   rate: [0.25, 0.35], qualPct: 0.70, note: 'regional funds (Bavaria/NRW/Berlin) can add 5-10%' },
+    { id: 'spain',     label: 'Spain — 25-30% (Canary 50%+)',         rate: [0.25, 0.30], qualPct: 0.70, note: 'Canary Islands special regime reaches 50-54%' }
+  ];
+
+  /* Real-film benchmarks by primary genre — computed from the TMDB 5000
+   * dataset (3,708 released features with reported budgets; median vintage
+   * ~2005), inflation-adjusted ×1.6 to 2026 dollars. med/p25/p75 = production
+   * budget; medGross = worldwide gross. Planning context, not prediction. */
+  var GENRE_BENCHMARKS = {
+    'Action':          { med: 64e6,  p25: 32e6,  p75: 112e6, medGross: 92e6 },
+    'Adventure':       { med: 88e6,  p25: 35e6,  p75: 184e6, medGross: 205e6 },
+    'Animation':       { med: 120e6, p25: 48e6,  p75: 176e6, medGross: 300e6 },
+    'Comedy':          { med: 32e6,  p25: 13e6,  p75: 59e6,  medGross: 53e6 },
+    'Crime':           { med: 29e6,  p25: 11e6,  p75: 64e6,  medGross: 47e6 },
+    'Documentary':     { med: 3.2e6, p25: 1.5e6, p75: 9.6e6, medGross: 3.3e6 },
+    'Drama':           { med: 24e6,  p25: 9.6e6, p75: 51e6,  medGross: 38e6 },
+    'Family':          { med: 58e6,  p25: 32e6,  p75: 118e6, medGross: 137e6 },
+    'Fantasy':         { med: 74e6,  p25: 32e6,  p75: 134e6, medGross: 164e6 },
+    'Horror':          { med: 16e6,  p25: 6.4e6, p75: 32e6,  medGross: 62e6 },
+    'Romance':         { med: 37e6,  p25: 12e6,  p75: 64e6,  medGross: 76e6 },
+    'Science Fiction': { med: 56e6,  p25: 19e6,  p75: 133e6, medGross: 143e6 },
+    'Thriller':        { med: 40e6,  p25: 13e6,  p75: 77e6,  medGross: 55e6 }
+  };
+  /* Overall released-feature budget distribution (same dataset, 2026$). */
+  var BUDGET_PERCENTILES = { p10: 4.6e6, p50: 38e6, p90: 144e6 };
+
+  /* SAG-anchored weekly/daily performer rates by crew/union tier, used for
+   * DOOD-based supporting-cast and day-player costing. */
+  var PERFORMER_RATES = {
+    nonunion: { day: 400,  week: 1800 },
+    hybrid:   { day: 810,  week: 2812 },   // SAG Low Budget Agreement
+    union:    { day: 1246, week: 4326 }    // SAG Basic
+  };
+
   /* ════════════════════════════════════════════════════════════════════
    *  2. SCRIPT ANALYSIS
    * ════════════════════════════════════════════════════════════════════ */
@@ -205,11 +266,77 @@
     return d ? d.count : 0;
   }
 
+  /* CineSched-style measurement: split the script at sluglines and size each
+   * scene in eighths of a page (industry unit; ~5 content lines ≈ 1/8). */
+  var SLUG_RE = /^\s*(?:\d+[A-Z]?[.\s-]*)?(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i;
+  var LINES_PER_EIGHTH = 5;
+
+  function splitScenes(text) {
+    var lines = String(text || '').split(/\r?\n/);
+    var scenes = [], cur = null;
+    lines.forEach(function (ln) {
+      var t = ln.trim();
+      if (SLUG_RE.test(t)) { cur = { heading: t, lines: [] }; scenes.push(cur); }
+      else if (cur && t) cur.lines.push(t);
+    });
+    scenes.forEach(function (sc) {
+      sc.eighths = Math.max(1, Math.round(sc.lines.length / LINES_PER_EIGHTH));
+      sc.text = sc.lines.join('\n');
+    });
+    return scenes;
+  }
+
+  /* Genre inference for benchmark comparison — keyword families scored
+   * against the script; Action scores off the physical-action drivers. */
+  var GENRE_SIGNALS = [
+    { g: 'Science Fiction', w: 3, re: /\b(aliens?|spaceship|starship|space station|robots?|cyborg|android|holograms?|portals?|time travel|lasers?|galaxy|planets?|warp|mothership)\b/gi },
+    { g: 'Fantasy',         w: 3, re: /\b(dragons?|wizards?|sorcer\w+|magic\w*|spells?|kingdoms?|elves|elf\b|prophecy|enchant\w+|quest\b|sword and)\b/gi },
+    { g: 'Horror',          w: 3, re: /\b(screams?|screaming|blood\w*|corpses?|terror|demons?|ghosts?|zombies?|haunt\w+|possess\w+|nightmares?|séance|seance|exorcis\w+)\b/gi },
+    { g: 'Crime',           w: 3, re: /\b(detectives?|heists?|cops?|police|murders?|murdered|gangs?|mob\b|mobster|cartel|interrogat\w+|crime scene|robbery|precinct)\b/gi },
+    { g: 'Comedy',          w: 3, re: /\b(laughs?|laughing|jokes?|hilarious|awkward\w*|comed\w+|pranks?|giggl\w+|deadpan)\b/gi },
+    { g: 'Romance',         w: 3, re: /\b(kiss\w*|love\b|loves\b|wedding|romant\w+|heartbreak|embrace|proposal)\b/gi },
+    { g: 'Thriller',        w: 3, re: /\b(stalk\w+|conspiracy|hostages?|ransom|surveillance|assassins?|countdown|double.cross|safe house)\b/gi }
+  ];
+
+  function inferGenre(text, drivers) {
+    var best = 'Drama', bestScore = 4; // Drama unless something beats the floor
+    GENRE_SIGNALS.forEach(function (s) {
+      var m = String(text || '').match(s.re);
+      var score = (m ? m.length : 0) * s.w;
+      if (score > bestScore) { best = s.g; bestScore = score; }
+    });
+    var actionScore = driverCount(drivers, 'stunts') + driverCount(drivers, 'gunplay') +
+      driverCount(drivers, 'vehicles') + driverCount(drivers, 'pyro');
+    if (actionScore > bestScore) best = 'Action';
+    return best;
+  }
+
+  /* Approximate percentile of a budget vs. all released features, by
+   * log-linear interpolation across the p10/p50/p90 anchors. */
+  function budgetPercentile(usd) {
+    var P = BUDGET_PERCENTILES;
+    if (usd <= 0) return 1;
+    var x = Math.log(usd), a = Math.log(P.p10), b = Math.log(P.p50), c = Math.log(P.p90);
+    var pct;
+    if (x <= a) pct = 10 * x / a;
+    else if (x <= b) pct = 10 + 40 * (x - a) / (b - a);
+    else if (x <= c) pct = 50 + 40 * (x - b) / (c - b);
+    else pct = 90 + 9 * Math.min(1, (x - c) / (Math.log(P.p90 * 4) - c));
+    return Math.round(clamp(pct, 1, 99));
+  }
+
   function analyze(st) {
     st = st || {};
     var clips = st.clips || [];
     var text = pickText(st);
-    var pages = estimatePages(text, clips);
+
+    // Eighths-based page measure (CineSched convention) when sluglines exist;
+    // word-count estimate otherwise.
+    var sceneChunks = splitScenes(text);
+    var eighthsTotal = sceneChunks.reduce(function (a, s) { return a + s.eighths; }, 0);
+    var pages = sceneChunks.length >= 2
+      ? Math.max(1, Math.round(eighthsTotal / 8))
+      : estimatePages(text, clips);
 
     // Scene headings — prefer real parse, fall back to regex over the text.
     var headings = [];
@@ -264,8 +391,24 @@
 
     var totalClipSec = clips.reduce(function (a, c) { return a + (c.durationSec || 5); }, 0);
 
+    // Per-scene cast map for Day-Out-of-Days costing: which scene indices
+    // each ranked character appears in (name occurrence in the scene chunk).
+    var sceneCast = {};
+    if (sceneChunks.length >= 2 && ranked.length) {
+      ranked.forEach(function (name) {
+        var re = new RegExp('\\b' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+        var idxs = [];
+        sceneChunks.forEach(function (sc, i) { if (re.test(sc.text)) idxs.push(i); });
+        if (idxs.length) sceneCast[name] = idxs;
+      });
+    }
+
     return {
       pages: pages,
+      eighthsTotal: eighthsTotal,
+      sceneEighths: sceneChunks.map(function (s) { return s.eighths; }),
+      sceneCast: sceneCast,
+      genre: inferGenre(text, drivers),
       runtimeMin: pages,               // industry rule of thumb: 1 page ≈ 1 minute
       scenes: scenes,
       clips: clips.length,
@@ -280,6 +423,7 @@
       supporting: supporting,
       dayPlayers: dayPlayers,
       leadNames: ranked.slice(0, leads),
+      rankedNames: ranked,
       drivers: drivers,
       complexity: complexity,
       hasText: !!text
@@ -381,6 +525,8 @@
     var equip = tier(TIERS.equipment, sel.equipment || 'indie');
     var vfxId = sel.vfx === 'auto' || !sel.vfx ? suggestVfxTier(analysis) : sel.vfx;
     var vfx = tier(TIERS.vfx, vfxId);
+    var incentive = INCENTIVES.find(function (x) { return x.id === (sel.incentive || 'none'); }) || INCENTIVES[0];
+    var genre = (sel.genre && sel.genre !== 'auto' && GENRE_BENCHMARKS[sel.genre]) ? sel.genre : analysis.genre;
 
     /* ── Schedule ────────────────────────────────────────────────── */
     var driverLoad =
@@ -391,23 +537,78 @@
       Math.min(driverCount(analysis.drivers, 'water'), 10) * 0.008 +
       Math.min(driverCount(analysis.drivers, 'crowds'), 15) * 0.004 +
       (vfx.shotsPct >= 0.45 ? 0.10 : 0);
-    var shootDays = Math.max(5, Math.ceil(analysis.pages / scale.pagesPerDay * driverLoad));
+    // Eighths-of-page pace when the script was measured scene by scene
+    // (CineSched convention); page-count fallback otherwise.
+    var pagesExact = analysis.eighthsTotal ? analysis.eighthsTotal / 8 : analysis.pages;
+    var shootDays = Math.max(5, Math.ceil(pagesExact / scale.pagesPerDay * driverLoad));
     var shootWeeks = shootDays / 5;
     var prepWeeks = Math.max(2, Math.round(shootWeeks * (scale.crewSize >= 110 ? 1.6 : 1.1)));
     var postWeeks = Math.max(8, Math.round(shootWeeks * 2.4 + (vfx.shotsPct >= 0.45 ? 16 : vfx.shotsPct >= 0.25 ? 8 : 0)));
 
+    /* ── Day-out-of-days (CineSched-style): map scenes onto shoot days,
+     * then work/span days per cast member → schedule-accurate supporting
+     * and day-player costs instead of flat per-role ranges. ─────────── */
+    var eighthsPerDay = Math.max(1, scale.pagesPerDay * 8 / driverLoad);
+    var sceneDay = [];
+    var cum = 0;
+    (analysis.sceneEighths || []).forEach(function (e) {
+      sceneDay.push(Math.min(shootDays - 1, Math.floor(cum / eighthsPerDay)));
+      cum += e;
+    });
+    function doodFor(name) {
+      var idxs = analysis.sceneCast && analysis.sceneCast[name];
+      if (!idxs || !idxs.length || !sceneDay.length) return null;
+      var seen = {}, min = Infinity, max = -Infinity;
+      idxs.forEach(function (i) {
+        var d = sceneDay[Math.min(i, sceneDay.length - 1)];
+        seen[d] = 1;
+        if (d < min) min = d;
+        if (d > max) max = d;
+      });
+      var span = max - min + 1;
+      return { workDays: Object.keys(seen).length, spanDays: span, spanWeeks: Math.max(1, Math.ceil(span / 5)) };
+    }
+    var perf = PERFORMER_RATES[crew.id] || PERFORMER_RATES.nonunion;
+    var ranked = analysis.rankedNames || [];
+    var supportNames = ranked.slice(analysis.leads, analysis.leads + analysis.supporting);
+    var dayNames = ranked.slice(analysis.leads + analysis.supporting);
+    var fallbackSpanWeeks = Math.max(1, Math.round(shootWeeks * 0.6));
+    var supportWeeksList = supportNames.map(function (n) {
+      var d = doodFor(n);
+      return d ? d.spanWeeks : fallbackSpanWeeks;
+    });
+    var avgSupportWeeks = supportWeeksList.length
+      ? supportWeeksList.reduce(function (a, b) { return a + b; }, 0) / supportWeeksList.length
+      : fallbackSpanWeeks;
+
     /* ── Above the line ──────────────────────────────────────────── */
     var castLeads = R(lead.range, analysis.leads);
-    var castSupport = R(support.range, analysis.supporting);
-    var castDay = R(DAY_PLAYER_RANGE, analysis.dayPlayers);
+    var castSupport = [0, 0];
+    supportNames.forEach(function (n) {
+      var d = doodFor(n);
+      var weeks = d ? d.spanWeeks : fallbackSpanWeeks;
+      // Weekly-contract math clamped into the chosen tier's per-role band —
+      // scale players cost what the schedule says; name talent costs the fee.
+      castSupport[0] += clamp(perf.week * weeks, support.range[0], support.range[1]);
+      castSupport[1] += clamp(perf.week * weeks * 1.6, support.range[0], support.range[1]);
+    });
+    if (!supportNames.length) castSupport = R(support.range, analysis.supporting);
+    var castDay = [0, 0];
+    dayNames.forEach(function (n) {
+      var d = doodFor(n);
+      var days = d ? d.workDays : 2;
+      castDay[0] += clamp(perf.day * days, 800, DAY_PLAYER_RANGE[1]);
+      castDay[1] += clamp(perf.day * days * 2, DAY_PLAYER_RANGE[0], DAY_PLAYER_RANGE[1] * 1.5);
+    });
+    if (!dayNames.length) castDay = R(DAY_PLAYER_RANGE, analysis.dayPlayers);
     var atl = {};
-    atl['Story & rights'] = R(scale.scriptRights);
-    atl['Producers'] = R(scale.producers);
-    atl['Director'] = R(director.range);
-    atl['Lead cast (' + analysis.leads + ')'] = castLeads;
-    atl['Supporting cast (' + analysis.supporting + ')'] = castSupport;
-    atl['Day players (' + analysis.dayPlayers + ')'] = castDay;
-    atl['Casting'] = R(scale.castingFee);
+    atl['1000 · Story & rights'] = R(scale.scriptRights);
+    atl['2000 · Producers unit'] = R(scale.producers);
+    atl['3000 · Direction'] = R(director.range);
+    atl['4000 · Cast — leads (' + analysis.leads + ')'] = castLeads;
+    atl['4100 · Cast — supporting (' + analysis.supporting + (supportNames.length ? ', ~' + Math.round(avgSupportWeeks) + ' wks each' : '') + ')'] = castSupport;
+    atl['4200 · Cast — day players (' + analysis.dayPlayers + ')'] = castDay;
+    atl['4400 · Casting'] = R(scale.castingFee);
 
     /* ── Below the line (production) ─────────────────────────────── */
     var laborBase = scale.crewSize * scale.crewAvgDay * crew.rateMult * shootDays * (1 + OT_FACTOR);
@@ -446,16 +647,27 @@
       (crewLabor[1] + castFringeBase[1]) * loc.travelPct * 2
     ] : [0, 0];
 
+    /* Top-sheet layout (CineSpend / Movie Magic account convention):
+     * crew labor split across department accounts, equipment split
+     * camera vs G&E, art allowance split art/wardrobe/HMU. */
+    function laborPct(p) { return [crewLabor[0] * p, crewLabor[1] * p]; }
+    var mediaStock = [shootDays * 150, shootDays * 600];
     var btl = {};
-    btl['Crew labor (~' + scale.crewSize + ' crew × ' + shootDays + ' days)'] = crewLabor;
+    btl['5000 · Production staff (' + scale.crewSize + ' crew × ' + shootDays + ' days total)'] = laborPct(0.20);
+    btl['6000 · Camera'] = addR(laborPct(0.13), [equipment[0] * 0.45, equipment[1] * 0.45]);
+    btl['7000 · Sound'] = addR(laborPct(0.04), [equipment[0] * 0.05, equipment[1] * 0.05]);
+    btl['8000 · Grip & electric'] = addR(laborPct(0.18), [equipment[0] * 0.50, equipment[1] * 0.50]);
+    btl['8500 · Set operations & other crew'] = laborPct(0.24);
+    btl['9000 · Art department'] = addR(laborPct(0.12), [art[0] * 0.55, art[1] * 0.55]);
+    btl['10000 · Wardrobe'] = addR(laborPct(0.05), [art[0] * 0.30, art[1] * 0.30]);
+    btl['11000 · Makeup & hair'] = addR(laborPct(0.04), [art[0] * 0.15, art[1] * 0.15]);
     btl['Payroll fringes (' + Math.round(crew.fringe * 100) + '%)'] = fringes;
-    btl['Background / extras (~' + extrasDays + ' person-days)'] = extras;
-    btl['Camera, grip & electric'] = equipment;
-    btl['Locations & permits (' + analysis.uniqueLocations + ' locations)'] = locations;
-    btl['Production design / art dept'] = art;
-    btl['Stunts, SFX & special units'] = specialUnits;
-    btl['Transportation'] = transport;
-    btl['Travel & living'] = travel;
+    btl['4500 · Background & extras (~' + extrasDays + ' person-days)'] = extras;
+    btl['9900 · Stunts, SFX & special units'] = specialUnits;
+    btl['12000 · Transportation'] = transport;
+    btl['13000 · Locations & permits (' + analysis.uniqueLocations + ' locations)'] = locations;
+    btl['13500 · Travel & living'] = travel;
+    btl['14000 · Production media & stock'] = mediaStock;
 
     /* ── Post-production ─────────────────────────────────────────── */
     var vfxShots = Math.max(
@@ -465,11 +677,11 @@
     var vfxCost = [vfxShots * vfx.perShot[0], vfxShots * vfx.perShot[1]];
     var editorial = [scale.editorialWk[0] * postWeeks, scale.editorialWk[1] * postWeeks];
     var post = {};
-    post['Editorial (' + postWeeks + ' weeks)'] = editorial;
-    post['VFX (' + vfxShots + ' shots, ' + vfx.label.toLowerCase() + ')'] = vfxCost;
-    post['Sound design & mix'] = R(scale.sound);
-    post['Music (score + licensing)'] = R(scale.music);
-    post['Color / DI & deliverables'] = R(scale.di);
+    post['15000 · Editorial (' + postWeeks + ' weeks)'] = editorial;
+    post['15200 · VFX (' + vfxShots + ' shots, ' + vfx.label.toLowerCase() + ')'] = vfxCost;
+    post['15400 · Sound design & mix'] = R(scale.sound);
+    post['15600 · Music (score + licensing)'] = R(scale.music);
+    post['15800 · Color / DI & deliverables'] = R(scale.di);
 
     /* ── Other ───────────────────────────────────────────────────── */
     function sumGroup(g) {
@@ -479,28 +691,59 @@
     }
     var direct = addR(addR(sumGroup(atl), sumGroup(btl)), sumGroup(post));
     var isIndieFinanced = ['micro', 'low', 'indie', 'mid'].indexOf(scale.id) >= 0;
-    var other = {
-      'Insurance (2.5%)': R(direct, INSURANCE_PCT),
-      'Legal & finance (1.5%)': R(direct, LEGAL_PCT),
-      'Contingency (10%)': R(direct, CONTINGENCY_PCT)
-    };
-    if (isIndieFinanced) other['Completion bond (2.5%)'] = R(direct, BOND_PCT);
+    var publicityByScale = { micro: [0, 0], low: [0, 0], indie: [10e3, 50e3], mid: [50e3, 250e3], studio: [250e3, 1e6], tentpole: [1e6, 3e6] };
+    var btlTotal = sumGroup(btl);
+    var other = {};
+    other['16000 · Insurance (2.5%)'] = R(direct, INSURANCE_PCT);
+    other['16500 · Legal & finance (1.5%)'] = R(direct, LEGAL_PCT);
+    if (isIndieFinanced) other['16800 · Completion bond (2.5%)'] = R(direct, BOND_PCT);
+    other['17000 · Publicity (unit publicist, stills)'] = publicityByScale[scale.id] || [0, 0];
+    other['18000 · General expenses (~4% of BTL)'] = [btlTotal[0] * 0.04, btlTotal[1] * 0.04];
+    other['19000 · Contingency (10%)'] = R(direct, CONTINGENCY_PCT);
 
     var total = addR(direct, sumGroup(other));
     var likely = (total[0] + total[1]) / 2;
 
+    /* ── Tax incentive recovery (net of budget, paid after audit) ── */
+    var recovery = null;
+    if (incentive.rate[1] > 0) {
+      var midRate = (incentive.rate[0] + incentive.rate[1]) / 2;
+      recovery = {
+        id: incentive.id,
+        label: incentive.label,
+        note: incentive.note,
+        low: total[0] * incentive.qualPct * incentive.rate[0],
+        high: total[1] * incentive.qualPct * incentive.rate[1],
+        likely: likely * incentive.qualPct * midRate,
+        netLikely: likely * (1 - incentive.qualPct * midRate),
+        belowMin: incentive.minSpend ? likely < incentive.minSpend : false,
+        overCap: incentive.budgetCap ? likely > incentive.budgetCap : false
+      };
+    }
+
+    /* ── Real-film benchmark for the (auto or chosen) genre ──────── */
+    var gb = GENRE_BENCHMARKS[genre] || null;
+    var benchmark = gb ? {
+      genre: genre,
+      med: gb.med, p25: gb.p25, p75: gb.p75, medGross: gb.medGross,
+      percentile: budgetPercentile(likely)
+    } : null;
+
     return {
-      tiers: { scale: scale, director: director, lead: lead, supporting: support, crew: crew, locations: loc, equipment: equip, vfx: vfx, vfxAuto: (sel.vfx === 'auto' || !sel.vfx) },
+      tiers: { scale: scale, director: director, lead: lead, supporting: support, crew: crew, locations: loc, equipment: equip, vfx: vfx, vfxAuto: (sel.vfx === 'auto' || !sel.vfx), incentive: incentive, genre: genre, genreAuto: !(sel.genre && sel.genre !== 'auto' && GENRE_BENCHMARKS[sel.genre]) },
       schedule: { shootDays: shootDays, prepWeeks: prepWeeks, postWeeks: postWeeks, totalWeeks: Math.round(prepWeeks + shootWeeks + postWeeks) },
+      dood: { avgSupportWeeks: avgSupportWeeks, hasSceneData: !!(sceneDay.length && Object.keys(analysis.sceneCast || {}).length) },
       groups: { 'Above the line': atl, 'Production (below the line)': btl, 'Post-production': post, 'Other': other },
       groupTotals: {
         'Above the line': sumGroup(atl),
-        'Production (below the line)': sumGroup(btl),
+        'Production (below the line)': btlTotal,
         'Post-production': sumGroup(post),
         'Other': sumGroup(other)
       },
       vfxShots: vfxShots,
-      total: { low: total[0], likely: likely, high: total[1] }
+      total: { low: total[0], likely: likely, high: total[1] },
+      recovery: recovery,
+      benchmark: benchmark
     };
   }
 
@@ -542,6 +785,8 @@
       L.push(k.toUpperCase() + ': ' + fmtRange(prod.groupTotals[k]));
     });
     L.push('MODEL TOTAL: ' + fmtMoney(prod.total.low) + ' low / ' + fmtMoney(prod.total.likely) + ' likely / ' + fmtMoney(prod.total.high) + ' high');
+    if (prod.benchmark) L.push('GENRE BENCHMARK (' + prod.benchmark.genre + '): median real budget ' + fmtMoney(prod.benchmark.med) + ', our likely = ' + prod.benchmark.percentile + 'th percentile of released features');
+    if (prod.recovery) L.push('TAX INCENTIVE (' + prod.recovery.label + '): est. recovery ' + fmtMoney(prod.recovery.low) + '-' + fmtMoney(prod.recovery.high) + ', net likely ' + fmtMoney(prod.recovery.netLikely));
     if (ai && ai.selectedRow) {
       L.push('AI PREVIEW (for contrast): ' + ai.clipCount + ' clips on ' + ai.selectedRow.label + ' ≈ ' + fmtMoney(ai.selectedRow.likelyUsd) + ' and ' + fmtMins(ai.selectedRow.wallMinutes));
     }
@@ -561,7 +806,7 @@
 
   function prefs() {
     if (_prefs) return _prefs;
-    _prefs = { scale: 'indie', director: 'emerging', lead: 'rising', supporting: 'scale', crew: 'nonunion', locations: 'local', equipment: 'indie', vfx: 'auto', retakeFactor: AI_DEFAULTS.retakeFactor, concurrency: AI_DEFAULTS.concurrency };
+    _prefs = { scale: 'indie', director: 'emerging', lead: 'rising', supporting: 'scale', crew: 'nonunion', locations: 'local', equipment: 'indie', vfx: 'auto', genre: 'auto', incentive: 'none', retakeFactor: AI_DEFAULTS.retakeFactor, concurrency: AI_DEFAULTS.concurrency };
     try {
       var saved = JSON.parse((root.localStorage && root.localStorage.getItem(PREF_KEY)) || 'null');
       if (saved) Object.assign(_prefs, saved);
@@ -639,6 +884,7 @@
 
     /* Production section */
     html += '<div class="bud-section"><h4>Real-world production — tiered estimate</h4>';
+    var genreList = Object.keys(GENRE_BENCHMARKS).map(function (g) { return { id: g, label: g }; });
     html += '<div class="bud-tiers">' +
       tierSelect('budScale', TIERS.scale, p.scale, 'Production scale') +
       tierSelect('budDirector', TIERS.director, p.director, 'Director tier') +
@@ -648,6 +894,8 @@
       tierSelect('budLoc', TIERS.locations, p.locations, 'Locations') +
       tierSelect('budEquip', TIERS.equipment, p.equipment, 'Camera & equipment') +
       tierSelect('budVfx', TIERS.vfx, p.vfx, 'VFX intensity', true) +
+      tierSelect('budGenre', genreList, p.genre, 'Genre (benchmarks)', true) +
+      tierSelect('budIncent', INCENTIVES, p.incentive, 'Tax incentive jurisdiction') +
       '</div>';
 
     html += '<div class="bud-sched">Schedule: <b>' + prod.schedule.shootDays + ' shoot days</b> · ' +
@@ -665,6 +913,19 @@
     });
 
     html += '<div class="bud-total">Estimated total: <span>' + fmtMoney(prod.total.low) + '</span> low · <b>' + fmtMoney(prod.total.likely) + '</b> likely · <span>' + fmtMoney(prod.total.high) + '</span> high</div>';
+
+    if (prod.recovery) {
+      var rec = prod.recovery;
+      html += '<div class="bud-compare bud-incent">' + escT(rec.label) + ': est. recovery <b>' + fmtMoney(rec.low) + ' – ' + fmtMoney(rec.high) + '</b> → net likely cost <b>' + fmtMoney(rec.netLikely) + '</b>. Paid out after audit (6–18 months) — it lowers net cost, not the cash you need up front.' +
+        (rec.note ? ' <span class="bud-note">' + escT(rec.note) + '</span>' : '') +
+        (rec.belowMin ? ' <span class="bud-warn">⚠ budget below program minimum spend</span>' : '') +
+        (rec.overCap ? ' <span class="bud-warn">⚠ budget above program cap — check eligibility</span>' : '') +
+        '</div>';
+    }
+    if (prod.benchmark) {
+      var bm = prod.benchmark;
+      html += '<div class="bud-compare">Real-film benchmark — <b>' + escT(bm.genre) + '</b>' + (prod.tiers.genreAuto ? ' (auto-detected)' : '') + ': median budget <b>' + fmtMoney(bm.med) + '</b> (typical ' + fmtMoney(bm.p25) + '–' + fmtMoney(bm.p75) + ', 2026$), median worldwide gross ' + fmtMoney(bm.medGross) + '. Your likely estimate sits at the <b>' + bm.percentile + 'th percentile</b> of released feature budgets.</div>';
+    }
 
     var sel = ai.selectedRow;
     if (sel) {
@@ -686,7 +947,7 @@
 
   function bindBodyEvents(st) {
     var p = prefs();
-    var map = { budScale: 'scale', budDirector: 'director', budLead: 'lead', budSupport: 'supporting', budCrew: 'crew', budLoc: 'locations', budEquip: 'equipment', budVfx: 'vfx' };
+    var map = { budScale: 'scale', budDirector: 'director', budLead: 'lead', budSupport: 'supporting', budCrew: 'crew', budLoc: 'locations', budEquip: 'equipment', budVfx: 'vfx', budGenre: 'genre', budIncent: 'incentive' };
     Object.keys(map).forEach(function (id) {
       var el = $id(id);
       if (!el) return;
@@ -779,9 +1040,15 @@
     fmtMoney: fmtMoney,
     fmtRange: fmtRange,
     fmtMins: fmtMins,
+    splitScenes: splitScenes,
+    inferGenre: inferGenre,
+    budgetPercentile: budgetPercentile,
     TIERS: TIERS,
     AI_MODEL_RATES: AI_MODEL_RATES,
-    AI_DEFAULTS: AI_DEFAULTS
+    AI_DEFAULTS: AI_DEFAULTS,
+    INCENTIVES: INCENTIVES,
+    GENRE_BENCHMARKS: GENRE_BENCHMARKS,
+    PERFORMER_RATES: PERFORMER_RATES
   };
 
   root.SBBudget = API;

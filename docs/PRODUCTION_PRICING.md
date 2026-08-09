@@ -244,16 +244,124 @@ plus INT/EXT and DAY/NIGHT ratios from scene headings. Drivers feed
 (a) the shoot-day multiplier, (b) special-unit day counts, (c) the VFX tier
 suggestion, and (d) the complexity score shown in the panel.
 
-### 2.8 Known limitations
+### 2.8 Script measurement: eighths of a page
 
-- Ranges are US-market; incentives/rebates (25–40 % in GA/NM/UK etc.) are
-  **not** modeled and can materially cut net cost.
+Scenes are measured the way ADs actually break down scripts — in **eighths
+of a page** (the convention CineSched and every stripboard tool uses). The
+analyzer splits the screenplay at sluglines and sizes each scene at
+~5 content lines per eighth (≈ 40 content lines/page). Total pages =
+Σ eighths ÷ 8, and the shoot-day computation runs on exact eighths rather
+than a rounded word count. When a script has no sluglines the word-count
+estimate (~200 words/page) is the fallback.
+
+### 2.9 Cast costing: Day-Out-of-Days
+
+Supporting cast and day players are costed from a simplified
+**Day-Out-of-Days**: scenes are laid onto shoot days in script order at the
+tier's eighths-per-day pace, each performer's first/last day and worked days
+are computed from which scenes they appear in, and:
+
+- **supporting roles** = SAG-anchored weekly rate (non-union $1,800 / LBA
+  $2,812 / Basic $4,326) × span weeks, clamped into the chosen supporting
+  tier's per-role band — so scale players cost what the schedule says while
+  name talent costs their fee;
+- **day players** = day rate ($400 / $810 / $1,246) × worked days.
+
+Leads remain flat run-of-picture fees by star tier (that is how they are
+actually dealt). A real DOOD also models holds, drop-pickup rules and
+consecutive-employment — this is the planning-grade version.
+
+### 2.10 Top-sheet account structure
+
+Line items follow the standard Movie Magic-style account skeleton (the same
+19-category structure CineSpend ships): 1000 Story & Rights, 2000 Producers,
+3000 Direction, 4000s Cast, 5000 Production Staff, 6000 Camera, 7000 Sound,
+8000 Grip & Electric, 9000 Art, 10000 Wardrobe, 11000 Makeup & Hair,
+12000 Transportation, 13000 Locations, 14000 Media & Stock, 15000s Post,
+16000s Insurance/Legal/Bond, 17000 Publicity, 18000 General Expenses,
+19000 Contingency. Crew labor is split across department accounts
+(staff 20 %, camera 13 %, sound 4 %, G&E 18 %, set ops 24 %, art 12 %,
+wardrobe 5 %, HMU 4 %); equipment splits camera 45 % / G&E 50 % / sound 5 %;
+the art allowance splits art 55 % / wardrobe 30 % / HMU 15 %.
+
+### 2.11 Tax incentives (net-cost modeling)
+
+A jurisdiction selector applies published incentive terms to estimate
+recovery: `recovery = total × qualified-spend fraction × credit rate`.
+Labor-only credits (BC PSTC 36 %, Ontario OFTTC) use a lower qualified
+fraction (~45 %) than all-spend rebates (~70–75 %); UK/Ireland claims cap at
+80 % of core expenditure (qualPct 0.64). Headline terms modeled (2025–26):
+
+| Jurisdiction | Headline | Type / notes |
+|---|---|---|
+| Georgia | 20 % + 10 % logo = 30 % | transferable, no annual cap, min $500k |
+| California (4.0) | 20–35 % | excludes ATL, annual allocation |
+| New York | 30 % | refundable, BTL only |
+| New Mexico | 25–40 % | refundable + uplifts |
+| Louisiana | 25–40 % | $150M annual cap |
+| UK AVEC | 34 % gross / 25.5 % net | on 80 % of core spend |
+| UK IFTC | 53 % gross / 39.75 % net | films ≤ ~£15M core spend |
+| Ireland S481 | 32 % | on 80 % of eligible, €125M cap |
+| Hungary | 30 % | rebate, no project cap |
+| Czech Republic | 20–30 % | +10 % VFX/animation |
+| Australia | 30 % | Location / Producer Offset |
+| New Zealand | 20–25 % (40 % domestic) | NZSPG |
+| British Columbia | 36 % | **labor only** (PSTC) |
+| Ontario | 21.5 % all-spend | or 35 % labor (OFTTC) |
+| Iceland | 25–35 % | rebate |
+| Malta | 30–40 % | rebate + uplifts |
+| Italy | 40 % | credit, per-project caps |
+| Greece | 40 % | rebate, +5 % VFX |
+| Germany | DFFF 25 % (+5–10 % regional) | grant |
+| Spain | 25–30 % (Canary 50 %+) | credit |
+
+Recovery is shown as a **net-cost reduction, not upfront cash** — credits
+pay out 6–18 months after audit (bankable at 85–92 ¢ on the dollar for
+transferable credits like Georgia's).
+
+### 2.12 Real-film genre benchmarks
+
+To sanity-check the model against reality, the panel compares the estimate
+to released-feature budget distributions computed from the TMDB 5000
+dataset (3,708 features with reported budgets; the same data used by the
+movies-explorer and Movie-Data-Analysis projects), inflation-adjusted ×1.6
+from its ~2005 median vintage to 2026 dollars. Per primary genre it shows
+median / interquartile budget and median worldwide gross, plus the
+percentile your likely estimate occupies in the overall distribution
+(p10 ≈ $4.6M, median ≈ $38M, p90 ≈ $144M in 2026$). Genre is auto-inferred
+from the script (keyword families + action-driver volume) and overridable.
+
+### 2.13 Reference tools this design draws on
+
+- **[CineSpend](https://github.com/ChrisTempel/CineSpend)** (GPL-3, Swift):
+  Movie Magic-style top sheet → the 19-account structure and amt×units×rate
+  transparency adopted in §2.10. Concepts only — no code was ported.
+- **[CineSched](https://github.com/ChrisTempel/CineSched)** (GPL-3, Swift):
+  eighths-of-page scene measurement, breakdown tagging categories
+  (stunts/SFX/VFX/vehicles/extras — mirrored by our driver detection), and
+  the Day-Out-of-Days work/hold model behind §2.8–2.9.
+- **[taxincentivedecoder.com](https://www.taxincentivedecoder.com)**: the
+  jurisdiction-incentive concept behind §2.11. Rates here were verified
+  against the underlying government program terms rather than copied.
+- **[Movie-Data-Analysis](https://github.com/Jeesoo-Jhun/Movie-Data-Analysis)**
+  and **[movies-explorer](https://github.com/dataprofessor/movies-explorer)**:
+  budget/ROI-by-genre benchmarking approach and the TMDB dataset behind §2.12.
+
+### 2.14 Known limitations
+
 - Star/director fees above "established" are reported figures, not scale;
   single-source trade numbers (e.g. some Dune cast salaries) are estimates.
 - Marketing/P&A is intentionally excluded (it is a distribution cost, often
   equal to half the production budget again).
 - Cast fringes are approximated (0.6 weighting) because SAG P&H caps out on
   large fees.
+- Incentive recovery is an estimate on headline terms — every program has
+  per-category qualification rules, sunset dates and allocation queues;
+  a production accountant's opinion letter is the real number.
+- The DOOD model schedules scenes in script order (no stripboard
+  optimization), so supporting-cast spans are conservative.
+- Genre benchmarks are inflation-adjusted 2005-vintage data — treat as
+  order-of-magnitude context, not market forecasts.
 - The DGA 2026–27 low-budget sideletter rates are marked "tentative" on the
   official rate card; Kling API pricing has historically swung 40–60 %.
 

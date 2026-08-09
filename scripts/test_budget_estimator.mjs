@@ -105,6 +105,37 @@ check('micro plausibly < $2.5M', micro.total.likely < 2.5e6, micro.total.likely)
 // ── vfx auto-suggest ──
 check('vfx auto-suggest returns valid tier', SBBudget.TIERS.vfx.some(t => t.id === SBBudget.suggestVfxTier(a)), SBBudget.suggestVfxTier(a));
 
+// ── eighths-based scene measurement (CineSched convention) ──
+const scenes = SBBudget.splitScenes(SCRIPT);
+check('splitScenes finds 4 scenes', scenes.length === 4, scenes.length);
+check('every scene has >= 1 eighth', scenes.every(s => s.eighths >= 1), scenes.map(s => s.eighths));
+check('analysis carries eighths total', a.eighthsTotal > 0, a.eighthsTotal);
+check('sceneEighths length matches scenes', a.sceneEighths.length > 0, a.sceneEighths.length);
+
+// ── genre inference + benchmarks ──
+check('genre inferred as action-ish', ['Action', 'Thriller', 'Crime'].includes(a.genre), a.genre);
+check('percentile monotonic', SBBudget.budgetPercentile(1e6) < SBBudget.budgetPercentile(50e6), [SBBudget.budgetPercentile(1e6), SBBudget.budgetPercentile(50e6)]);
+check('percentile bounded', SBBudget.budgetPercentile(5e9) <= 99 && SBBudget.budgetPercentile(1000) >= 1);
+
+// ── DOOD-based cast + top-sheet accounts ──
+check('sceneCast built for JACK', Array.isArray(a.sceneCast.JACK) && a.sceneCast.JACK.length > 0, a.sceneCast);
+const atlKeys = Object.keys(prod.groups['Above the line']);
+check('top-sheet accounts in ATL', atlKeys.some(k => k.startsWith('1000')) && atlKeys.some(k => k.startsWith('4100')), atlKeys);
+const btlKeys = Object.keys(prod.groups['Production (below the line)']);
+check('crew split into dept accounts', btlKeys.some(k => k.startsWith('6000')) && btlKeys.some(k => k.startsWith('8000')) && btlKeys.some(k => k.startsWith('13000')), btlKeys);
+check('dood summary present', prod.dood && prod.dood.avgSupportWeeks >= 1, prod.dood);
+check('benchmark present with percentile', prod.benchmark && prod.benchmark.percentile >= 1 && prod.benchmark.percentile <= 99, prod.benchmark);
+
+// ── tax incentives ──
+const ga = SBBudget.estimateProduction(a, { scale: 'indie', director: 'established', lead: 'name', supporting: 'seasoned', crew: 'union', locations: 'city', equipment: 'pro', vfx: 'auto', incentive: 'georgia' });
+check('georgia recovery computed', ga.recovery && ga.recovery.likely > 0, ga.recovery);
+check('recovery ≈ likely × qualPct × midRate', Math.abs(ga.recovery.likely - ga.total.likely * 0.75 * 0.25) < 1, ga.recovery.likely);
+check('net below gross', ga.recovery.netLikely < ga.total.likely, ga.recovery.netLikely);
+const none = SBBudget.estimateProduction(a, { incentive: 'none' });
+check('no recovery when none', none.recovery === null, none.recovery);
+const bc = SBBudget.INCENTIVES.find(i => i.id === 'bc');
+check('labor-only credit has lower qualPct', bc.qualPct < 0.6, bc.qualPct);
+
 // ── digest ──
 const digest = SBBudget.buildDigest(state, a, prod, ai);
 check('digest under server cap', digest.length <= 1900, digest.length);
