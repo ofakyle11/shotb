@@ -98,6 +98,28 @@
     return sheet;
   }
 
+  /* CSV export — one row per line item plus category subtotals and the
+   * sheet totals; opens clean in Excel / Sheets. */
+  function csvCell(v) {
+    var s = String(v == null ? '' : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function sheetToCsv(sheet) {
+    var rows = [['Account', 'Category', 'Line item', 'Amt', 'Units', 'Rate', 'Estimated', 'Actual', 'Notes']];
+    sheet.categories.forEach(function (c) {
+      c.items.forEach(function (it) {
+        rows.push([c.acct, c.name, it.desc, it.amt, it.units, it.rate, Math.round(itemEst(it)), num(it.actual) || '', it.notes]);
+      });
+      var t = catTotals(c);
+      if (t.est || t.actual) rows.push([c.acct, c.name, 'SUBTOTAL', '', '', '', Math.round(t.est), Math.round(t.actual) || '', '']);
+    });
+    var tot = sheetTotals(sheet);
+    rows.push(['', '', 'SUBTOTAL (all categories)', '', '', '', Math.round(tot.subtotal), Math.round(tot.actual) || '', '']);
+    rows.push(['19000', 'Contingency', sheet.contingencyPct + '%', '', '', '', Math.round(tot.contingency), '', '']);
+    rows.push(['', '', 'GRAND TOTAL', '', '', '', Math.round(tot.grand), '', '']);
+    return rows.map(function (r) { return r.map(csvCell).join(','); }).join('\n');
+  }
+
   /* ── persistence ─────────────────────────────────────────────────── */
   var sheet = null;
   var selected = 0;
@@ -208,11 +230,24 @@
       var st = root.psProjectState ? root.psProjectState() : {};
       if (!st.scriptText && !(st.clips || []).length) return root.psToast && psToast('No script in the timeline yet — import one first');
       var analysis = SBBudget.analyze(st);
-      var prod = SBBudget.estimateProduction(analysis, estimatorPrefs());
+      // Board feedback: real day assignments + breakdown tags from the
+      // Schedule tab sharpen cast spans and special-unit day counts.
+      var ov = (root.SBScheduleBoard && SBScheduleBoard.boardOverrides) ? SBScheduleBoard.boardOverrides() : {};
+      var prod = SBBudget.estimateProduction(analysis, Object.assign({}, estimatorPrefs(), ov));
       seedFromEstimate(sheet, prod);
       if (sheet.name === 'Untitled Budget') sheet.name = (st.projectName || 'Untitled Film') + ' — budget';
       persist(); renderTopSheet(); renderDetail();
-      if (root.psToast) psToast('Seeded from script estimate — ' + SBBudget.fmtMoney(sheetTotals(sheet).grand) + ' grand total');
+      var usedBoard = ov.castDood && Object.keys(ov.castDood).length;
+      if (root.psToast) psToast('Seeded — ' + SBBudget.fmtMoney(sheetTotals(sheet).grand) + ' grand total' + (usedBoard ? ' (using your stripboard schedule' + (ov.unitOverrides ? ' + breakdown tags' : '') + ')' : ''));
+    });
+    var csv = $('bsCsv');
+    if (csv) csv.addEventListener('click', function () {
+      var blob = new Blob([sheetToCsv(sheet)], { type: 'text/csv' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = (sheet.name || 'budget').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') + '.csv';
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
     });
     var add = $('bsAddItem');
     if (add) add.addEventListener('click', function () { sheet.categories[selected].items.push(blankItem()); persist(); renderDetail(); renderTopSheet(); });
@@ -264,6 +299,7 @@
     catTotals: catTotals,
     sheetTotals: sheetTotals,
     seedFromEstimate: seedFromEstimate,
+    sheetToCsv: sheetToCsv,
     DEFAULT_CATEGORIES: DEFAULT_CATEGORIES
   };
 })(typeof window !== 'undefined' ? window : globalThis);

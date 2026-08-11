@@ -564,6 +564,10 @@
       cum += e;
     });
     function doodFor(name) {
+      // Board-driven DOOD wins: when the stripboard has real day assignments
+      // (sel.castDood from the Producer Suite), use those exact spans instead
+      // of the script-order approximation.
+      if (sel.castDood && sel.castDood[name]) return sel.castDood[name];
       var idxs = analysis.sceneCast && analysis.sceneCast[name];
       if (!idxs || !idxs.length || !sceneDay.length) return null;
       var seen = {}, min = Infinity, max = -Infinity;
@@ -576,6 +580,10 @@
       var span = max - min + 1;
       return { workDays: Object.keys(seen).length, spanDays: span, spanWeeks: Math.max(1, Math.ceil(span / 5)) };
     }
+    // Per-scene breakdown tags from the stripboard override the keyword
+    // heuristics (sel.unitOverrides), and board day assignments override the
+    // script-order DOOD (sel.castDood).
+    var units = sel.unitOverrides || {};
     var perf = PERFORMER_RATES[crew.id] || PERFORMER_RATES.nonunion;
     var ranked = analysis.rankedNames || [];
     var supportNames = ranked.slice(analysis.leads, analysis.leads + analysis.supporting);
@@ -628,7 +636,8 @@
     ];
 
     var crowdHits = driverCount(analysis.drivers, 'crowds');
-    var extrasDays = crowdHits ? clamp(crowdHits * 12, 20, 4000) : Math.round(shootDays * 2);
+    var extrasDays = units.extrasDays != null ? Math.round(units.extrasDays)
+      : crowdHits ? clamp(crowdHits * 12, 20, 4000) : Math.round(shootDays * 2);
     var extras = [extrasDays * EXTRA_DAY_RATE[0], extrasDays * EXTRA_DAY_RATE[1]];
 
     var equipWeeks = shootWeeks + 1; // includes prep/test week
@@ -640,10 +649,14 @@
     ];
     var art = [scale.artPerDay[0] * shootDays, scale.artPerDay[1] * shootDays];
 
-    var stuntDays = Math.min(Math.ceil(driverCount(analysis.drivers, 'stunts') / 4), shootDays);
-    var pyroDays = Math.min(Math.ceil(driverCount(analysis.drivers, 'pyro') / 3), Math.ceil(shootDays / 2));
-    var waterDays = Math.min(Math.ceil(driverCount(analysis.drivers, 'water') / 5), Math.ceil(shootDays / 2));
-    var animalDays = Math.min(Math.ceil(driverCount(analysis.drivers, 'animals') / 4), shootDays);
+    var stuntDays = units.stuntDays != null ? Math.min(units.stuntDays, shootDays)
+      : Math.min(Math.ceil(driverCount(analysis.drivers, 'stunts') / 4), shootDays);
+    var pyroDays = units.pyroDays != null ? Math.min(units.pyroDays, shootDays)
+      : Math.min(Math.ceil(driverCount(analysis.drivers, 'pyro') / 3), Math.ceil(shootDays / 2));
+    var waterDays = units.waterDays != null ? Math.min(units.waterDays, shootDays)
+      : Math.min(Math.ceil(driverCount(analysis.drivers, 'water') / 5), Math.ceil(shootDays / 2));
+    var animalDays = units.animalDays != null ? Math.min(units.animalDays, shootDays)
+      : Math.min(Math.ceil(driverCount(analysis.drivers, 'animals') / 4), shootDays);
     var specialUnits = [
       stuntDays * STUNT_DAY[0] + pyroDays * PYRO_DAY[0] + waterDays * WATER_DAY[0] + animalDays * ANIMAL_DAY[0],
       stuntDays * STUNT_DAY[1] + pyroDays * PYRO_DAY[1] + waterDays * WATER_DAY[1] + animalDays * ANIMAL_DAY[1]

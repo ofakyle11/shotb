@@ -77,5 +77,59 @@ check('formatEighths 15 → 1 7/8', SBScheduleBoard.formatEighths(15) === '1 7/8
 check('formatEighths 8 → 1', SBScheduleBoard.formatEighths(8) === '1');
 check('formatEighths 3 → 3/8', SBScheduleBoard.formatEighths(3) === '3/8');
 
+// ── parseEighths ──
+check('parseEighths "1 7/8" → 15', SBScheduleBoard.parseEighths('1 7/8') === 15);
+check('parseEighths "7/8" → 7', SBScheduleBoard.parseEighths('7/8') === 7);
+check('parseEighths "15" → 15 eighths', SBScheduleBoard.parseEighths('15') === 15);
+check('parseEighths "2.5" pages → 20', SBScheduleBoard.parseEighths('2.5') === 20);
+check('parseEighths garbage → null', SBScheduleBoard.parseEighths('abc') === null);
+
+// ── location-grouped auto-schedule ──
+const locScenes = [
+  { id: 'a', num: 1, heading: 'INT. WAREHOUSE - NIGHT', eighths: 8, dn: 'night', cast: [], day: -1 },
+  { id: 'b', num: 2, heading: 'EXT. HARBOR - DAY', eighths: 8, dn: 'day', cast: [], day: -1 },
+  { id: 'c', num: 3, heading: 'INT. WAREHOUSE - DAY', eighths: 8, dn: 'day', cast: [], day: -1 },
+  { id: 'd', num: 4, heading: 'EXT. HARBOR - NIGHT', eighths: 8, dn: 'night', cast: [], day: -1 },
+];
+SBScheduleBoard.autoScheduleModel(locScenes, 2, 'location'); // 16 eighths/day → 2 scenes per day
+const dayOf = Object.fromEntries(locScenes.map(s => [s.id, s.day]));
+check('location grouping keeps sets together', dayOf.a === dayOf.c && dayOf.b === dayOf.d && dayOf.a !== dayOf.b, dayOf);
+check('locOf strips prefix', SBScheduleBoard.locOf('INT. WAREHOUSE - NIGHT') === 'WAREHOUSE');
+
+// ── board overrides (breakdown tags + real DOOD) ──
+const ovScenes = [
+  { id: 'x1', num: 1, heading: 'INT. A - DAY', eighths: 4, dn: 'day', cast: ['JACK'], day: 0, tags: { stunts: true }, extras: 20, notes: '' },
+  { id: 'x2', num: 2, heading: 'INT. A - DAY', eighths: 4, dn: 'day', cast: ['JACK', 'MAYA'], day: 0, tags: { stunts: true, sfx: true }, extras: 0, notes: '' },
+  { id: 'x3', num: 3, heading: 'EXT. B - DAY', eighths: 4, dn: 'day', cast: ['JACK'], day: 4, tags: {}, extras: 30, notes: '' },
+];
+const ov = SBScheduleBoard.boardOverridesModel(ovScenes);
+check('castDood from board days', ov.castDood.JACK.workDays === 2 && ov.castDood.JACK.spanDays === 5, ov.castDood.JACK);
+check('spanWeeks from span', ov.castDood.JACK.spanWeeks === 1, ov.castDood.JACK.spanWeeks);
+check('stuntDays = distinct tagged days', ov.unitOverrides.stuntDays === 1, ov.unitOverrides);
+check('pyroDays from sfx tag', ov.unitOverrides.pyroDays === 1, ov.unitOverrides);
+check('extrasDays summed', ov.unitOverrides.extrasDays === 50, ov.unitOverrides);
+check('no overrides for empty board', Object.keys(SBScheduleBoard.boardOverridesModel([{ id: 'q', num: 1, heading: 'INT. A - DAY', eighths: 4, dn: 'day', cast: [], day: -1 }])).length === 0);
+
+// ── overrides flow into the estimator ──
+const base = SBBudget.estimateProduction(analysis, { scale: 'indie' });
+const shortDood = {};
+(analysis.rankedNames || []).forEach(n => { shortDood[n] = { workDays: 1, spanDays: 1, spanWeeks: 1 }; });
+const withDood = SBBudget.estimateProduction(analysis, { scale: 'indie', castDood: shortDood });
+const supKey = k => Object.keys(k.groups['Above the line']).find(x => x.includes('4100'));
+const supLow = p => p.groups['Above the line'][supKey(p)][0];
+check('tight board DOOD lowers supporting cast cost', supLow(withDood) <= supLow(base), { base: supLow(base), withDood: supLow(withDood) });
+const noUnits = SBBudget.estimateProduction(analysis, { scale: 'indie', unitOverrides: { stuntDays: 0, pyroDays: 0, waterDays: 0, animalDays: 0, extrasDays: 10 } });
+const unitsKey = p => Object.keys(p.groups['Production (below the line)']).find(x => x.includes('9900'));
+check('unit overrides zero out special units', noUnits.groups['Production (below the line)'][unitsKey(noUnits)][1] === 0, noUnits.groups['Production (below the line)'][unitsKey(noUnits)]);
+
+// ── CSV export ──
+const csvSheet = SBBudgetSheet.blankSheet();
+csvSheet.categories[0].items = [{ id: 'z', desc: 'Option, purchase "rights"', amt: '', units: '', rate: '', est: 50000, actual: 0, notes: '' }];
+for (let i = 1; i < csvSheet.categories.length; i++) csvSheet.categories[i].items = [];
+const csv = SBBudgetSheet.sheetToCsv(csvSheet);
+check('csv has header + grand total', csv.startsWith('Account,') && csv.includes('GRAND TOTAL'), csv.split('\n')[0]);
+check('csv quotes commas/quotes', csv.includes('"Option, purchase ""rights"""'), csv.split('\n')[1]);
+check('csv grand includes contingency', csv.includes('GRAND TOTAL,,,,' + Math.round(55000)) || csv.split('\n').pop().includes('55000'), csv.split('\n').pop());
+
 console.log(failures ? '\n' + failures + ' FAILURES' : '\nAll producer suite checks passed.');
 process.exit(failures ? 1 : 0);

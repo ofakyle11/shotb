@@ -104,3 +104,36 @@
   .ps-detail{page-break-before:always}
   .bs-row,.bsd-table td,.dood-table td{color:#000!important}
 }
+
+/* ── breakdown tags + editor ── */
+.ps-tagchip{display:inline-block;background:rgba(0,0,0,.28);border-radius:4px;padding:0 4px;font-size:8px;font-weight:700;letter-spacing:.04em;margin-left:3px;vertical-align:1px}
+.ps-cs-btn{border:none;background:transparent;cursor:pointer;font-size:11px;padding:0 3px;opacity:.45}
+.ps-cs-btn:hover{opacity:1}
+.ps-cs-btn.has{opacity:1}
+.sbed-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.sbed-grid label{display:flex;flex-direction:column;gap:4px;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;font-weight:700;flex:1}
+.sbed-grid input,.sbed-grid select,.sbed-grid textarea{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 9px;font-size:12px;font-family:var(--body)}
+.sbed-grid input:focus,.sbed-grid textarea:focus{outline:none;border-color:var(--gold)}
+.sbed-row{display:flex;gap:10px}
+.sbed-tags{display:flex;flex-wrap:wrap;gap:8px}
+.ps-tagbox{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer}
+.ps-tagbox input{accent-color:var(--gold)}
+
+/* ── call sheet ── */
+.cs-card{max-height:88vh;overflow-y:auto}
+.cs-sheet h4{font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px}
+.cs-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--border2);padding-bottom:8px}
+.cs-title{font-family:var(--display);font-size:16px;font-weight:800}
+.cs-fields{font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cs-fields input{width:90px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px 7px;font-size:11px;font-family:var(--mono)}
+.cs-table{width:100%;border-collapse:collapse;font-size:11px}
+.cs-table th{text-align:left;color:var(--dim);font-size:9px;text-transform:uppercase;padding:4px 6px;border-bottom:1px solid var(--border2)}
+.cs-table td{padding:4px 6px;border-bottom:1px solid var(--border);color:var(--text2)}
+.cs-locs{font-size:11px;color:var(--text2)}
+
+/* print only the call sheet when triggered from its Print button */
+body.cs-printing .app,body.cs-printing #sbEditModal,body.cs-printing #psScriptModal,body.cs-printing .toast{display:none!important}
+body.cs-printing #sbCallModal{position:static;background:#fff}
+body.cs-printing #sbCallModal .modal-card{width:100%;border:none;background:#fff}
+body.cs-printing #sbCallModal .script-actions,body.cs-printing #sbCallModal .modal-head button{display:none!important}
+body.cs-printing .cs-sheet,body.cs-printing .cs-sheet *{color:#000!important}

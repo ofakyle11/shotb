@@ -30,6 +30,7 @@
       <div class="ps-toolbar">
         <button class="tb-btn gold" id="bsSeed" title="Pre-fill estimated column from the script-driven estimator">⚡ Seed from script estimate</button>
         <button class="tb-btn" id="bsAddItem">+ Line item</button>
+        <button class="tb-btn" id="bsCsv" title="Export the top sheet as CSV for Excel / Sheets">Export CSV</button>
         <button class="tb-btn" id="bsSave">Save (.json)</button>
         <button class="tb-btn" id="bsLoad">Load</button>
         <button class="tb-btn" id="bsPrint">Print / PDF</button>
@@ -47,12 +48,16 @@
     <section class="ps-pane hidden" id="pane-schedule">
       <div class="ps-toolbar">
         <button class="tb-btn gold" id="sbSeed" title="Rebuild strips from the parsed script">⚡ Seed scenes from script</button>
-        <button class="tb-btn" id="sbAuto" title="Fill days in script order at the target pace">Auto-schedule</button>
+        <button class="tb-btn" id="sbAuto" title="Fill days at the target pace">Auto-schedule</button>
+        <select class="uc-sel" id="sbMode" title="Auto-schedule order">
+          <option value="script">Script order</option>
+          <option value="location">Group by location</option>
+        </select>
         <label class="ps-inline">Target <input type="number" id="sbPace" min="1" max="12" step="0.5" value="4.5"> pages/day</label>
         <button class="tb-btn" id="sbClear">Unschedule all</button>
         <button class="tb-btn" id="sbDood">Day-out-of-Days</button>
         <button class="tb-btn" id="sbPrint">Print / PDF</button>
-        <span class="ps-hint">Drag strips between the boneyard and days · orange = day, blue = night</span>
+        <span class="ps-hint">Drag strips between days · double-click a strip to edit its breakdown · 📋 on a day = call sheet</span>
       </div>
       <div class="ps-board">
         <aside class="ps-boneyard">
@@ -77,6 +82,9 @@
     </section>
   </div>
 </div>
+
+<div class="modal hidden" id="sbEditModal"><div class="modal-card"></div></div>
+<div class="modal hidden" id="sbCallModal"><div class="modal-card cs-card"></div></div>
 
 <div class="modal hidden" id="psScriptModal">
   <div class="modal-card">
