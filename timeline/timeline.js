@@ -1814,8 +1814,10 @@ function bindUI(){
   if(scriptTa&&!scriptTa._wired){
     scriptTa._wired=true;
     scriptTa.addEventListener('focus',()=>{scriptTa._focused=true});
-    scriptTa.addEventListener('blur',()=>{scriptTa._focused=false;syncScriptFromEditor()});
-    scriptTa.addEventListener('input',()=>{syncScriptFromEditor()});
+    scriptTa.addEventListener('blur',()=>{scriptTa._focused=false;clearTimeout(scriptTa._syncT);syncScriptFromEditor()});
+    /* Debounced — syncing serializes the whole project to localStorage, which
+     * froze typing on feature-length scripts when run per keystroke. */
+    scriptTa.addEventListener('input',()=>{clearTimeout(scriptTa._syncT);scriptTa._syncT=setTimeout(syncScriptFromEditor,400)});
   }
   $('btnAdd').onclick=addClip;
   $('btnDup').onclick=duplicateClip;

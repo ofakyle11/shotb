@@ -1007,9 +1007,13 @@
     ].join('|');
   }
 
-  /* Called from timeline.js renderAll() — cheap unless something changed. */
+  /* Called from timeline.js renderAll() — cheap unless something changed,
+   * and skipped entirely while the panel is closed (the toggle listener
+   * re-renders on open). Keeps script edits from paying analysis cost. */
   function refresh(st, force) {
     if (!$id('budBody')) return;
+    var panel = $id('budgetPanel');
+    if (panel && !panel.open && !force) { _sig = ''; return; }
     var sig = signature(st);
     if (!force && sig === _sig) return;
     _sig = sig;

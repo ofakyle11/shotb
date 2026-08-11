@@ -82,7 +82,7 @@
   <div class="modal-card">
     <div class="modal-head"><span>Add screenplay</span><button type="button" class="tb-btn" id="psCloseScript">✕</button></div>
     <p class="panel-desc" style="margin-bottom:10px">Paste your screenplay below or import a .txt / .fountain file. It saves to the shared project, so the Studio sees it too. (For PDF or Final Draft files, use the Studio's importer.)</p>
-    <textarea id="psScriptText" class="script-editor" rows="14" placeholder="INT. LOCATION - DAY&#10;&#10;Your screenplay…" style="width:100%"></textarea>
+    <textarea id="psScriptText" class="script-editor" rows="14" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="INT. LOCATION - DAY&#10;&#10;Your screenplay…" style="width:100%"></textarea>
     <div class="script-actions" style="margin-top:10px">
       <span class="script-meta" id="psScriptMeta">0 characters</span>
       <div class="script-btns">
@@ -138,8 +138,17 @@
    *    preserving everything else, then seeds the active tab. ── */
   var modal=$('psScriptModal'),ta=$('psScriptText'),meta=$('psScriptMeta');
   function openScriptModal(){
-    ta.value=(window.psProjectState().scriptText||'');
-    meta.textContent=ta.value.length.toLocaleString()+' characters';
+    var existing=(window.psProjectState().scriptText||'');
+    // Prefilling a huge script freezes layout on slower machines — show a
+    // note instead and only replace on explicit paste.
+    if(existing.length>150000){
+      ta.value='';
+      ta.placeholder='Current script is '+Math.round(existing.length/1024)+'KB and stays as-is.\nPaste here only to REPLACE it.';
+      meta.textContent=existing.length.toLocaleString()+' characters stored';
+    }else{
+      ta.value=existing;
+      meta.textContent=ta.value.length.toLocaleString()+' characters';
+    }
     modal.classList.remove('hidden');
     ta.focus();
   }
@@ -166,6 +175,10 @@
   });
   $('psUseScript').addEventListener('click',function(){
     var text=(ta.value||'').trim();
+    if(!text&&(window.psProjectState().scriptText||'').length>150000){
+      closeScriptModal();
+      return psToast('Kept the existing script');
+    }
     if(text.length<40)return psToast('Paste a screenplay first (a few scenes at least)');
     saveScriptToProject(text);
     closeScriptModal();
