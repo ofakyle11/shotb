@@ -41,6 +41,25 @@ sed -i 's|<div class="logo">SHOT<span>BREAK</span></div>|<div class="logo">CINA<
 sed -i 's|<title>SHOTBREAK — Text-to-Video Movie System</title>|<title>CINAMATE — Studio</title>|' "$DEPLOY/timeline/index.html"
 sed -i 's|<title>SHOTBREAK — Producer Suite</title>|<title>CINAMATE — Producer Suite</title>|' "$DEPLOY/producer/index.html"
 
+# ── Cinamate theme (deployed copy only): deep space-navy base, electric
+# cyan→indigo accents, Space Grotesk / Inter / IBM Plex Mono fonts.
+theme_css() {
+  sed -i \
+    -e 's|--bg:#050507;--surface:#0c0c12;--surface2:#131319;--surface3:#1a1a22;|--bg:#05070d;--surface:#0a0e18;--surface2:#0f1524;--surface3:#151c30;|' \
+    -e 's|--border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.1);|--border:rgba(147,178,255,.09);--border2:rgba(147,178,255,.16);|' \
+    -e 's|--gold:#d4a843;--gold2:#e8c36a;|--gold:#38bdf8;--gold2:#6dd3ff;|' \
+    -e "s|--display:'Syne',sans-serif;--body:'Anybody',sans-serif;--mono:'JetBrains Mono',monospace;|--display:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'IBM Plex Mono',monospace;|" \
+    -e 's|212,168,67|56,189,248|g' \
+    -e 's|#d4a843|#38bdf8|g' \
+    -e 's|#e8c36a|#6dd3ff|g' \
+    "$@"
+}
+theme_fonts() {
+  sed -i 's|family=Syne:wght@400;600;700;800&family=Anybody:wght@400;600;700&family=JetBrains+Mono:wght@400;500|family=Space+Grotesk:wght@400;500;600;700\&family=Inter:wght@400;500;600;700\&family=IBM+Plex+Mono:wght@400;500|' "$@"
+}
+theme_css "$DEPLOY/timeline/timeline.css" "$DEPLOY/producer/producer.css"
+theme_fonts "$DEPLOY/timeline/index.html" "$DEPLOY/producer/index.html"
+
 ( cd "$DEPLOY" && zip -qr "$WORK/site.zip" . )
 echo "Deploy bundle: $(du -h "$WORK/site.zip" | cut -f1) ($(cd "$DEPLOY" && find . -type f | wc -l) files)"
 
