@@ -27,12 +27,20 @@
   var AI_MODEL_RATES = {
     // WaveSpeed Seedance 2.0 Fast: $0.50/5s 480p, $1.00/5s 720p, $2.50/5s 1080p; median e2e ~156s
     'seedance-2.0-turbo': { label: 'Seedance 2.0 Turbo', usdPerSec: { '480p': 0.10, '720p': 0.20, '1080p': 0.50 }, genSecPerClip: 150 },
+    // WaveSpeed Seedance 2.0 Standard: $0.60/5s 480p, $1.20/5s 720p, $3.00/5s 1080p, $6.00/5s 4K; median e2e ~171s
+    'seedance-2.0':       { label: 'Seedance 2.0 (Standard)', usdPerSec: { '480p': 0.12, '720p': 0.24, '1080p': 0.60, '4K': 1.20 }, genSecPerClip: 170 },
+    // WaveSpeed Seedance 2.5: early access, not yet publicly priced — ESTIMATED at ~1.25x Standard
+    'seedance-2.5':       { label: 'Seedance 2.5 (est.)', usdPerSec: { '720p': 0.30, '1080p': 0.75 },              genSecPerClip: 240 },
     // fal/Replicate Wan 2.7: $0.10/s flat; Alibaba official wan2.6 $0.086 (720p) / $0.143 (1080p); Wan family median e2e ~47s
     'wan-2.7':            { label: 'Wan 2.7',            usdPerSec: { '720p': 0.10, '1080p': 0.14 },               genSecPerClip: 60 },
+    // WaveSpeed Wan 2.5: $0.05/s 480p, $0.10/s 720p, $0.15/s 1080p; median e2e ~47s
+    'wan-2.5':            { label: 'Wan 2.5 (budget)',   usdPerSec: { '480p': 0.05, '720p': 0.10, '1080p': 0.15 }, genSecPerClip: 50 },
     // OpenAI official: sora-2 $0.10/s (720p); 30-90s typical render
     'sora-2':             { label: 'Sora 2',             usdPerSec: { '720p': 0.10 },                              genSecPerClip: 75 },
     // Google Gemini API Veo 3.1 standard (w/ audio): $0.40/s at 720p and 1080p; jobs 11s-6min
     'veo-3.1':            { label: 'Veo 3.1',            usdPerSec: { '720p': 0.40, '1080p': 0.40 },               genSecPerClip: 120 },
+    // WaveSpeed veo3.1-fast: $1.20/8s = $0.15/s w/ audio; median e2e ~77s
+    'veo-3.1-fast':       { label: 'Veo 3.1 Fast',       usdPerSec: { '720p': 0.15, '1080p': 0.15 },               genSecPerClip: 80 },
     // Kling 3.0 official per-unit: standard $0.084/s (720p), pro $0.112-$0.14/s w/ audio (1080p); 5s clip ~60-120s
     'kling-3.0-pro':      { label: 'Kling 3.0 Pro',      usdPerSec: { '720p': 0.112, '1080p': 0.14 },              genSecPerClip: 120 },
     // xAI official grok-imagine-video: $0.05/s output, audio included (480p/720p); ~25s for 6s clip

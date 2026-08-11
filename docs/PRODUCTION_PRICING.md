@@ -30,9 +30,13 @@ edit. These are **planning-grade estimates, not quotes**.
 | Model (app id) | 480p | 720p | 1080p | Median wall-clock/clip | Source basis |
 |---|---|---|---|---|---|
 | `seedance-2.0-turbo` | $0.10 | $0.20 | $0.50 | ~156 s | WaveSpeed Seedance 2.0 Fast: $0.50 / $1.00 / $2.50 per 5 s ([wavespeed.ai](https://wavespeed.ai/models/bytedance/seedance-2.0-fast/image-to-video)); Replicate 2.0: $0.08/$0.18/$0.45 per s ([replicate.com](https://replicate.com/bytedance/seedance-2.0)) |
+| `seedance-2.0` (Standard) | $0.12 | $0.24 | $0.60 ($1.20 4K) | ~171 s | WaveSpeed Seedance 2.0 Standard: $0.60 / $1.20 / $3.00 / $6.00 per 5 s ([wavespeed.ai](https://wavespeed.ai/models/bytedance/seedance-2.0/image-to-video)) |
+| `seedance-2.5` | — | ~$0.30 (est.) | ~$0.75 (est.) | ~240 s | WaveSpeed early access, not yet publicly priced — estimated at ~1.25× Standard ([wavespeed.ai](https://wavespeed.ai/seedance-2-5-api)) |
 | `wan-2.7` | — | $0.10 | $0.14 | ~47–60 s | fal.ai & Replicate Wan 2.7 flat $0.10/s ([fal.ai](https://fal.ai/wan-2.7)); Alibaba Model Studio wan2.6 $0.086 (720p) / $0.143 (1080p) per s |
+| `wan-2.5` | $0.05 | $0.10 | $0.15 | ~47 s | WaveSpeed Wan 2.5 ([wavespeed.ai](https://wavespeed.ai/models/alibaba/wan-2.5/image-to-video)) |
 | `sora-2` | — | $0.10 | — | 30–90 s | OpenAI official: sora-2 $0.10/s at 720p; sora-2-pro $0.30–$0.70/s ([developers.openai.com](https://developers.openai.com/api/docs/pricing)) |
 | `veo-3.1` | — | $0.40 | $0.40 | 11 s–6 min | Google Gemini API Veo 3.1 standard w/ audio: $0.40/s at 720p & 1080p; Fast tier $0.10–$0.12/s ([ai.google.dev](https://ai.google.dev/gemini-api/docs/pricing)) |
+| `veo-3.1-fast` | — | $0.15 | $0.15 | ~77 s | WaveSpeed veo3.1-fast: $1.20 per 8 s w/ audio ([wavespeed.ai](https://wavespeed.ai/models/google/veo3-fast)) |
 | `kling-3.0-pro` | — | $0.112 | $0.14 | 60–120 s | Kling official per-unit: standard $0.084/s, pro $0.112/s, +audio $0.14/s ([costbench](https://costbench.com/software/ai-media-apis/kling-api/), [renderful](https://renderful.ai/blog/kling-api-pricing)) |
 | `grok-imagine` | $0.05 | $0.05 | — | ~25 s / 6 s clip | xAI official: grok-imagine-video $0.050/s output, audio included ([docs.x.ai](https://docs.x.ai/developers/models/grok-imagine-video)) |
 

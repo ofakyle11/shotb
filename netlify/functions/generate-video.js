@@ -436,8 +436,19 @@ function getWaveSpeedPath(modelId, hasRefImage = false) {
     const tier = getKlingTier(modelId);
     return hasRefImage ? `kwaivgi/${tier}/image-to-video` : `kwaivgi/${tier}/text-to-video`;
   }
+  // Specific tiers first — the generic family matches below must not
+  // swallow them (e.g. 'seedance-2.5' contains 'seedance').
+  if (m.includes('seedance-2.5')) {
+    return hasRefImage ? 'bytedance/seedance-2.5/image-to-video' : 'bytedance/seedance-2.5/text-to-video';
+  }
+  if (m === 'seedance-2.0' || m.includes('seedance-2.0-standard')) {
+    return hasRefImage ? 'bytedance/seedance-2.0/image-to-video' : 'bytedance/seedance-2.0/text-to-video';
+  }
   if (m.includes('seedance') || m.includes('seedance-2.0-turbo')) {
     return hasRefImage ? 'bytedance/seedance-2.0/image-to-video-turbo' : 'bytedance/seedance-2.0/text-to-video-turbo';
+  }
+  if (m.includes('wan-2.5')) {
+    return hasRefImage ? 'alibaba/wan-2.5/image-to-video' : 'alibaba/wan-2.5/text-to-video';
   }
   if (m.includes('wan-2.7') || m === 'wan-2.7') {
     // Wan 2.7 family has strong I2V/ref support on WaveSpeed
@@ -445,6 +456,9 @@ function getWaveSpeedPath(modelId, hasRefImage = false) {
   }
   if (m.includes('sora') || m === 'sora-2') {
     return hasRefImage ? 'openai/sora-2/image-to-video' : 'openai/sora-2/text-to-video';
+  }
+  if (m.includes('veo-3.1-fast') || m.includes('veo3.1-fast')) {
+    return hasRefImage ? 'google/veo3.1-fast/reference-to-video' : 'google/veo3.1-fast/text-to-video';
   }
   if (m.includes('veo') || m === 'veo-3.1') {
     return hasRefImage
