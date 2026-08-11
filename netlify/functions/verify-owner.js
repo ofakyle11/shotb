@@ -86,7 +86,12 @@ exports.handler = async (event) => {
   const expected = process.env[envVar];
 
   if (!expected) return respond(401, { error: "Invalid name or password" });
-  if (!safeEqual(password, expected)) return respond(401, { error: "Invalid name or password" });
+  // Trim both sides — pasted passwords often carry stray whitespace, and
+  // env values can pick up a trailing newline. Our passwords are hex/base64,
+  // so edge whitespace is never meaningful.
+  if (!safeEqual(String(password).trim(), String(expected).trim())) {
+    return respond(401, { error: "Invalid name or password" });
+  }
 
   const token = signOwnerToken(nameLower, 12);
   return respond(200, {

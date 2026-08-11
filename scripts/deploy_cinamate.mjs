@@ -67,10 +67,19 @@ const THEME = [
 ];
 const FONTS = [['family=Syne:wght@400;600;700;800&family=Anybody:wght@400;600;700&family=JetBrains+Mono:wght@400;500',
   'family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500']];
+// Cache-bust every versioned asset so browsers always fetch the new build.
+const BUST = [[/\?v=[A-Za-z0-9-]+/g, '?v=cm' + Date.now()]];
+function bust(file) {
+  let s = readFileSync(file, 'utf8');
+  for (const [re, to] of BUST) s = s.replace(re, to);
+  writeFileSync(file, s);
+}
 transform(join(site, 'timeline/index.html'), [...BRAND, ...FONTS,
   ['<title>SHOTBREAK — Text-to-Video Movie System</title>', '<title>CINAMATE — Studio</title>']]);
 transform(join(site, 'producer/index.html'), [...BRAND, ...FONTS,
   ['<title>SHOTBREAK — Producer Suite</title>', '<title>CINAMATE — Producer Suite</title>']]);
+bust(join(site, 'timeline/index.html'));
+bust(join(site, 'producer/index.html'));
 transform(join(site, 'timeline/timeline.css'), THEME);
 transform(join(site, 'producer/producer.css'), THEME);
 

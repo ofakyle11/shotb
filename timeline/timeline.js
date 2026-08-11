@@ -80,7 +80,7 @@ function initAuth(){
   }
   $('loginBtn').onclick=async()=>{
     const err=$('loginErr');err.style.display='none';
-    const emailRaw=$('loginEmail').value.trim(),pw=$('loginPw').value;
+    const emailRaw=$('loginEmail').value.trim(),pw=$('loginPw').value.trim();
     if(!emailRaw||!pw){err.textContent='Enter username/email and password';err.style.display='block';return}
     const short=emailRaw.toLowerCase().split('@')[0];
     // 1. Owner-short login (mz465 / kz465 + OWNER_PW_* value) via /verify-owner
