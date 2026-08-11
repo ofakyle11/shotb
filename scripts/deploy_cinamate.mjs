@@ -1,0 +1,187 @@
+#!/usr/bin/env node
+/* Deploy the combined Cinamate site (Studio + Producer Suite) to Netlify,
+ * INCLUDING the /verify-owner login function (digest-based deploy — the
+ * plain zip method cannot ship functions).
+ *
+ *   NETLIFY_AUTH_TOKEN=nfp_xxx node scripts/deploy_cinamate.mjs [site-name]
+ *
+ * Optional env (set once; existing values are left alone unless provided):
+ *   OWNER_PW_MZ465 / OWNER_PW_KZ465  owner login passwords
+ *   OWNER_TOKEN_SECRET               HMAC secret (auto-generated if absent)
+ *
+ * Static content transforms (deployed copy only — repo stays Shotbreak):
+ * Cinamate landing at root, CINAMATE topbars/titles, space-navy + cyan theme.
+ */
+import { execSync } from 'child_process';
+import { createHash, randomBytes } from 'crypto';
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { dirname, join, relative } from 'path';
+import { fileURLToPath } from 'url';
+
+const TOKEN = process.env.NETLIFY_AUTH_TOKEN;
+if (!TOKEN) { console.error('NETLIFY_AUTH_TOKEN is required'); process.exit(1); }
+const SITE_NAME = process.argv[2] || 'cinamate';
+const API = 'https://api.netlify.com/api/v1';
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + TOKEN, ...(opts.headers || {}) },
+  });
+  const text = await res.text();
+  let body; try { body = JSON.parse(text); } catch { body = text; }
+  return { status: res.status, ok: res.ok, body };
+}
+
+/* ── 1. assemble the static site ───────────────────────────────────── */
+const EXCLUDE = new Set(['.git', 'local-backend', 'private', 'scripts', 'netlify', 'docs',
+  'local-server.py', 'package.json', 'netlify.toml', '.netlifyignore', '.firebaserc',
+  'firebase.json', 'database.rules.json']);
+const EXCLUDE_EXT = new Set(['.zip', '.jpeg', '.ps1', '.bat']);
+
+const work = mkdtempSync(join(tmpdir(), 'cinamate-'));
+const site = join(work, 'site');
+mkdirSync(site);
+for (const entry of readdirSync(ROOT)) {
+  if (EXCLUDE.has(entry) || EXCLUDE_EXT.has(entry.slice(entry.lastIndexOf('.')))) continue;
+  cpSync(join(ROOT, entry), join(site, entry), { recursive: true });
+}
+cpSync(join(ROOT, 'cinamate', 'index.html'), join(site, 'index.html'));
+
+function transform(file, pairs) {
+  let s = readFileSync(file, 'utf8');
+  for (const [from, to] of pairs) s = s.split(from).join(to);
+  writeFileSync(file, s);
+}
+const BRAND = [['<div class="logo">SHOT<span>BREAK</span></div>', '<div class="logo">CINA<span>MATE</span></div>']];
+const THEME = [
+  ['--bg:#050507;--surface:#0c0c12;--surface2:#131319;--surface3:#1a1a22;', '--bg:#05070d;--surface:#0a0e18;--surface2:#0f1524;--surface3:#151c30;'],
+  ['--border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.1);', '--border:rgba(147,178,255,.09);--border2:rgba(147,178,255,.16);'],
+  ['--gold:#d4a843;--gold2:#e8c36a;', '--gold:#38bdf8;--gold2:#6dd3ff;'],
+  ["--display:'Syne',sans-serif;--body:'Anybody',sans-serif;--mono:'JetBrains Mono',monospace;", "--display:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'IBM Plex Mono',monospace;"],
+  ['212,168,67', '56,189,248'],
+  ['#d4a843', '#38bdf8'],
+  ['#e8c36a', '#6dd3ff'],
+];
+const FONTS = [['family=Syne:wght@400;600;700;800&family=Anybody:wght@400;600;700&family=JetBrains+Mono:wght@400;500',
+  'family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500']];
+transform(join(site, 'timeline/index.html'), [...BRAND, ...FONTS,
+  ['<title>SHOTBREAK — Text-to-Video Movie System</title>', '<title>CINAMATE — Studio</title>']]);
+transform(join(site, 'producer/index.html'), [...BRAND, ...FONTS,
+  ['<title>SHOTBREAK — Producer Suite</title>', '<title>CINAMATE — Producer Suite</title>']]);
+transform(join(site, 'timeline/timeline.css'), THEME);
+transform(join(site, 'producer/producer.css'), THEME);
+
+/* ── 2. bundle the verify-owner function (self-contained, crypto only) ── */
+const fnDir = join(work, 'fn');
+mkdirSync(fnDir);
+cpSync(join(ROOT, 'netlify/functions/verify-owner.js'), join(fnDir, 'verify-owner.js'));
+execSync('zip -qj ' + JSON.stringify(join(work, 'verify-owner.zip')) + ' ' + JSON.stringify(join(fnDir, 'verify-owner.js')));
+const fnZip = readFileSync(join(work, 'verify-owner.zip'));
+const fnSha = createHash('sha256').update(fnZip).digest('hex');
+
+/* ── 3. find or create the site ────────────────────────────────────── */
+let siteId = null;
+{
+  const r = await api('/sites?name=' + encodeURIComponent(SITE_NAME));
+  const hit = Array.isArray(r.body) && r.body.find(s => s.name === SITE_NAME);
+  if (hit) siteId = hit.id;
+}
+if (!siteId) {
+  const r = await api('/sites', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: SITE_NAME }) });
+  if (!r.ok) { console.error('Site create failed:', r.status, r.body); process.exit(1); }
+  siteId = r.body.id;
+  console.log('Created site:', SITE_NAME);
+}
+
+/* ── 4. env vars (functions scope). Only touches keys passed in env. ── */
+const acct = await api('/accounts');
+const accountId = Array.isArray(acct.body) && acct.body[0] && acct.body[0].id;
+const wanted = {
+  OWNER_PW_MZ465: process.env.OWNER_PW_MZ465,
+  OWNER_PW_KZ465: process.env.OWNER_PW_KZ465,
+  OWNER_TOKEN_SECRET: process.env.OWNER_TOKEN_SECRET,
+};
+if (accountId) {
+  const existing = await api(`/accounts/${accountId}/env?site_id=${siteId}`);
+  const have = new Set(Array.isArray(existing.body) ? existing.body.map(v => v.key) : []);
+  if (!wanted.OWNER_TOKEN_SECRET && !have.has('OWNER_TOKEN_SECRET')) {
+    wanted.OWNER_TOKEN_SECRET = randomBytes(36).toString('base64url'); // auto-provision once
+  }
+  for (const [key, value] of Object.entries(wanted)) {
+    if (!value) continue;
+    // No `scopes` field — Free-plan accounts reject scoped env vars (403).
+    const payload = { key, values: [{ context: 'all', value }] };
+    if (have.has(key)) {
+      const r = await api(`/accounts/${accountId}/env/${key}?site_id=${siteId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      console.log('env updated:', key, r.ok ? 'ok' : r.status);
+    } else {
+      const r = await api(`/accounts/${accountId}/env?site_id=${siteId}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify([payload]) });
+      console.log('env created:', key, r.ok ? 'ok' : r.status);
+    }
+  }
+} else {
+  console.warn('Could not resolve account id — env vars not set');
+}
+
+/* ── 5. digest deploy: files (sha1) + functions (sha256) ───────────── */
+function walk(dir) {
+  const out = [];
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    if (statSync(p).isDirectory()) out.push(...walk(p));
+    else out.push(p);
+  }
+  return out;
+}
+const files = {};
+const bySha = {};
+for (const p of walk(site)) {
+  const rel = '/' + relative(site, p).split('\\').join('/');
+  const sha = createHash('sha1').update(readFileSync(p)).digest('hex');
+  files[rel] = sha;
+  (bySha[sha] = bySha[sha] || []).push(p);
+}
+console.log(`Deploying ${Object.keys(files).length} files + verify-owner function`);
+
+const dep = await api(`/sites/${siteId}/deploys`, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ files, functions: { 'verify-owner': fnSha } }),
+});
+if (!dep.ok) { console.error('Deploy create failed:', dep.status, dep.body); process.exit(1); }
+const deployId = dep.body.id;
+
+for (const sha of dep.body.required || []) {
+  for (const p of bySha[sha] || []) {
+    const rel = '/' + relative(site, p).split('\\').join('/');
+    const r = await api(`/deploys/${deployId}/files${rel.split('/').map(encodeURIComponent).join('/')}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: readFileSync(p) });
+    if (!r.ok) { console.error('Upload failed:', rel, r.status, r.body); process.exit(1); }
+  }
+}
+if ((dep.body.required_functions || []).includes(fnSha)) {
+  const r = await api(`/deploys/${deployId}/functions/verify-owner?runtime=js`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: fnZip });
+  if (!r.ok) { console.error('Function upload failed:', r.status, r.body); process.exit(1); }
+  console.log('verify-owner function uploaded');
+}
+
+for (let i = 0; i < 40; i++) {
+  const st = await api(`/deploys/${deployId}`);
+  const state = st.body && st.body.state;
+  console.log('  deploy state:', state);
+  if (state === 'ready') {
+    console.log('\nLive:', st.body.ssl_url || st.body.url);
+    console.log('Admin:', st.body.admin_url || '');
+    rmSync(work, { recursive: true, force: true });
+    process.exit(0);
+  }
+  if (state === 'error') { console.error('Deploy errored:', JSON.stringify(st.body.error_message || st.body)); process.exit(1); }
+  await new Promise(r => setTimeout(r, 4000));
+}
+console.error('Timed out waiting for deploy');
+process.exit(1);

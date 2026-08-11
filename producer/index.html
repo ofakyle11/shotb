@@ -19,6 +19,7 @@
       <button class="ps-tab" data-tab="incentives">Incentives</button>
     </nav>
     <div class="tb-spacer"></div>
+    <button class="tb-btn gold" id="psAddScript" title="Paste or import a screenplay — both tabs seed from it">✎ Add script</button>
     <span class="tb-meta" id="psProject">Untitled Film</span>
     <a class="tb-btn" href="/timeline/" title="Back to timeline">← Timeline</a>
   </header>
@@ -77,6 +78,22 @@
   </div>
 </div>
 
+<div class="modal hidden" id="psScriptModal">
+  <div class="modal-card">
+    <div class="modal-head"><span>Add screenplay</span><button type="button" class="tb-btn" id="psCloseScript">✕</button></div>
+    <p class="panel-desc" style="margin-bottom:10px">Paste your screenplay below or import a .txt / .fountain file. It saves to the shared project, so the Studio sees it too. (For PDF or Final Draft files, use the Studio's importer.)</p>
+    <textarea id="psScriptText" class="script-editor" rows="14" placeholder="INT. LOCATION - DAY&#10;&#10;Your screenplay…" style="width:100%"></textarea>
+    <div class="script-actions" style="margin-top:10px">
+      <span class="script-meta" id="psScriptMeta">0 characters</span>
+      <div class="script-btns">
+        <button class="tb-btn" id="psImportFile" type="button">Import file</button>
+        <button class="tb-btn gold" id="psUseScript" type="button">Use this script</button>
+      </div>
+    </div>
+    <input type="file" id="psScriptFile" accept=".txt,.fountain,.text" hidden>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 <script src="/timeline/timeline-budget.js?v=20260802b"></script>
 <script src="budget-sheet.js?v=20260802a"></script>
@@ -116,6 +133,48 @@
   if(window.SBBudgetSheet)SBBudgetSheet.init();
   if(window.SBScheduleBoard)SBScheduleBoard.init();
   if(window.SBIncentives)SBIncentives.init();
+
+  /* ── Add-script modal: saves into the shared project (SB_Timeline_v1),
+   *    preserving everything else, then seeds the active tab. ── */
+  var modal=$('psScriptModal'),ta=$('psScriptText'),meta=$('psScriptMeta');
+  function openScriptModal(){
+    ta.value=(window.psProjectState().scriptText||'');
+    meta.textContent=ta.value.length.toLocaleString()+' characters';
+    modal.classList.remove('hidden');
+    ta.focus();
+  }
+  function closeScriptModal(){modal.classList.add('hidden')}
+  function saveScriptToProject(text){
+    var d={};
+    try{d=JSON.parse(localStorage.getItem('SB_Timeline_v1')||'{}')||{}}catch(e){}
+    d.scriptText=text;
+    if(!d.projectName)d.projectName='Untitled Film';
+    d.clips=d.clips||[];d.characters=d.characters||{};d.locationBible=d.locationBible||[];
+    d.global=d.global||{model:'seedance-2.0-turbo',quality:'720p',clipDuration:5};
+    localStorage.setItem('SB_Timeline_v1',JSON.stringify(d));
+  }
+  $('psAddScript').addEventListener('click',openScriptModal);
+  $('psCloseScript').addEventListener('click',closeScriptModal);
+  modal.addEventListener('click',function(e){if(e.target===modal)closeScriptModal()});
+  ta.addEventListener('input',function(){meta.textContent=ta.value.length.toLocaleString()+' characters'});
+  $('psImportFile').addEventListener('click',function(){$('psScriptFile').click()});
+  $('psScriptFile').addEventListener('change',function(){
+    var f=this.files[0];this.value='';
+    if(!f)return;
+    f.text().then(function(t){ta.value=t;meta.textContent=t.length.toLocaleString()+' characters'})
+      .catch(function(){psToast('Could not read that file')});
+  });
+  $('psUseScript').addEventListener('click',function(){
+    var text=(ta.value||'').trim();
+    if(text.length<40)return psToast('Paste a screenplay first (a few scenes at least)');
+    saveScriptToProject(text);
+    closeScriptModal();
+    var onSchedule=!$('pane-schedule').classList.contains('hidden');
+    var onBudget=!$('pane-budget').classList.contains('hidden');
+    if(onSchedule&&$('sbSeed'))$('sbSeed').click();
+    else if(onBudget&&$('bsSeed'))$('bsSeed').click();
+    else psToast('Script saved — use the Seed buttons on the Budget or Schedule tab');
+  });
 })();
 </script>
 </body>

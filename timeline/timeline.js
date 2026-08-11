@@ -54,18 +54,45 @@ function ensureClip(c){
   if(!c.emotion)c.emotion='Neutral';
 }
 
-async function getToken(){if(!auth||!auth.currentUser)throw new Error('Not signed in');return auth.currentUser.getIdToken()}
+/* Owner-token session (from /verify-owner, name + OWNER_PW_* env password).
+ * Works on static deploys with no Firebase user provisioned. */
+const OT_KEY='SB_OWNER_TOKEN',ON_KEY='SB_OWNER_NAME',OE_KEY='SB_OWNER_EXPIRES';
+function ownerToken(){try{const tk=localStorage.getItem(OT_KEY),exp=parseInt(localStorage.getItem(OE_KEY)||'0',10);if(tk&&exp>Date.now()&&tk.split(':').length===4&&tk.startsWith('owner:'))return tk}catch(e){}return null}
+function setOwnerSession(name,token,expires){
+  try{localStorage.setItem(OT_KEY,token);localStorage.setItem(ON_KEY,name);localStorage.setItem(OE_KEY,String(expires))}catch(e){}
+  window.SB_OWNER_TOKEN=token;
+  curUser={name:name,email:name+'@shotbreak.io',isOwner:true,uid:'owner_'+name};
+  $('loginOverlay').classList.add('hidden');$('userMeta').textContent=name;
+}
+async function getToken(){const ot=ownerToken();if(ot)return ot;if(!auth||!auth.currentUser)throw new Error('Not signed in');return auth.currentUser.getIdToken()}
 async function hdrs(){return{'Content-Type':'application/json','Authorization':'Bearer '+(await getToken())}}
 
 function initAuth(){
-  if(!window.firebase||!window.SHOTBREAK_CONFIG)return;
-  if(!firebase.apps.length)firebase.initializeApp(window.SHOTBREAK_CONFIG.firebase);
-  auth=firebase.auth();
-  auth.onAuthStateChanged(u=>{
-    if(u){const e=(u.email||'').toLowerCase();curUser={name:u.displayName||e.split('@')[0],email:e,isOwner:OWNER_EMAILS.has(e),uid:u.uid};$('loginOverlay').classList.add('hidden');$('userMeta').textContent=curUser.name}
-    else{curUser=null;$('loginOverlay').classList.remove('hidden')}
-  });
-  $('loginBtn').onclick=async()=>{const err=$('loginErr');err.style.display='none';try{await auth.signInWithEmailAndPassword($('loginEmail').value.trim(),$('loginPw').value)}catch(e){err.textContent=e.message;err.style.display='block'}};
+  const existing=ownerToken();
+  if(existing)setOwnerSession(localStorage.getItem(ON_KEY)||'owner',existing,parseInt(localStorage.getItem(OE_KEY)||'0',10));
+  if(window.firebase&&window.SHOTBREAK_CONFIG){
+    if(!firebase.apps.length)firebase.initializeApp(window.SHOTBREAK_CONFIG.firebase);
+    auth=firebase.auth();
+    auth.onAuthStateChanged(u=>{
+      if(u){const e=(u.email||'').toLowerCase();curUser={name:u.displayName||e.split('@')[0],email:e,isOwner:OWNER_EMAILS.has(e),uid:u.uid};$('loginOverlay').classList.add('hidden');$('userMeta').textContent=curUser.name}
+      else if(!ownerToken()){curUser=null;$('loginOverlay').classList.remove('hidden')}
+    });
+  }
+  $('loginBtn').onclick=async()=>{
+    const err=$('loginErr');err.style.display='none';
+    const emailRaw=$('loginEmail').value.trim(),pw=$('loginPw').value;
+    if(!emailRaw||!pw){err.textContent='Enter username/email and password';err.style.display='block';return}
+    const short=emailRaw.toLowerCase().split('@')[0];
+    // 1. Owner-short login (mz465 / kz465 + OWNER_PW_* value) via /verify-owner
+    try{
+      const r=await fetch('/.netlify/functions/verify-owner',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:short,password:pw})});
+      if(r.ok){const d=await r.json();if(d&&d.token){setOwnerSession(d.name,d.token,d.expires);return}}
+    }catch(e){}
+    // 2. Firebase email/password fallback
+    if(!auth){err.textContent='Invalid login (and Firebase unavailable on this page)';err.style.display='block';return}
+    try{await auth.signInWithEmailAndPassword(emailRaw.includes('@')?emailRaw:short+'@shotbreak.io',pw)}
+    catch(e){err.textContent='Invalid username or password';err.style.display='block'}
+  };
 }
 
 function cleanClipDescription(clip){
