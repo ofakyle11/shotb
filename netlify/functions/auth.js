@@ -140,6 +140,10 @@ async function verify(token) {
 
   const u = await fbGet('users/' + session.user_id);
   if (!u) return r(401, { error: 'User not found' });
+  // Pre-lockdown sessions for removed accounts are dead on arrival
+  if (!ALLOWED_LOGINS.includes(String(u.email || '').toLowerCase().trim())) {
+    return r(401, { error: 'Session expired' });
+  }
   return r(200, { user: { id: session.user_id, name: u.name, email: u.email, role: u.role, tier: u.tier || 'core', subscription_status: u.subscription_status } });
 }
 

@@ -75,6 +75,12 @@ exports.verify = async function (authHeader) {
     const u = d.users[0];
     const email = (u.email || '').toLowerCase().trim();
     const isOwner = OWNER_EMAILS.includes(email);
+    // Full lockdown: only the two provisioned accounts may authenticate at
+    // all. Remove this check to re-open access for subscriber-tier users.
+    if (!isOwner) {
+      console.warn('[verify-token] rejected non-provisioned account');
+      return { ok: false, isOwner: false, user: null };
+    }
     return {
       ok: true,
       isOwner,
