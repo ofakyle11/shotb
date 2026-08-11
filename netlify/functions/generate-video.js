@@ -669,7 +669,7 @@ exports.handler = async function (event) {
 
   if (action === 'set_openai_key') {
     if (!isOwner) {
-      return jsonResponse(event, 403, { error: 'Owner only — sign in as kylef/scott/steve owner' });
+      return jsonResponse(event, 403, { error: 'Owner only — sign in as mz465/kz465 owner' });
     }
     const apiKey = body.api_key || body.openai_api_key;
     if (!apiKey || !String(apiKey).trim().startsWith('sk-')) {
@@ -690,7 +690,7 @@ exports.handler = async function (event) {
 
   if (action === 'set_aivideoapi_key') {
     if (!isOwner) {
-      return jsonResponse(event, 403, { error: 'Owner only — sign in as kylef/scott/steve owner' });
+      return jsonResponse(event, 403, { error: 'Owner only — sign in as mz465/kz465 owner' });
     }
     const apiKey = body.api_key || body.aivideoapi_api_key;
     if (!apiKey || !String(apiKey).trim().startsWith('sk-')) {

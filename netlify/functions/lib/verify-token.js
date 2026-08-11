@@ -8,30 +8,19 @@
 // Only authorized owners get isOwner via real login or proper token.
 //
 // ENV: FIREBASE_API_KEY (for lookup), OWNER_TOKEN_SECRET + OWNER_PW_* (for owner tokens)
-// Current active owner identifiers for the 3 owners of Shotbreak (plain company @shotbreak emails not all set up yet):
-// Shorts for /verify-owner: kyleF, steveC, scottD, steveK (POST {name: "kyleF", password: "..."} or lower)
-// Use Shotbreak/get-owner-token.ps1 helper (after setting the OWNER_PW_* envs + redeploy) to easily obtain tokens.
+// Current active owner identifiers: mz465 and kz465 ONLY.
+// Shorts for /verify-owner: mz465, kz465 (POST {name: "mz465", password: "..."})
+// Passwords live in Netlify env: OWNER_PW_MZ465, OWNER_PW_KZ465 (256-bit random).
 const OWNER_EMAILS = [
-  'kyle@shotbreak.io',
-  'scott@shotbreak.io',
-  'steve@shotbreak.io',
-  'kylef@shotbreak.io',
-  'stevec@shotbreak.io',
-  'scottd@shotbreak.io',
-  'stevek@shotbreak.io'
+  'mz465@shotbreak.io',
+  'kz465@shotbreak.io'
 ];
 
 // Map from verify-owner short name (lowercased) to the full email identity used for isOwner check + user object.
-// This lets the temp shorts (kylef etc) resolve to whatever the real/different owner emails are (change the values when company or personal emails are set up in Firebase).
+// If the real Firebase accounts use different emails, change the values here (and in js/config.js + timeline/timeline.js).
 const OWNER_NAME_TO_EMAIL = {
-  'kyle': 'kyle@shotbreak.io',
-  'scott': 'scott@shotbreak.io',
-  'steve': 'steve@shotbreak.io',
-  // Current for the 3 owners (kyleF/steveC/scottD/steveK style)
-  'kylef': 'kylef@shotbreak.io',
-  'stevec': 'stevec@shotbreak.io',
-  'scottd': 'scottd@shotbreak.io',
-  'stevek': 'stevek@shotbreak.io'
+  'mz465': 'mz465@shotbreak.io',
+  'kz465': 'kz465@shotbreak.io'
 };
 
 exports.verify = async function (authHeader) {

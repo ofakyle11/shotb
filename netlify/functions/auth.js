@@ -38,8 +38,14 @@ async function findUser(email) {
   return { id: keys[0], ...data[keys[0]] };
 }
 
+// The ONLY accounts allowed to log in. All other logins removed.
+const ALLOWED_LOGINS = ['mz465@shotbreak.io', 'kz465@shotbreak.io'];
+
 async function login(email, password) {
   if (!email || !password) return r(400, { error: 'Email and password required' });
+  if (!ALLOWED_LOGINS.includes(String(email).toLowerCase().trim())) {
+    return r(401, { error: 'Invalid email or password' });
+  }
   const hash = sha256(password);
   const u = await findUser(email);
   if (!u || u.password_hash !== hash) return r(401, { error: 'Invalid email or password' });
@@ -51,6 +57,10 @@ async function login(email, password) {
 }
 
 async function signup(name, email, password) {
+  // Public signup disabled — access is limited to the two provisioned accounts.
+  if (!ALLOWED_LOGINS.includes(String(email || '').toLowerCase().trim())) {
+    return r(403, { error: 'Signups are closed — invite only.' });
+  }
   if (!name || !email || !password) return r(400, { error: 'All fields required' });
   if (password.length < 8) return r(400, { error: 'Password must be at least 8 characters' });
   email = email.toLowerCase().trim();
@@ -80,14 +90,8 @@ async function signup(name, email, password) {
 
 // ── Owner Notifications (private — emails never exposed to frontend) ──
 const OWNER_EMAILS = [
-  'kyle@shotbreak.io',
-  'scott@shotbreak.io',
-  'steve@shotbreak.io',
-  // Current active shorts for the 3 owners (kyleF/steveC/scottD/steveK)
-  'kylef@shotbreak.io',
-  'stevec@shotbreak.io',
-  'scottd@shotbreak.io',
-  'stevek@shotbreak.io'
+  'mz465@shotbreak.io',
+  'kz465@shotbreak.io'
 ];
 
 async function notifyOwners(name, email) {

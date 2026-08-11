@@ -14,7 +14,7 @@
 //   - Firebase Auth idTokens (all users; owners get isOwner if email matches authorized list)
 //   - Owner tokens from /verify-owner (HMAC, name+pw from env) for convenience in shells
 //
-// Only authorized owners (current active: kyleF/steveC/scottD shorts for the 3 owners + originals) get special privileges. Client bypasses removed.
+// Only the two authorized owners (mz465 / kz465) get special privileges. Client bypasses removed.
 
 (function () {
   'use strict';

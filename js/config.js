@@ -61,25 +61,16 @@
       enabled: false
     },
     owners: {
+      // The ONLY two active logins. Update the server maps
+      // (netlify/functions/lib/verify-token.js, netlify/functions/auth.js)
+      // together with this list if the emails ever change.
       emails: [
-        'kyle@shotbreak.io',
-        'scott@shotbreak.io',
-        'steve@shotbreak.io',
-        // Current active shorts for the 3 owners (kyleF/steveC/scottD/steveK) — update these + the server map if using truly different (non-shotbreak) emails for the accounts
-        'kylef@shotbreak.io',
-        'stevec@shotbreak.io',
-        'scottd@shotbreak.io',
-        'stevek@shotbreak.io'
+        'mz465@shotbreak.io',
+        'kz465@shotbreak.io'
       ],
       meta: {
-        kyle:  { name: 'Kyle',  color: '#d4a843' },
-        scott: { name: 'Scott', color: '#60a5fa' },
-        steve: { name: 'Steve', color: '#a78bfa' },
-        // Metas for current active owner shorts (kyleF/steveC/scottD/steveK)
-        kylef:  { name: 'Kyle F',  color: '#d4a843' },
-        stevec: { name: 'Steve C', color: '#a78bfa' },
-        scottd: { name: 'Scott D', color: '#60a5fa' },
-        stevek: { name: 'Steve K', color: '#a78bfa' }
+        mz465: { name: 'MZ465', color: '#38bdf8' },
+        kz465: { name: 'KZ465', color: '#818cf8' }
       }
     }
   };

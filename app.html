@@ -264,7 +264,7 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
       New here? <span class="form-link" onclick="showTab('register')">Create an account</span> to start your first project.
     </div>
     <div id="ownerLoginHint" style="margin-top:10px;padding:10px 12px;background:#1a140a;border:1px solid #d4a84344;border-radius:8px;font-size:11px;line-height:1.4;color:#d4c8a8;text-align:left">
-      <strong style="color:#f0d9a0">Owner login:</strong> type your short in the email field (<code style="color:#e8c36a">kylef</code>, <code style="color:#e8c36a">stevec</code>, <code style="color:#e8c36a">scottd</code>) and your <code style="color:#e8c36a">OWNER_PW_*</code> value from Netlify in the password field. Sessions last ~12 hours — sign in again when expired.
+      <strong style="color:#f0d9a0">Owner login:</strong> type your owner short in the email field and your <code style="color:#e8c36a">OWNER_PW_*</code> value from Netlify in the password field. Sessions last ~12 hours — sign in again when expired.
     </div>
 
   </div>
@@ -1171,22 +1171,15 @@ window.safeSignIn = safeSignIn;
         appId: "1:515766987392:web:ac3644d952c69d11c7d465",
         measurementId: "G-R2BT95E9DE"
       },
-      // Current active for the 3 Shotbreak owners: originals + kyleF/steveC/scottD (plain company not fully set up).
+      // The ONLY two active owner logins: mz465 and kz465.
       // If the real emails for the shorts are on different domains, update this + OWNER_NAME_TO_EMAIL map in the two verify-token.js.
       // Only these get isOwner/unlimited (after real login). No bypasses.
       OWNER_EMAILS: [
-        "kyle@shotbreak.io", "scott@shotbreak.io", "steve@shotbreak.io",
-        "kylef@shotbreak.io", "stevec@shotbreak.io", "scottd@shotbreak.io",
-        "stevek@shotbreak.io"
+        "mz465@shotbreak.io", "kz465@shotbreak.io"
       ],
       OWNER_META: {
-        kyle:  { name: "Kyle Francis", color: "#d4a843" },
-        scott: { name: "Scott", color: "#60a5fa" },
-        steve: { name: "Steve", color: "#a78bfa" },
-        kylef:  { name: "Kyle F", color: "#d4a843" },
-        stevec: { name: "Steve C", color: "#a78bfa" },
-        scottd: { name: "Scott D", color: "#60a5fa" },
-        stevek: { name: "Steve K", color: "#a78bfa" }
+        mz465: { name: "MZ465", color: "#38bdf8" },
+        kz465: { name: "KZ465", color: "#818cf8" }
       },
       localOnly: IS_LOCAL_HOST,
       localGeneration: IS_LOCAL_HOST ? {
@@ -1286,13 +1279,8 @@ window.safeSignIn = safeSignIn;
 
   // Map shorts (kyleF etc) to full emails so owners can enter short in email field for UI login convenience
   window.SHORT_TO_FULL_EMAIL = {
-    'kylef': 'kylef@shotbreak.io',
-    'stevec': 'stevec@shotbreak.io',
-    'scottd': 'scottd@shotbreak.io',
-    'kyle': 'kyle@shotbreak.io',
-    'scott': 'scott@shotbreak.io',
-    'steve': 'steve@shotbreak.io',
-    'stevek': 'stevek@shotbreak.io'
+    'mz465': 'mz465@shotbreak.io',
+    'kz465': 'kz465@shotbreak.io'
   };
 
   // ===================== AUTH STATE (safe) =====================
@@ -1410,7 +1398,7 @@ window.safeSignIn = safeSignIn;
         }
         if (vresp.status === 401 || (vdata && String(vdata.error || '').toLowerCase().indexOf('invalid') >= 0)) {
           if (err) {
-            err.textContent = 'Owner password rejected. Email: kylef or stevec. Password: your OWNER_PW_* value from Netlify.';
+            err.textContent = 'Owner password rejected. Use your owner short and the OWNER_PW_* value from Netlify.';
             err.style.display = 'block';
           }
           return;
@@ -1424,7 +1412,7 @@ window.safeSignIn = safeSignIn;
       }
     }
     if (err) {
-      err.textContent = 'Use owner short (kylef / stevec) + OWNER_PW password, or wait for page to finish loading for Firebase login.';
+      err.textContent = 'Use your owner short + OWNER_PW password, or wait for page to finish loading for Firebase login.';
       err.style.display = 'block';
     }
   };
@@ -1444,13 +1432,8 @@ const OWNER_EMAILS = window.OWNER_EMAILS;
 
 // Expose OWNER_META for loadUser (was only inside the IIFE config before)
 const OWNER_META = (window.SHOTBREAK_CONFIG && window.SHOTBREAK_CONFIG.OWNER_META) || {
-  kyle:  { name: "Kyle Francis", color: "#d4a843" },
-  scott: { name: "Scott", color: "#60a5fa" },
-  steve: { name: "Steve", color: "#a78bfa" },
-  kylef:  { name: "Kyle F", color: "#d4a843" },
-  stevec: { name: "Steve C", color: "#a78bfa" },
-  scottd: { name: "Scott D", color: "#60a5fa" },
-  stevek: { name: "Steve K", color: "#a78bfa" }
+  mz465: { name: "MZ465", color: "#38bdf8" },
+  kz465: { name: "KZ465", color: "#818cf8" }
 };
 window.OWNER_META = OWNER_META;
 
@@ -1658,7 +1641,7 @@ function restoreOwnerSessionFromStorage() {
         window.SB_OWNER_EXPIRES = null;
         const err = document.getElementById('loginErr');
         if (err) {
-          err.textContent = 'Owner session expired. Sign in again with your short (kylef) + OWNER_PW password.';
+          err.textContent = 'Owner session expired. Sign in again with your owner short + OWNER_PW password.';
           err.style.display = 'block';
         }
       }
@@ -1699,7 +1682,7 @@ function showTab(t){
 
 // Customer login — plain button onclick, no form submission chain
 // Supports owner passwords directly in the UI:
-//   - Enter short (kylef/stevec/scottd/stevek/kyle/scott/steve) + the OWNER_PW_* value from Netlify env → uses /verify-owner, gets 4-part token, owner tier (no Firebase user required for shorts).
+//   - Enter short (mz465/kz465) + the OWNER_PW_* value from Netlify env → uses /verify-owner, gets 4-part token, owner tier (no Firebase user required for shorts).
 //   - Or full owner email + OWNER_PW value (auto-maps to short for verify).
 //   - Falls back to real Firebase signInWithEmailAndPassword (for non-owners or owners who set a separate Firebase pw on the email account).
 // This fixes "password doesnt work" when users paste the special owner pw into the login form.
@@ -1719,7 +1702,7 @@ async function customerLogin(){
 
     const emailLc = email.toLowerCase().trim();
 
-    // Support entering short (kylef) or full email for owner UI login
+    // Support entering short (mz465/kz465) or full email for owner UI login
     let loginEmail = email;
     const short = emailLc.split('@')[0].replace(/[^a-z]/g, '');
     if (window.SHORT_TO_FULL_EMAIL && window.SHORT_TO_FULL_EMAIL[short]) {
@@ -1731,7 +1714,7 @@ async function customerLogin(){
     const isOwnerAttempt = ownerEmails.has(loginEmail.toLowerCase()) || ownerEmails.has(emailLc) || !!(window.SHORT_TO_FULL_EMAIL && window.SHORT_TO_FULL_EMAIL[short]);
 
     if (isOwnerAttempt) {
-      // Attempt verify-owner first with the short name (server expects 'kylef' etc, not the full email)
+      // Attempt verify-owner first with the short name (server expects 'mz465' etc, not the full email)
       try {
         const verifyName = short || emailLc.split('@')[0].replace(/[^a-z]/g, '');
         const vresp = await fetch('/.netlify/functions/verify-owner', {
@@ -1771,7 +1754,7 @@ async function customerLogin(){
           return;
         } else if (vresp.status === 401 || (vdata && String(vdata.error || '').toLowerCase().includes('invalid'))) {
           if (err) {
-            err.textContent = 'Owner password rejected. Use short kylef/stevec/scottd in email + the exact OWNER_PW_* value from Netlify (Site settings → Environment variables). After changing env vars, clear cache and deploy.';
+            err.textContent = 'Owner password rejected. Use your owner short in email + the exact OWNER_PW_* value from Netlify (Site settings → Environment variables). After changing env vars, clear cache and deploy.';
             err.style.display = 'block';
           }
           return;
@@ -1882,11 +1865,9 @@ async function loadUser(fbUser){
   const localPart = emailLc.split('@')[0] || 'user';
   let shortKey = localPart;
   if (isOwner && !OWNER_META[shortKey]) {
-    // Support truly different (non-@shotbreak) emails for the current kyleF/steveC/scottD/steveK owners
-    if (emailLc.includes('kylef') || emailLc.includes('kyle.f') || emailLc.includes('kyle-francis')) shortKey = 'kylef';
-    else if (emailLc.includes('stevec') || emailLc.includes('steve.c') || emailLc.includes('steve-c')) shortKey = 'stevec';
-    else if (emailLc.includes('scottd') || emailLc.includes('scott.d') || emailLc.includes('scott-d')) shortKey = 'scottd';
-    else if (emailLc.includes('stevek') || emailLc.includes('steve.k') || emailLc.includes('steve-k')) shortKey = 'stevek';
+    // Support truly different (non-@shotbreak) emails for the mz465/kz465 owners
+    if (emailLc.includes('mz465')) shortKey = 'mz465';
+    else if (emailLc.includes('kz465')) shortKey = 'kz465';
   }
   const ownerMeta = isOwner
     ? (OWNER_META[shortKey] || { name: fbUser.displayName || 'Owner', color: '#d4a843' })

@@ -3,16 +3,13 @@
 // Passwords live in Netlify env vars, not in page source.
 // Issues HMAC-signed 12-hour tokens.
 //
-// ENV VARS REQUIRED:
-//   OWNER_PW_KYLE
-//   OWNER_PW_SCOTT
-//   OWNER_PW_STEVE
-//   // Current active shorts for the 3 owners of Shotbreak (plain company emails not all set up yet):
-//   OWNER_PW_KYLEF
-//   OWNER_PW_STEVEC
-//   OWNER_PW_SCOTTD
-//   OWNER_PW_STEVEK
+// ENV VARS REQUIRED (the ONLY two active logins):
+//   OWNER_PW_MZ465      (256-bit random password for mz465)
+//   OWNER_PW_KZ465      (256-bit random password for kz465)
 //   OWNER_TOKEN_SECRET  (random 48+ char string)
+// Remove any old OWNER_PW_* vars (kyle/scott/steve era) from Netlify env —
+// stale vars can still mint tokens, but verify-token rejects any name that
+// does not resolve to mz465/kz465, so the allowlist holds either way.
 //
 // Helper script: Shotbreak/get-owner-token.ps1  (run it, it prompts for short + pw securely,
 // calls this endpoint, copies the resulting owner:xxx token to clipboard, and prints usage examples).
@@ -80,8 +77,11 @@ exports.handler = async (event) => {
   const { name, password } = body;
   if (!name || !password) return respond(400, { error: "name and password required" });
 
-  // Accepts "kyleF", "steveC", "scottD", "steveK" (or lower) for the current 3 owners, plus originals.
+  // Only mz465 and kz465 are valid owner names.
   const nameLower = String(name).toLowerCase();
+  if (nameLower !== 'mz465' && nameLower !== 'kz465') {
+    return respond(401, { error: "Invalid name or password" });
+  }
   const envVar = `OWNER_PW_${nameLower.toUpperCase()}`;
   const expected = process.env[envVar];
 
