@@ -86,7 +86,11 @@ function bust(file) {
   writeFileSync(file, s);
 }
 transform(join(site, 'timeline/index.html'), [...BRAND, ...FONTS,
-  ['<title>SHOTBREAK — Text-to-Video Movie System</title>', '<title>CINAMATE — Studio</title>']]);
+  ['<title>SHOTBREAK — Text-to-Video Movie System</title>', '<title>CINAMATE — Studio</title>'],
+  // Brand voice (Blue Patina kit): sophisticated, cinematic, collaborative
+  ['<h1>Text-to-Video <span>Studio</span></h1>', '<h1>CINAMATE <span>Studio</span></h1>'],
+  ['<p>Sign in to generate video. Script parsing works offline.</p>', '<p>Sign in to begin production. Script parsing works offline.</p>'],
+  ['<h3>Start with a script</h3>', '<h3>Every picture begins with the page</h3>']]);
 transform(join(site, 'producer/index.html'), [...BRAND, ...FONTS,
   ['<title>SHOTBREAK — Producer Suite</title>', '<title>CINAMATE — Producer Suite</title>']]);
 bust(join(site, 'timeline/index.html'));
