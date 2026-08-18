@@ -80,7 +80,7 @@ function ogTags(title, desc) {
     '\n<meta name="twitter:image" content="' + SITE_BASE + '/assets/og-image.png">';
 }
 const BRAND = [
-  ['<div class="logo">SHOT<span>BREAK</span></div>', '<div class="logo">' + LOGO_IMG + 'CINA<span>MATE</span></div>'],
+  ['<div class="logo">SHOT<span>BREAK</span></div>', '<a href="/dashboard.html" title="CINAMATE Operations" style="text-decoration:none"><div class="logo">' + LOGO_IMG + 'CINA<span>MATE</span></div></a>'],
   ['<link rel="icon" href="/favicon.ico">', '<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=' + STAMP + '">'],
 ];
 /* CINAMATE Blue Patina Edition (brand identity toolkit 2026):
