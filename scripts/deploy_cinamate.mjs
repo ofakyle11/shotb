@@ -55,7 +55,14 @@ function transform(file, pairs) {
   for (const [from, to] of pairs) s = s.split(from).join(to);
   writeFileSync(file, s);
 }
-const BRAND = [['<div class="logo">SHOT<span>BREAK</span></div>', '<div class="logo">CINA<span>MATE</span></div>']];
+const STAMP = 'cm' + Date.now();
+/* Brand-kit logo system (Blue Patina Edition §2): aperture icon + wordmark
+ * for navigation headers; icon mark alone for favicons. */
+const LOGO_IMG = '<img src="/assets/logo-mark.svg?v=' + STAMP + '" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">';
+const BRAND = [
+  ['<div class="logo">SHOT<span>BREAK</span></div>', '<div class="logo">' + LOGO_IMG + 'CINA<span>MATE</span></div>'],
+  ['<link rel="icon" href="/favicon.ico">', '<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=' + STAMP + '">'],
+];
 /* CINAMATE Blue Patina Edition (brand identity toolkit 2026):
  * Deep Navy #0A1628 base, cards #12253A / Dark Lens #1A2F4A, Blue Patina
  * #8BA3B8 wordmark, Action Blue #5B8DB8 interactive, semantic teal/gold/red,
@@ -93,6 +100,26 @@ transform(join(site, 'timeline/index.html'), [...BRAND, ...FONTS,
   ['<h3>Start with a script</h3>', '<h3>Every picture begins with the page</h3>']]);
 transform(join(site, 'producer/index.html'), [...BRAND, ...FONTS,
   ['<title>SHOTBREAK — Producer Suite</title>', '<title>CINAMATE — Producer Suite</title>']]);
+/* app.html — legacy app surface: brand-kit logos, favicon, navy theme */
+transform(join(site, 'app.html'), [...FONTS, ...THEME,
+  ['<title>SHOTBREAK — App</title>', '<title>CINAMATE — App</title>'],
+  ['<link rel="icon" type="image/x-icon" href="favicon.ico">', '<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=' + STAMP + '">'],
+  ['<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">', ''],
+  ['<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">', ''],
+  ['<div class="login-logo">SHOT<span>BREAK</span></div>', '<div class="login-logo">CINA<span>MATE</span></div>'],
+  ["<div class=\"logo\" onclick=\"showMode('media')\">SHOT<span>BREAK</span></div>",
+   "<div class=\"logo\" onclick=\"showMode('media')\">" + LOGO_IMG + "CINA<span>MATE</span></div>"],
+  ['#050507', '#0A1628'], ['#0c0c12', '#0F1F33'], ['#131319', '#12253A'], ['#1a1a22', '#1A2F4A'],
+]);
+/* Cache-bust the brand SVGs where the Cinamate pages reference them */
+const ASSETVER = [
+  ['assets/logo.svg', 'assets/logo.svg?v=' + STAMP],
+  ['assets/logo-mark.svg"', 'assets/logo-mark.svg?v=' + STAMP + '"'],
+  ['assets/favicon.svg', 'assets/favicon.svg?v=' + STAMP],
+];
+transform(join(site, 'index.html'), ASSETVER);
+transform(join(site, 'cinamate/index.html'), ASSETVER);
+transform(join(site, 'dashboard.html'), ASSETVER);
 bust(join(site, 'timeline/index.html'));
 bust(join(site, 'producer/index.html'));
 transform(join(site, 'timeline/timeline.css'), THEME);
