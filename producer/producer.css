@@ -137,3 +137,16 @@ body.cs-printing #sbCallModal{position:static;background:#fff}
 body.cs-printing #sbCallModal .modal-card{width:100%;border:none;background:#fff}
 body.cs-printing #sbCallModal .script-actions,body.cs-printing #sbCallModal .modal-head button{display:none!important}
 body.cs-printing .cs-sheet,body.cs-printing .cs-sheet *{color:#000!important}
+
+/* ── mobile ─────────────────────────────────────────────────────── */
+@media (max-width:860px){
+  .ps-tabs{margin-left:6px;overflow-x:auto;scrollbar-width:none}
+  .ps-tabs::-webkit-scrollbar{display:none}
+  .topbar .bud-modeswitch{margin:0 6px}
+  .ps-split{flex-direction:column;overflow:visible}
+  .ps-topsheet{width:100%;min-width:0;border-right:0;border-bottom:1px solid var(--border);max-height:48vh}
+  .ps-detail{padding:12px 10px}
+  .ps-board{flex-direction:column;overflow:visible}
+  .ps-boneyard{width:100%;min-width:0;border-right:0;border-bottom:1px solid var(--border);max-height:40vh}
+  .bsd-table,.dood-wrap{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+}

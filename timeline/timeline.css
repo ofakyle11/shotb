@@ -6,7 +6,7 @@
   --red:#f87171;--text:#e8e8ec;--text2:#8e8e9e;--dim:#5a5a6a;
   --display:'Syne',sans-serif;--body:'Anybody',sans-serif;--mono:'JetBrains Mono',monospace;
 }
-html,body{height:100%;margin:0;overflow-x:hidden;overflow-y:auto}
+html,body{height:100%;margin:0;overflow-x:hidden;overflow-y:auto;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{background:var(--bg);color:var(--text);font-family:var(--body);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font-family:inherit}
 .app{display:flex;flex-direction:column;height:100vh}
@@ -324,3 +324,26 @@ button,input,select,textarea{font-family:inherit}
 .bud-ai-out{white-space:pre-wrap;font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;max-height:340px;overflow-y:auto;line-height:1.55}
 .bud-warn{color:var(--red);font-size:10px;font-weight:700}
 .bud-incent{border-left-color:var(--green)}
+
+/* ── mobile & cross-browser ─────────────────────────────────────── */
+button,.tb-btn{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+@supports (height:100dvh){.app{height:100dvh}}
+@media (max-width:820px){
+  .app{height:auto;min-height:100vh}
+  @supports (height:100dvh){.app{min-height:100dvh}}
+  .topbar{flex-wrap:wrap;row-gap:6px;padding:8px 10px}
+  .topbar .tb-meta{display:none}
+  .main{flex-direction:column;min-height:0}
+  .workspace{border-right:0;overflow:visible;flex:none;min-width:0}
+  .detail{width:100%;flex:none;border-top:1px solid var(--border)}
+  .settings-row{flex-wrap:wrap;row-gap:6px}
+  .settings-bar .uc-sel,.settings-full .uc-sel{max-width:100%}
+  .bud-tablewrap{-webkit-overflow-scrolling:touch}
+  .script-modal-card{width:98vw;max-height:96vh}
+  .script-editor-modal{max-height:48vh}
+  .tb-btn,.uc-sel{min-height:38px}
+}
+@media (max-width:560px){
+  input,select,textarea{font-size:16px} /* stop iOS focus zoom */
+  .bud-modebtn{padding:8px 12px;font-size:10.5px;letter-spacing:.06em}
+}

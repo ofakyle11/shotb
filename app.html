@@ -36,7 +36,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#050507;--surface:#0c0c12;--surface2:#131319;--surface3:#1a1a22;--border:rgba(255,255,255,0.05);--border2:rgba(255,255,255,0.09);--gold:#d4a843;--gold2:#e8c36a;--gold-bg:rgba(212,168,67,0.05);--gold-border:rgba(212,168,67,0.15);--green:#22c55e;--blue:#60a5fa;--purple:#a78bfa;--red:#f87171;--red-bg:rgba(248,113,113,0.05);--red-border:rgba(248,113,113,0.15);--amber:#eab308;--text:#e8e8ec;--text2:#8e8e9e;--dim:#5a5a6a;--muted:#3a3a46;--display:'Syne',sans-serif;--body:'Anybody',sans-serif;--mono:'JetBrains Mono',monospace;--r:14px;--r-sm:8px}
-body{background:var(--bg);color:var(--text);font-family:var(--body);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}body{background:var(--bg);color:var(--text);font-family:var(--body);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:0.025;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 ::selection{background:rgba(212,168,67,0.3)}::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.05);border-radius:2px}
 .container{max-width:1000px;margin:0 auto;padding:0 24px}
@@ -77,7 +77,7 @@ select{background:var(--surface2);border:1px solid var(--border);color:var(--tex
 .team-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#000;flex-shrink:0}
 
 /* HEADER */
-header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;background:rgba(5,5,7,0.85);backdrop-filter:blur(20px)}
+header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;background:rgba(5,5,7,0.85);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
 .hdr{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
 .logo{font-family:var(--display);font-size:22px;font-weight:800;letter-spacing:-0.04em;color:#fff;cursor:pointer}.logo span{color:var(--gold)}
 .hdr-r{display:flex;align-items:center;gap:10px}
