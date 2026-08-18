@@ -49,6 +49,10 @@ for (const entry of readdirSync(ROOT)) {
   cpSync(join(ROOT, entry), join(site, entry), { recursive: true });
 }
 cpSync(join(ROOT, 'cinamate', 'index.html'), join(site, 'index.html'));
+/* Root-convention icons: iMessage/Safari/scrapers fetch these paths directly,
+ * so the deployed root must carry the CINAMATE versions, not Shotbreak's. */
+cpSync(join(ROOT, 'assets', 'favicon.ico'), join(site, 'favicon.ico'));
+cpSync(join(ROOT, 'assets', 'apple-touch-icon.png'), join(site, 'apple-touch-icon.png'));
 
 function transform(file, pairs) {
   let s = readFileSync(file, 'utf8');
@@ -59,6 +63,22 @@ const STAMP = 'cm' + Date.now();
 /* Brand-kit logo system (Blue Patina Edition §2): aperture icon + wordmark
  * for navigation headers; icon mark alone for favicons. */
 const LOGO_IMG = '<img src="/assets/logo-mark.svg?v=' + STAMP + '" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">';
+const SITE_BASE = 'https://cinamate-studio.netlify.app';
+/* Social/link-preview meta (iMessage, Slack, Twitter read these) */
+function ogTags(title, desc) {
+  return '\n<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">' +
+    '\n<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">' +
+    '\n<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">' +
+    '\n<meta property="og:site_name" content="CINAMATE">' +
+    '\n<meta property="og:type" content="website">' +
+    '\n<meta property="og:title" content="' + title + '">' +
+    '\n<meta property="og:description" content="' + desc + '">' +
+    '\n<meta property="og:image" content="' + SITE_BASE + '/assets/og-image.png">' +
+    '\n<meta property="og:image:width" content="1200">' +
+    '\n<meta property="og:image:height" content="630">' +
+    '\n<meta name="twitter:card" content="summary_large_image">' +
+    '\n<meta name="twitter:image" content="' + SITE_BASE + '/assets/og-image.png">';
+}
 const BRAND = [
   ['<div class="logo">SHOT<span>BREAK</span></div>', '<div class="logo">' + LOGO_IMG + 'CINA<span>MATE</span></div>'],
   ['<link rel="icon" href="/favicon.ico">', '<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=' + STAMP + '">'],
@@ -93,19 +113,25 @@ function bust(file) {
   writeFileSync(file, s);
 }
 transform(join(site, 'timeline/index.html'), [...BRAND, ...FONTS,
-  ['<title>SHOTBREAK — Text-to-Video Movie System</title>', '<title>CINAMATE — Studio</title>'],
+  ['<title>SHOTBREAK — Text-to-Video Movie System</title>', '<title>CINAMATE — Studio</title>' +
+   ogTags('CINAMATE — Studio', 'Script-to-screen AI previsualization with cost and time priced before a frame renders.')],
   // Brand voice (Blue Patina kit): sophisticated, cinematic, collaborative
   ['<h1>Text-to-Video <span>Studio</span></h1>', '<h1>CINAMATE <span>Studio</span></h1>'],
   ['<p>Sign in to generate video. Script parsing works offline.</p>', '<p>Sign in to begin production. Script parsing works offline.</p>'],
   ['<h3>Start with a script</h3>', '<h3>Every picture begins with the page</h3>']]);
 transform(join(site, 'producer/index.html'), [...BRAND, ...FONTS,
-  ['<title>SHOTBREAK — Producer Suite</title>', '<title>CINAMATE — Producer Suite</title>']]);
+  ['<title>SHOTBREAK — Producer Suite</title>', '<title>CINAMATE — Producer Suite</title>' +
+   ogTags('CINAMATE — Producer Suite', 'Budgets, schedules, tax incentives and sales forecasts calibrated to published industry rates.')]]);
 /* app.html — legacy app surface: brand-kit logos, favicon, navy theme */
 transform(join(site, 'app.html'), [...FONTS, ...THEME,
   ['<title>SHOTBREAK — App</title>', '<title>CINAMATE — App</title>'],
   ['<link rel="icon" type="image/x-icon" href="favicon.ico">', '<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=' + STAMP + '">'],
-  ['<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">', ''],
-  ['<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">', ''],
+  ['<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">', '<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">'],
+  ['<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">', '<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">'],
+  ['<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">', '<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">'],
+  ['<meta property="og:title" content="SHOTBREAK — Script to Screen">', '<meta property="og:site_name" content="CINAMATE">\n<meta property="og:title" content="CINAMATE — App">'],
+  ['<meta property="og:description" content="Screenplay shot breakdown and script formatting tool for filmmakers.">', '<meta property="og:description" content="CINAMATE production app — generation, media and workflow.">'],
+  ['https://shotbreak.io/og-image.png', SITE_BASE + '/assets/og-image.png'],
   ['<div class="login-logo">SHOT<span>BREAK</span></div>', '<div class="login-logo">CINA<span>MATE</span></div>'],
   ["<div class=\"logo\" onclick=\"showMode('media')\">SHOT<span>BREAK</span></div>",
    "<div class=\"logo\" onclick=\"showMode('media')\">" + LOGO_IMG + "CINA<span>MATE</span></div>"],
