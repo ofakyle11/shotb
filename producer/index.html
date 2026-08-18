@@ -160,15 +160,28 @@
   $('psProject').textContent=st.projectName;
 
   var tabs=document.querySelectorAll('.ps-tab');
+  function activateTab(name){
+    var btn=document.querySelector('.ps-tab[data-tab="'+name+'"]');
+    if(!btn)return;
+    tabs.forEach(function(x){x.classList.toggle('on',x===btn)});
+    ['budget','schedule','incentives','sales'].forEach(function(t){
+      $('pane-'+t).classList.toggle('hidden',t!==name);
+    });
+    if(name==='incentives'&&window.SBIncentives)SBIncentives.render();
+    if(name==='sales'&&window.SBSales)SBSales.render();
+  }
   tabs.forEach(function(b){
     b.addEventListener('click',function(){
-      tabs.forEach(function(x){x.classList.toggle('on',x===b)});
-      ['budget','schedule','incentives','sales'].forEach(function(t){
-        $('pane-'+t).classList.toggle('hidden',t!==b.dataset.tab);
-      });
-      if(b.dataset.tab==='incentives'&&window.SBIncentives)SBIncentives.render();
-      if(b.dataset.tab==='sales'&&window.SBSales)SBSales.render();
+      activateTab(b.dataset.tab);
+      try{history.replaceState(null,'','#'+b.dataset.tab)}catch(e){}
     });
+  });
+  // Deep links from the Cinamate dashboard rail: /producer/#sales etc.
+  var hashTab=(location.hash||'').replace('#','');
+  if(['budget','schedule','incentives','sales'].indexOf(hashTab)>=0)activateTab(hashTab);
+  window.addEventListener('hashchange',function(){
+    var t=(location.hash||'').replace('#','');
+    if(['budget','schedule','incentives','sales'].indexOf(t)>=0)activateTab(t);
   });
 
   if(window.SBBudgetSheet)SBBudgetSheet.init();
