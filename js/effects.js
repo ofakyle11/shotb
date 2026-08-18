@@ -46,7 +46,7 @@
     var SPEED = typeof opts.speed === 'number' ? opts.speed : 1;      // multiplier
     var COLORS = Array.isArray(opts.colors) && opts.colors.length
       ? opts.colors
-      : ['#F4F6FB', '#22D3EE', '#8B7CF6', '#E879F9'];
+      : ['#F4F6FB', '#5B8DB8', '#8BA3B8', '#C9A86C'];
     var STREAKS = opts.streaks !== false;   // shooting stars on by default
     var NEBULA = opts.nebula !== false;     // faint glow tint on by default
 
@@ -90,9 +90,9 @@
       if (!NEBULA) return;
       var n = 3;
       var tints = [
-        'rgba(34,211,238,',   // cyan
-        'rgba(139,124,246,',  // violet
-        'rgba(232,121,249,'   // magenta
+        'rgba(91,141,184,',   // cyan
+        'rgba(139,163,184,',  // violet
+        'rgba(201,168,108,'   // magenta
       ];
       for (var i = 0; i < n; i++) {
         nebulae.push({
@@ -193,7 +193,7 @@
       var ty = streak.y - (streak.vy / mag) * streak.len;
       var g;
       try { g = ctx.createLinearGradient(tx, ty, streak.x, streak.y); } catch (err) { return; }
-      g.addColorStop(0, 'rgba(34,211,238,0)');
+      g.addColorStop(0, 'rgba(91,141,184,0)');
       g.addColorStop(1, 'rgba(244,246,251,' + (0.75 * clamp(fade, 0, 1)).toFixed(3) + ')');
       ctx.strokeStyle = g;
       ctx.lineWidth = 1.2;

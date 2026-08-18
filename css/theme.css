@@ -39,49 +39,49 @@
   color-scheme: dark;
 
   /* ---- Blacks & surfaces (deep-space stack) ---- */
-  --void:        #05060A;   /* page background            */
-  --space:       #0A0D14;   /* section alternation, footer */
-  --surface-1:   #0F131D;   /* cards, panels (glass base)  */
-  --surface-2:   #161B29;   /* raised panels, inputs, hover */
-  --line:        #232B3E;   /* hairline borders, dividers   */
-  --line-bright: #33405C;   /* focused / active borders     */
+  --void:        #0A1628;   /* page background            */
+  --space:       #0C1A2E;   /* section alternation, footer */
+  --surface-1:   #12253A;   /* cards, panels (glass base)  */
+  --surface-2:   #1A2F4A;   /* raised panels, inputs, hover */
+  --line:        #233852;   /* hairline borders, dividers   */
+  --line-bright: #3A5876;   /* focused / active borders     */
 
   /* ---- Holographic accents ---- */
-  --cyan:    #22D3EE;
-  --violet:  #8B7CF6;
-  --magenta: #E879F9;
+  --cyan:    #5B8DB8;
+  --violet:  #8BA3B8;
+  --magenta: #C9A86C;
 
   /* accent alphas — reused constantly, tokenized once */
-  --cyan-25:    rgba(34, 211, 238, 0.25);
-  --cyan-12:    rgba(34, 211, 238, 0.12);
-  --violet-12:  rgba(139, 124, 246, 0.12);
-  --magenta-12: rgba(232, 121, 249, 0.12);
+  --cyan-25:    rgba(91, 141, 184, 0.25);
+  --cyan-12:    rgba(91, 141, 184, 0.12);
+  --violet-12:  rgba(139, 163, 184, 0.12);
+  --magenta-12: rgba(201, 168, 108, 0.12);
 
   /* ---- Text ---- */
-  --text-hi:    #F4F6FB;   /* headlines, primary copy            */
-  --text-mid:   #B7C0D4;   /* body copy                          */
-  --text-dim:   #8B93A7;   /* captions, meta, mono readouts      */
-  --text-faint: #767F95;   /* lowest readable tier — 5.05:1 on --void */
+  --text-hi:    #E8EEF2;   /* headlines, primary copy            */
+  --text-mid:   #A0B4C8;   /* body copy                          */
+  --text-dim:   #7E92A8;   /* captions, meta, mono readouts      */
+  --text-faint: #6A7E94;   /* lowest readable tier — 5.05:1 on --void */
 
   /* ---- Semantic ---- */
-  --ok:    #34E3A0;
-  --warn:  #F5C542;
-  --error: #FF5C7A;
+  --ok:    #4A8B7A;
+  --warn:  #C9A06C;
+  --error: #A65D5D;
   --info:  var(--cyan);
 
   /* ---- Gradients (thin strokes, text fills, 1px borders — never fills) ---- */
-  --grad-holo: linear-gradient(135deg, #22D3EE 0%, #8B7CF6 50%, #E879F9 100%);
+  --grad-holo: linear-gradient(135deg, #5B8DB8 0%, #8BA3B8 50%, #C9A86C 100%);
   --grad-holo-soft: linear-gradient(135deg,
-      rgba(34, 211, 238, 0.55) 0%,
-      rgba(139, 124, 246, 0.55) 50%,
-      rgba(232, 121, 249, 0.55) 100%);
+      rgba(91, 141, 184, 0.55) 0%,
+      rgba(139, 163, 184, 0.55) 50%,
+      rgba(201, 168, 108, 0.55) 100%);
   --grad-flare: linear-gradient(90deg,
       transparent 0%, var(--cyan-25) 50%, transparent 100%);
 
   /* ---- Glows (atmospheric, never neon-sign bright) ---- */
-  --glow-cyan:   0 0 24px rgba(34, 211, 238, 0.25), 0 0 64px rgba(139, 124, 246, 0.12);
-  --glow-violet: 0 0 24px rgba(139, 124, 246, 0.25), 0 0 64px rgba(34, 211, 238, 0.10);
-  --glow-focus:  0 0 0 1px var(--cyan), 0 0 16px rgba(34, 211, 238, 0.35);
+  --glow-cyan:   0 0 24px rgba(91, 141, 184, 0.25), 0 0 64px rgba(139, 163, 184, 0.12);
+  --glow-violet: 0 0 24px rgba(139, 163, 184, 0.25), 0 0 64px rgba(91, 141, 184, 0.10);
+  --glow-focus:  0 0 0 1px var(--cyan), 0 0 16px rgba(91, 141, 184, 0.35);
 
   /* ---- Glass recipe ingredients ---- */
   --glass-bg:        rgba(15, 19, 29, 0.55);
@@ -90,8 +90,7 @@
   --blur-glass:      18px;
 
   /* ---- Typography ---- */
-  --font-display: "Avenir Next", Avenir, "Helvetica Neue", "Segoe UI",
-                  Futura, system-ui, sans-serif;
+  --font-display: "Inter", "Avenir Next", "Helvetica Neue", "Segoe UI", sans-serif;
   --font-mono:    "SF Mono", ui-monospace, "Cascadia Code", Menlo,
                   Consolas, "Liberation Mono", monospace;
 
@@ -227,7 +226,7 @@ body::before {
   background-image:
     /* vignette: faint violet-cyan breath at top center */
     radial-gradient(ellipse 80% 50% at 50% -10%,
-      rgba(139, 124, 246, 0.08), transparent 60%),
+      rgba(139, 163, 184, 0.08), transparent 60%),
     /* fine grid, 1px hairlines */
     repeating-linear-gradient(0deg,
       rgba(35, 43, 62, 0.28) 0, rgba(35, 43, 62, 0.28) 1px,
@@ -249,9 +248,9 @@ body::after {
     radial-gradient(1px 1px at 13% 21%, rgba(244, 246, 251, 0.10), transparent 100%),
     radial-gradient(1px 1px at 71% 9%,  rgba(244, 246, 251, 0.07), transparent 100%),
     radial-gradient(1px 1px at 44% 63%, rgba(244, 246, 251, 0.08), transparent 100%),
-    radial-gradient(1px 1px at 87% 47%, rgba(34, 211, 238, 0.10),  transparent 100%),
+    radial-gradient(1px 1px at 87% 47%, rgba(91, 141, 184, 0.10),  transparent 100%),
     radial-gradient(1px 1px at 29% 88%, rgba(244, 246, 251, 0.06), transparent 100%),
-    radial-gradient(1px 1px at 62% 34%, rgba(139, 124, 246, 0.09), transparent 100%);
+    radial-gradient(1px 1px at 62% 34%, rgba(139, 163, 184, 0.09), transparent 100%);
   background-size: 480px 480px;
 }
 
@@ -813,4 +812,19 @@ body::after {
   .fx-scanlines--sweep::before { animation: none; opacity: 0; }
   .chip__dot, .fx-pulse { animation: none; opacity: 1; }
   .fx-float { animation: none; }
+}
+
+/* ==========================================================================
+   15 · BLUE PATINA EDITION — brand typography (Cinzel display serif)
+   Old Hollywood. New Power. Headings in Cinzel with cinematic tracking;
+   body/UI stays Inter per the pairing rule (never two serifs).
+   ========================================================================== */
+h1, h2, .display-serif {
+  font-family: "Cinzel", "Playfair Display", Georgia, serif;
+  letter-spacing: 0.05em;
+}
+.tagline-serif {
+  font-family: "Playfair Display", Georgia, serif;
+  font-style: italic;
+  letter-spacing: 0.01em;
 }

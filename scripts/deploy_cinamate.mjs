@@ -56,17 +56,28 @@ function transform(file, pairs) {
   writeFileSync(file, s);
 }
 const BRAND = [['<div class="logo">SHOT<span>BREAK</span></div>', '<div class="logo">CINA<span>MATE</span></div>']];
+/* CINAMATE Blue Patina Edition (brand identity toolkit 2026):
+ * Deep Navy #0A1628 base, cards #12253A / Dark Lens #1A2F4A, Blue Patina
+ * #8BA3B8 wordmark, Action Blue #5B8DB8 interactive, semantic teal/gold/red,
+ * Cinzel display serif + Inter body. */
 const THEME = [
-  ['--bg:#050507;--surface:#0c0c12;--surface2:#131319;--surface3:#1a1a22;', '--bg:#05070d;--surface:#0a0e18;--surface2:#0f1524;--surface3:#151c30;'],
-  ['--border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.1);', '--border:rgba(147,178,255,.09);--border2:rgba(147,178,255,.16);'],
-  ['--gold:#d4a843;--gold2:#e8c36a;', '--gold:#38bdf8;--gold2:#6dd3ff;'],
-  ["--display:'Syne',sans-serif;--body:'Anybody',sans-serif;--mono:'JetBrains Mono',monospace;", "--display:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'IBM Plex Mono',monospace;"],
-  ['212,168,67', '56,189,248'],
-  ['#d4a843', '#38bdf8'],
-  ['#e8c36a', '#6dd3ff'],
+  ['--bg:#050507;--surface:#0c0c12;--surface2:#131319;--surface3:#1a1a22;', '--bg:#0A1628;--surface:#0F1F33;--surface2:#12253A;--surface3:#1A2F4A;'],
+  ['--border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.1);', '--border:rgba(139,163,184,.12);--border2:rgba(139,163,184,.22);'],
+  ['--gold:#d4a843;--gold2:#e8c36a;', '--gold:#5B8DB8;--gold2:#7FA8CC;'],
+  ['--green:#22c55e;--blue:#60a5fa;', '--green:#4A8B7A;--blue:#5B8DB8;'],
+  ['--red:#f87171;--text:#e8e8ec;--text2:#8e8e9e;--dim:#5a5a6a;', '--red:#A65D5D;--text:#E8EEF2;--text2:#A0B4C8;--dim:#6A7E94;'],
+  ["--display:'Syne',sans-serif;--body:'Anybody',sans-serif;--mono:'JetBrains Mono',monospace;", "--display:'Cinzel',serif;--body:'Inter',sans-serif;--mono:'IBM Plex Mono',monospace;"],
+  ['.logo span{color:var(--gold)}', '.logo span{color:#8BA3B8}'],
+  ['212,168,67', '91,141,184'],
+  ['#d4a843', '#5B8DB8'],
+  ['#e8c36a', '#7FA8CC'],
+  ['34,197,94', '74,139,122'],
+  ['#22c55e', '#4A8B7A'],
+  ['#f87171', '#A65D5D'],
+  ['#60a5fa', '#5B8DB8'],
 ];
 const FONTS = [['family=Syne:wght@400;600;700;800&family=Anybody:wght@400;600;700&family=JetBrains+Mono:wght@400;500',
-  'family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500']];
+  'family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500']];
 // Cache-bust every versioned asset so browsers always fetch the new build.
 const BUST = [[/\?v=[A-Za-z0-9-]+/g, '?v=cm' + Date.now()]];
 function bust(file) {
