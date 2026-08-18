@@ -205,9 +205,43 @@
     return 'Drama';
   }
 
+  /* Documentary path: docs are financed and sold as a license stack
+   * (streamer/broadcast/educational/self-dist), not a theatrical
+   * waterfall — see docs/DOCUMENTARY_MODE.md for every source. */
+  function renderDoc(el) {
+    var ds = root.SBDoc.docSales([prefs.budget, prefs.budget], { heat: prefs.docHeat || 'solid' });
+    var h = '';
+    h += '<div class="bud-section"><h4>Documentary revenue — a license stack, not box office</h4>';
+    h += '<div class="bud-assume">Festival outcome: <select class="uc-sel" id="slDocHeat">';
+    root.SBDoc.DOC_SALES.heat.forEach(function (t) {
+      h += '<option value="' + t.id + '"' + (t.id === (prefs.docHeat || 'solid') ? ' selected' : '') + '>' + esc(t.label) + '</option>';
+    });
+    h += '</select> · budget ' + fm(prefs.budget) + '</div>';
+    h += '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th>Revenue path</th><th class="bud-r">Low</th><th class="bud-r">High</th></tr></thead><tbody>';
+    Object.keys(ds.paths).forEach(function (k) {
+      h += '<tr><td>' + esc(k) + '</td><td class="bud-r">' + fm(ds.paths[k][0]) + '</td><td class="bud-r">' + fm(ds.paths[k][1]) + '</td></tr>';
+    });
+    h += '<tr><td><b>Total gross</b></td><td class="bud-r"><b>' + fm(ds.gross[0]) + '</b></td><td class="bud-r"><b>' + fm(ds.gross[1]) + '</b></td></tr>';
+    h += '<tr><td>Net after 15% agent + expenses</td><td class="bud-r"' + (ds.recoupsAtLow ? ' style="color:var(--green)"' : '') + '>' + fm(ds.net[0]) + '</td><td class="bud-r"' + (ds.recoupsAtHigh ? ' style="color:var(--green)"' : ' style="color:var(--red)"') + '>' + fm(ds.net[1]) + '</td></tr>';
+    h += '</tbody></table></div>';
+    h += '<p class="bud-note">Post-2022 reality (sourced): streamer all-rights buys are rare events — Sundance 2023 saw <b>zero</b> streamer doc acquisitions; celebrity/IP titles still clear $10M+. PBS strands license features at ~$30–60k ($150k ceiling), Storyville buys UK-only, educational runs $5–50k lifetime at ~50% splits. The honest priors: only <b>' + Math.round(ds.profitRate * 100) + '%</b> of independent docs reach profit and <b>' + Math.round(ds.zeroRevenueRate * 100) + '%</b> report no revenue at all (CMSI field study). Doc <b>series</b> commissions run cost-plus ' + Math.round(ds.seriesCostPlus[0] * 100) + '–' + Math.round(ds.seriesCostPlus[1] * 100) + '% — sell the series, not the film, when the material supports it.</p></div>';
+
+    h += '<div class="bud-section"><h4>Funding offsets — the other half of doc finance</h4>';
+    h += '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th>Program</th><th class="bud-r">Typical award</th><th>Note</th></tr></thead><tbody>';
+    ds.grants.forEach(function (g) {
+      h += '<tr><td>' + esc(g.label) + '</td><td class="bud-r"><b>' + (g.range[0] === g.range[1] ? fm(g.range[0]) : fm(g.range[0]) + ' – ' + fm(g.range[1])) + '</b></td><td>' + esc(g.note || '') + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<p class="bud-note">Docs recoup from a stack of small checks plus grants — model the film as license stack + funding offsets, not as a box-office bet.</p></div>';
+    el.innerHTML = h;
+    var dh = $('slDocHeat');
+    if (dh) dh.addEventListener('change', function () { prefs.docHeat = dh.value; savePrefs(); render(); });
+  }
+
   function render() {
     var el = $('slBody');
     if (!el) return;
+    if (prefs.strategy === 'documentary' && root.SBDoc) return renderDoc(el);
     var genre = prefs.genre === 'auto' ? autoGenre() : prefs.genre;
     var fc = forecastGross({ budget: prefs.budget, genre: genre, franchise: prefs.franchise, starTier: prefs.starTier, window: prefs.window, rating: prefs.rating });
     var h = '';
@@ -301,8 +335,10 @@
     if (fromEst) fromEst.addEventListener('click', function () {
       var st = root.psProjectState ? psProjectState() : {};
       if (!st.scriptText && !(st.clips || []).length) return root.psToast && psToast('No script in the timeline yet');
-      var prod = SBBudget.estimateProduction(SBBudget.analyze(st), {});
-      setBudget(Math.round(prod.total.likely), 'script estimate, likely');
+      var estPrefs = {};
+      try { estPrefs = JSON.parse((root.localStorage && root.localStorage.getItem('SB_Budget_v1')) || 'null') || {}; } catch (e) {}
+      var prod = SBBudget.estimateProduction(SBBudget.analyze(st), estPrefs);
+      setBudget(Math.round(prod.total.likely), (prod.mode === 'documentary' ? 'documentary estimate, likely' : 'script estimate, likely'));
     });
     render();
   }

@@ -86,7 +86,7 @@
         if (!range || range[1] <= 0) return;
         var m = label.match(/^(\d{4,5})\s*·\s*(.+)$/);
         var acct = m ? m[1] : null, desc = m ? m[2] : label;
-        if (acct === '19000') return; // contingency is auto-computed
+        if (acct === '19000' || acct === '9900') return; // contingency is auto-computed
         var target = byAcct[SEED_MAP[acct] || acct] || byAcct['18000'];
         var it = blankItem(desc);
         it.est = Math.round((range[0] + range[1]) / 2);

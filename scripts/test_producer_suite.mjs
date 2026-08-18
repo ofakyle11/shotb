@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-for (const f of ['timeline/timeline-budget.js', 'producer/budget-sheet.js', 'producer/schedule-board.js', 'producer/incentives.js']) {
+for (const f of ['timeline/timeline-doc.js', 'timeline/timeline-budget.js', 'producer/budget-sheet.js', 'producer/schedule-board.js', 'producer/incentives.js']) {
   (0, eval)(readFileSync(join(root, f), 'utf8'));
 }
 const { SBBudget, SBBudgetSheet, SBScheduleBoard } = globalThis;
@@ -171,6 +171,76 @@ check('csv grand includes contingency', csv.includes('GRAND TOTAL,,,,' + Math.ro
   // buyouts
   const bo = SBSales.buyoutComps(2e6);
   check('buyout comps ordered', bo.typical[0] < bo.typical[1] && bo.breakout[0] < bo.breakout[1] && bo.breakout[1] === 20e6);
+}
+
+// ── documentary mode ──
+{
+  const { SBDoc } = globalThis;
+  const DOCSCRIPT = [
+    'WORKING TITLE: THE LAST TIDE — a feature documentary treatment',
+    '',
+    'ACT ONE. We open on ARCHIVAL newsreel footage of the 1968 flood.',
+    'NARRATOR (V.O.) sets the stakes over drone AERIALS of the delta.',
+    '',
+    'INTERVIEW: DR. ELENA VASQUEZ, hydrologist. She walks us through the maps.',
+    'INTERVIEW WITH MARCUS COLE, the last shrimper on the east bank.',
+    '',
+    'We follow MARCUS (VERITE) through a dawn haul. B-ROLL: nets, gulls, ice.',
+    'TRAVEL TO New Orleans. ON LOCATION IN Baton Rouge.',
+    '',
+    'ELENA VASQUEZ: The levee data tells one story. The water tells another.',
+    'MARCUS COLE: My father worked this bank. His father before him.',
+    'ELENA VASQUEZ: By 2040 this parish is open water.',
+    '',
+    'ARCHIVAL: home movies from the Cole family, 8mm, 1970s.',
+    'MUSIC CUE: original score builds. ANIMATION: the delta shrinking, mapped.',
+    'RE-ENACTMENT: the night of the breach, stylized.',
+    'STOCK FOOTAGE of Hurricane season. NEWSREEL: the evacuation.'
+  ].join('\n');
+  const dst = { projectName: 'Doc', scriptText: DOCSCRIPT, clips: [], characters: {}, locationBible: [], parseResult: null, global: {} };
+  const da = SBBudget.analyze(dst);
+  check('doc analysis attached to analyze()', !!da.doc);
+  check('treatment reads as documentary', da.doc.isDocLike === true, da.doc.docScore);
+  check('subjects detected from interviews + speakers', da.doc.subjectCount >= 2, da.doc.subjects);
+  check('archival cues counted', da.doc.counts.archival >= 3, da.doc.counts.archival);
+
+  const dprod = SBBudget.estimateProduction(da, { mode: 'documentary', docScale: 'indie', docMusic: 'mixed', incentive: 'none' });
+  check('doc estimate returns documentary mode', dprod.mode === 'documentary');
+  check('doc groups use doc accounts', !!dprod.groups['Rights — archival & music']);
+  check('doc total is a low<high band', dprod.total.low > 0 && dprod.total.low < dprod.total.high, dprod.total);
+  check('indie doc total in plausible band ($250k–$2M)', dprod.total.likely > 250e3 && dprod.total.likely < 2e6, dprod.total.likely);
+  check('edit calendar scales with runtime (ADE ~1mo/10min)', dprod.docSchedule.editWeeks >= 15, dprod.docSchedule.editWeeks);
+  const d90 = SBBudget.estimateProduction(da, { mode: 'documentary', docScale: 'indie', runtimeMin: 90, incentive: 'none' });
+  check('90-min feature edits ~8-10 months', d90.docSchedule.editWeeks >= 30 && d90.docSchedule.editWeeks <= 48, d90.docSchedule.editWeeks);
+  check('shooting ratio reported', dprod.docSchedule.shootingRatio >= 10 && dprod.docSchedule.shootingRatio <= 80, dprod.docSchedule.shootingRatio);
+  check('archival auto-set from cues', dprod.tiers.archival.id !== 'none', dprod.tiers.archival.id);
+  check('grants panel data present', dprod.grants.length >= 5, dprod.grants.length);
+
+  const ny = SBBudget.estimateProduction(da, { mode: 'documentary', docScale: 'indie', incentive: 'newyork' });
+  check('NY excludes documentaries', ny.recovery && ny.recovery.excluded === true, ny.recovery);
+  const ga = SBBudget.estimateProduction(da, { mode: 'documentary', docScale: 'indie', incentive: 'georgia' });
+  check('Georgia docs capped at 20% base', ga.recovery && !ga.recovery.excluded &&
+    ga.recovery.high <= ga.total.high * 0.75 * 0.20 + 1, ga.recovery && ga.recovery.high);
+  const uk = SBBudget.estimateProduction(da, { mode: 'documentary', docScale: 'indie', incentive: 'ukavec' });
+  check('UK AVEC full rate for docs', uk.recovery && uk.recovery.high > 0 && !uk.recovery.excluded);
+
+  // scripted regression: same analysis without mode stays scripted
+  const sprod = SBBudget.estimateProduction(da, {});
+  check('scripted path unchanged without mode', sprod.mode === undefined && !!sprod.groups['Above the line']);
+
+  // doc sales
+  const ds = SBDoc.docSales([600e3, 900e3], { heat: 'solid' });
+  check('doc sales has 5 license paths', Object.keys(ds.paths).length === 5, Object.keys(ds.paths));
+  check('solid heat is a modest stack', ds.gross[1] < 400e3, ds.gross);
+  check('CMSI priors surfaced', ds.profitRate === 0.20 && ds.zeroRevenueRate === 0.40);
+  const bo2 = SBDoc.docSales([600e3, 900e3], { heat: 'breakout' });
+  check('breakout streamer ceiling $15M', bo2.heat.streamer[1] === 15e6, bo2.heat.streamer);
+
+  // top-sheet seeding compatibility
+  const dsheet = SBBudgetSheet.blankSheet();
+  SBBudgetSheet.seedFromEstimate(dsheet, dprod);
+  const dtot = SBBudgetSheet.sheetTotals(dsheet);
+  check('doc estimate seeds the top sheet', dtot.grand > 100e3, dtot.grand);
 }
 
 console.log(failures ? '\n' + failures + ' FAILURES' : '\nAll producer suite checks passed.');

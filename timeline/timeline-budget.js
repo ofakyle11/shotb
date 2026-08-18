@@ -417,6 +417,7 @@
       sceneEighths: sceneChunks.map(function (s) { return s.eighths; }),
       sceneCast: sceneCast,
       genre: inferGenre(text, drivers),
+      doc: (root.SBDoc && text) ? root.SBDoc.analyzeDoc(text) : null,
       runtimeMin: pages,               // industry rule of thumb: 1 page ≈ 1 minute
       scenes: scenes,
       clips: clips.length,
@@ -524,6 +525,7 @@
 
   function estimateProduction(analysis, sel) {
     sel = sel || {};
+    if (sel.mode === 'documentary' && root.SBDoc && analysis.doc) return estimateDocCompat(analysis, sel);
     var scale = tier(TIERS.scale, sel.scale || 'indie');
     var director = tier(TIERS.director, sel.director || 'emerging');
     var lead = tier(TIERS.lead, sel.lead || 'rising');
@@ -768,6 +770,62 @@
     };
   }
 
+  /* ── Documentary mode: SBDoc estimate wrapped in the scripted return
+   * contract, with doc-aware incentive rules (NY excludes docs; Georgia
+   * caps docs at the 20% base — see SBDoc.DOC_INCENTIVE_ADJUST). ────── */
+  function estimateDocCompat(analysis, sel) {
+    var d = root.SBDoc.estimateDoc(analysis.doc, {
+      docScale: sel.docScale,
+      docArchival: sel.docArchival === 'auto' ? null : sel.docArchival,
+      docMusic: sel.docMusic,
+      docCrewBasis: sel.docCrewBasis,
+      interviewDays: sel.interviewDays,
+      veriteDays: sel.veriteDays,
+      travelRegions: sel.travelRegions,
+      runtimeMin: sel.runtimeMin
+    });
+    var likely = (d.total[0] + d.total[1]) / 2;
+    var incentive = INCENTIVES.find(function (x) { return x.id === (sel.incentive || 'none'); }) || INCENTIVES[0];
+    var adj = (root.SBDoc.DOC_INCENTIVE_ADJUST || {})[incentive.id] || {};
+    var recovery = null;
+    if (adj.excluded) {
+      recovery = { id: incentive.id, label: incentive.label, note: adj.note, excluded: true,
+        low: 0, high: 0, likely: 0, netLikely: likely, belowMin: false, overCap: false };
+    } else {
+      var rate = adj.rate || incentive.rate;
+      if (rate[1] > 0) {
+        var midRate = (rate[0] + rate[1]) / 2;
+        recovery = {
+          id: incentive.id, label: incentive.label,
+          note: [incentive.note, adj.note].filter(Boolean).join(' · '),
+          low: d.total[0] * incentive.qualPct * rate[0],
+          high: d.total[1] * incentive.qualPct * rate[1],
+          likely: likely * incentive.qualPct * midRate,
+          netLikely: likely * (1 - incentive.qualPct * midRate),
+          belowMin: incentive.minSpend ? likely < incentive.minSpend : false,
+          overCap: incentive.budgetCap ? likely > incentive.budgetCap : false
+        };
+      }
+    }
+    var gb = GENRE_BENCHMARKS['Documentary'] || null;
+    return {
+      mode: 'documentary',
+      tiers: { scale: d.tiers.scale, archival: d.tiers.archival, music: d.tiers.music, basis: d.tiers.basis,
+        incentive: incentive, genre: 'Documentary', genreAuto: true, vfxAuto: false },
+      schedule: { shootDays: d.schedule.shootDays, prepWeeks: 4, postWeeks: d.schedule.editWeeks,
+        totalWeeks: d.schedule.totalWeeks },
+      docSchedule: d.schedule,
+      groups: d.groups,
+      groupTotals: d.groupTotals,
+      total: { low: d.total[0], likely: likely, high: d.total[1] },
+      recovery: recovery,
+      benchmark: gb ? { genre: 'Documentary', med: gb.med, p25: gb.p25, p75: gb.p75, medGross: gb.medGross, percentile: budgetPercentile(likely) } : null,
+      grants: d.grants,
+      subjects: d.subjects,
+      dood: { hasSceneData: false }
+    };
+  }
+
   /* ════════════════════════════════════════════════════════════════════
    *  5. FORMATTING
    * ════════════════════════════════════════════════════════════════════ */
@@ -827,7 +885,7 @@
 
   function prefs() {
     if (_prefs) return _prefs;
-    _prefs = { scale: 'indie', director: 'emerging', lead: 'rising', supporting: 'scale', crew: 'nonunion', locations: 'local', equipment: 'indie', vfx: 'auto', genre: 'auto', incentive: 'none', retakeFactor: AI_DEFAULTS.retakeFactor, concurrency: AI_DEFAULTS.concurrency };
+    _prefs = { mode: 'scripted', scale: 'indie', director: 'emerging', lead: 'rising', supporting: 'scale', crew: 'nonunion', locations: 'local', equipment: 'indie', vfx: 'auto', genre: 'auto', incentive: 'none', retakeFactor: AI_DEFAULTS.retakeFactor, concurrency: AI_DEFAULTS.concurrency, docScale: 'low', docArchival: 'auto', docMusic: 'mixed', docCrewBasis: 'nonunion' };
     try {
       var saved = JSON.parse((root.localStorage && root.localStorage.getItem(PREF_KEY)) || 'null');
       if (saved) Object.assign(_prefs, saved);
@@ -865,28 +923,54 @@
     var ai = estimateAI(st, analysis, p);
     var prod = estimateProduction(analysis, p);
 
+    var docMode = p.mode === 'documentary' && !!root.SBDoc && !!analysis.doc;
     var html = '';
 
     /* Script stats */
-    html += '<div class="bud-stats">' +
-      statChip('pages', '~' + analysis.pages) +
-      statChip('est. runtime', '~' + analysis.runtimeMin + ' min') +
-      statChip('scenes', analysis.scenes) +
-      statChip('clips', analysis.clips || '—') +
-      statChip('cast', analysis.castTotal) +
-      statChip('locations', analysis.uniqueLocations) +
-      statChip('night scenes', analysis.nightCount) +
-      statChip('complexity', analysis.complexity + '/100') +
-      '</div>';
+    if (docMode) {
+      var da = analysis.doc;
+      html += '<div class="bud-stats">' +
+        statChip('pages', '~' + da.pages) +
+        statChip('est. runtime', '~' + da.runtimeMin + ' min') +
+        statChip('subjects', da.subjectCount) +
+        statChip('locations', da.uniqueLocations) +
+        statChip('interview cues', da.counts.interview) +
+        statChip('archival cues', da.counts.archival) +
+        statChip('format', da.isTranscript ? 'transcript' : 'treatment') +
+        '</div>';
+      if (da.drivers.length) {
+        html += '<div class="bud-drivers">' + da.drivers.map(function (d) {
+          return '<span class="bud-chip" title="weight ' + d.weight + '/10">' + escT(d.label) + ' <b>×' + d.count + '</b></span>';
+        }).join('') + '</div>';
+      }
+    } else {
+      html += '<div class="bud-stats">' +
+        statChip('pages', '~' + analysis.pages) +
+        statChip('est. runtime', '~' + analysis.runtimeMin + ' min') +
+        statChip('scenes', analysis.scenes) +
+        statChip('clips', analysis.clips || '—') +
+        statChip('cast', analysis.castTotal) +
+        statChip('locations', analysis.uniqueLocations) +
+        statChip('night scenes', analysis.nightCount) +
+        statChip('complexity', analysis.complexity + '/100') +
+        '</div>';
 
-    if (analysis.drivers.length) {
-      html += '<div class="bud-drivers">' + analysis.drivers.map(function (d) {
-        return '<span class="bud-chip" title="weight ' + d.weight + '/10">' + escT(d.label) + ' <b>×' + d.count + '</b></span>';
-      }).join('') + '</div>';
+      if (analysis.drivers.length) {
+        html += '<div class="bud-drivers">' + analysis.drivers.map(function (d) {
+          return '<span class="bud-chip" title="weight ' + d.weight + '/10">' + escT(d.label) + ' <b>×' + d.count + '</b></span>';
+        }).join('') + '</div>';
+      }
+      if (analysis.doc && analysis.doc.isDocLike) {
+        html += '<div class="bud-compare bud-incent">This reads like a <b>documentary</b> (interview/archival/narration cues). ' +
+          '<a href="#" id="budDocHint" style="color:inherit;text-decoration:underline">Switch to Documentary mode</a> for doc-calibrated budgeting.</div>';
+      }
     }
 
     /* AI preview section */
     html += '<div class="bud-section"><h4>AI rough-draft preview — cost &amp; time</h4>';
+    if (docMode) {
+      html += '<p class="bud-note">Documentary previz: clips visualize b-roll, re-enactments and archival-style sequences from your treatment — interviews are previewed as portrait stills + narration, so the clip count below is the visual-sequence load, not the sit-downs.</p>';
+    }
     html += '<div class="bud-assume">' + ai.clipCount + ' clips × ~' + ai.avgClipSec + 's @ ' + escT(ai.resolution) +
       ' · <label>retakes ×<input type="number" id="budRetake" min="1" max="4" step="0.1" value="' + ai.retakeFactor + '"></label>' +
       ' · <label>parallel <input type="number" id="budConc" min="1" max="8" step="1" value="' + ai.concurrency + '"></label>' +
@@ -904,24 +988,40 @@
     html += '<p class="bud-note">API list-price estimates — retakes multiplier covers regenerations; wall clock assumes ' + ai.concurrency + ' clips rendering in parallel plus ~' + AI_DEFAULTS.setupMinutes + ' min of parse/enrichment. Edit rates in <code>timeline-budget.js</code>.</p></div>';
 
     /* Production section */
-    html += '<div class="bud-section"><h4>Real-world production — tiered estimate</h4>';
-    var genreList = Object.keys(GENRE_BENCHMARKS).map(function (g) { return { id: g, label: g }; });
-    html += '<div class="bud-tiers">' +
-      tierSelect('budScale', TIERS.scale, p.scale, 'Production scale') +
-      tierSelect('budDirector', TIERS.director, p.director, 'Director tier') +
-      tierSelect('budLead', TIERS.lead, p.lead, 'Star / lead tier') +
-      tierSelect('budSupport', TIERS.supporting, p.supporting, 'Supporting cast') +
-      tierSelect('budCrew', TIERS.crew, p.crew, 'Crew / unions') +
-      tierSelect('budLoc', TIERS.locations, p.locations, 'Locations') +
-      tierSelect('budEquip', TIERS.equipment, p.equipment, 'Camera & equipment') +
-      tierSelect('budVfx', TIERS.vfx, p.vfx, 'VFX intensity', true) +
-      tierSelect('budGenre', genreList, p.genre, 'Genre (benchmarks)', true) +
-      tierSelect('budIncent', INCENTIVES, p.incentive, 'Tax incentive jurisdiction') +
-      '</div>';
+    html += '<div class="bud-section"><h4>' + (docMode ? 'Documentary production — calibrated estimate' : 'Real-world production — tiered estimate') + '</h4>';
+    var modeList = [{ id: 'scripted', label: 'Scripted feature' }, { id: 'documentary', label: 'Documentary' }];
+    html += '<div class="bud-tiers">' + tierSelect('budMode', modeList, p.mode || 'scripted', 'Project type');
+    if (docMode) {
+      var D = root.SBDoc.DOC_TIERS;
+      html += tierSelect('budDocScale', D.scale, p.docScale, 'Production scale') +
+        tierSelect('budDocArch', D.archival, p.docArchival, 'Archival appetite', true) +
+        tierSelect('budDocMusic', D.music, p.docMusic, 'Music posture') +
+        tierSelect('budDocBasis', D.crewBasis, p.docCrewBasis, 'Crew basis') +
+        tierSelect('budIncent', INCENTIVES, p.incentive, 'Tax incentive jurisdiction') +
+        '</div>';
+      var ds = prod.docSchedule || {};
+      html += '<div class="bud-sched">Shoot: <b>' + ds.shootDays + ' days</b> (' + ds.interviewDays + ' interview · ' +
+        ds.veriteDays + ' vérité/b-roll · ' + ds.travelRegions + ' travel) · <b>' + ds.editWeeks + ' edit weeks</b>' +
+        ' · ~' + ds.totalWeeks + ' weeks total · shooting ratio ~<b>' + ds.shootingRatio + ':1</b> (≈' + ds.footageHours + ' h footage)' +
+        ' · ' + prod.subjects + ' subject' + (prod.subjects === 1 ? '' : 's') + '</div>';
+    } else {
+      var genreList = Object.keys(GENRE_BENCHMARKS).map(function (g) { return { id: g, label: g }; });
+      html += tierSelect('budScale', TIERS.scale, p.scale, 'Production scale') +
+        tierSelect('budDirector', TIERS.director, p.director, 'Director tier') +
+        tierSelect('budLead', TIERS.lead, p.lead, 'Star / lead tier') +
+        tierSelect('budSupport', TIERS.supporting, p.supporting, 'Supporting cast') +
+        tierSelect('budCrew', TIERS.crew, p.crew, 'Crew / unions') +
+        tierSelect('budLoc', TIERS.locations, p.locations, 'Locations') +
+        tierSelect('budEquip', TIERS.equipment, p.equipment, 'Camera & equipment') +
+        tierSelect('budVfx', TIERS.vfx, p.vfx, 'VFX intensity', true) +
+        tierSelect('budGenre', genreList, p.genre, 'Genre (benchmarks)', true) +
+        tierSelect('budIncent', INCENTIVES, p.incentive, 'Tax incentive jurisdiction') +
+        '</div>';
 
-    html += '<div class="bud-sched">Schedule: <b>' + prod.schedule.shootDays + ' shoot days</b> · ' +
-      prod.schedule.prepWeeks + ' wks prep · ' + prod.schedule.postWeeks + ' wks post · ~' + prod.schedule.totalWeeks + ' weeks total' +
-      (prod.tiers.vfxAuto ? ' · VFX auto-set to <b>' + escT(prod.tiers.vfx.label) + '</b> from script' : '') + '</div>';
+      html += '<div class="bud-sched">Schedule: <b>' + prod.schedule.shootDays + ' shoot days</b> · ' +
+        prod.schedule.prepWeeks + ' wks prep · ' + prod.schedule.postWeeks + ' wks post · ~' + prod.schedule.totalWeeks + ' weeks total' +
+        (prod.tiers.vfxAuto ? ' · VFX auto-set to <b>' + escT(prod.tiers.vfx.label) + '</b> from script' : '') + '</div>';
+    }
 
     Object.keys(prod.groups).forEach(function (gname) {
       var g = prod.groups[gname];
@@ -935,7 +1035,9 @@
 
     html += '<div class="bud-total">Estimated total: <span>' + fmtMoney(prod.total.low) + '</span> low · <b>' + fmtMoney(prod.total.likely) + '</b> likely · <span>' + fmtMoney(prod.total.high) + '</span> high</div>';
 
-    if (prod.recovery) {
+    if (prod.recovery && prod.recovery.excluded) {
+      html += '<div class="bud-compare bud-incent"><span class="bud-warn">⚠ ' + escT(prod.recovery.label) + ' — ' + escT(prod.recovery.note || 'documentaries are not eligible under this program') + '.</span> Pick a doc-eligible jurisdiction (Georgia 20% base, UK AVEC, Ontario, BC…).</div>';
+    } else if (prod.recovery) {
       var rec = prod.recovery;
       html += '<div class="bud-compare bud-incent">' + escT(rec.label) + ': est. recovery <b>' + fmtMoney(rec.low) + ' – ' + fmtMoney(rec.high) + '</b> → net likely cost <b>' + fmtMoney(rec.netLikely) + '</b>. Paid out after audit (6–18 months) — it lowers net cost, not the cash you need up front.' +
         (rec.note ? ' <span class="bud-note">' + escT(rec.note) + '</span>' : '') +
@@ -955,6 +1057,19 @@
     }
     html += '</div>';
 
+    /* Documentary funding offsets */
+    if (docMode && prod.grants) {
+      html += '<div class="bud-section"><h4>Funding offsets — documentary grants &amp; co-productions</h4>';
+      html += '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th>Program</th><th class="bud-r">Typical award</th><th>Note</th></tr></thead><tbody>';
+      prod.grants.forEach(function (g) {
+        html += '<tr><td>' + escT(g.label) + '</td><td class="bud-r"><b>' +
+          (g.range[0] === g.range[1] ? fmtMoney(g.range[0]) : fmtMoney(g.range[0]) + ' – ' + fmtMoney(g.range[1])) +
+          '</b></td><td>' + escT(g.note || '') + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      html += '<p class="bud-note">Docs are financed by stacking grants, co-productions and license fees — not equity. These are real program ranges (sources in the methodology doc); most stack together.</p></div>';
+    }
+
     /* AI line producer */
     html += '<div class="bud-section"><h4>AI line producer</h4>' +
       '<div class="bud-ai-row"><button type="button" class="tb-btn gold" id="budAiBtn"' + (_aiBusy ? ' disabled' : '') + '>' + (_aiBusy ? 'Analyzing…' : '🎬 Get line-producer notes') + '</button>' +
@@ -968,7 +1083,7 @@
 
   function bindBodyEvents(st) {
     var p = prefs();
-    var map = { budScale: 'scale', budDirector: 'director', budLead: 'lead', budSupport: 'supporting', budCrew: 'crew', budLoc: 'locations', budEquip: 'equipment', budVfx: 'vfx', budGenre: 'genre', budIncent: 'incentive' };
+    var map = { budMode: 'mode', budScale: 'scale', budDirector: 'director', budLead: 'lead', budSupport: 'supporting', budCrew: 'crew', budLoc: 'locations', budEquip: 'equipment', budVfx: 'vfx', budGenre: 'genre', budIncent: 'incentive', budDocScale: 'docScale', budDocArch: 'docArchival', budDocMusic: 'docMusic', budDocBasis: 'docCrewBasis' };
     Object.keys(map).forEach(function (id) {
       var el = $id(id);
       if (!el) return;
@@ -985,6 +1100,11 @@
     });
     var aiBtn = $id('budAiBtn');
     if (aiBtn) aiBtn.onclick = function () { runLineProducer(st); };
+    var docHint = $id('budDocHint');
+    if (docHint) docHint.onclick = function (e) {
+      if (e && e.preventDefault) e.preventDefault();
+      p.mode = 'documentary'; savePrefs(); renderBody(currentState());
+    };
   }
 
   function currentState() {
