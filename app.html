@@ -1355,7 +1355,7 @@ window.safeSignIn = safeSignIn;
     }
     var emailLc = email.toLowerCase().trim();
     var loginEmail = email;
-    var short = emailLc.split('@')[0].replace(/[^a-z]/g, '');
+    var short = emailLc.split('@')[0].replace(/[^a-z0-9]/g, '');
     if (window.SHORT_TO_FULL_EMAIL && window.SHORT_TO_FULL_EMAIL[short]) {
       loginEmail = window.SHORT_TO_FULL_EMAIL[short];
     }
@@ -1364,7 +1364,7 @@ window.safeSignIn = safeSignIn;
       !!(window.SHORT_TO_FULL_EMAIL && window.SHORT_TO_FULL_EMAIL[short]);
     if (isOwnerAttempt) {
       try {
-        var verifyName = short || emailLc.split('@')[0].replace(/[^a-z]/g, '');
+        var verifyName = short || emailLc.split('@')[0].replace(/[^a-z0-9]/g, '');
         var vresp = await fetch('/.netlify/functions/verify-owner', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1704,7 +1704,7 @@ async function customerLogin(){
 
     // Support entering short (mz465/kz465) or full email for owner UI login
     let loginEmail = email;
-    const short = emailLc.split('@')[0].replace(/[^a-z]/g, '');
+    const short = emailLc.split('@')[0].replace(/[^a-z0-9]/g, '');
     if (window.SHORT_TO_FULL_EMAIL && window.SHORT_TO_FULL_EMAIL[short]) {
       loginEmail = window.SHORT_TO_FULL_EMAIL[short];
     }
@@ -1716,7 +1716,7 @@ async function customerLogin(){
     if (isOwnerAttempt) {
       // Attempt verify-owner first with the short name (server expects 'mz465' etc, not the full email)
       try {
-        const verifyName = short || emailLc.split('@')[0].replace(/[^a-z]/g, '');
+        const verifyName = short || emailLc.split('@')[0].replace(/[^a-z0-9]/g, '');
         const vresp = await fetch('/.netlify/functions/verify-owner', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
