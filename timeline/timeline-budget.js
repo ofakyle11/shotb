@@ -926,6 +926,12 @@
     var docMode = p.mode === 'documentary' && !!root.SBDoc && !!analysis.doc;
     var html = '';
 
+    /* Project-type switch — festivals and funds split exactly this way */
+    html += '<div class="bud-modeswitch" role="tablist" aria-label="Project type">' +
+      '<button type="button" class="bud-modebtn' + (docMode ? '' : ' on') + '" data-bmode="scripted">Feature Film</button>' +
+      '<button type="button" class="bud-modebtn' + (docMode ? ' on' : '') + '" data-bmode="documentary">Documentary</button>' +
+      '</div>';
+
     /* Script stats */
     if (docMode) {
       var da = analysis.doc;
@@ -989,8 +995,7 @@
 
     /* Production section */
     html += '<div class="bud-section"><h4>' + (docMode ? 'Documentary production — calibrated estimate' : 'Real-world production — tiered estimate') + '</h4>';
-    var modeList = [{ id: 'scripted', label: 'Scripted feature' }, { id: 'documentary', label: 'Documentary' }];
-    html += '<div class="bud-tiers">' + tierSelect('budMode', modeList, p.mode || 'scripted', 'Project type');
+    html += '<div class="bud-tiers">';
     if (docMode) {
       var D = root.SBDoc.DOC_TIERS;
       html += tierSelect('budDocScale', D.scale, p.docScale, 'Production scale') +
@@ -1083,7 +1088,7 @@
 
   function bindBodyEvents(st) {
     var p = prefs();
-    var map = { budMode: 'mode', budScale: 'scale', budDirector: 'director', budLead: 'lead', budSupport: 'supporting', budCrew: 'crew', budLoc: 'locations', budEquip: 'equipment', budVfx: 'vfx', budGenre: 'genre', budIncent: 'incentive', budDocScale: 'docScale', budDocArch: 'docArchival', budDocMusic: 'docMusic', budDocBasis: 'docCrewBasis' };
+    var map = { budScale: 'scale', budDirector: 'director', budLead: 'lead', budSupport: 'supporting', budCrew: 'crew', budLoc: 'locations', budEquip: 'equipment', budVfx: 'vfx', budGenre: 'genre', budIncent: 'incentive', budDocScale: 'docScale', budDocArch: 'docArchival', budDocMusic: 'docMusic', budDocBasis: 'docCrewBasis' };
     Object.keys(map).forEach(function (id) {
       var el = $id(id);
       if (!el) return;
@@ -1103,8 +1108,29 @@
     var docHint = $id('budDocHint');
     if (docHint) docHint.onclick = function (e) {
       if (e && e.preventDefault) e.preventDefault();
-      p.mode = 'documentary'; savePrefs(); renderBody(currentState());
+      setMode('documentary', st);
     };
+    var body = $id('budBody');
+    if (body) {
+      Array.prototype.forEach.call(body.querySelectorAll('.bud-modebtn'), function (btn) {
+        btn.onclick = function () { setMode(btn.getAttribute('data-bmode'), st); };
+      });
+    }
+  }
+
+  /* Flip project type everywhere: budget prefs + the Sales tab's strategy,
+   * so estimates, top-sheet seeding and sales all follow one switch. */
+  function setMode(mode, st) {
+    var p = prefs();
+    if (p.mode === mode) return;
+    p.mode = mode; savePrefs();
+    try {
+      var s = JSON.parse((root.localStorage && root.localStorage.getItem('SB_Sales_v1')) || 'null') || {};
+      if (mode === 'documentary') s.strategy = 'documentary';
+      else if (s.strategy === 'documentary') s.strategy = 'indie';
+      root.localStorage && root.localStorage.setItem('SB_Sales_v1', JSON.stringify(s));
+    } catch (e) {}
+    renderBody(st || currentState());
   }
 
   function currentState() {

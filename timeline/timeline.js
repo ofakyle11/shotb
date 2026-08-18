@@ -69,13 +69,14 @@ async function hdrs(){return{'Content-Type':'application/json','Authorization':'
 
 function initAuth(){
   const existing=ownerToken();
+  if(!existing)$('userMeta').textContent='Local session';
   if(existing)setOwnerSession(localStorage.getItem(ON_KEY)||'owner',existing,parseInt(localStorage.getItem(OE_KEY)||'0',10));
   if(window.firebase&&window.SHOTBREAK_CONFIG){
     if(!firebase.apps.length)firebase.initializeApp(window.SHOTBREAK_CONFIG.firebase);
     auth=firebase.auth();
     auth.onAuthStateChanged(u=>{
       if(u){const e=(u.email||'').toLowerCase();curUser={name:u.displayName||e.split('@')[0],email:e,isOwner:OWNER_EMAILS.has(e),uid:u.uid};$('loginOverlay').classList.add('hidden');$('userMeta').textContent=curUser.name}
-      else if(!ownerToken()){curUser=null;$('loginOverlay').classList.remove('hidden')}
+      else if(!ownerToken()){curUser=null;$('userMeta').textContent='Local session'}
     });
   }
   $('loginBtn').onclick=async()=>{

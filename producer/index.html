@@ -19,6 +19,10 @@
       <button class="ps-tab" data-tab="incentives">Incentives</button>
       <button class="ps-tab" data-tab="sales">Sales</button>
     </nav>
+    <div class="bud-modeswitch" id="psMode" role="tablist" aria-label="Project type" title="Estimates, seeding and sales follow the project type">
+      <button type="button" class="bud-modebtn" data-bmode="scripted">Feature Film</button>
+      <button type="button" class="bud-modebtn" data-bmode="documentary">Documentary</button>
+    </div>
     <div class="tb-spacer"></div>
     <button class="tb-btn gold" id="psAddScript" title="Paste or import a screenplay — both tabs seed from it">✎ Add script</button>
     <span class="tb-meta" id="psProject">Untitled Film</span>
@@ -189,6 +193,35 @@
   if(window.SBScheduleBoard)SBScheduleBoard.init();
   if(window.SBIncentives)SBIncentives.init();
   if(window.SBSales)SBSales.init();
+
+  /* Project-type switch: one flip drives the estimator, top-sheet seeding
+   * and the Sales tab's strategy together. */
+  (function(){
+    function getP(k){ try{ return JSON.parse(localStorage.getItem(k)||'null')||{}; }catch(e){ return {}; } }
+    function setP(k,p){ try{ localStorage.setItem(k,JSON.stringify(p)); }catch(e){} }
+    function paint(){
+      var m=getP('SB_Budget_v1').mode||'scripted';
+      document.querySelectorAll('#psMode .bud-modebtn').forEach(function(b){
+        b.classList.toggle('on', b.getAttribute('data-bmode')===m);
+      });
+    }
+    document.querySelectorAll('#psMode .bud-modebtn').forEach(function(b){
+      b.addEventListener('click', function(){
+        var m=b.getAttribute('data-bmode');
+        var p=getP('SB_Budget_v1'); p.mode=m; setP('SB_Budget_v1',p);
+        var sel=document.getElementById('slStrategy');
+        if(sel){
+          var want=m==='documentary'?'documentary':(sel.value==='documentary'?'indie':sel.value);
+          if(sel.value!==want){ sel.value=want; sel.dispatchEvent(new Event('change')); }
+        }
+        paint();
+        if(window.psToast)psToast(m==='documentary'
+          ? 'Documentary — estimates, seeding and sales now use doc economics'
+          : 'Feature film — scripted economics restored');
+      });
+    });
+    paint();
+  })();
 
   /* ── Add-script modal: saves into the shared project (SB_Timeline_v1),
    *    preserving everything else, then seeds the active tab. ── */
