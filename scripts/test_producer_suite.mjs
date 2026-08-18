@@ -131,5 +131,48 @@ check('csv has header + grand total', csv.startsWith('Account,') && csv.includes
 check('csv quotes commas/quotes', csv.includes('"Option, purchase ""rights"""'), csv.split('\n')[1]);
 check('csv grand includes contingency', csv.includes('GRAND TOTAL,,,,' + Math.round(55000)) || csv.split('\n').pop().includes('55000'), csv.split('\n').pop());
 
+// ══ Sales forecast engine ══
+{
+  (0, eval)(readFileSync(join(root, 'producer/sales-forecast.js'), 'utf8'));
+  const { SBSales } = globalThis;
+
+  // quantile forecast
+  const fc = SBSales.forecastGross({ budget: 10e6, genre: 'Drama', starTier: 'name', window: 'fall', rating: 'R' });
+  check('gross quantiles monotonic', fc.gross.p10 < fc.gross.p25 && fc.gross.p25 < fc.gross.p50 && fc.gross.p50 < fc.gross.p75 && fc.gross.p75 < fc.gross.p90, fc.gross);
+  check('bracket picked for $10M', fc.bracket === '$5–20M', fc.bracket);
+  const horror = SBSales.forecastGross({ budget: 10e6, genre: 'Horror', starTier: 'name', window: 'fall', rating: 'R' });
+  check('horror beats drama at same budget', horror.gross.p50 > fc.gross.p50, { h: horror.gross.p50, d: fc.gross.p50 });
+  const franchise = SBSales.forecastGross({ budget: 10e6, genre: 'Drama', starTier: 'name', window: 'fall', rating: 'R', franchise: true });
+  check('franchise lifts the band', Math.abs(franchise.gross.p50 / fc.gross.p50 - 1.7) < 0.01, franchise.gross.p50 / fc.gross.p50);
+  const jan = SBSales.forecastGross({ budget: 10e6, genre: 'Drama', starTier: 'name', window: 'january', rating: 'R' });
+  check('january dump hurts', jan.gross.p50 < fc.gross.p50);
+  check('failure rate surfaced', SBSales.FAILURE_RATE > 0.1 && SBSales.FAILURE_RATE < 0.2, SBSales.FAILURE_RATE);
+
+  // waterfall: studio $100M film grossing 2.5x should be modestly profitable,
+  // and breakeven should land near the classic 2-2.5x rule
+  const wf = SBSales.waterfall(250e6, 100e6, { strategy: 'studio', genre: 'Action' });
+  check('2.5x studio film is profitable', wf.net > 0, wf.net);
+  check('breakeven near 2-2.5x rule', wf.breakevenGross / 100e6 > 1.8 && wf.breakevenGross / 100e6 < 2.8, wf.breakevenGross / 100e6);
+  const flop = SBSales.waterfall(80e6, 100e6, { strategy: 'studio', genre: 'Action' });
+  check('0.8x studio film loses money', flop.net < 0, flop.net);
+  check('rentals ~43% of gross', Math.abs(wf.rentals / wf.gross - 0.428) < 1e-9);
+  check('lifetime > rentals (ancillary)', wf.lifetime > wf.rentals);
+  const iwf = SBSales.waterfall(7.5e6, 3e6, { strategy: 'indie', genre: 'Drama' });
+  check('indie 2.5x profitable with agent fee', iwf.net > 0 && iwf.agent > 0, iwf.net);
+
+  // pre-sales: totals in the researched 30-50% band for a name lead
+  const ps = SBSales.presales(3e6, 'name');
+  check('presales total 30-50% of budget', ps.pctLow >= 0.28 && ps.pctHigh <= 0.53, { low: ps.pctLow, high: ps.pctHigh });
+  check('12 territories', ps.rows.length === 12, ps.rows.length);
+  check('net after commission below gross MGs', ps.netHigh < ps.totalHigh);
+  const psA = SBSales.presales(3e6, 'alist');
+  check('a-list lead lifts territory value', psA.totalHigh > ps.totalHigh);
+
+  // buyouts
+  const bo = SBSales.buyoutComps(2e6);
+  check('buyout comps ordered', bo.typical[0] < bo.typical[1] && bo.breakout[0] < bo.breakout[1] && bo.breakout[1] === 20e6);
+}
+
 console.log(failures ? '\n' + failures + ' FAILURES' : '\nAll producer suite checks passed.');
 process.exit(failures ? 1 : 0);
+
