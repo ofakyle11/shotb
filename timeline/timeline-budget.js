@@ -25,6 +25,9 @@
    * default provider), fal.ai, Replicate, OpenAI, Google Gemini API, xAI.
    * List prices drift monthly; adjust here. Sources: docs/PRODUCTION_PRICING.md */
   var AI_MODEL_RATES = {
+    // Your own ComfyUI rig via the Cinamate bridge — no API cost (power only);
+    // default ~90s/clip on a single consumer GPU.
+    'local-comfy': { label: 'Local GPU — ComfyUI (your rig)', usdPerSec: { '480p': 0, '720p': 0, '1080p': 0 }, genSecPerClip: 90 },
     // WaveSpeed Seedance 2.0 Fast: $0.50/5s 480p, $1.00/5s 720p, $2.50/5s 1080p; median e2e ~156s
     'seedance-2.0-turbo': { label: 'Seedance 2.0 Turbo', usdPerSec: { '480p': 0.10, '720p': 0.20, '1080p': 0.50 }, genSecPerClip: 150 },
     // WaveSpeed Seedance 2.0 Standard: $0.60/5s 480p, $1.20/5s 720p, $3.00/5s 1080p, $6.00/5s 4K; median e2e ~171s

@@ -64,6 +64,39 @@ function setOwnerSession(name,token,expires){
   curUser={name:name,email:name+'@shotbreak.io',isOwner:true,uid:'owner_'+name};
   $('loginOverlay').classList.add('hidden');$('userMeta').textContent=name;
 }
+/* ── Local GPU (ComfyUI via the Cinamate bridge on the user's machine) ──
+ * The browser talks to 127.0.0.1 directly — our serverless functions never
+ * can. Bridge URL + key live ONLY in this browser's localStorage. */
+const LOCAL_GPU_KEY='SB_LocalGPU_v1';
+function localGpuCfg(){try{const c=JSON.parse(localStorage.getItem(LOCAL_GPU_KEY)||'null')||{};return{url:(c.url||'http://127.0.0.1:3456').replace(/\/+$/,''),key:c.key||''}}catch(e){return{url:'http://127.0.0.1:3456',key:''}}}
+function isLocalModel(m){return typeof m==='string'&&m.indexOf('local')===0}
+function genEndpoint(model){return isLocalModel(model)?localGpuCfg().url+'/generate-video':'/.netlify/functions/generate-video'}
+async function genHeaders(model){
+  if(isLocalModel(model)){const c=localGpuCfg();const h={'Content-Type':'application/json'};if(c.key)h['X-API-Key']=c.key;return h}
+  return hdrs();
+}
+/* Minimal app hook for integrations & tests */
+window.SBApp={getState:function(){return state},runJob:function(c){return runJob(c)},genSelected:function(){return genSelected()}};
+window.saveLocalGpu=function(){
+  const u=$('gLocalUrl'),k=$('gLocalKey');
+  try{localStorage.setItem(LOCAL_GPU_KEY,JSON.stringify({url:u&&u.value.trim()||'http://127.0.0.1:3456',key:k&&k.value.trim()||''}))}catch(e){}
+  toast('Local GPU settings saved (this browser only)');
+};
+async function checkLocalGpu(){
+  const c=localGpuCfg();
+  try{
+    const r=await fetch(c.url+'/health',{headers:c.key?{'X-API-Key':c.key}:{}});
+    toast(r.ok?'Local GPU bridge online ('+c.url+')':'Local bridge answered '+r.status+' — check the Film Kit key');
+  }catch(e){toast('Local bridge unreachable — is it running at '+c.url+'? (CORS must be enabled on the bridge)')}
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  const c=localGpuCfg();
+  if($('gLocalUrl'))$('gLocalUrl').value=c.url;
+  if($('gLocalKey'))$('gLocalKey').value=c.key;
+  const gm=$('gModel');
+  if(gm)gm.addEventListener('change',()=>{if(isLocalModel(gm.value))checkLocalGpu()});
+});
+
 async function getToken(){const ot=ownerToken();if(ot)return ot;if(!auth||!auth.currentUser)throw new Error('Not signed in');return auth.currentUser.getIdToken()}
 async function hdrs(){return{'Content-Type':'application/json','Authorization':'Bearer '+(await getToken())}}
 
@@ -1630,11 +1663,12 @@ async function runJob(clip){
   let prompt=buildPrompt(clip);
   const ref=SBCharacters.getRefForClip(state.characters,clip);
   try{
-    const h=await hdrs();
     const vs=(typeof window.getVideoSettings==='function')?window.getVideoSettings('timeline'):null;
     const dur=vs?vs.duration:Math.min(15,Math.max(3,parseInt(state.global.clipDuration,10)||clip.durationSec||5));
     const asp=vs?vs.aspect_ratio:(state.global.aspectRatio||'16:9');
     const pollModel=vs?vs.model:state.global.model;
+    const h=await genHeaders(pollModel);
+    const genUrl=genEndpoint(pollModel);
     const pollProv=vs?vs.provider:((typeof window.inferVideoProvider==='function')?window.inferVideoProvider(pollModel):(pollModel&&pollModel.includes('grok')?'grok-imagine':pollModel&&pollModel.includes('sora')?'aivideoapi':'wavespeed'));
     const body={action:'submit',model:pollModel,prompt,duration:dur,aspect_ratio:asp,resolution:vs?vs.resolution:(state.global.quality||'720p'),provider:pollProv};
     if(ref&&ref.url&&String(ref.url).startsWith('https://'))body.character_image_url=ref.url;
@@ -1661,8 +1695,12 @@ async function runJob(clip){
         }
       }
     }
-    const sub=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify(body)});
+    const sub=await fetch(genUrl,{method:'POST',headers:h,body:JSON.stringify(body)});
     const sd=await sub.json();
+    if(sub.ok&&!sd.request_id){
+      const instant=pickVideoUrl(sd);
+      if(instant){clip.videoUrl=instant;clip.status='done';clip.error=null;save();renderAll();return}
+    }
     if(!sub.ok||!sd.request_id)throw new Error(formatGenError(sd,sub.status));
     clip.requestId=sd.request_id;
     clip.provider=sd.provider||pollProv;
@@ -1671,12 +1709,12 @@ async function runJob(clip){
     while(Date.now()-t0<480000){
       await new Promise(r=>setTimeout(r,5000));
       const pollBody={action:'status',request_id:clip.requestId,model:pollModel,provider:jobProv};
-      const pr=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify(pollBody)});
+      const pr=await fetch(genUrl,{method:'POST',headers:h,body:JSON.stringify(pollBody)});
       const pd=await pr.json();const st=(pd.status||pd.state||'').toUpperCase();
       if(st==='COMPLETED'||st==='SUCCESS'||st==='SUCCEEDED'||st==='DONE'){
         let videoUrl=pickVideoUrl(pd);
         if(!videoUrl){
-          const rr=await fetch('/.netlify/functions/generate-video',{method:'POST',headers:h,body:JSON.stringify({action:'result',request_id:clip.requestId,model:pollModel,provider:jobProv})});
+          const rr=await fetch(genUrl,{method:'POST',headers:h,body:JSON.stringify({action:'result',request_id:clip.requestId,model:pollModel,provider:jobProv})});
           const rd=await rr.json();
           videoUrl=pickVideoUrl(rd);
         }
@@ -1690,9 +1728,9 @@ async function runJob(clip){
   }catch(e){clip.status='draft';clip.error=e.message;save();renderAll();toast(e.message)}
 }
 
-async function genSelected(){if(!curUser)return toast('Sign in');const c=state.clips.find(x=>x.id===state.selectedId);if(!c)return toast('Select clip');await runJob(c)}
+async function genSelected(){if(!curUser&&!isLocalModel(state.global.model))return toast('Sign in');const c=state.clips.find(x=>x.id===state.selectedId);if(!c)return toast('Select clip');await runJob(c)}
 async function batchGen(){
-  if(!curUser)return toast('Sign in');if(state.queue.running)return;
+  if(!curUser&&!isLocalModel(state.global.model))return toast('Sign in');if(state.queue.running)return;
   state.queue.running=true;$('queueBar').classList.add('on');
   for(let i=0;i<state.clips.length;i++){
     $('queueText').textContent='Clip '+(i+1)+' / '+state.clips.length;

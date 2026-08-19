@@ -11,6 +11,7 @@
   };
 
   var VIDEO_MODELS = {
+    'local-comfy': { label: 'Local GPU — ComfyUI (your rig)', resolutions: ['480p', '720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [2, 4, 5, 6, 8, 10, 15], supportsReferences: true, maxRefImages: 4, description: 'Runs on your own machine through the Cinamate bridge (127.0.0.1:3456) — no API cost, needs the bridge running' },
     'seedance-2.0-turbo': { label: 'Seedance 2.0 Turbo', resolutions: ['720p'], aspectRatios: ['16:9', '9:16', '1:1', '2:3', '3:2'], durations: [4, 5, 6, 8, 10], supportsReferences: true, maxRefImages: 3, description: 'Fast reference-to-video, good audio' },
     'seedance-2.0': { label: 'Seedance 2.0 (Standard)', resolutions: ['480p', '720p', '1080p', '4K'], aspectRatios: ['16:9', '9:16', '1:1', '2:3', '3:2'], durations: [4, 5, 6, 8, 10, 12, 15], supportsReferences: true, maxRefImages: 3, description: 'Seedance 2.0 standard tier — higher fidelity than Turbo, up to 4K/15s via WaveSpeed' },
     'seedance-2.5': { label: 'Seedance 2.5 (multi-ref)', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [5, 10, 15, 20, 30], supportsReferences: true, maxRefImages: 10, description: 'Seedance 2.5 — 30s single-shot, heavy multi-reference. Early access via WaveSpeed' },
@@ -306,6 +307,7 @@
 
   function inferVideoProvider(model) {
     var m = String(model || '').toLowerCase();
+    if (m.indexOf('local') === 0) return 'local';
     if (m.indexOf('grok') >= 0) return 'grok-imagine';
     if (m.indexOf('sora') >= 0) return 'aivideoapi';
     return 'wavespeed';
