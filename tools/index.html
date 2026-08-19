@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SHOTBREAK — Production Tools</title>
+<link rel="icon" href="/favicon.ico">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Anybody:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260819a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260819a">
+<link rel="stylesheet" href="tools.css?v=20260819a">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="logo">SHOT<span>BREAK</span></div>
+    <span class="tb-meta">Production Tools</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/producer/" title="Producer Suite">Producer Suite</a>
+    <a class="tb-btn" href="/timeline/" title="Studio">← Studio</a>
+  </header>
+
+  <div class="tk-layout">
+    <nav class="tk-rail" id="tkRail">
+      <div class="tk-railgroup">On set</div>
+      <button data-tab="takes" class="on">Slate &amp; Takes</button>
+      <button data-tab="timecards">Timecards</button>
+      <button data-tab="offload">Offload / MHL</button>
+      <button data-tab="review">Dailies Review</button>
+      <div class="tk-railgroup">The office</div>
+      <button data-tab="crew">Crew &amp; Call Sheets</button>
+      <button data-tab="hotcosts">Hot Costs</button>
+      <button data-tab="insurance">Insurance</button>
+      <button data-tab="rights">Rights / Chain of Title</button>
+      <button data-tab="finance">Finance Waterfall</button>
+      <div class="tk-railgroup">Story &amp; look</div>
+      <button data-tab="revisions">Script Revisions</button>
+      <button data-tab="bible">Story Bible</button>
+      <button data-tab="moodboard">Moodboard</button>
+      <button data-tab="lens">Lens &amp; Coverage</button>
+      <button data-tab="look">Look / LUTs</button>
+      <div class="tk-railgroup">Finishing</div>
+      <button data-tab="captions">Captions</button>
+      <button data-tab="credits">Credit Roll</button>
+      <div class="tk-railgroup">Selling</div>
+      <button data-tab="festivals">Festivals</button>
+      <button data-tab="deals">Buyers &amp; Investors</button>
+      <button data-tab="epk">Press Kit</button>
+    </nav>
+
+    <main class="tk-main">
+      <section class="tk-pane" id="pane-takes"></section>
+      <section class="tk-pane hidden" id="pane-timecards"></section>
+      <section class="tk-pane hidden" id="pane-offload"></section>
+      <section class="tk-pane hidden" id="pane-review"></section>
+      <section class="tk-pane hidden" id="pane-crew"></section>
+      <section class="tk-pane hidden" id="pane-hotcosts"></section>
+      <section class="tk-pane hidden" id="pane-insurance"></section>
+      <section class="tk-pane hidden" id="pane-rights"></section>
+      <section class="tk-pane hidden" id="pane-finance"></section>
+      <section class="tk-pane hidden" id="pane-revisions"></section>
+      <section class="tk-pane hidden" id="pane-bible"></section>
+      <section class="tk-pane hidden" id="pane-moodboard"></section>
+      <section class="tk-pane hidden" id="pane-lens"></section>
+      <section class="tk-pane hidden" id="pane-look"></section>
+      <section class="tk-pane hidden" id="pane-captions"></section>
+      <section class="tk-pane hidden" id="pane-credits"></section>
+      <section class="tk-pane hidden" id="pane-festivals"></section>
+      <section class="tk-pane hidden" id="pane-deals"></section>
+      <section class="tk-pane hidden" id="pane-epk"></section>
+    </main>
+  </div>
+</div>
+<div class="tk-toast" id="tToast"></div>
+
+<script src="tools-core.js?v=20260819a"></script>
+<script src="lib-sun.js?v=20260819a"></script>
+<script src="lib-script.js?v=20260819a"></script>
+<script src="lib-money.js?v=20260819a"></script>
+<script src="lib-media.js?v=20260819a"></script>
+<script src="tools-registers.js?v=20260819a"></script>
+<script src="tools-money-ui.js?v=20260819a"></script>
+<script src="tools-script-ui.js?v=20260819a"></script>
+<script src="tools-media-ui.js?v=20260819a"></script>
+<script>
+(function(){
+  var rail=document.getElementById('tkRail');
+  var initialized={};
+  function activate(name){
+    Array.prototype.forEach.call(rail.querySelectorAll('button[data-tab]'),function(b){
+      b.classList.toggle('on',b.getAttribute('data-tab')===name);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.tk-pane'),function(p){
+      p.classList.toggle('hidden',p.id!=='pane-'+name);
+    });
+    if(!initialized[name]&&window.TTabs&&TTabs[name]){initialized[name]=true;TTabs[name]();}
+    try{history.replaceState(null,'','#'+name);}catch(e){}
+  }
+  rail.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-tab]');
+    if(b)activate(b.getAttribute('data-tab'));
+  });
+  var h=(location.hash||'').replace('#','');
+  activate(document.getElementById('pane-'+h)?h:'takes');
+  window.addEventListener('hashchange',function(){
+    var t=(location.hash||'').replace('#','');
+    if(document.getElementById('pane-'+t))activate(t);
+  });
+})();
+</script>
+</body>
+</html>

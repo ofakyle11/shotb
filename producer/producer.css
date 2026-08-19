@@ -150,3 +150,8 @@ body.cs-printing .cs-sheet,body.cs-printing .cs-sheet *{color:#000!important}
   .ps-boneyard{width:100%;min-width:0;border-right:0;border-bottom:1px solid var(--border);max-height:40vh}
   .bsd-table,.dood-wrap{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
 }
+
+.tk-chip{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:1px 6px}
+.tk-chip.warn{background:rgba(212,168,67,.18);color:var(--gold)}
+.tk-chip.bad{background:rgba(248,113,113,.18);color:var(--red)}
+.tk-chip.good{background:rgba(34,197,94,.16);color:var(--green)}
