@@ -2385,7 +2385,7 @@ function dL(n,c,t){const a=document.createElement('a');a.href=c instanceof Blob?
 // ─── SHOTBREAK Video Module v5 (WaveSpeedAI-aware, verbose logging) ───
 const PROXY=sbVideoProxy(),BATCH="/.netlify/functions/batch-generate";
 const MP={"seedance-2.0-turbo":{l:"Seedance 2.0 Turbo",c:60},"wan-2.7":{l:"Wan 2.7",c:80},"sora-2":{l:"Sora 2",c:120},"veo-3.1":{l:"Veo 3.1",c:150},"kling-3.0-pro":{l:"Kling 3.0 Pro",c:100},"grok-imagine":{l:"Grok Imagine (XAI)",c:90}};
-const V=window.SBVideo={model:"seedance-2.0-turbo",jobs:new Map(),polls:new Map(),balance:0,tier:"free"};
+const V=window.SBVideo={model:"local-comfy",jobs:new Map(),polls:new Map(),balance:0,tier:"free"};
 
 function vlog(){const a=["[SBVideo]"].concat([].slice.call(arguments));console.log.apply(console,a)}
 function verr(){const a=["[SBVideo ERROR]"].concat([].slice.call(arguments));console.error.apply(console,a)}
@@ -8989,7 +8989,7 @@ async function generateVideoForShot(key, btn, opts) {
 
   const vs = (typeof window.getVideoSettings === 'function')
     ? window.getVideoSettings('app')
-    : { model: 'seedance-2.0-turbo', duration: 6, aspect_ratio: '16:9', resolution: '720p', provider: 'wavespeed' };
+    : { model: 'local-comfy', duration: 6, aspect_ratio: '16:9', resolution: '720p', provider: 'local' };
   const videoModel = vs.model;
 
   const payload = {

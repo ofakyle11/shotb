@@ -27,7 +27,7 @@
   var AI_MODEL_RATES = {
     // Your own ComfyUI rig via the Cinamate bridge — no API cost (power only);
     // default ~90s/clip on a single consumer GPU.
-    'local-comfy': { label: 'Local GPU — ComfyUI (your rig)', usdPerSec: { '480p': 0, '720p': 0, '1080p': 0 }, genSecPerClip: 90 },
+    'local-comfy': { label: 'Cinamate AI (local render)', usdPerSec: { '480p': 0, '720p': 0, '1080p': 0 }, genSecPerClip: 90 },
     // WaveSpeed Seedance 2.0 Fast: $0.50/5s 480p, $1.00/5s 720p, $2.50/5s 1080p; median e2e ~156s
     'seedance-2.0-turbo': { label: 'Seedance 2.0 Turbo', usdPerSec: { '480p': 0.10, '720p': 0.20, '1080p': 0.50 }, genSecPerClip: 150 },
     // WaveSpeed Seedance 2.0 Standard: $0.60/5s 480p, $1.20/5s 720p, $3.00/5s 1080p, $6.00/5s 4K; median e2e ~171s
@@ -466,7 +466,15 @@
     var stills = (analysis.castTotal + analysis.uniqueLocations) * AI_DEFAULTS.imageTakes;
     var stillsUsd = stills * AI_DEFAULTS.imageUsd;
 
-    var rows = Object.keys(AI_MODEL_RATES).map(function (id) {
+    // Panel shows only models actually offered on this build (the cloud
+    // reference rates stay in the table for the methodology docs/tests).
+    var offered = Object.keys(AI_MODEL_RATES).filter(function (id) {
+      return !root.VIDEO_MODELS || root.VIDEO_MODELS[id];
+    });
+    // All-local build (Cinamate AI): stills render on the same rig — $0.
+    var allLocal = offered.length > 0 && offered.every(function (id) { return id.indexOf('local') === 0; });
+    if (allLocal) stillsUsd = 0;
+    var rows = offered.map(function (id) {
       var m = AI_MODEL_RATES[id];
       var rate = rateForRes(id, res);
       var footageSec = clipCount * avgDur;

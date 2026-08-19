@@ -87,7 +87,7 @@ const row = ai.selectedRow;
 check('one-pass cost = clips*dur*rate', Math.abs(row.onePassUsd - 24 * 5 * row.usdPerSec) < 1e-9, row.onePassUsd);
 check('likely > one pass', row.likelyUsd > row.onePassUsd, row.likelyUsd);
 check('wall clock positive', row.wallMinutes > 0, row.wallMinutes);
-ai.rows.forEach(r => check('rate defined for ' + r.id, r.usdPerSec > 0, r.usdPerSec));
+ai.rows.forEach(r => check('rate defined for ' + r.id, typeof r.usdPerSec === 'number' && isFinite(r.usdPerSec) && (r.usdPerSec > 0 || r.id.indexOf('local') === 0), r.usdPerSec));
 
 // ── production estimate ──
 const prod = SBBudget.estimateProduction(a, { scale: 'indie', director: 'established', lead: 'name', supporting: 'seasoned', crew: 'union', locations: 'city', equipment: 'pro', vfx: 'auto' });
