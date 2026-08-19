@@ -20,7 +20,7 @@
     'vidu-q3': { label: 'Vidu Q3 (Multi-Ref)', resolutions: ['480p', '720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [4, 5, 8, 10, 16], supportsReferences: true, maxRefImages: 4, description: 'Vidu Q3 reference-to-video — multi-entity consistency from up to 4 refs (character + wardrobe + prop + location), audio, up to 16s' },
     'grok-imagine': { label: '🔊 Grok Imagine (xAI · AUDIO)', resolutions: ['480p', '720p'], aspectRatios: ['1:1', '16:9', '9:16', '2:3', '3:2'], durations: [4, 5, 6, 8, 10, 12, 15], supportsReferences: true, maxRefImages: 7, description: 'xAI Grok Imagine — NATIVE AUDIO, best reference coherence (up to 7 ref images), ~$0.05/s. Runs on your working xAI key. Non-Chinese (US).' },
     'kling-3.0-pro': { label: 'Kling 3.0 Pro', resolutions: ['720p', '1080p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [3, 5, 8, 10, 15], supportsReferences: true, maxRefImages: 1, description: 'Kling 3.0 Pro — cinematic T2V/I2V via WaveSpeed' },
-    'comfy-local': { label: '🖥 Local ComfyUI (this PC)', resolutions: ['480p', '720p'], aspectRatios: ['16:9', '9:16'], durations: [2, 3, 4, 5, 6, 8], supportsReferences: true, maxRefImages: 1, description: 'Your own ComfyUI — adapts to your installed models: Wan/SVD when present, else AnimateDiff (short ~2s experimental clips). CPU-only machines: use a cloud model for real clips; local stills work great. Launch with --enable-cors-header' },
+    'comfy-local': { label: '🖥 Local ComfyUI — FREE (your GPU, silent)', resolutions: ['480p', '720p'], aspectRatios: ['16:9', '9:16'], durations: [2, 3, 4, 5, 6, 8], supportsReferences: true, maxRefImages: 1, description: 'Your own ComfyUI — adapts to your installed models: Wan/SVD when present, else AnimateDiff (short ~2s experimental clips). CPU-only machines: use a cloud model for real clips; local stills work great. Launch with --enable-cors-header' },
     'comfy-still': { label: '🖼 Still + Motion (fast local)', resolutions: ['720p'], aspectRatios: ['16:9', '9:16'], durations: [2, 3, 4, 5, 6, 8, 10], supportsReferences: true, maxRefImages: 1, description: 'Storyboard frame from your ComfyUI + cinematic push-in/pan rendered in-browser — the fastest local clip on any hardware. Great for animatics and draft cuts.' },
     'fal-wan-i2v': { label: 'Wan 2.1 (fal · cheapest)', resolutions: ['480p', '720p'], aspectRatios: ['16:9', '9:16'], durations: [5], supportsReferences: true, maxRefImages: 1, description: 'Wan 2.1 image-to-video on fal.ai — the cheapest real cloud video (~$0.20–0.40/clip). Board/ref becomes the start frame.' },
     'fal-ltx': { label: 'LTX Video (fal · fastest cloud)', resolutions: ['480p', '720p'], aspectRatios: ['16:9', '9:16', '1:1'], durations: [2, 4, 6, 8], supportsReferences: true, maxRefImages: 1, description: 'LTX-Video distilled on fal.ai — near-instant cloud clips for pennies. Draft-tier motion quality.' },
@@ -236,6 +236,8 @@
      estimates) but the UI stays a short, all-working list. */
   function timelineVideoModels() {
     var out = {};
+    // Free local GPU first, then the fal native-audio lineup cheapest-first.
+    if (VIDEO_MODELS['comfy-local']) out['comfy-local'] = VIDEO_MODELS['comfy-local'];
     Object.keys(VIDEO_MODELS)
       .filter(function (k) { return /^fal-/.test(k) && AUDIO_MODELS.has(k); })
       .sort(function (a, b) { return (EST_COST_PER_SEC[a] || 9) - (EST_COST_PER_SEC[b] || 9); })

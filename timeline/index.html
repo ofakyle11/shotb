@@ -50,6 +50,7 @@
       <span class="settings-label">Settings</span>
       <div class="settings-quick">
         <select class="uc-sel" id="gModel" title="Video model — every option has NATIVE AUDIO (spoken dialogue + sound), cheapest first">
+          <option value="comfy-local">🖥 Local ComfyUI — FREE (your GPU, silent)</option>
           <option value="fal-ltx2-fast" selected>🔊 LTX-2 — $0.24/6s · cheapest</option>
           <option value="fal-veo31-lite">🔊 Veo 3.1 Lite — $0.30/6s</option>
           <option value="fal-ltx2-pro">🔊 LTX-2 Pro — $0.36/6s</option>
@@ -85,7 +86,7 @@
       <div class="uc-group"><span class="uc-label">Language</span><select class="uc-sel" id="gLang"><option>English</option><option>French</option><option>Bilingual</option></select></div>
       <div class="uc-group"><span class="uc-label">Draft</span><select class="uc-sel" id="gDraft" title="Draft renders every clip fast &amp; dirt-cheap (LTX silent, ~$0.05/clip) with the same seeds and refs — then ★ Finalize re-renders only the keepers with your selected audio model"><option value="off" selected>Off — final quality</option><option value="on">On — fast &amp; cheap</option></select></div>
       <div class="uc-group"><span class="uc-label">Verify</span><select class="uc-sel" id="gVerify" title="Continuity verification after each generated clip"><option value="badge" selected>Score + badge</option><option value="retry">Auto-retry low</option><option value="off">Off</option></select></div>
-      <div class="uc-group"><span class="uc-label">Images</span><select class="uc-sel" id="gImgModel" title="Engine for ALL still images — storyboards, portraits, kits, plates, prop cards"><option value="fal-flux-schnell" selected>FLUX schnell — ⅓¢/image · boards</option><option value="fal-flux-dev">FLUX dev — 2.5¢/image · portraits</option></select></div>
+      <div class="uc-group"><span class="uc-label">Images</span><select class="uc-sel" id="gImgModel" title="Engine for ALL still images — storyboards, portraits, kits, plates, prop cards. Your GPU is free; FLUX is the cloud fallback"><option value="comfy-local" selected>🖥 Local ComfyUI — FREE (your GPU)</option><option value="fal-flux-schnell">FLUX schnell — ⅓¢/image · boards</option><option value="fal-flux-dev">FLUX dev — 2.5¢/image · portraits</option></select></div>
       <div class="uc-group"><span class="uc-label">ComfyUI</span><input class="uc-sel uc-text" id="gComfyHost" value="http://127.0.0.1:8188" title="Local ComfyUI address (used by the Local ComfyUI model)" spellcheck="false"><button type="button" class="tb-btn" id="btnComfyTest" title="Check the connection to your local ComfyUI">Test</button><button type="button" class="tb-btn" id="btnComfyWf" title="Upload your ComfyUI VIDEO workflow (export as API Format JSON)">Video WF…</button><button type="button" class="tb-btn" id="btnComfyImgWf" title="Upload your ComfyUI IMAGE workflow (export as API Format JSON) — used for storyboards/portraits on Local ComfyUI">Img WF…</button></div>
     </div>
   </div>
@@ -353,7 +354,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script src="/js/model-config.js?v=20260802d"></script>
+<script src="/js/model-config.js?v=20260802e"></script>
 <script src="/js/mastery-resolver.js?v=20260802a"></script>
 <script src="/js/sb-storage.js?v=20260730a"></script>
 <script src="timeline-sync.js?v=20260729a"></script>
@@ -372,6 +373,6 @@
 <script src="pro-cut.js?v=20260716a"></script>
 <script src="/js/ffmpeg-wasm.js?v=20260730b"></script>
 <script src="/editor/timeline-engine.js?v=20260628a"></script>
-<script src="timeline.js?v=20260802d"></script>
+<script src="timeline.js?v=20260802e"></script>
 </body>
 </html>

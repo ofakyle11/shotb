@@ -1251,7 +1251,7 @@ function renderDetail(){
   body.innerHTML=locHint+verifyHint+
     '<div class="field"><label>Scene</label><textarea id="d-desc" rows="3">'+esc(clip.description)+'</textarea></div>'+
     '<div class="field"><label>Emotion</label><select id="d-emotion">'+['Neutral','Tense','Joy','Fear','Anger','Sad','Noir'].map(e=>'<option'+(clip.emotion===e?' selected':'')+'>'+e+'</option>').join('')+'</select></div>'+
-    '<div class="field"><label>Model (this clip only)</label><select id="d-model" title="Override the project video model for just this shot — e.g. Sora 2 Pro for a hero shot while the rest run on LTX-2"><option value="">Project default ('+esc((window.VIDEO_MODELS&&window.VIDEO_MODELS[state.global.model]&&window.VIDEO_MODELS[state.global.model].label)||state.global.model||'—')+')</option>'+Object.keys(window.VIDEO_MODELS||{}).filter(m=>/^fal-/.test(m)&&(typeof window.modelHasAudio!=='function'||window.modelHasAudio(m))).map(m=>'<option value="'+m+'"'+(clip.modelOverride===m?' selected':'')+'>'+esc((window.VIDEO_MODELS[m].label||m))+'</option>').join('')+'</select></div>'+
+    '<div class="field"><label>Model (this clip only)</label><select id="d-model" title="Override the project video model for just this shot — e.g. Sora 2 Pro for a hero shot while the rest run on LTX-2"><option value="">Project default ('+esc((window.VIDEO_MODELS&&window.VIDEO_MODELS[state.global.model]&&window.VIDEO_MODELS[state.global.model].label)||state.global.model||'—')+')</option>'+Object.keys(window.VIDEO_MODELS||{}).filter(m=>m==='comfy-local'||(/^fal-/.test(m)&&(typeof window.modelHasAudio!=='function'||window.modelHasAudio(m)))).map(m=>'<option value="'+m+'"'+(clip.modelOverride===m?' selected':'')+'>'+esc((window.VIDEO_MODELS[m].label||m))+'</option>').join('')+'</select></div>'+
     '<details class="detail-section"><summary>AI prompt</summary><div class="section-inner"><textarea id="d-prompt" readonly rows="4">'+esc(buildPrompt(clip))+'</textarea></div></details>'+
     '<details class="detail-section"><summary>Scene &amp; setting</summary><div class="section-inner">'+mkTog(p.scene,'location','Location')+mkTog(p.scene,'timeOfDay','Time')+mkTog(p.scene,'weather','Weather')+mkTog(p.scene,'season','Season')+'</div></details>'+
     '<details class="detail-section"><summary>Camera</summary><div class="section-inner">'+mkTog(p.camera,'angle','Angle')+mkTog(p.camera,'filmGrade','Film grade')+mkTog(p.camera,'colorMode','Color')+mkTog(p.camera,'saturation','Saturation')+'</div></details>'+
@@ -3146,6 +3146,9 @@ function bindUI(){
       if(!/^fal-flux/.test(String(state.global.imageModel||'')))state.global.imageModel='fal-flux-schnell';
       state.global._falOnly=true;
     }
+    // GPU era: an NVIDIA rig runs ComfyUI now — stills default back to the
+    // free local engine (video keeps the audio-capable fal default).
+    if(!state.global._gpuLocalImg){state.global.imageModel='comfy-local';state.global._gpuLocalImg=true}
   if(typeof window.initTimelineVideoSettings==='function'){
     if($('gModel')&&state.global.model)$('gModel').value=state.global.model;
     window.initTimelineVideoSettings(syncGlobal,true);
