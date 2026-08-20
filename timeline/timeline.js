@@ -1660,6 +1660,7 @@ async function resolvePrevClipFrameRef(state,clipIndex){
 
 async function runJob(clip){
   clip.status='generating';clip.error=null;renderAll();
+  const jobT0=Date.now();
   let prompt=buildPrompt(clip);
   const ref=SBCharacters.getRefForClip(state.characters,clip);
   try{
@@ -1720,7 +1721,9 @@ async function runJob(clip){
         }
         if(!videoUrl)throw new Error('No video URL in provider response');
         clip.videoUrl=videoUrl;
-        clip.status='done';clip.error=null;save();renderAll();return;
+        clip.status='done';clip.error=null;save();renderAll();
+        if(window.CLearn&&isLocalModel(pollModel))CLearn.recordRender(dur,(Date.now()-jobT0)/1000);
+        return;
       }
       if(st==='FAILED'||st==='ERROR')throw new Error(formatGenError(pd,pr.status));
     }

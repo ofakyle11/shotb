@@ -91,6 +91,12 @@
         var it = blankItem(desc);
         it.est = Math.round((range[0] + range[1]) / 2);
         it.notes = 'est. range ' + SBBudget.fmtMoney(range[0]) + ' – ' + SBBudget.fmtMoney(range[1]);
+        // learning loop: past actuals on this account correct the estimate
+        var cal = (root.CLearn && root.CLearn.calibration) ? root.CLearn.calibration(target.acct) : null;
+        if (cal && cal.n >= 2 && cal.mult !== 1) {
+          it.est = Math.round(it.est * cal.mult);
+          it.notes += ' · calibrated ' + (cal.mult > 1 ? '+' : '') + Math.round((cal.mult - 1) * 100) + '% from ' + cal.n + ' past actuals';
+        }
         target.items.push(it);
       });
     });
@@ -130,6 +136,7 @@
     return blankSheet();
   }
   function persist() {
+    if (root.CLearn && root.CLearn.learnBudget) { try { root.CLearn.learnBudget(sheet); } catch (e) {} }
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(function () {
       try { root.localStorage && root.localStorage.setItem(KEY, JSON.stringify(sheet)); } catch (e) {}
@@ -286,6 +293,7 @@
   function init() {
     if (!$('bsTopSheet')) return;
     sheet = load();
+    if (root.CLearn && root.CLearn.learnBudget) { try { root.CLearn.learnBudget(sheet); } catch (e) {} }
     renderTopSheet();
     renderDetail();
     wireToolbar();

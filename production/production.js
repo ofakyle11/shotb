@@ -393,14 +393,24 @@
     async function tmdb(path, params) {
       var qs = Object.assign({ api_key: tmdbKey() }, params || {});
       var u = 'https://api.themoviedb.org/3' + path + '?' + Object.keys(qs).map(function (x) { return x + '=' + encodeURIComponent(qs[x]); }).join('&');
+      var ck = 'tmdb:' + path + ':' + JSON.stringify(params || {});
+      var hit = window.CLearn && CLearn.cacheGet(ck);
+      if (hit) return hit;
       var r = await fetch(u);
       if (!r.ok) throw new Error('TMDB ' + r.status + (r.status === 401 ? ' — check the key' : ''));
-      return r.json();
+      var j = await r.json();
+      if (window.CLearn) CLearn.cachePut(ck, j);
+      return j;
     }
     async function sparql(q) {
+      var ck = 'wd:' + q.slice(0, 200);
+      var hit = window.CLearn && CLearn.cacheGet(ck);
+      if (hit) return hit;
       var r = await fetch('https://query.wikidata.org/sparql?format=json&query=' + encodeURIComponent(q), { headers: { Accept: 'application/sparql-results+json' } });
       if (!r.ok) throw new Error('Wikidata ' + r.status);
-      return r.json();
+      var j = await r.json();
+      if (window.CLearn) CLearn.cachePut(ck, j);
+      return j;
     }
     var lastCard = null;
     function money(n) { return '$' + Math.round(n).toLocaleString('en-US'); }

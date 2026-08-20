@@ -480,7 +480,9 @@
       var footageSec = clipCount * avgDur;
       var onePass = footageSec * rate;
       var likely = onePass * retake + stillsUsd;
-      var genSec = Math.ceil(clipCount * retake / conc) * m.genSecPerClip;
+      var gspc = (id.indexOf('local') === 0 && root.CLearn && root.CLearn.genSecPerClip)
+        ? root.CLearn.genSecPerClip(m.genSecPerClip) : m.genSecPerClip; // learned machine speed once measured
+      var genSec = Math.ceil(clipCount * retake / conc) * gspc;
       var wallMin = Math.round(genSec / 60 + AI_DEFAULTS.setupMinutes);
       return {
         id: id,

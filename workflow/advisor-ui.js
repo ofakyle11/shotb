@@ -92,6 +92,13 @@
       '<p class="wf-adv-foot"><button class="tb-btn gold" id="wfAdvSeedCrew">Seed these as open positions in Crew</button>' +
       '<span class="wf-dim">' + esc(st.note) + '</span></p>';
 
+    if (window.CLearn) {
+      var L = CLearn.summary();
+      h += '<p class="wf-adv-foot wf-dim" style="font-size:10px;color:var(--dim)">Self-learning: ' +
+        (L.budgetLines ? L.budgetLines + ' budget actuals learned (avg correction ×' + L.avgMult + ')' : 'no budget actuals learned yet — fill the Actual column as invoices land') +
+        ' · ' + (L.renders ? L.renders + ' renders timed — your machine averages ' + L.wallPerClip + 's/clip (' + L.trend + ')' : 'render speed not measured yet') +
+        (L.cached ? ' · ' + L.cached + ' research lookups cached' : '') + '</p>';
+    }
     host.innerHTML = h;
 
     host.querySelectorAll('[data-inc]').forEach(function (b) {
