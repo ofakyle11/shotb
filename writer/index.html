@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Writer</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Writer">
+<meta property="og:description" content="Turn a treatment PDF or DOCX into a structured screenplay draft — scene beats, sluglines and Fountain export.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260820a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260820a">
+<link rel="stylesheet" href="writer.css?v=20260820a">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="logo"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></div>
+    <span class="tb-meta">Writer — treatment to screenplay</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html" title="Operations dashboard">⊞ Dashboard</a>
+    <a class="tb-btn" href="/producer/" title="Producer Suite">Producer Suite</a>
+    <a class="tb-btn" href="/timeline/" title="Studio">← Studio</a>
+  </header>
+
+  <div class="wr-layout">
+    <!-- ── source panel ── -->
+    <aside class="wr-source">
+      <h3>1 · Treatment in</h3>
+      <div class="wr-drop" id="wrDrop">
+        <p><b>Drop a treatment here</b></p>
+        <p class="wr-dim">.pdf · .docx · .txt · .md · .fountain</p>
+        <button class="tb-btn gold" id="wrBrowse">Choose file</button>
+        <input type="file" id="wrFile" accept=".pdf,.docx,.txt,.md,.fountain" hidden>
+      </div>
+      <div class="wr-filemeta hidden" id="wrFileMeta"></div>
+      <details class="wr-paste">
+        <summary>…or paste the treatment text</summary>
+        <textarea id="wrPasteBox" rows="9" placeholder="Paste your treatment…"></textarea>
+        <button class="tb-btn" id="wrPasteGo">Build scenes from pasted text</button>
+      </details>
+      <h3>Project</h3>
+      <label class="wr-field">Title <input id="wrTitle" placeholder="Untitled"></label>
+      <label class="wr-field">Writer <input id="wrAuthor" placeholder="Name"></label>
+      <label class="wr-field">Draft date <input type="date" id="wrDate"></label>
+      <label class="wr-field">Logline <textarea id="wrLogline" rows="3" placeholder="One-sentence hook"></textarea></label>
+      <div class="wr-stats" id="wrStats"></div>
+    </aside>
+
+    <!-- ── scene cards ── -->
+    <main class="wr-scenes">
+      <div class="wr-scenes-head">
+        <h3>2 · Scene beats</h3>
+        <span class="wr-dim" id="wrSceneMeta">Import a treatment to begin</span>
+        <div class="wr-spacer"></div>
+        <button class="tb-btn" id="wrAddScene">+ Scene</button>
+        <button class="tb-btn" id="wrClear" title="Start over">New project</button>
+      </div>
+      <div class="wr-cards" id="wrCards"></div>
+    </main>
+
+    <!-- ── fountain preview ── -->
+    <aside class="wr-preview">
+      <div class="wr-preview-head">
+        <h3>3 · Screenplay draft</h3>
+        <div class="wr-spacer"></div>
+        <button class="tb-btn" id="wrCopy" title="Copy Fountain text">Copy</button>
+        <button class="tb-btn" id="wrDlFountain" title="Fountain — opens in any screenwriting app">⬇ .fountain</button>
+        <button class="tb-btn gold" id="wrToStudio" title="Load this draft into the Studio timeline as the working screenplay">→ Send to Studio</button>
+      </div>
+      <pre class="wr-fountain" id="wrFountain">Your Fountain draft appears here.</pre>
+    </aside>
+  </div>
+</div>
+
+<div class="toast" id="wrToast"></div>
+<script src="lib-treatment.js?v=20260820a"></script>
+<script src="writer.js?v=20260820a"></script>
+</body>
+</html>
