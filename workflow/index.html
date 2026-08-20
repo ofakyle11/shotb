@@ -4,53 +4,73 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CINAMATE — Workflow</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Workflow">
+<meta property="og:description" content="The whole production pipeline on one screen — script to delivery, with live status from every module.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-
-<!-- Firebase SDK (match app.html versions exactly so auth state is shared) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
-<!-- Early load config and auth helpers (critical for getToken, SB_OWNER_TOKEN rehydrate, OWNER_EMAILS) -->
-<script src="js/config.js"></script>
-<script src="js/auth.js"></script>
-
-<!-- Script-file parsers: DOCX via JSZip, PDF via PDF.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>
-  if (window.pdfjsLib) {
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  }
-</script>
-
-<style>
-/* the full styles from the golden local PATCHED workflow/index.html - preserved exactly for the rail, crew, project cards, intake, vision, crew-analysis point form etc. */
-:root{ --bg:#0A1628; --surface:#0F1F33; --surface2:#12253A; --surface3:#1A2F4A; --border:rgba(139,163,184,0.12); --gold:#5B8DB8; --text:#E8EEF2; --text2:#A0B4C8; --display:'Cinzel',serif; --body:'Inter',sans-serif; --mono:'IBM Plex Mono',monospace; }
-/* ... all the .shell .rail .main .crew-analysis .bible-row etc styles exactly as in the local golden ... */
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260820b">
+<link rel="stylesheet" href="/producer/producer.css?v=20260820b">
+<link rel="stylesheet" href="workflow.css?v=20260820b">
 </head>
 <body>
+<div class="app">
+  <header class="topbar">
+    <div class="logo"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></div>
+    <span class="tb-meta">Workflow — the pipeline, end to end</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html" title="Operations dashboard">⊞ Dashboard</a>
+    <a class="tb-btn" href="/writer/" title="Treatment to screenplay">✎ Writer</a>
+    <a class="tb-btn" href="/producer/" title="Budgets and schedules">Producer Suite</a>
+    <a class="tb-btn" href="/timeline/" title="Studio">← Studio</a>
+  </header>
 
-<div id="app"><!-- The workflow renders here --></div>
-<div id="toast" class="toast" aria-live="polite"></div>
+  <main class="wf-main">
+    <!-- ── project header ── -->
+    <section class="wf-hero">
+      <div class="wf-hero-left">
+        <h1 id="wfProject">Untitled Film</h1>
+        <span class="wf-chip" id="wfMode">Feature Film</span>
+      </div>
+      <div class="wf-hero-right">
+        <div class="wf-pct" id="wfPct">0%</div>
+        <div class="wf-bar"><div class="wf-bar-fill" id="wfBarFill"></div></div>
+        <div class="wf-dim">of the pipeline complete</div>
+      </div>
+    </section>
+    <p class="wf-next" id="wfNext"></p>
 
-<script>
-// Firebase init using the now-loaded config from js/config.js
-firebase.initializeApp(window.SHOTBREAK_CONFIG.firebase);
+    <!-- ── pipeline stages ── -->
+    <section>
+      <h2 class="wf-h2">Pipeline</h2>
+      <div class="wf-stages" id="wfStages"></div>
+    </section>
 
-// Owner token rehydrate is handled by the early js/auth.js
-</script>
+    <!-- ── generation board ── -->
+    <section>
+      <h2 class="wf-h2">Generation board <span class="wf-dim">— every clip, live from the Studio</span></h2>
+      <div id="wfClips"></div>
+    </section>
 
-<script src="/agents/client.js?v=85"></script>
-<script src="/agents/normalizers.js?v=85"></script>
-<script src="/agents/appliers.js?v=85"></script>
-<script src="/agents/prompt_enricher.js?v=85"></script>
-<script src="/workflow/workflow.js?v=85"></script>
+    <!-- ── system checks ── -->
+    <section>
+      <h2 class="wf-h2">System</h2>
+      <div class="wf-checkrow" id="wfChecks"></div>
+      <p class="bud-note">Everything on this page reads the project saved in this browser and updates when you return to the tab. Rendering runs through your own machine via the Cinamate AI bridge — nothing leaves your computer.</p>
+    </section>
+  </main>
+</div>
 
-<!-- tutorial includes removed (system intentionally stripped; guarded calls below do nothing) -->
+<div class="toast" id="wfToast" aria-live="polite"></div>
+<script src="workflow.js?v=20260820b"></script>
 </body>
 </html>
