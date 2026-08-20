@@ -1,4 +1,4 @@
-/* SHOTBREAK Timeline Studio — full stack */
+/* CINAMATE Timeline Studio — full stack */
 (function(){
 'use strict';
 
@@ -520,7 +520,7 @@ function bootstrapCharactersInline(){
       if(typeof SBCharacters.hydrate==='function')SBCharacters.hydrate(state.characters,blob,state.clips,pm);
       else if(typeof SBCharacters.enrichAll==='function')SBCharacters.enrichAll(state.characters,blob,state.clips,pm);
     }
-  }catch(e){console.warn('[Shotbreak] character module hydrate',e)}
+  }catch(e){console.warn('[Cinamate] character module hydrate',e)}
   return Object.values(state.characters).filter(c=>c.description&&String(c.description).trim()).length;
 }
 
@@ -627,16 +627,16 @@ function bootstrapStructure(force,opts){
       if(norm&&norm!==state.scriptText){state.scriptText=norm;save()}
     }
     syncCharactersFromParse(state.parseResult||{characters:{},scenes:[]},extractBlob,{skipHydrate:true});
-  }catch(e){console.warn('[Shotbreak] parse',e)}
+  }catch(e){console.warn('[Cinamate] parse',e)}
   if(force)state.locationBible=[];
   backfillClipLocationsFromParse();
   ensureShotOneLocation();
   bootstrapLocationsInline();
   if(window.SBContinuity&&typeof SBContinuity.applyGraph==='function'){
-    try{SBContinuity.applyGraph(state)}catch(e){console.warn('[Shotbreak] SBContinuity',e)}
+    try{SBContinuity.applyGraph(state)}catch(e){console.warn('[Cinamate] SBContinuity',e)}
   }
   if(window.SBLocations&&typeof SBLocations.syncAll==='function'){
-    try{state.locationBible=SBLocations.syncAll(state,extractionText())}catch(e){console.warn('[Shotbreak] SBLocations',e)}
+    try{state.locationBible=SBLocations.syncAll(state,extractionText())}catch(e){console.warn('[Cinamate] SBLocations',e)}
   }
   if(window.SBLocEnrich&&typeof SBLocEnrich.buildLocalAliasMap==='function'){
     try{
@@ -645,7 +645,7 @@ function bootstrapStructure(force,opts){
       SBLocEnrich.mergeLocationBible(state,aliasMap);
       SBLocEnrich.applyAliasesToClips(state,aliasMap);
       if(window.SBContinuity&&typeof SBContinuity.applyGraph==='function')SBContinuity.applyGraph(state);
-    }catch(e){console.warn('[Shotbreak] SBLocEnrich local merge',e)}
+    }catch(e){console.warn('[Cinamate] SBLocEnrich local merge',e)}
   }
   repairAllCharacterDescriptions();
   applyCastRoles(state.characters,state.clips);
@@ -660,7 +660,7 @@ function bootstrapMastery(force,opts){
   opts=opts||{};
   const r=bootstrapStructure(force,opts);
   if(!opts.skipHydrate){
-    try{hydrateAllCharacters(force)}catch(e){console.warn('[Shotbreak] hydrateAllCharacters',e)}
+    try{hydrateAllCharacters(force)}catch(e){console.warn('[Cinamate] hydrateAllCharacters',e)}
     bootstrapCharactersInline();
     repairAllCharacterDescriptions();
     save();
@@ -691,7 +691,7 @@ async function syncMasteryWithAgent(force){
         agentMsg=' · agent: '+ar.reason;
       }
     }catch(e){
-      console.warn('[Shotbreak] enrichViaAgent',e);
+      console.warn('[Cinamate] enrichViaAgent',e);
       agentMsg=' · local extract fallback';
       try{hydrateAllCharacters(true)}catch(err){}
       bootstrapCharactersInline();
@@ -715,7 +715,7 @@ async function syncMasteryWithAgent(force){
       }
       renderLocations();
     }catch(e){
-      console.warn('[Shotbreak] enrichLocations',e);
+      console.warn('[Cinamate] enrichLocations',e);
       locMsg=' · location merge fallback';
     }
   }
@@ -1783,7 +1783,7 @@ async function finalExport(){
   $('exportModal').classList.remove('hidden');$('exportStatus').textContent='Starting…';
   try{
     const blob=await SBExport.stitchClips(clips,{fade:state.assembly.masterFade||0.3},m=>$('exportStatus').textContent=m);
-    SBExport.download('shotbreak-final.'+(blob.type.includes('zip')?'zip':'mp4'),blob,blob.type);
+    SBExport.download('cinamate-final.'+(blob.type.includes('zip')?'zip':'mp4'),blob,blob.type);
     $('exportStatus').textContent='Done!';
     toast('Final export downloaded');
   }catch(e){$('exportStatus').textContent=e.message;toast(e.message)}
@@ -1914,7 +1914,7 @@ function bindUI(){
   load();
   repairCorruptClips();
   if(state.scriptText&&isClipReconstruction(state.scriptText)){
-    console.warn('[Shotbreak] scriptText looks like clip reconstruction — open ✎ Script and re-import your screenplay');
+    console.warn('[Cinamate] scriptText looks like clip reconstruction — open ✎ Script and re-import your screenplay');
   }
   Object.keys(state.characters).forEach(n=>{
     if(!isValidCharacterName(n))delete state.characters[n];

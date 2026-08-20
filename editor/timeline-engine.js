@@ -1,4 +1,4 @@
-/* SHOTBREAK Timeline Editor Engine — standalone / embedded mount */
+/* CINAMATE Timeline Editor Engine — standalone / embedded mount */
 window.SBTimelineEditor = (function () {
   'use strict';
 
@@ -418,7 +418,7 @@ window.SBTimelineEditor = (function () {
       const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = (state.projectName || 'shotbreak').replace(/\s+/g, '_') + '.edl';
+      a.download = (state.projectName || 'cinamate').replace(/\s+/g, '_') + '.edl';
       a.click();
       agentLog('EDL exported', 'ok');
     }
@@ -455,7 +455,7 @@ window.SBTimelineEditor = (function () {
         const out = await window.SBFFmpeg.stitchTimeline(segments, (msg) => agentLog(msg, 'info'));
         const a = document.createElement('a');
         a.href = URL.createObjectURL(out);
-        a.download = (state.projectName || 'shotbreak_edit').replace(/\s+/g, '_') + '.mp4';
+        a.download = (state.projectName || 'cinamate_edit').replace(/\s+/g, '_') + '.mp4';
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 5000);
         agentLog('Render complete', 'ok');

@@ -1,7 +1,7 @@
-/* SHOTBREAK Timeline — Producer's Estimate (budget + schedule module)
+/* CINAMATE Timeline — Producer's Estimate (budget + schedule module)
  *
  * Two estimators driven by the parsed screenplay:
- *   1. AI rough-draft preview (lighting/set previz) — how long the Shotbreak
+ *   1. AI rough-draft preview (lighting/set previz) — how long the Cinamate
  *      generation run takes and what the model APIs will bill, per video model.
  *   2. Real-world production — a tiered line-item budget (director tier, star
  *      tier, supporting cast, crew union status, locations, equipment, VFX)

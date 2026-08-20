@@ -9,8 +9,9 @@
  *   OWNER_PW_MZ465 / OWNER_PW_KZ465  owner login passwords
  *   OWNER_TOKEN_SECRET               HMAC secret (auto-generated if absent)
  *
- * Static content transforms (deployed copy only — repo stays Shotbreak):
- * Cinamate landing at root, CINAMATE topbars/titles, space-navy + cyan theme.
+ * Branding lives in the repo itself (2026-08 sweep) — the only deploy-time
+ * content change is a cache-bust stamp on every versioned asset reference,
+ * applied to ALL html pages so no page can miss the transform list.
  */
 import { execSync } from 'child_process';
 import { createHash, randomBytes } from 'crypto';
@@ -54,102 +55,26 @@ cpSync(join(ROOT, 'cinamate', 'index.html'), join(site, 'index.html'));
 cpSync(join(ROOT, 'assets', 'favicon.ico'), join(site, 'favicon.ico'));
 cpSync(join(ROOT, 'assets', 'apple-touch-icon.png'), join(site, 'apple-touch-icon.png'));
 
-function transform(file, pairs) {
-  let s = readFileSync(file, 'utf8');
-  for (const [from, to] of pairs) s = s.split(from).join(to);
-  writeFileSync(file, s);
-}
 const STAMP = 'cm' + Date.now();
-/* Brand-kit logo system (Blue Patina Edition §2): aperture icon + wordmark
- * for navigation headers; icon mark alone for favicons. */
-const LOGO_IMG = '<img src="/assets/logo-mark.svg?v=' + STAMP + '" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">';
-const SITE_BASE = 'https://cinamate-studio.netlify.app';
-/* Social/link-preview meta (iMessage, Slack, Twitter read these) */
-function ogTags(title, desc) {
-  return '\n<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">' +
-    '\n<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">' +
-    '\n<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">' +
-    '\n<meta property="og:site_name" content="CINAMATE">' +
-    '\n<meta property="og:type" content="website">' +
-    '\n<meta property="og:title" content="' + title + '">' +
-    '\n<meta property="og:description" content="' + desc + '">' +
-    '\n<meta property="og:image" content="' + SITE_BASE + '/assets/og-image.png">' +
-    '\n<meta property="og:image:width" content="1200">' +
-    '\n<meta property="og:image:height" content="630">' +
-    '\n<meta name="twitter:card" content="summary_large_image">' +
-    '\n<meta name="twitter:image" content="' + SITE_BASE + '/assets/og-image.png">';
-}
-const BRAND = [
-  ['<div class="logo">SHOT<span>BREAK</span></div>', '<div class="logo">' + LOGO_IMG + 'CINA<span>MATE</span></div>'],
-  ['<link rel="icon" href="/favicon.ico">', '<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=' + STAMP + '">'],
-];
-/* CINAMATE Blue Patina Edition (brand identity toolkit 2026):
- * Deep Navy #0A1628 base, cards #12253A / Dark Lens #1A2F4A, Blue Patina
- * #8BA3B8 wordmark, Action Blue #5B8DB8 interactive, semantic teal/gold/red,
- * Cinzel display serif + Inter body. */
-const THEME = [
-  ['--bg:#050507;--surface:#0c0c12;--surface2:#131319;--surface3:#1a1a22;', '--bg:#0A1628;--surface:#0F1F33;--surface2:#12253A;--surface3:#1A2F4A;'],
-  ['--border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.1);', '--border:rgba(139,163,184,.12);--border2:rgba(139,163,184,.22);'],
-  ['--gold:#d4a843;--gold2:#e8c36a;', '--gold:#5B8DB8;--gold2:#7FA8CC;'],
-  ['--green:#22c55e;--blue:#60a5fa;', '--green:#4A8B7A;--blue:#5B8DB8;'],
-  ['--red:#f87171;--text:#e8e8ec;--text2:#8e8e9e;--dim:#5a5a6a;', '--red:#A65D5D;--text:#E8EEF2;--text2:#A0B4C8;--dim:#6A7E94;'],
-  ["--display:'Syne',sans-serif;--body:'Anybody',sans-serif;--mono:'JetBrains Mono',monospace;", "--display:'Cinzel',serif;--body:'Inter',sans-serif;--mono:'IBM Plex Mono',monospace;"],
-  ['.logo span{color:var(--gold)}', '.logo span{color:#8BA3B8}'],
-  ['212,168,67', '91,141,184'],
-  ['#d4a843', '#5B8DB8'],
-  ['#e8c36a', '#7FA8CC'],
-  ['34,197,94', '74,139,122'],
-  ['#22c55e', '#4A8B7A'],
-  ['#f87171', '#A65D5D'],
-  ['#60a5fa', '#5B8DB8'],
-];
-const FONTS = [['family=Syne:wght@400;600;700;800&family=Anybody:wght@400;600;700&family=JetBrains+Mono:wght@400;500',
-  'family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500']];
-// Cache-bust every versioned asset so browsers always fetch the new build.
-const BUST = [[/\?v=[A-Za-z0-9-]+/g, '?v=cm' + Date.now()]];
-function bust(file) {
-  let s = readFileSync(file, 'utf8');
-  for (const [re, to] of BUST) s = s.replace(re, to);
-  writeFileSync(file, s);
-}
-transform(join(site, 'timeline/index.html'), [...BRAND, ...FONTS,
-  ['<title>SHOTBREAK — Text-to-Video Movie System</title>', '<title>CINAMATE — Studio</title>' +
-   ogTags('CINAMATE — Studio', 'Script-to-screen AI previsualization with cost and time priced before a frame renders.')],
-  // Brand voice (Blue Patina kit): sophisticated, cinematic, collaborative
-  ['<h1>Text-to-Video <span>Studio</span></h1>', '<h1>CINAMATE <span>Studio</span></h1>'],
-  ['<p>Sign in to generate video. Script parsing works offline.</p>', '<p>Sign in to begin production. Script parsing works offline.</p>'],
-  ['<h3>Start with a script</h3>', '<h3>Every picture begins with the page</h3>']]);
-transform(join(site, 'producer/index.html'), [...BRAND, ...FONTS,
-  ['<title>SHOTBREAK — Producer Suite</title>', '<title>CINAMATE — Producer Suite</title>' +
-   ogTags('CINAMATE — Producer Suite', 'Budgets, schedules, tax incentives and sales forecasts calibrated to published industry rates.')]]);
-/* app.html — legacy app surface: brand-kit logos, favicon, navy theme */
-transform(join(site, 'app.html'), [...FONTS, ...THEME,
-  ['<title>SHOTBREAK — App</title>', '<title>CINAMATE — App</title>'],
-  ['<link rel="icon" type="image/x-icon" href="favicon.ico">', '<link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=' + STAMP + '">'],
-  ['<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">', '<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">'],
-  ['<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">', '<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">'],
-  ['<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">', '<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">'],
-  ['<meta property="og:title" content="SHOTBREAK — Script to Screen">', '<meta property="og:site_name" content="CINAMATE">\n<meta property="og:title" content="CINAMATE — App">'],
-  ['<meta property="og:description" content="Screenplay shot breakdown and script formatting tool for filmmakers.">', '<meta property="og:description" content="CINAMATE production app — generation, media and workflow.">'],
-  ['https://shotbreak.io/og-image.png', SITE_BASE + '/assets/og-image.png'],
-  ['<div class="login-logo">SHOT<span>BREAK</span></div>', '<div class="login-logo">CINA<span>MATE</span></div>'],
-  ["<div class=\"logo\" onclick=\"showMode('media')\">SHOT<span>BREAK</span></div>",
-   "<div class=\"logo\" onclick=\"showMode('media')\">" + LOGO_IMG + "CINA<span>MATE</span></div>"],
-  ['#050507', '#0A1628'], ['#0c0c12', '#0F1F33'], ['#131319', '#12253A'], ['#1a1a22', '#1A2F4A'],
-]);
-/* Cache-bust the brand SVGs where the Cinamate pages reference them */
+/* Stamp unversioned brand-asset references, then refresh every existing
+ * ?v= stamp, on EVERY html page in the build. */
 const ASSETVER = [
-  ['assets/logo.svg', 'assets/logo.svg?v=' + STAMP],
+  ['assets/logo.svg"', 'assets/logo.svg?v=' + STAMP + '"'],
   ['assets/logo-mark.svg"', 'assets/logo-mark.svg?v=' + STAMP + '"'],
-  ['assets/favicon.svg', 'assets/favicon.svg?v=' + STAMP],
+  ['assets/favicon.svg"', 'assets/favicon.svg?v=' + STAMP + '"'],
 ];
-transform(join(site, 'index.html'), ASSETVER);
-transform(join(site, 'cinamate/index.html'), ASSETVER);
-transform(join(site, 'dashboard.html'), ASSETVER);
-bust(join(site, 'timeline/index.html'));
-bust(join(site, 'producer/index.html'));
-transform(join(site, 'timeline/timeline.css'), THEME);
-transform(join(site, 'producer/producer.css'), THEME);
+function stampAllHtml(dir) {
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    if (statSync(p).isDirectory()) { stampAllHtml(p); continue; }
+    if (!p.endsWith('.html')) continue;
+    let s = readFileSync(p, 'utf8');
+    for (const [from, to] of ASSETVER) s = s.split(from).join(to);
+    s = s.replace(/\?v=[A-Za-z0-9-]+/g, '?v=' + STAMP);
+    writeFileSync(p, s);
+  }
+}
+stampAllHtml(site);
 
 /* ── 2. bundle the verify-owner function (self-contained, crypto only) ── */
 const fnDir = join(work, 'fn');

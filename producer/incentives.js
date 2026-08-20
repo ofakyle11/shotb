@@ -1,4 +1,4 @@
-/* SHOTBREAK Producer Suite — Tax Incentive Decoder (our own jurisdiction
+/* CINAMATE Producer Suite — Tax Incentive Decoder (our own jurisdiction
  * comparison table, in the spirit of taxincentivedecoder.com, built on the
  * verified program terms in SBBudget.INCENTIVES).
  *

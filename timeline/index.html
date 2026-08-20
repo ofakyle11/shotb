@@ -3,9 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SHOTBREAK — Text-to-Video Movie System</title>
-<link rel="icon" href="/favicon.ico">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Anybody:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>CINAMATE — Studio</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Studio">
+<meta property="og:description" content="Script-to-screen AI previsualization with cost and time priced before a frame renders.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="timeline.css?v=20260628a">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -17,7 +29,7 @@
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="logo">SHOT<span>BREAK</span></div>
+    <div class="logo"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></div>
     <a class="tb-btn" href="/tools/" title="Production tools">🧰 Tools</a>
     <div class="tb-group">
       <button class="tb-btn" id="btnImport">Import</button>
@@ -96,7 +108,7 @@
   <div class="main">
     <section class="workspace">
       <div class="import-zone" id="importZone">
-        <h3>Start with a script</h3>
+        <h3>Every picture begins with the page</h3>
         <p>Import a screenplay (.txt, .pdf, or .fdx), or click the gold <strong>✎ Script</strong> button above. Re-parse anytime to replace the timeline.</p>
         <div class="import-btns">
           <button class="tb-btn gold" onclick="document.getElementById('btnImport').click()">Import Script</button>
@@ -244,8 +256,8 @@
 
 <div class="login-overlay hidden" id="loginOverlay">
   <div class="login-card">
-    <h1>Text-to-Video <span>Studio</span></h1>
-    <p>Sign in to generate video. Script parsing works offline.</p>
+    <h1>CINAMATE <span>Studio</span></h1>
+    <p>Sign in to begin production. Script parsing works offline.</p>
     <div class="login-err" id="loginErr"></div>
     <input type="email" id="loginEmail" placeholder="Email">
     <input type="password" id="loginPw" placeholder="Password">

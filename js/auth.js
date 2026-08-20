@@ -1,6 +1,6 @@
 // js/auth.js
 // ═══════════════════════════════════════════════════════════════════════════
-// SHOTBREAK — Client Auth / Token Helpers (Single Source of Truth)
+// CINAMATE — Client Auth / Token Helpers (Single Source of Truth)
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // This file centralizes all client-side token and auth helpers.

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
-//  SHOTBREAK — Standardization Layers
+//  CINAMATE — Standardization Layers
 //  Deterministic preprocessors. NOT agents. No API calls, no cost, no latency.
-//  Every agent call in SHOTBREAK runs one of these first.
+//  Every agent call in CINAMATE runs one of these first.
 //
 //  Exports (global window.SB_Normalize):
 //    normalizeScript(rawText)              → NormalizedScript

@@ -3,25 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SHOTBREAK — App</title>
+<title>CINAMATE — App</title>
 <!-- 
   SELF-CONTAINED GOLDEN FILE
-  Firebase keys are already filled in with the real Shotbreak project (shotbreak-9f342).
+  Firebase keys are already filled in with the real Cinamate project (shotbreak-9f342).
   This single file should now work after a "Delete everything + Paste" deploy.
   
   BEFORE DEPLOYING:
   1. Still update the OWNER_EMAILS line (search for it) with your real owner email(s). (Current active shorts for the 3 owners: kyleF/steveC/scottD.)
   2. Do the full GitHub web editor replace + Netlify "Clear cache and deploy site".
 -->
-<link rel="icon" type="image/x-icon" href="favicon.ico">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<meta property="og:title" content="SHOTBREAK — Script to Screen">
-<meta property="og:description" content="Screenplay shot breakdown and script formatting tool for filmmakers.">
-<meta property="og:image" content="https://shotbreak.io/og-image.png">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:title" content="CINAMATE — App">
+<meta property="og:description" content="CINAMATE production app — generation, media and workflow.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://shotbreak.io/og-image.png">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -32,13 +33,13 @@
 <script src="js/model-config.js?v=20260624k"></script>
 <script src="js/mastery-resolver.js?v=20260624m"></script>
 <script src="timeline/parser.js?v=20260627d"></script>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Anybody:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#050507;--surface:#0c0c12;--surface2:#131319;--surface3:#1a1a22;--border:rgba(255,255,255,0.05);--border2:rgba(255,255,255,0.09);--gold:#d4a843;--gold2:#e8c36a;--gold-bg:rgba(212,168,67,0.05);--gold-border:rgba(212,168,67,0.15);--green:#22c55e;--blue:#60a5fa;--purple:#a78bfa;--red:#f87171;--red-bg:rgba(248,113,113,0.05);--red-border:rgba(248,113,113,0.15);--amber:#eab308;--text:#e8e8ec;--text2:#8e8e9e;--dim:#5a5a6a;--muted:#3a3a46;--display:'Syne',sans-serif;--body:'Anybody',sans-serif;--mono:'JetBrains Mono',monospace;--r:14px;--r-sm:8px}
+:root{--bg:#0A1628;--surface:#0F1F33;--surface2:#12253A;--surface3:#1A2F4A;--border:rgba(255,255,255,0.05);--border2:rgba(255,255,255,0.09);--gold:#5B8DB8;--gold2:#7FA8CC;--gold-bg:rgba(91,141,184,0.05);--gold-border:rgba(91,141,184,0.15);--green:#4A8B7A;--blue:#5B8DB8;--purple:#a78bfa;--red:#A65D5D;--red-bg:rgba(248,113,113,0.05);--red-border:rgba(248,113,113,0.15);--amber:#eab308;--text:#E8EEF2;--text2:#A0B4C8;--dim:#6A7E94;--muted:#4A5E74;--display:'Cinzel',serif;--body:'Inter',sans-serif;--mono:'IBM Plex Mono',monospace;--r:14px;--r-sm:8px}
 body{background:var(--bg);color:var(--text);font-family:var(--body);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:0.025;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
-::selection{background:rgba(212,168,67,0.3)}::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.05);border-radius:2px}
+::selection{background:rgba(91,141,184,0.3)}::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.05);border-radius:2px}
 .container{max-width:1000px;margin:0 auto;padding:0 24px}
 .screen{display:none}.screen.active{display:block}
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
@@ -54,7 +55,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;o
 
 /* FORMS */
 textarea,input[type="text"],input[type="password"],input[type="email"]{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);padding:13px 16px;font-size:13px;line-height:1.6;font-family:var(--mono);outline:none;transition:all 0.2s;margin-bottom:10px}
-textarea:focus,input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,168,67,0.06)}
+textarea:focus,input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(91,141,184,0.06)}
 textarea{resize:vertical;border-radius:var(--r)}::placeholder{color:var(--muted)}
 select{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:8px 28px 8px 10px;font-size:11px;font-family:var(--body);font-weight:600;outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%235a5a6a'%3E%3Cpath d='M5 7L0 2h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}select:focus{border-color:var(--gold)}
 .form-err{color:var(--red);font-size:12px;margin:-6px 0 10px}
@@ -65,7 +66,7 @@ select{background:var(--surface2);border:1px solid var(--border);color:var(--tex
 
 /* LOGIN */
 .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
-.login-wrap::before{content:'';position:absolute;top:-30%;left:-30%;width:160%;height:160%;background:radial-gradient(ellipse at 40% 40%,rgba(212,168,67,0.03) 0%,transparent 50%);pointer-events:none}
+.login-wrap::before{content:'';position:absolute;top:-30%;left:-30%;width:160%;height:160%;background:radial-gradient(ellipse at 40% 40%,rgba(91,141,184,0.03) 0%,transparent 50%);pointer-events:none}
 .login-card{position:relative;z-index:1;width:420px;padding:40px 36px;background:var(--surface);border:1px solid var(--border);border-radius:20px;animation:fadeUp 0.6s ease}
 .login-logo{font-family:var(--display);font-size:32px;font-weight:800;letter-spacing:-0.05em;color:#fff;text-align:center;margin-bottom:4px}.login-logo span{color:var(--gold)}
 .login-sub{font-size:12px;color:var(--dim);letter-spacing:0.1em;text-transform:uppercase;font-weight:500;margin-bottom:28px;text-align:center}
@@ -79,7 +80,7 @@ select{background:var(--surface2);border:1px solid var(--border);color:var(--tex
 /* HEADER */
 header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;background:rgba(5,5,7,0.85);backdrop-filter:blur(20px)}
 .hdr{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
-.logo{font-family:var(--display);font-size:22px;font-weight:800;letter-spacing:-0.04em;color:#fff;cursor:pointer}.logo span{color:var(--gold)}
+.logo{font-family:var(--display);font-size:22px;font-weight:800;letter-spacing:-0.04em;color:#fff;cursor:pointer}.logo span{color:#8BA3B8}
 .hdr-r{display:flex;align-items:center;gap:10px}
 .stats-r{display:flex;gap:6px}
 .st{background:var(--surface);border:1px solid var(--gold-border);border-radius:100px;padding:4px 12px;display:flex;align-items:center;gap:5px}
@@ -96,7 +97,7 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
 .tier-creator{background:var(--gold-bg);color:var(--gold);border:1px solid var(--gold-border)}
 .tier-studio{background:rgba(96,165,250,0.06);color:var(--blue);border:1px solid rgba(96,165,250,0.15)}
 .tier-production{background:rgba(167,139,250,0.06);color:var(--purple);border:1px solid rgba(167,139,250,0.15)}
-.tier-owner{background:rgba(34,197,94,0.06);color:var(--green);border:1px solid rgba(34,197,94,0.15)}
+.tier-owner{background:rgba(74,139,122,0.06);color:var(--green);border:1px solid rgba(74,139,122,0.15)}
 .tier-enterprise{background:rgba(234,179,8,0.06);color:var(--amber);border:1px solid rgba(234,179,8,0.15)}
 
 /* WORKSPACE */
@@ -119,7 +120,7 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
 /* CHARS */
 .sec-l{font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
 .ch-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;margin-bottom:24px}
-.ch-c{background:var(--surface);border:1px solid var(--gold-border);border-radius:var(--r);padding:14px}.ch-c:hover{border-color:rgba(212,168,67,0.3)}
+.ch-c{background:var(--surface);border:1px solid var(--gold-border);border-radius:var(--r);padding:14px}.ch-c:hover{border-color:rgba(91,141,184,0.3)}
 .ch-c .ef{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:var(--body);font-size:12px;outline:none;margin-top:4px;resize:vertical}.ch-c .ef:focus{border-color:var(--gold)}
 .cni{font-weight:700;color:var(--gold)!important;font-size:13px!important;font-family:var(--mono)!important}
 .ch-l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-top:8px}
@@ -139,7 +140,7 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
 .t-ca{color:var(--blue);background:rgba(96,165,250,0.06);border:1px solid rgba(96,165,250,0.08)}
 .t-ci{color:var(--purple);background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.08)}
 .sh-desc{color:var(--text);font-size:13px;line-height:1.8}
-.sh-dial{margin-top:7px;padding:8px 12px;background:rgba(255,255,255,0.015);border-left:2px solid rgba(212,168,67,0.15);border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:12px;color:var(--text2);font-style:italic}
+.sh-dial{margin-top:7px;padding:8px 12px;background:rgba(255,255,255,0.015);border-left:2px solid rgba(91,141,184,0.15);border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:12px;color:var(--text2);font-style:italic}
 .sh-ch{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}.ch-t{background:var(--gold-bg);border:1px solid var(--gold-border);border-radius:5px;padding:2px 8px;font-size:10px;color:var(--gold);font-weight:700;font-family:var(--mono)}
 .sh-act{display:flex;gap:5px;margin-top:8px;opacity:0;transition:opacity 0.15s}.sh:hover .sh-act{opacity:1}
 .ei{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:12px;font-family:var(--body);outline:none;resize:vertical}.ei:focus{border-color:var(--gold)}
@@ -171,7 +172,7 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
 .vg-badge b{color:var(--gold);font-family:var(--mono);font-weight:700;font-size:12px}
 .vg-badge .vg-tier{background:var(--gold-bg);color:var(--gold);padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em}
 .vg-btn-shot{background:var(--gold-bg);color:var(--gold);border:1px solid var(--gold-border);border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:var(--body);transition:all 0.15s;white-space:nowrap}
-.vg-btn-shot:hover{background:rgba(212,168,67,0.2)}.vg-btn-shot:disabled{opacity:0.3;cursor:default}
+.vg-btn-shot:hover{background:rgba(91,141,184,0.2)}.vg-btn-shot:disabled{opacity:0.3;cursor:default}
 .vg-status{display:flex;align-items:center;gap:5px;margin-top:4px;font-size:10px}
 .vg-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
 .vg-dot-q{background:var(--muted)}.vg-dot-p{background:var(--amber);animation:vgPulse 1.2s infinite}.vg-dot-d{background:var(--green)}.vg-dot-f{background:var(--red)}
@@ -199,7 +200,7 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
 .cs-img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:14px}
 .cs-img-card{border-radius:var(--r-sm);overflow:hidden;border:2px solid transparent;cursor:pointer;position:relative;transition:all 0.15s}
 .cs-img-card:hover{border-color:var(--gold-border)}
-.cs-img-card.locked{border-color:var(--gold);box-shadow:0 0 12px rgba(212,168,67,0.2)}
+.cs-img-card.locked{border-color:var(--gold);box-shadow:0 0 12px rgba(91,141,184,0.2)}
 .cs-img-card img{width:100%;display:block;aspect-ratio:1;object-fit:cover}
 .cs-img-card .cs-lock{position:absolute;top:6px;right:6px;background:var(--gold);color:#000;border:none;border-radius:4px;padding:2px 6px;font-size:9px;font-weight:800;cursor:pointer;opacity:0;transition:opacity 0.15s}
 .cs-img-card:hover .cs-lock{opacity:1}
@@ -219,7 +220,7 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
 <div class="screen active" id="loginScreen">
 <div class="login-wrap">
   <div class="login-card">
-    <div class="login-logo">SHOT<span>BREAK</span></div>
+    <div class="login-logo">CINA<span>MATE</span></div>
     <div class="login-sub">Production Suite</div>
 
     <div class="tab-row">
@@ -263,8 +264,8 @@ header{padding:14px 0;border-bottom:1px solid var(--border);position:sticky;top:
     <div style="margin-top:18px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.4;color:var(--dim);text-align:center">
       New here? <span class="form-link" onclick="showTab('register')">Create an account</span> to start your first project.
     </div>
-    <div id="ownerLoginHint" style="margin-top:10px;padding:10px 12px;background:#1a140a;border:1px solid #d4a84344;border-radius:8px;font-size:11px;line-height:1.4;color:#d4c8a8;text-align:left">
-      <strong style="color:#f0d9a0">Owner login:</strong> type your owner short in the email field and your <code style="color:#e8c36a">OWNER_PW_*</code> value from Netlify in the password field. Sessions last ~12 hours — sign in again when expired.
+    <div id="ownerLoginHint" style="margin-top:10px;padding:10px 12px;background:#1a140a;border:1px solid #5B8DB844;border-radius:8px;font-size:11px;line-height:1.4;color:#d4c8a8;text-align:left">
+      <strong style="color:#f0d9a0">Owner login:</strong> type your owner short in the email field and your <code style="color:#7FA8CC">OWNER_PW_*</code> value from Netlify in the password field. Sessions last ~12 hours — sign in again when expired.
     </div>
 
   </div>
@@ -290,7 +291,7 @@ function safeSignIn() {
       errEl.textContent = 'Error: ' + (e && e.message ? e.message : e);
       errEl.style.display = 'block';
     }
-    console.error('[Shotbreak] safeSignIn caught:', e);
+    console.error('[Cinamate] safeSignIn caught:', e);
   }
 }
 window.safeSignIn = safeSignIn;
@@ -301,7 +302,7 @@ window.safeSignIn = safeSignIn;
 <!-- APP -->
 <div class="screen" id="appScreen">
 <header><div class="container hdr">
-  <div class="logo" onclick="showMode('media')">SHOT<span>BREAK</span></div>
+  <div class="logo" onclick="showMode('media')"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></div>
   <div class="hdr-r">
     <div class="stats-r" id="stats" style="display:none"><div class="st"><b id="sS">0</b><small>Scenes</small></div><div class="st"><b id="sSh">0</b><small>Shots</small></div><div class="st"><b id="sC">0</b><small>Chars</small></div></div>
     <div class="user-pill" onclick="document.getElementById('uMenu').classList.toggle('open')">
@@ -320,7 +321,7 @@ window.safeSignIn = safeSignIn;
 <!-- DASHBOARD -->
 <div id="dashView" class="ws">
   <!-- PRIMARY PATH: Scripts straight into Generation Hub → per-shot video generation → Editor + Quality -->
-  <div onclick="openMediaHubGenerate()" style="cursor:pointer;margin-bottom:18px;padding:20px 22px;background:linear-gradient(135deg,var(--gold-bg),rgba(212,168,67,0.06));border:2px solid var(--gold);border-radius:14px;transition:all 160ms;box-shadow:0 4px 20px rgba(212,168,67,0.15)" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='none'">
+  <div onclick="openMediaHubGenerate()" style="cursor:pointer;margin-bottom:18px;padding:20px 22px;background:linear-gradient(135deg,var(--gold-bg),rgba(91,141,184,0.06));border:2px solid var(--gold);border-radius:14px;transition:all 160ms;box-shadow:0 4px 20px rgba(91,141,184,0.15)" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='none'">
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <div style="flex:1;min-width:280px">
         <div style="font-family:var(--mono);font-size:10px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:2px">THE MAIN PRODUCTION EXPERIENCE</div>
@@ -367,7 +368,7 @@ window.safeSignIn = safeSignIn;
       <div id="dashProjectsCount" style="font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:0.05em"></div>
     </div>
     <div id="dashProjectsList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px"></div>
-    <div id="dashProjectsEmpty" style="display:none;padding:60px 24px;text-align:center;border:1px dashed var(--border2);border-radius:14px;color:var(--text2);background:linear-gradient(180deg,rgba(212,168,67,0.02),transparent)">
+    <div id="dashProjectsEmpty" style="display:none;padding:60px 24px;text-align:center;border:1px dashed var(--border2);border-radius:14px;color:var(--text2);background:linear-gradient(180deg,rgba(91,141,184,0.02),transparent)">
       <div style="font-family:var(--display);font-size:22px;color:var(--text);margin-bottom:8px;font-weight:700;letter-spacing:-0.01em">No projects yet</div>
       <div style="font-size:14px;line-height:1.55;margin-bottom:16px;max-width:420px;margin-left:auto;margin-right:auto">Click below to go straight into the flow: script → characters & locations → per-shot video generation → Editor and Quality tools.</div>
       <button onclick="openMediaHubGenerate()" style="display:inline-block;padding:11px 22px;background:var(--gold);color:#000;border-radius:6px;font-family:var(--body);font-weight:700;font-size:13px;border:none;cursor:pointer">Open Generation Hub — Script • Characters • Generate • Edit/Upscale →</button>
@@ -537,7 +538,7 @@ window.safeSignIn = safeSignIn;
 .bg-scene-divider{display:flex;align-items:center;gap:8px;margin:18px 0 10px;padding:6px 0}
 .bg-scene-divider::before,.bg-scene-divider::after{content:'';flex:1;height:1px;background:var(--border)}
 .bg-scene-divider .bg-scene-label{font-family:var(--display);font-weight:800;font-size:13px;color:var(--gold);text-transform:uppercase;letter-spacing:0.08em;padding:4px 12px;background:var(--gold-bg);border:1px solid var(--gold-border);border-radius:100px;display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
-.bg-scene-divider .bg-scene-label:hover{background:rgba(212,168,67,0.12)}
+.bg-scene-divider .bg-scene-label:hover{background:rgba(91,141,184,0.12)}
 .bg-scene-divider .bg-scene-label .caret{font-size:9px;transition:transform 0.15s;display:inline-block}
 .bg-scene-divider .bg-scene-label.collapsed .caret{transform:rotate(-90deg)}
 .bg-scene-divider .bg-scene-meta{font-size:11px;color:var(--muted);font-family:var(--mono)}
@@ -611,7 +612,7 @@ window.safeSignIn = safeSignIn;
 .gen-queue-item .qst{font-size:10px;text-transform:uppercase;letter-spacing:0.05em;padding:3px 8px;border-radius:100px;font-weight:700}
 .qst-q{background:rgba(148,163,184,0.1);color:var(--muted)}
 .qst-p{background:rgba(96,165,250,0.1);color:var(--blue)}
-.qst-d{background:rgba(34,197,94,0.1);color:var(--green)}
+.qst-d{background:rgba(74,139,122,0.1);color:var(--green)}
 .qst-f{background:rgba(239,68,68,0.1);color:var(--red)}
 .stitch-bar{background:var(--gold-bg);border:1px solid var(--gold-border);border-radius:10px;padding:16px;margin-top:16px}
 /* Strip all other sides of the site — Edit Studio (one workspace) is everything */
@@ -647,7 +648,7 @@ window.safeSignIn = safeSignIn;
 .char-photo-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .char-photo-thumb { width: 52px; height: 52px; border-radius: 4px; border: 1px solid var(--border); object-fit: cover; }
 .ref-photo-wrap { position: relative; display: inline-block; vertical-align: top; }
-.ref-photo-remove { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; padding: 0; border: none; border-radius: 50%; background: rgba(0,0,0,0.75); color: #f87171; font-size: 11px; font-weight: 700; line-height: 18px; cursor: pointer; z-index: 2; display: flex; align-items: center; justify-content: center; }
+.ref-photo-remove { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; padding: 0; border: none; border-radius: 50%; background: rgba(0,0,0,0.75); color: #A65D5D; font-size: 11px; font-weight: 700; line-height: 18px; cursor: pointer; z-index: 2; display: flex; align-items: center; justify-content: center; }
 .ref-photo-remove:hover { background: #7f1d1d; color: #fff; }
 .loc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px; }
 .loc-grid select, .loc-grid input { width: 100%; background: var(--bg); color: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 5px 6px; font-size: 11px; }
@@ -1157,9 +1158,9 @@ window.safeSignIn = safeSignIn;
     } catch (e) { return false; }
   })();
 
-  // 1. Firebase config fallback (edit the values below with your real Shotbreak Firebase project)
+  // 1. Firebase config fallback (edit the values below with your real Cinamate Firebase project)
   if (!window.SHOTBREAK_CONFIG || !window.SHOTBREAK_CONFIG.firebase) {
-    console.warn('[Shotbreak] Using embedded fallback config (js/config.js missing after deploy)');
+    console.warn('[Cinamate] Using embedded fallback config (js/config.js missing after deploy)');
     window.SHOTBREAK_CONFIG = {
       firebase: {
         apiKey: "AIzaSyA5-NRXzzkWuGafQ5-EukGF9WMnQ2txFFA",
@@ -1228,10 +1229,10 @@ window.safeSignIn = safeSignIn;
     // Initialize Analytics (matches the modular getAnalytics you pasted)
     if (firebase.analytics) {
       window.sbAnalytics = firebase.analytics();
-      console.log('[Shotbreak] Firebase Analytics initialized');
+      console.log('[Cinamate] Firebase Analytics initialized');
     }
   } catch (e) {
-    console.error('[Shotbreak] Firebase init error:', e);
+    console.error('[Cinamate] Firebase init error:', e);
   }
 
   // 3. Minimal fallback auth helpers so the app doesn't die when js/auth.js is missing
@@ -1275,7 +1276,7 @@ window.safeSignIn = safeSignIn;
     (window.SHOTBREAK_CONFIG.OWNER_EMAILS || []).map(e => String(e).toLowerCase().trim())
   );
 
-  console.log('[Shotbreak] Owner emails loaded:', window.OWNER_EMAILS.size);
+  console.log('[Cinamate] Owner emails loaded:', window.OWNER_EMAILS.size);
 
   // Map shorts (kyleF etc) to full emails so owners can enter short in email field for UI login convenience
   window.SHORT_TO_FULL_EMAIL = {
@@ -1290,7 +1291,7 @@ window.safeSignIn = safeSignIn;
     }
   });
 
-  console.log('[Shotbreak] Self-contained fallbacks + auth initialized successfully.');
+  console.log('[Cinamate] Self-contained fallbacks + auth initialized successfully.');
 })();
 </script>
 
@@ -1324,7 +1325,7 @@ window.safeSignIn = safeSignIn;
       var parts = (tk || '').split(':');
       if (!tk || !nm || !exp || exp <= Date.now() || parts.length !== 4 || parts[0] !== 'owner') return false;
       var verifyName = parts[1] || nm;
-      var meta = (window.OWNER_META && window.OWNER_META[verifyName]) || { name: nm, color: '#d4a843' };
+      var meta = (window.OWNER_META && window.OWNER_META[verifyName]) || { name: nm, color: '#5B8DB8' };
       var loginEmail = (window.SHORT_TO_FULL_EMAIL && window.SHORT_TO_FULL_EMAIL[verifyName]) || (verifyName + '@shotbreak.io');
       window._sbEarlyCurUser = {
         name: meta.name,
@@ -1383,7 +1384,7 @@ window.safeSignIn = safeSignIn;
           window.SB_OWNER_TOKEN = token;
           window.SB_OWNER_NAME = ownerName;
           window.SB_OWNER_EXPIRES = exp;
-          var ownerMeta = (window.OWNER_META && window.OWNER_META[verifyName]) || { name: ownerName, color: '#d4a843' };
+          var ownerMeta = (window.OWNER_META && window.OWNER_META[verifyName]) || { name: ownerName, color: '#5B8DB8' };
           window._sbEarlyCurUser = {
             name: ownerMeta.name,
             email: loginEmail,
@@ -1554,7 +1555,7 @@ const SB_PROVIDER_LABELS = {
   'diffusers-local': { label: 'SD 1.5 GPU', color: '#4ade80', tip: 'Stable Diffusion 1.5 on your AMD GPU (DirectML) — real pixels' },
   'pillow-local': { label: 'Ref card', color: '#f4a261', tip: 'Pillow reference card — run install-local-gpu.bat for real SD 1.5' },
   'ffmpeg-local': { label: 'Placeholder', color: '#f4a261', tip: 'Solid ffmpeg clip — run install-local-gpu.bat for AI still + motion video' },
-  'shotbreak-local': { label: 'Local', color: '#60a5fa', tip: 'Shotbreak local bridge' }
+  'shotbreak-local': { label: 'Local', color: '#5B8DB8', tip: 'Cinamate local bridge' }
 };
 function sbProviderBadge(provider) {
   if (!provider) return '';
@@ -1614,9 +1615,9 @@ function bootstrapLocalSession() {
     tier: 'studio',
     isOwner: true,
     uid: 'local-user',
-    color: '#d4a843'
+    color: '#5B8DB8'
   };
-  console.log('[Shotbreak] Local-only mode — auto session, proxy:', sbVideoProxy());
+  console.log('[Cinamate] Local-only mode — auto session, proxy:', sbVideoProxy());
   enterApp();
   setTimeout(sbInitLocalStatus, 100);
 }
@@ -1648,7 +1649,7 @@ function restoreOwnerSessionFromStorage() {
       return false;
     }
     const verifyName = parts[1] || nm;
-    const ownerMeta = (window.OWNER_META && window.OWNER_META[verifyName]) || { name: nm, color: '#d4a843' };
+    const ownerMeta = (window.OWNER_META && window.OWNER_META[verifyName]) || { name: nm, color: '#5B8DB8' };
     const loginEmail = (window.SHORT_TO_FULL_EMAIL && window.SHORT_TO_FULL_EMAIL[verifyName]) || (verifyName + '@shotbreak.io');
     window.SB_OWNER_TOKEN = tk;
     window.SB_OWNER_NAME = nm;
@@ -1662,11 +1663,11 @@ function restoreOwnerSessionFromStorage() {
       uid: 'owner-' + verifyName,
       color: ownerMeta.color,
     };
-    console.log('[Shotbreak] Restored owner session for', verifyName);
+    console.log('[Cinamate] Restored owner session for', verifyName);
     enterApp();
     return true;
   } catch (e) {
-    console.warn('[Shotbreak] restoreOwnerSessionFromStorage failed:', e);
+    console.warn('[Cinamate] restoreOwnerSessionFromStorage failed:', e);
     return false;
   }
 }
@@ -1739,7 +1740,7 @@ async function customerLogin(){
 
           // Synthesize owner session (bypass Firebase user for this path)
           const metaKey = verifyName;
-          const ownerMeta = (window.OWNER_META && window.OWNER_META[metaKey]) || { name: nm, color: '#d4a843' };
+          const ownerMeta = (window.OWNER_META && window.OWNER_META[metaKey]) || { name: nm, color: '#5B8DB8' };
           curUser = {
             name: ownerMeta.name,
             email: loginEmail,
@@ -1760,7 +1761,7 @@ async function customerLogin(){
           return;
         }
       } catch (ve) {
-        console.warn('[Shotbreak] verify-owner attempt failed (will try Firebase fallback):', ve);
+        console.warn('[Cinamate] verify-owner attempt failed (will try Firebase fallback):', ve);
         if (err) {
           err.textContent = 'Network error talking to owner verify. Check connection or try again. ' + (ve.message || '');
           err.style.display = 'block';
@@ -1790,7 +1791,7 @@ async function customerLogin(){
       if (err) { err.textContent = msg; err.style.display = 'block'; }
     }
   } catch (outerE) {
-    console.error('[Shotbreak] customerLogin outer crash:', outerE);
+    console.error('[Cinamate] customerLogin outer crash:', outerE);
     const errEl2 = document.getElementById('loginErr');
     if (errEl2) {
       errEl2.textContent = 'Login error: ' + (outerE && outerE.message ? outerE.message : outerE);
@@ -1852,7 +1853,7 @@ async function sendReset(){
 // not exist" / "client is offline" errors. Instead we synthesize the user
 // profile from the Firebase Auth session alone:
 //
-//   · Owner emails for the 3 Shotbreak owners (kyle/scott/steve + current kyleF/steveC/scottD shorts; support different domains via map + heuristic) → tier='owner'
+//   · Owner emails for the 3 Cinamate owners (kyle/scott/steve + current kyleF/steveC/scottD shorts; support different domains via map + heuristic) → tier='owner'
 //   · Everyone else → tier='free'
 //
 // Server-side Netlify functions still read/write Firestore via REST using
@@ -1865,12 +1866,12 @@ async function loadUser(fbUser){
   const localPart = emailLc.split('@')[0] || 'user';
   let shortKey = localPart;
   if (isOwner && !OWNER_META[shortKey]) {
-    // Support truly different (non-@shotbreak) emails for the mz465/kz465 owners
+    // Support truly different (non-@cinamate) emails for the mz465/kz465 owners
     if (emailLc.includes('mz465')) shortKey = 'mz465';
     else if (emailLc.includes('kz465')) shortKey = 'kz465';
   }
   const ownerMeta = isOwner
-    ? (OWNER_META[shortKey] || { name: fbUser.displayName || 'Owner', color: '#d4a843' })
+    ? (OWNER_META[shortKey] || { name: fbUser.displayName || 'Owner', color: '#5B8DB8' })
     : null;
 
   if (isOwner) {
@@ -1885,7 +1886,7 @@ async function loadUser(fbUser){
     tier:    isOwner ? 'owner' : 'free',
     isOwner,
     uid:     fbUser.uid,
-    color:   isOwner ? ownerMeta.color : '#d4a843',
+    color:   isOwner ? ownerMeta.color : '#5B8DB8',
   };
 
   // Owners (authorized in config) get isOwner solely from email match after real login. No client bypass fakes.
@@ -1905,7 +1906,7 @@ async function loadUser(fbUser){
 // All paid tiers route through here. We append client_reference_id to the
 // Stripe Payment Link so the webhook knows which Firebase user to upgrade.
 // Without this, the webhook would receive a payment event with no way to
-// map it back to a SHOTBREAK account.
+// map it back to a CINAMATE account.
 const STRIPE_LINKS={
   creator:    'https://buy.stripe.com/6oUaEYf1X7vNf2D8hV1ck02',
   studio:     'https://buy.stripe.com/cNi9AU4nj9DV1bNbu71ck03',
@@ -2151,7 +2152,7 @@ function parse(text,durSec){
     const norm=window.SBParser.normalizeScriptText?window.SBParser.normalizeScriptText(text):text;
     const result=window.SBParser.parse(norm,dur);
     const warn=window.SBParser.parseQualityWarning?window.SBParser.parseQualityWarning(result):'';
-    if(warn)console.warn('[Shotbreak parse]',warn);
+    if(warn)console.warn('[Cinamate parse]',warn);
     return{scenes:result.scenes||[],characters:result.characters||{},characterImages:{}};
   }
   const lines=String(text||'').split('\n'),scenes=[],chars={};
@@ -2346,20 +2347,20 @@ function ex(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(
 function ftc(f,fps){fps=fps||24;return String(Math.floor(f/(fps*3600))).padStart(2,'0')+':'+String(Math.floor((f%(fps*3600))/(fps*60))).padStart(2,'0')+':'+String(Math.floor((f%(fps*60))/fps)).padStart(2,'0')+':'+String(f%fps).padStart(2,'0')}
 
 // ===================== EXPORTS =====================
-function xPr(){if(!canUse('export_prompts')){alert('Upgrade to export AI prompts');return}if(!rD)return;let t='AI PROMPTS\n'+curUser.name+' · SHOTBREAK\n'+'='.repeat(50)+'\n\n';let g=0;rD.scenes.forEach((sc,si)=>{t+='=== SCENE '+(si+1)+': '+sc.heading+' ===\n\n';sc.shots.forEach(sh=>{g++;const cs=gCS(sh);t+='--- #'+g+' ('+sh.duration+') ---\n'+sh.description;if(sh.dialogue)t+=' Says: "'+sh.dialogue+'"';t+='. '+sh.type;if(sh.camera!=='STATIC')t+=', '+sh.camera;if(cs)t+='. '+cs;t+='.\n\n'})});dL('prompts.txt',t,'text/plain');trackUsage('exports')}
+function xPr(){if(!canUse('export_prompts')){alert('Upgrade to export AI prompts');return}if(!rD)return;let t='AI PROMPTS\n'+curUser.name+' · CINAMATE\n'+'='.repeat(50)+'\n\n';let g=0;rD.scenes.forEach((sc,si)=>{t+='=== SCENE '+(si+1)+': '+sc.heading+' ===\n\n';sc.shots.forEach(sh=>{g++;const cs=gCS(sh);t+='--- #'+g+' ('+sh.duration+') ---\n'+sh.description;if(sh.dialogue)t+=' Says: "'+sh.dialogue+'"';t+='. '+sh.type;if(sh.camera!=='STATIC')t+=', '+sh.camera;if(cs)t+='. '+cs;t+='.\n\n'})});dL('prompts.txt',t,'text/plain');trackUsage('exports')}
 
 function xEDL(){if(!canUse('export_edl')){alert('Upgrade to export EDL');return}if(!rD)return;const fps=24,dur=parseInt($('durSel').value)||4,sf=Math.round((dur+0.5)*fps),MAX=999;const all=[];rD.scenes.forEach((sc,si)=>{sc.shots.forEach((sh,shi)=>{all.push({sh,si,shi,h:sc.heading})})});const tp=Math.ceil(all.length/MAX);
-for(let p=0;p<tp;p++){const st=p*MAX,en=Math.min(st+MAX,all.length),ps=all.slice(st,en);let edl='TITLE: SHOTBREAK'+(tp>1?' P'+(p+1)+'/'+tp:'')+'\nFCM: NON-DROP FRAME\n\n';let fp=st*sf,ev=1,ls=-1;
+for(let p=0;p<tp;p++){const st=p*MAX,en=Math.min(st+MAX,all.length),ps=all.slice(st,en);let edl='TITLE: CINAMATE'+(tp>1?' P'+(p+1)+'/'+tp:'')+'\nFCM: NON-DROP FRAME\n\n';let fp=st*sf,ev=1,ls=-1;
 ps.forEach(({sh,si,shi,h})=>{if(si!==ls){edl+='* === SCENE '+(si+1)+': '+h+' ===\n\n';ls=si}const cn=('SC'+(si+1)+'_SH'+(shi+1)+'_'+sh.type.replace(/[\s-]/g,'_').replace(/[^A-Z0-9_]/gi,'')).substring(0,32);edl+=String(ev).padStart(3,'0')+'  '+cn.padEnd(8).substring(0,8)+' V     C        '+ftc(0,fps)+' '+ftc(sf,fps)+' '+ftc(fp,fps)+' '+ftc(fp+sf,fps)+'\n';edl+='* FROM CLIP NAME: '+cn+'\n* SHOT: ['+sh.type+']'+(sh.camera!=='STATIC'?' | '+sh.camera:'')+'\n* DESC: '+sh.description.substring(0,200)+'\n';const cs=gCS(sh);if(cs)edl+='* CINE: '+cs.substring(0,200)+'\n';if(sh.dialogue)edl+='* DLG: '+sh.dialogue.substring(0,200)+'\n';edl+='\n';fp+=sf;ev++});
-dL(tp>1?'shotbreak-p'+(p+1)+'.edl':'shotbreak.edl',edl,'text/plain')}if(tp>1)alert(all.length+' shots → '+tp+' EDL files.');trackUsage('exports')}
+dL(tp>1?'cinamate-p'+(p+1)+'.edl':'cinamate.edl',edl,'text/plain')}if(tp>1)alert(all.length+' shots → '+tp+' EDL files.');trackUsage('exports')}
 
 function xTxt(){if(!rD)return;let t='BREAKDOWN · '+curUser.name+'\n'+'='.repeat(40)+'\n\nCHARS\n';Object.entries(rD.characters).forEach(([n,d])=>{t+='  '+n+(d?': '+d:'')+'\n'});rD.scenes.forEach((sc,si)=>{t+='\n'+'='.repeat(30)+'\nSCENE '+(si+1)+': '+sc.heading+'\n\n';sc.shots.forEach((sh,i)=>{t+='#'+(i+1)+' ['+sh.type+'] ('+sh.duration+')'+(sh.camera!=='STATIC'?' | '+sh.camera:'')+'\n'+sh.description+'\n';const cs=gCS(sh);if(cs)t+='Cine: '+cs+'\n';if(sh.dialogue)t+='DLG: "'+sh.dialogue+'"\n';t+='\n'})});
-if(curUser.tier==='free')t+='\n--- Generated with SHOTBREAK Free Tier ---\n';
+if(curUser.tier==='free')t+='\n--- Generated with CINAMATE Free Tier ---\n';
 dL('breakdown.txt',t,'text/plain');trackUsage('exports')}
 
 function cpAll(){if(!rD)return;let t='';rD.scenes.forEach((s,si)=>{t+='SCENE '+(si+1)+': '+s.heading+'\n\n';s.shots.forEach((sh,i)=>{t+='#'+(i+1)+' ['+sh.type+'] '+sh.description+'\n\n'})});navigator.clipboard.writeText(t)}
 
-function xCSV(){if(!canUse('export_csv')){alert('Upgrade to export CSV');return}if(!rD)return;const fps=24,dur=parseInt($('durSel').value)||4,sf=Math.round((dur+0.5)*fps);let csv='#,TC In,TC Out,Scene,Shot,Type,Camera,Desc,Dialogue,Chars,'+CK.map(k=>CINE[k].l).join(',')+'\n';let fp=0,g=0;const ce=v=>{const s=String(v||'').replace(/"/g,'""');return s.includes(',')||s.includes('"')?'"'+s+'"':s};rD.scenes.forEach((sc,si)=>{sc.shots.forEach((sh,shi)=>{g++;csv+=[g,ftc(fp,fps),ftc(fp+sf,fps),si+1,shi+1,ce(sh.type),ce(sh.camera),ce(sh.description),ce(sh.dialogue||''),ce((sh.characters_in_frame||[]).join('/')),...CK.map(k=>ce(gCi(sh,k)))].join(',')+'\n';fp+=sf})});dL('shotbreak.csv',csv,'text/csv');trackUsage('exports')}
+function xCSV(){if(!canUse('export_csv')){alert('Upgrade to export CSV');return}if(!rD)return;const fps=24,dur=parseInt($('durSel').value)||4,sf=Math.round((dur+0.5)*fps);let csv='#,TC In,TC Out,Scene,Shot,Type,Camera,Desc,Dialogue,Chars,'+CK.map(k=>CINE[k].l).join(',')+'\n';let fp=0,g=0;const ce=v=>{const s=String(v||'').replace(/"/g,'""');return s.includes(',')||s.includes('"')?'"'+s+'"':s};rD.scenes.forEach((sc,si)=>{sc.shots.forEach((sh,shi)=>{g++;csv+=[g,ftc(fp,fps),ftc(fp+sf,fps),si+1,shi+1,ce(sh.type),ce(sh.camera),ce(sh.description),ce(sh.dialogue||''),ce((sh.characters_in_frame||[]).join('/')),...CK.map(k=>ce(gCi(sh,k)))].join(',')+'\n';fp+=sf})});dL('cinamate.csv',csv,'text/csv');trackUsage('exports')}
 
 async function xDocx(){if(!canUse('export_docx')){alert('Upgrade to export DOCX');return}if(!rD)return;const X='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
 const ct=X+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>';
@@ -2370,7 +2371,7 @@ function p(t,o){let r='<w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>';if(o.b)r+='<
 function pr(rr){let x='<w:p>';rr.forEach(r=>{let rp='<w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>';if(r.b)rp+='<w:b/>';if(r.i)rp+='<w:i/>';if(r.s)rp+='<w:sz w:val="'+r.s+'"/>';if(r.c)rp+='<w:color w:val="'+r.c+'"/>';x+='<w:r><w:rPr>'+rp+'</w:rPr><w:t xml:space="preserve">'+ex(r.t)+'</w:t></w:r>'});return x+'</w:p>'}
 function h1(t){return'<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/></w:rPr><w:t>'+ex(t)+'</w:t></w:r></w:p>'}
 const pb='<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
-let b=pr([{t:'SHOT BREAKDOWN',b:1,s:44,c:'D4A843'}])+p(curUser.name+' · SHOTBREAK',{s:18,c:'8E8E9E'})+pb;
+let b=pr([{t:'SHOT BREAKDOWN',b:1,s:44,c:'D4A843'}])+p(curUser.name+' · CINAMATE',{s:18,c:'8E8E9E'})+pb;
 b+=h1('CHARACTERS');Object.entries(rD.characters).forEach(([n,d])=>{b+=pr([{t:n,b:1,s:24,c:'D4A843'},{t:d?' — '+d:'',s:22,c:'5A5A6A'}])});b+=pb;
 rD.scenes.forEach((sc,si)=>{b+=h1('SCENE '+(si+1)+': '+sc.heading);sc.shots.forEach((sh,shi)=>{b+=p('',{});b+=pr([{t:'#'+(shi+1),b:1,s:24,c:'D4A843'},{t:' ['+sh.type+']',b:1,s:20,c:'EAB308'},{t:' ('+sh.duration+')',s:20,c:'5A5A6A'}]);b+=p(sh.description,{s:22});const cs=gCS(sh);if(cs)b+=pr([{t:'CINE: ',b:1,s:18,c:'A78BFA'},{t:cs,s:18,c:'A78BFA'}]);if(sh.dialogue)b+=pr([{t:'DLG: ',b:1,s:20,c:'5A5A6A'},{t:'"'+sh.dialogue+'"',s:20,c:'5A5A6A',i:1}])});if(si<rD.scenes.length-1)b+=pb});
 const doc=X+'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'+b+'<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>';
@@ -2381,7 +2382,7 @@ function dL(n,c,t){const a=document.createElement('a');a.href=c instanceof Blob?
 // ===================== VIDEO GENERATION ENGINE =====================
 (function(){
 "use strict";
-// ─── SHOTBREAK Video Module v5 (WaveSpeedAI-aware, verbose logging) ───
+// ─── CINAMATE Video Module v5 (WaveSpeedAI-aware, verbose logging) ───
 const PROXY=sbVideoProxy(),BATCH="/.netlify/functions/batch-generate";
 const MP={"seedance-2.0-turbo":{l:"Seedance 2.0 Turbo",c:60},"wan-2.7":{l:"Wan 2.7",c:80},"sora-2":{l:"Sora 2",c:120},"veo-3.1":{l:"Veo 3.1",c:150},"kling-3.0-pro":{l:"Kling 3.0 Pro",c:100},"grok-imagine":{l:"Grok Imagine (XAI)",c:90}};
 const V=window.SBVideo={model:"local-comfy",jobs:new Map(),polls:new Map(),balance:0,tier:"free"};
@@ -2747,7 +2748,7 @@ V._hideErr=function(){const e=document.getElementById("vg-error");if(e){e.classL
 
 V._openGallery=function(){let ov=document.getElementById("vg-overlay");if(!ov){ov=document.createElement("div");ov.id="vg-overlay";ov.className="vg-overlay";document.body.appendChild(ov)}
 const clips=[...V.jobs.entries()].filter(([,j])=>j.videoUrl).sort((a,b)=>(a[1].scene*100+a[1].shot)-(b[1].scene*100+b[1].shot));
-let h='<button class="vg-close" onclick="SBVideo._closeGallery()">✕</button><div class="vg-gallery"><h2>SHOT<span>BREAK</span> Generated Clips — '+clips.length+'</h2>';
+let h='<button class="vg-close" onclick="SBVideo._closeGallery()">✕</button><div class="vg-gallery"><h2>CINA<span>MATE</span> Generated Clips — '+clips.length+'</h2>';
 if(!clips.length)h+='<p style="color:var(--dim)">No clips yet. Generate some shots first.</p>';
 else{h+='<div style="margin-bottom:14px"><button class="b b-gold b-s" onclick="SBVideo._zipAll()">⬇ DOWNLOAD ALL AS ZIP</button></div><div class="vg-grid">';
 clips.forEach(([,j])=>{h+='<div class="vg-card"><video src="'+j.videoUrl+'" controls preload="metadata"></video><div class="vg-card-info"><strong>Scene '+j.scene+' — Shot '+j.shot+'</strong><br><a href="'+j.videoUrl+'" download="SC'+j.scene+'_SH'+j.shot+'.mp4" style="color:var(--gold)">Download</a></div></div>'});h+='</div>'}
@@ -2756,8 +2757,8 @@ V._closeGallery=function(){const ov=document.getElementById("vg-overlay");if(ov)
 
 V._zipAll=async function(){if(typeof JSZip==="undefined"){alert("JSZip not loaded");return}
 const clips=[...V.jobs.entries()].filter(([,j])=>j.videoUrl).sort((a,b)=>(a[1].scene*100+a[1].shot)-(b[1].scene*100+b[1].shot));if(!clips.length)return;
-const z=new JSZip(),f=z.folder("SHOTBREAK_Clips");for(const[,j]of clips){try{const b=await(await fetch(j.videoUrl)).blob();f.file("SC"+String(j.scene).padStart(2,"0")+"_SH"+String(j.shot).padStart(2,"0")+".mp4",b)}catch(e){}}
-const content=await z.generateAsync({type:"blob"});const a=document.createElement("a");a.href=URL.createObjectURL(content);a.download="SHOTBREAK_Clips.zip";a.click();URL.revokeObjectURL(a.href)};
+const z=new JSZip(),f=z.folder("CINAMATE_Clips");for(const[,j]of clips){try{const b=await(await fetch(j.videoUrl)).blob();f.file("SC"+String(j.scene).padStart(2,"0")+"_SH"+String(j.shot).padStart(2,"0")+".mp4",b)}catch(e){}}
+const content=await z.generateAsync({type:"blob"});const a=document.createElement("a");a.href=URL.createObjectURL(content);a.download="CINAMATE_Clips.zip";a.click();URL.revokeObjectURL(a.href)};
 
 // ═══════════════════════════════════════════════════════════════════════
 // STITCHER MODULE — FFmpeg.wasm in-browser editor
@@ -2836,7 +2837,7 @@ V._loadFFmpeg=async function(progressCb){
   // (zero-copy) via the postMessage transfer list.
   const workerSource =
     coreJsText + "\n;\n" +
-    "// ─── SHOTBREAK custom message handler ───\n" +
+    "// ─── CINAMATE custom message handler ───\n" +
     "let __core = null;\n" +
     "self.addEventListener('message', async (e) => {\n" +
     "  const { id, cmd, data } = e.data || {};\n" +
@@ -3115,7 +3116,7 @@ V._openStitch=function(){
   let ov=document.getElementById("vg-overlay");
   if(!ov){ov=document.createElement("div");ov.id="vg-overlay";ov.className="vg-overlay";document.body.appendChild(ov)}
   let h='<button class="vg-close" onclick="SBVideo._closeGallery()">✕</button><div class="vg-gallery">';
-  h+='<h2>SHOT<span>BREAK</span> Stitch &amp; Edit — '+totalClips+' clip'+(totalClips===1?'':'s')+' ready</h2>';
+  h+='<h2>CINA<span>MATE</span> Stitch &amp; Edit — '+totalClips+' clip'+(totalClips===1?'':'s')+' ready</h2>';
   if(!totalClips){
     h+='<p style="color:var(--dim);margin-bottom:16px">No completed clips yet. Generate some shots first, then come back here to stitch them together.</p>';
     h+='</div>';ov.innerHTML=h;ov.classList.add("open");return;
@@ -3173,7 +3174,7 @@ V._runStitch=async function(){
       const all=Object.keys(byScene).sort((a,b)=>a-b).flatMap(s=>byScene[s].map(j=>j.videoUrl));
       setProg("Stitching "+all.length+" clips into one movie...");
       const blob=await V._stitchClips(all,fade,setProg);
-      outputs.push({name:"SHOTBREAK_FullMovie.mp4",blob,label:"Full Movie"});
+      outputs.push({name:"CINAMATE_FullMovie.mp4",blob,label:"Full Movie"});
     } else {
       // Per-scene
       const sceneNums=Object.keys(byScene).sort((a,b)=>a-b);
@@ -3181,7 +3182,7 @@ V._runStitch=async function(){
         const urls=byScene[sn].map(j=>j.videoUrl);
         setProg("Stitching Scene "+sn+" ("+urls.length+" clips)...");
         const blob=await V._stitchClips(urls,fade,setProg);
-        outputs.push({name:"SHOTBREAK_Scene"+String(sn).padStart(2,"0")+".mp4",blob,label:"Scene "+sn});
+        outputs.push({name:"CINAMATE_Scene"+String(sn).padStart(2,"0")+".mp4",blob,label:"Scene "+sn});
       }
     }
     setProg("✓ Done! "+outputs.length+" file"+(outputs.length===1?"":"s")+" ready.");
@@ -6425,7 +6426,7 @@ function mhClipSourceBadge(j) {
   }
   if (!j.videoUrl) return '';
   if (mhIsRealVideoUrl(j.videoUrl, j)) {
-    return '<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(34,197,94,0.12);color:#86efac;border:1px solid rgba(34,197,94,0.3)">LIVE RENDER</span>';
+    return '<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(74,139,122,0.12);color:#86efac;border:1px solid rgba(74,139,122,0.3)">LIVE RENDER</span>';
   }
   return '<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(127,29,29,0.35);color:#fca5a5;border:1px solid rgba(239,68,68,0.35)">LOCAL PREVIEW ONLY</span>';
 }
@@ -6482,7 +6483,7 @@ function mhRenderShotClipPreview(key) {
     mhClipSourceBadge(j) + modelTag +
     '<div style="margin-top:6px">' + mhClipMediaHtml(j) + '</div>' +
     '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">' +
-    (isReal ? '<a href="' + j.videoUrl + '" download="shotbreak_' + label + '.mp4" class="b b-g b-xs">⬇ Download</a>' : '') +
+    (isReal ? '<a href="' + j.videoUrl + '" download="cinamate_' + label + '.mp4" class="b b-g b-xs">⬇ Download</a>' : '') +
     '<button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\'' + label + '\')">+ Editor</button>' +
     '</div></div>';
   el.style.display = 'block';
@@ -6508,7 +6509,7 @@ function mhRenderGenClipsGallery() {
     h += '<div style="color:var(--gold);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px">' + label + '</div>';
     h += '<div style="color:var(--dim);font-size:12px;line-height:1.3;max-height:48px;overflow:hidden">' + esc((j.prompt || '').substring(0, 100)) + (j.prompt && j.prompt.length > 100 ? '...' : '') + '</div>';
     h += '<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">';
-    if (isReal) h += '<a href="' + j.videoUrl + '" download="shotbreak_' + label + '.mp4" class="b b-g b-xs">⬇ Download</a>';
+    if (isReal) h += '<a href="' + j.videoUrl + '" download="cinamate_' + label + '.mp4" class="b b-g b-xs">⬇ Download</a>';
     h += '<button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\'' + label + '\')">+ Editor</button>';
     h += '</div></div></div>';
   }
@@ -6529,7 +6530,7 @@ function mhRenderClipsGridLegacy() {
     h += mhClipMediaHtml(j);
     h += '<div style="padding:10px"><div style="margin-bottom:4px">' + mhClipSourceBadge(j) + '</div>';
     h += '<div style="color:var(--gold);font-size:11px;font-weight:700">' + label + '</div>';
-    h += '<div style="margin-top:8px;display:flex;gap:4px"><a href="' + j.videoUrl + '" download="shotbreak_' + label + '.mp4" class="b b-g b-xs">⬇ Download</a><button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\'' + label + '\')">+ Editor</button></div>';
+    h += '<div style="margin-top:8px;display:flex;gap:4px"><a href="' + j.videoUrl + '" download="cinamate_' + label + '.mp4" class="b b-g b-xs">⬇ Download</a><button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\'' + label + '\')">+ Editor</button></div>';
     h += '</div></div>';
   }
   inner.innerHTML = h;
@@ -7042,7 +7043,7 @@ async function mhEditExportInline(){
     resultEl.innerHTML='<div style="margin-top:10px;padding:12px;background:var(--surface);border:1px solid var(--gold-border);border-radius:8px">'
       +'<div style="font-weight:700;color:var(--gold);margin-bottom:8px">🎬 Export Ready</div>'
       +'<video src="'+url+'" controls style="width:100%;max-width:720px;border-radius:6px;background:#000"></video>'
-      +'<div style="margin-top:10px"><a href="'+url+'" download="shotbreak_edit_'+Date.now()+'.mp4" class="b b-gold">⬇ Download MP4</a></div>'
+      +'<div style="margin-top:10px"><a href="'+url+'" download="cinamate_edit_'+Date.now()+'.mp4" class="b b-gold">⬇ Download MP4</a></div>'
       +'</div>';
 
     // Clean up ffmpeg FS
@@ -7115,7 +7116,7 @@ async function mhStitchRun(mode){
       const data=await ff.readFile('out.mp4');
       const blob=new Blob([data.buffer],{type:'video/mp4'});
       const url=URL.createObjectURL(blob);
-      resultEl.innerHTML+='<div style="margin-top:12px;padding:12px;background:var(--surface);border-radius:8px"><div style="font-weight:700;color:var(--gold);margin-bottom:6px">🎬 '+label+' — '+g.length+' clips stitched</div><video src="'+url+'" controls style="width:100%;max-width:720px;border-radius:6px"></video><div style="margin-top:8px"><a href="'+url+'" download="shotbreak_'+label.replace(/\s/g,'_')+'.mp4" class="b b-gold b-s">⬇ Download</a></div></div>';
+      resultEl.innerHTML+='<div style="margin-top:12px;padding:12px;background:var(--surface);border-radius:8px"><div style="font-weight:700;color:var(--gold);margin-bottom:6px">🎬 '+label+' — '+g.length+' clips stitched</div><video src="'+url+'" controls style="width:100%;max-width:720px;border-radius:6px"></video><div style="margin-top:8px"><a href="'+url+'" download="cinamate_'+label.replace(/\s/g,'_')+'.mp4" class="b b-gold b-s">⬇ Download</a></div></div>';
       // Clean up ffmpeg FS
       for(const f of fileList)await ff.deleteFile(f).catch(()=>{});
       await ff.deleteFile('list.txt').catch(()=>{});
@@ -8224,7 +8225,7 @@ function mhRenderParsedPromptBox(outEl, entityBoxId, bodyText, meta) {
 
   outEl.appendChild(ta);
   outEl.appendChild(btn);
-  console.log('[Shotbreak] Parsed clean prompt for', entityBoxId);
+  console.log('[Cinamate] Parsed clean prompt for', entityBoxId);
 }
 
 async function mhParseBox(entityBoxId) {
@@ -8633,7 +8634,7 @@ function mhSyncScenesFromScript(p, opts) {
   projectSave(proj);
   const shotCount = (proj.scenes || []).reduce((a, s) => a + (s.shots || []).length, 0);
   const charCount = Object.keys(proj.characters || {}).length;
-  console.log('[Shotbreak] Synced', shotCount, 'shots,', charCount, 'characters from breakdown parse');
+  console.log('[Cinamate] Synced', shotCount, 'shots,', charCount, 'characters from breakdown parse');
   return { ok: true, scenes: proj.scenes, characters: proj.characters || {} };
 }
 
@@ -8818,11 +8819,11 @@ function buildPerShotDetailBoxes() {
     else if (j.status === 'cancelled') mhSetShotGenButton(k, 'cancelled');
     else if (j.status === 'fail' || j.error) mhSetShotGenButton(k, 'failed');
   });
-  console.log('[Shotbreak] Built', scenes.reduce((a,s)=>a+(s.shots||[]).length,0), 'per-shot prompt boxes');
+  console.log('[Cinamate] Built', scenes.reduce((a,s)=>a+(s.shots||[]).length,0), 'per-shot prompt boxes');
   } catch (buildErr) {
     console.error('[buildPerShotDetailBoxes]', buildErr);
     area.innerHTML = `<div style="padding:14px;background:#1a0a0a;border:1px solid var(--red-border);border-radius:8px">
-      <div style="color:#f87171;font-weight:700;margin-bottom:6px">Could not build shot boxes</div>
+      <div style="color:#A65D5D;font-weight:700;margin-bottom:6px">Could not build shot boxes</div>
       <div style="font-size:11px;color:#fca5a5;font-family:var(--mono);white-space:pre-wrap;margin-bottom:10px">${esc(buildErr && buildErr.message ? buildErr.message : String(buildErr))}</div>
       <button class="b b-gold b-s" onclick="buildPerShotDetailBoxes()">Retry Build</button>
     </div>`;
@@ -9116,7 +9117,7 @@ function generateLocalClipForShot(key, promptText, refPhotoUrl, refName, btn, mo
   canvas.width = 360; canvas.height = 200;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#0a0a0f'; ctx.fillRect(0,0,360,200);
-  ctx.fillStyle = '#f87171'; ctx.font = 'bold 10px monospace';
+  ctx.fillStyle = '#A65D5D'; ctx.font = 'bold 10px monospace';
   ctx.fillText('LOCAL PREVIEW ONLY — NOT A LIVE RENDER', 10, 14);
   ctx.fillStyle = '#f4a261'; ctx.font = '11px monospace';
   ctx.fillText('S'+(si+1)+'.'+(shi+1)+(modelUsed ? ' · '+modelUsed : ''), 10, 28);

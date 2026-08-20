@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-//  SHOTBREAK — Agent Client (frontend, 50-agent crew)
+//  CINAMATE — Agent Client (frontend, 50-agent crew)
 //  Exposes window.SB_Agents. Auto-generates AGENT_META from registry at build
 //  time so it never drifts from the server side.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -92,7 +92,7 @@
   }
   async function authHeaders() {
     const tk = await getAuthToken();
-    if (!tk) throw new Error('Not logged in. Sign in to SHOTBREAK before using the crew.');
+    if (!tk) throw new Error('Not logged in. Sign in to CINAMATE before using the crew.');
     return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tk };
   }
   async function post(url, body) {

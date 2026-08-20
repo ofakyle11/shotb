@@ -1,4 +1,4 @@
-/* SHOTBREAK Producer Suite — Sales / Revenue Forecast engine.
+/* CINAMATE Producer Suite — Sales / Revenue Forecast engine.
  *
  * Philosophy (from surveying open-source box-office prediction work — see
  * docs/SALES_FORECAST.md): budget explains only ~40-60% of log-revenue

@@ -1,4 +1,4 @@
-/* Shotbreak — Character + Location Mastery: unified per-shot ref resolver */
+/* Cinamate — Character + Location Mastery: unified per-shot ref resolver */
 (function () {
   'use strict';
 

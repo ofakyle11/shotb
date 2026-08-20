@@ -1,4 +1,4 @@
-/* SHOTBREAK Timeline — Script Parser (offline module ①) */
+/* CINAMATE Timeline — Script Parser (offline module ①) */
 window.SBParser = (function(){
   function isSH(t){
     const line=(t||'').trim();

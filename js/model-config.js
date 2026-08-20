@@ -1,4 +1,4 @@
-/* Shotbreak — photo + video model capabilities + bulletproof settings dropdowns */
+/* Cinamate — photo + video model capabilities + bulletproof settings dropdowns */
 (function () {
   'use strict';
 

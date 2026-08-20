@@ -1,4 +1,4 @@
-﻿// Proper token verifier for Shotbreak.
+﻿// Proper token verifier for Cinamate.
 // Supports:
 // - Firebase ID tokens (for all users). isOwner=true only if email matches an owner email.
 // - 'owner:...' HMAC tokens from /verify-owner endpoint (for owners using name+pw from env).

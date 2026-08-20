@@ -138,9 +138,9 @@ function humanizeOpenAIError(err) {
 
 async function signOpenAIStreamUrl(videoId, event) {
   const exp = Date.now() + 3600000;
-  const secret = (await getOpenAIApiKey()) || firstEnv(['NETLIFY_SITE_ID']) || 'shotbreak';
+  const secret = (await getOpenAIApiKey()) || firstEnv(['NETLIFY_SITE_ID']) || 'cinamate';
   const sig = crypto.createHmac('sha256', secret).update(videoId + '|' + exp).digest('hex');
-  const host = (event && event.headers && (event.headers.host || event.headers.Host)) || 'shotbreak.io';
+  const host = (event && event.headers && (event.headers.host || event.headers.Host)) || 'cinamate-studio.netlify.app';
   const proto = (event && event.headers && event.headers['x-forwarded-proto']) || 'https';
   return proto + '://' + host + '/.netlify/functions/serve-openai-video?vid=' + encodeURIComponent(videoId) + '&exp=' + exp + '&sig=' + sig;
 }
@@ -148,7 +148,7 @@ async function signOpenAIStreamUrl(videoId, event) {
 async function verifyOpenAIStreamSig(videoId, exp, sig) {
   if (!videoId || !exp || !sig) return false;
   if (Date.now() > Number(exp)) return false;
-  const secret = (await getOpenAIApiKey()) || firstEnv(['NETLIFY_SITE_ID']) || 'shotbreak';
+  const secret = (await getOpenAIApiKey()) || firstEnv(['NETLIFY_SITE_ID']) || 'cinamate';
   const expected = crypto.createHmac('sha256', secret).update(videoId + '|' + exp).digest('hex');
   try {
     const a = Buffer.from(sig, 'hex');

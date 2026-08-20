@@ -1,6 +1,6 @@
 // js/config.js
 // ══════════════════════════════════════════════════════════════════════
-// SHOTBREAK — Client Configuration (SINGLE SOURCE OF TRUTH)
+// CINAMATE — Client Configuration (SINGLE SOURCE OF TRUTH)
 // ══════════════════════════════════════════════════════════════════════
 // This file is the ONLY place the Firebase web config and owner metadata
 // live for all client pages (app.html, workflow/, editor/).
@@ -13,10 +13,10 @@
 //   - OWNER_TOKEN_SECRET + short-lived HMAC owner tokens (only the 3 owners via /verify-owner)
 //
 // Owners get isOwner privileges (email match after real login, or valid HMAC token).
-// Current active for the 3 Shotbreak owners: original kyle/scott/steve + kyleF/steveC/scottD/steveK shorts (plain company emails not fully set up yet).
+// Current active for the 3 Cinamate owners: original kyle/scott/steve + kyleF/steveC/scottD/steveK shorts (plain company emails not fully set up yet).
 // Client bypasses, demo "any token", nuclear any-user-owner removed. Only real logins or proper 4-part owner: tokens.
 // The shorts (kyleF/steveC/scottD) are used for /verify-owner (name + OWNER_PW_KYLEF etc).
-// Run Shotbreak/get-owner-token.ps1 (after setting the PW envs + clear-cache deploy) to get tokens easily.
+// Run Cinamate/get-owner-token.ps1 (after setting the PW envs + clear-cache deploy) to get tokens easily.
 // If the actual emails for kyleF etc are on different domains, update the emails list here + the OWNER_NAME_TO_EMAIL map in the two netlify/.../verify-token.js files.
 //
 // ROTATION PROCEDURE (when key or owners change):

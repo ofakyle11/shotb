@@ -1,8 +1,8 @@
 'use strict';
 
 const ALLOWED_ORIGINS = new Set([
-  'https://shotbreak.io',
-  'https://www.shotbreak.io',
+  'https://cinamate-studio.netlify.app',
+  'https://www.cinamate-studio.netlify.app',
   'http://localhost:8888',
   'http://localhost:3000',
   'http://127.0.0.1:8888',
@@ -17,7 +17,7 @@ function isAllowedOrigin(origin) {
 function corsHeaders(event) {
   const origin = (event && event.headers && (event.headers.origin || event.headers.Origin)) || '';
   return {
-    'Access-Control-Allow-Origin': isAllowedOrigin(origin) ? origin : 'https://shotbreak.io',
+    'Access-Control-Allow-Origin': isAllowedOrigin(origin) ? origin : 'https://cinamate-studio.netlify.app',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Content-Type': 'application/json',

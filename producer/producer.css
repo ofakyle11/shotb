@@ -1,4 +1,4 @@
-/* SHOTBREAK Producer Suite — budget top sheet, stripboard, incentives */
+/* CINAMATE Producer Suite — budget top sheet, stripboard, incentives */
 
 .ps-tabs{display:flex;gap:4px;margin-left:14px}
 .ps-tab{border:1px solid var(--border);background:var(--surface2);color:var(--text2);border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer}
@@ -20,13 +20,13 @@
 .ps-detail{flex:1;overflow-y:auto;padding:14px}
 .bs-row{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:11px}
 .bs-row:hover{background:var(--surface2)}
-.bs-row.on{background:rgba(212,168,67,.08);border-left:2px solid var(--gold)}
+.bs-row.on{background:rgba(91,141,184,.08);border-left:2px solid var(--gold)}
 .bs-acct{font-family:var(--mono);color:var(--dim);width:44px;flex-shrink:0;font-size:10px}
 .bs-name{flex:1;color:var(--text);font-weight:600}
 .bs-amt{font-family:var(--mono);color:var(--text2);font-size:11px}
 .bs-pct{font-family:var(--mono);color:var(--dim);font-size:9px;width:38px;text-align:right}
 .bs-row.bs-total-row{background:var(--surface2);cursor:default;font-weight:700}
-.bs-row.bs-grand{background:rgba(212,168,67,.1);cursor:default}
+.bs-row.bs-grand{background:rgba(91,141,184,.1);cursor:default}
 .bs-row.bs-grand .bs-amt{color:var(--gold);font-size:13px;font-weight:700}
 .bs-head{padding:12px;border-bottom:1px solid var(--border2)}
 .bs-head input{background:transparent;border:none;color:var(--text);font-family:var(--display);font-size:16px;font-weight:700;width:100%}
@@ -93,7 +93,7 @@
 .in-table tr:hover td{background:var(--surface2)}
 .in-table .in-name{color:var(--text);font-weight:600;white-space:nowrap}
 .in-table .in-note{font-size:10px;color:var(--dim);max-width:340px}
-.in-best td{background:rgba(34,197,94,.06)}
+.in-best td{background:rgba(74,139,122,.06)}
 
 /* ── print ── */
 @media print{
@@ -139,6 +139,6 @@ body.cs-printing #sbCallModal .script-actions,body.cs-printing #sbCallModal .mod
 body.cs-printing .cs-sheet,body.cs-printing .cs-sheet *{color:#000!important}
 
 .tk-chip{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:1px 6px}
-.tk-chip.warn{background:rgba(212,168,67,.18);color:var(--gold)}
+.tk-chip.warn{background:rgba(91,141,184,.18);color:var(--gold)}
 .tk-chip.bad{background:rgba(248,113,113,.18);color:var(--red)}
-.tk-chip.good{background:rgba(34,197,94,.16);color:var(--green)}
+.tk-chip.good{background:rgba(74,139,122,.16);color:var(--green)}

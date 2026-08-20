@@ -1,4 +1,4 @@
-/* SHOTBREAK — FFmpeg.wasm loader (custom blob worker, no @ffmpeg/ffmpeg CDN worker) */
+/* CINAMATE — FFmpeg.wasm loader (custom blob worker, no @ffmpeg/ffmpeg CDN worker) */
 window.SBFFmpeg = (function () {
   'use strict';
 
@@ -7,7 +7,7 @@ window.SBFFmpeg = (function () {
   function assertIsolated() {
     if (typeof self !== 'undefined' && !self.crossOriginIsolated) {
       throw new Error(
-        'Browser is not cross-origin isolated. Hard-refresh (Ctrl+Shift+R) on shotbreak.io/timeline/ and try again.'
+        'Browser is not cross-origin isolated. Hard-refresh (Ctrl+Shift+R) on cinamate-studio.netlify.app/timeline/ and try again.'
       );
     }
     if (typeof SharedArrayBuffer === 'undefined') {

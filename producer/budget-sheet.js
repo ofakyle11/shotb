@@ -1,4 +1,4 @@
-/* SHOTBREAK Producer Suite — Budget Top Sheet (our own take on the Movie
+/* CINAMATE Producer Suite — Budget Top Sheet (our own take on the Movie
  * Magic / CineSpend workflow, implemented from scratch for the web).
  *
  * Three-level hierarchy: Top Sheet → account categories → line items with

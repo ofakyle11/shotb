@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// SHOTBREAK — Owner Authentication (server-side)
+// CINAMATE — Owner Authentication (server-side)
 // Passwords live in Netlify env vars, not in page source.
 // Issues HMAC-signed 12-hour tokens.
 //
@@ -11,7 +11,7 @@
 // stale vars can still mint tokens, but verify-token rejects any name that
 // does not resolve to mz465/kz465, so the allowlist holds either way.
 //
-// Helper script: Shotbreak/get-owner-token.ps1  (run it, it prompts for short + pw securely,
+// Helper script: Cinamate/get-owner-token.ps1  (run it, it prompts for short + pw securely,
 // calls this endpoint, copies the resulting owner:xxx token to clipboard, and prints usage examples).
 // After setting the OWNER_PW_* in Netlify env + "Clear cache and deploy site", run the helper to get tokens.
 // ═══════════════════════════════════════════════════════════════════════════

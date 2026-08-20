@@ -110,9 +110,9 @@ async function notifyOwners(name, email) {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: 'Shotbreak <notifications@shotbreak.io>',
+          from: 'Cinamate <notifications@shotbreak.io>',
           to: OWNER_EMAILS,
-          subject: 'New Shotbreak Signup: ' + name,
+          subject: 'New Cinamate Signup: ' + name,
           html: `<div style="font-family:sans-serif;max-width:500px">
             <h2 style="color:#4f8fff">New Account Created</h2>
             <p><strong>Name:</strong> ${name}</p>

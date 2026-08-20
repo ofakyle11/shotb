@@ -1,8 +1,8 @@
 <!--
-  SHOTBREAK — TIMELINE EDITOR (iMovie-level)
+  CINAMATE — TIMELINE EDITOR (iMovie-level)
   ==================================================
   Drop this file at /editor/index.html (or wire it as a route in app.html).
-  Expects /agents/client.js to be loaded. Auth reuses existing SHOTBREAK session.
+  Expects /agents/client.js to be loaded. Auth reuses existing CINAMATE session.
 
   Features:
    - Media bin with generated clips (AI video outputs + uploads)
@@ -13,7 +13,7 @@
    - Transition picker per cut (hard cut, dissolve, fade, match cut marker, J-cut, L-cut)
    - Zoomable timeline, frame-accurate playhead, JKL scrubbing
    - Auteur/Showrunner agent dock: one-click recut
-   - Export EDL JSON (SHOTBREAK backend or ffmpeg.wasm can render downstream)
+   - Export EDL JSON (CINAMATE backend or ffmpeg.wasm can render downstream)
   ==================================================
 -->
 <!DOCTYPE html>
@@ -21,7 +21,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>SHOTBREAK · Timeline</title>
+<title>CINAMATE · Timeline Editor</title>
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -385,7 +387,7 @@
 
   <!-- Header -->
   <header class="top">
-    <a href="/app.html" title="Back to SHOTBREAK dashboard" class="brand" style="text-decoration:none;color:inherit;cursor:pointer">← SHOTBREAK<span class="dot">.</span></a>
+    <a href="/app.html" title="Back to CINAMATE dashboard" class="brand" style="text-decoration:none;color:inherit;cursor:pointer">← CINAMATE<span class="dot">.</span></a>
     <div class="project"><input id="project-name" value="Untitled Project" /></div>
     <div class="spacer"></div>
     <button id="btn-save">Save</button>

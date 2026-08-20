@@ -1,4 +1,4 @@
-/* SHOTBREAK Producer Suite — Stripboard Scheduler + Day-Out-of-Days (our own
+/* CINAMATE Producer Suite — Stripboard Scheduler + Day-Out-of-Days (our own
  * web take on the classic AD stripboard workflow CineSched implements on
  * macOS; written from scratch).
  *

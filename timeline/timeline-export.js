@@ -16,7 +16,7 @@ window.SBExport = (function(){
 
   function exportEDL(clips, fps){
     fps=fps||24;
-    let edl='TITLE: SHOTBREAK TIMELINE\nFCM: NON-DROP FRAME\n\n';
+    let edl='TITLE: CINAMATE TIMELINE\nFCM: NON-DROP FRAME\n\n';
     let fp=0,ev=1;
     clips.forEach((c,i)=>{
       const dur=Math.round((c.edit&&c.edit.trimOut!=null?c.edit.trimOut:c.durationSec)-(c.edit&&c.edit.trimIn||0));
@@ -29,11 +29,11 @@ window.SBExport = (function(){
       edl+='* DESC: '+(c.description||'').substring(0,200)+'\n\n';
       fp+=sf;ev++;
     });
-    download('shotbreak-timeline.edl',edl,'text/plain');
+    download('cinamate-timeline.edl',edl,'text/plain');
   }
 
   function exportProject(state){
-    download('shotbreak-timeline-project.json',JSON.stringify(state,null,2),'application/json');
+    download('cinamate-timeline-project.json',JSON.stringify(state,null,2),'application/json');
   }
 
   function renderQueue(clips, queue){

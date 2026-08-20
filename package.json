@@ -1,8 +1,8 @@
 {
-  "name": "shotbreak",
+  "name": "cinamate",
   "version": "1.0.0",
-  "description": "Shotbreak Generation Hub - full per-shot UI with 82 agents, photo/video coherence",
-  "main": "SHOTBREAK-FINAL-FLOW-UPDATE.html",
+  "description": "Cinamate Generation Hub - full per-shot UI with 82 agents, photo/video coherence",
+  "main": "app.html",
   "scripts": {
     "dev": "py local-server.py",
     "dev:bridge": "py local-backend/server.py",
