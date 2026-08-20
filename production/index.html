@@ -29,6 +29,18 @@
 .pr-inline label{font-size:11px;color:var(--text2);display:flex;gap:5px;align-items:center}
 .pr-inline input,.pr-inline select,.pr-inline textarea{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:11px;font-family:var(--mono)}
 .pr-sides{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin:0 14px;font-size:12px;color:var(--text2);white-space:pre-wrap;max-height:44vh;overflow:auto;font-family:var(--mono)}
+.pr-ci-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:6px}
+.pr-ci-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:var(--display);font-size:15px}
+.pr-ci-sec{font-size:10px;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 6px}
+.pr-ci-chips{display:flex;gap:5px;flex-wrap:wrap}
+.pr-ci-bar{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin:4px 0 6px}
+.pr-ci-bar div{height:100%;background:var(--gold)}
+.pr-ci-reasons{margin:0;padding-left:16px;font-size:11px;color:var(--text2);line-height:1.7}
+.pr-ci-quote{font-size:12px;color:var(--text2)}
+.pr-ci-quote ul{margin:6px 0;padding-left:16px;font-size:10px;color:var(--dim);line-height:1.7}
+.pr-ci-quote input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 7px;font-size:11px;font-family:var(--mono)}
+.wf-chip{display:inline-block;font-size:10px;font-weight:700;border-radius:5px;padding:2px 8px;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.wf-chip.good{background:rgba(74,139,122,.16);color:var(--green);border-color:transparent}
 @media print{
   .topbar,.tk-rail,.pr-inline,.toast{display:none!important}
   body{background:#fff}
@@ -83,7 +95,9 @@
 <div class="toast" id="tToast" aria-live="polite"></div>
 <script src="/tools/tools-core.js?v=20260820d"></script>
 <script src="/tools/lib-sun.js?v=20260820d"></script>
-<script src="lib-prod.js?v=20260820d"></script>
-<script src="production.js?v=20260820d"></script>
+<script src="/js/project-badge.js?v=20260821a"></script>
+<script src="lib-prod.js?v=20260821a"></script>
+<script src="lib-cast.js?v=20260821a"></script>
+<script src="production.js?v=20260821a"></script>
 </body>
 </html>

@@ -38,7 +38,16 @@
       '<button class="tb-btn" id="prSidePrint">🖨 Print</button>' +
       '<button class="tb-btn" id="prSideDl">⬇ .txt</button>' +
       '<span class="ps-hint">Scenes are pulled from the Studio screenplay where the character appears</span></div>' +
-      '<div class="pr-sides" id="prSidesOut">Pick a character and build sides.</div>';
+      '<div class="pr-sides" id="prSidesOut">Pick a character and build sides.</div>' +
+      '<h4 style="padding:0 14px;font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:.06em;margin-top:18px">Cast intelligence</h4>' +
+      '<div class="pr-inline">' +
+      '<label>TMDB key <input id="prTmdbKey" type="password" style="width:130px" placeholder="optional" title="Free key from themoviedb.org — adds demand index + billing data. Stored only in this browser. Works without it via Wikidata."></label>' +
+      '<label>Actor <input id="prCiActor" style="width:150px" placeholder="Name"></label>' +
+      '<label>Target director <input id="prCiDir" style="width:150px" placeholder="Who you want at the helm"></label>' +
+      '<button class="tb-btn gold" id="prCiGo">Analyze</button>' +
+      '<button class="tb-btn" id="prCiSuggest" title="The director\'s frequent collaborators, ranked">✨ Suggest cast for this director</button>' +
+      '</div>' +
+      '<div id="prCiOut" style="padding:0 14px 14px"></div>';
 
     var roles = new T.Register({
       key: 'SB_Roles_v1', title: 'Roles',
@@ -102,6 +111,8 @@
       if (!lastSides) return T.toast('Build sides first');
       dl('sides-' + $('prSideChar').value.toLowerCase() + '.txt', lastSides);
     });
+
+    wireCastIntel();
   };
 
   /* ── Locations ──────────────────────────────────────────────────── */
@@ -368,6 +379,147 @@
         '<p class="bud-note">Royalty base $' + r.base.toLocaleString('en-US') + ' — fold this into Producer Suite → Sales as a distribution cost.</p>';
     });
   };
+
+  /* ── Cast intelligence (engine: lib-cast.js) ────────────────────── */
+  function wireCastIntel() {
+    var CC = window.CCast;
+    var saved = readLS('SB_TMDB_v1') || {};
+    $('prTmdbKey').value = saved.key || '';
+    $('prTmdbKey').addEventListener('change', function () {
+      try { localStorage.setItem('SB_TMDB_v1', JSON.stringify({ key: this.value.trim() })); } catch (e) {}
+      T.toast(this.value.trim() ? 'TMDB key saved in this browser' : 'TMDB key cleared');
+    });
+    function tmdbKey() { var k = readLS('SB_TMDB_v1'); return (k && k.key) || ''; }
+    async function tmdb(path, params) {
+      var qs = Object.assign({ api_key: tmdbKey() }, params || {});
+      var u = 'https://api.themoviedb.org/3' + path + '?' + Object.keys(qs).map(function (x) { return x + '=' + encodeURIComponent(qs[x]); }).join('&');
+      var r = await fetch(u);
+      if (!r.ok) throw new Error('TMDB ' + r.status + (r.status === 401 ? ' — check the key' : ''));
+      return r.json();
+    }
+    async function sparql(q) {
+      var r = await fetch('https://query.wikidata.org/sparql?format=json&query=' + encodeURIComponent(q), { headers: { Accept: 'application/sparql-results+json' } });
+      if (!r.ok) throw new Error('Wikidata ' + r.status);
+      return r.json();
+    }
+    var lastCard = null;
+    function money(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
+    function quoteBlock(q) {
+      return '<div class="pr-ci-quote"><b>' + esc(q.tier) + '</b> · ' + money(q.low) + ' – ' + money(q.high) +
+        '<ul>' + q.basis.map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul>' +
+        '<span class="ps-hint">Estimate from public career data — enter a known quote to override: </span>' +
+        '<input id="prCiKnown" style="width:110px" placeholder="e.g. 250000"> <button class="tb-btn" id="prCiKnownGo">Apply</button></div>';
+    }
+    function renderCard(d) {
+      lastCard = d;
+      var h = '<div class="pr-ci-card">';
+      h += '<div class="pr-ci-head"><b>' + esc(d.name) + '</b>' +
+        (d.popularity ? '<span class="wf-chip good">demand ' + Math.round(d.popularity) + '</span>' : '<span class="ps-hint">no TMDB key — Wikidata data only</span>') + '</div>';
+      if (d.films.length) {
+        h += '<div class="pr-ci-sec">Last films</div><table class="bud-table"><tbody>' +
+          d.films.slice(0, 8).map(function (f) {
+            return '<tr><td style="font-family:var(--mono);width:52px">' + (f.year || '—') + '</td><td>' + esc(f.title) + '</td><td class="ps-hint">' +
+              esc(f.role || (f.directors && f.directors.length ? 'dir. ' + f.directors.join(', ') : '')) +
+              (f.order != null && f.order <= 2 ? ' · top-billed' : '') + '</td></tr>';
+          }).join('') + '</tbody></table>';
+      }
+      if (d.directors.length) {
+        h += '<div class="pr-ci-sec">Directors they\'ve worked with</div><div class="pr-ci-chips">' +
+          d.directors.slice(0, 8).map(function (x) { return '<span class="wf-chip">' + esc(x.name) + ' ×' + x.films + '</span>'; }).join('') + '</div>';
+      }
+      if (d.fit) {
+        h += '<div class="pr-ci-sec">Fit with ' + esc(d.dirName) + ' — <b style="color:var(--gold)">' + d.fit.score + '/100</b></div>' +
+          '<div class="pr-ci-bar"><div style="width:' + d.fit.score + '%"></div></div>' +
+          '<ul class="pr-ci-reasons">' + d.fit.reasons.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>';
+      }
+      h += '<div class="pr-ci-sec">Quote estimate</div>' + quoteBlock(d.quote);
+      h += '<p style="margin-top:10px"><button class="tb-btn gold" id="prCiAdd">+ Add as candidate</button></p></div>';
+      $('prCiOut').innerHTML = h;
+      var kg = $('prCiKnownGo');
+      if (kg) kg.addEventListener('click', function () {
+        var v = parseFloat(String($('prCiKnown').value).replace(/[^0-9.]/g, ''));
+        d.quote = CC.quote({ knownQuote: v });
+        renderCard(d);
+      });
+      var add = $('prCiAdd');
+      if (add) add.addEventListener('click', function () {
+        var rows = readLS('SB_Candidates_v1') || [];
+        if (!Array.isArray(rows)) rows = [];
+        rows.unshift({
+          id: 'ci' + Date.now().toString(36), name: d.name, role: '', contact: '', tape: '',
+          verdict: '—',
+          notes: (d.fit ? 'Fit ' + d.fit.score + '/100 vs ' + d.dirName + ' · ' : '') + d.quote.tier + ' (' + money(d.quote.low) + '–' + money(d.quote.high) + ')'
+        });
+        try { localStorage.setItem('SB_Candidates_v1', JSON.stringify(rows)); } catch (e) {}
+        T.toast(d.name + ' added to candidates');
+        inited.casting = 0; PANES.casting($('pane-casting'));
+      });
+    }
+    async function analyzeActor() {
+      var actor = $('prCiActor').value.trim();
+      if (!actor) return T.toast('Type an actor\'s name');
+      var dirName = $('prCiDir').value.trim();
+      $('prCiOut').innerHTML = '<p class="bud-note">Researching ' + esc(actor) + '…</p>';
+      var wd = [];
+      try { wd = CC.parseWikidataActor(await sparql(CC.wikidataActorQuery(actor))); } catch (e) {}
+      var credits = null, popularity = 0;
+      if (tmdbKey()) {
+        try {
+          var hit = CC.parseTmdbSearch(await tmdb('/search/person', { query: actor }));
+          if (hit) { popularity = hit.popularity; credits = CC.parseTmdbActorCredits(await tmdb('/person/' + hit.id + '/movie_credits')); }
+        } catch (e) { T.toast(e.message); }
+      }
+      var films = (credits && credits.length) ? credits : wd;
+      if (!films.length) { $('prCiOut').innerHTML = '<p class="bud-note">Nothing found for "' + esc(actor) + '" — check the spelling (full billed name works best).</p>'; return; }
+      var dirCounts = {};
+      wd.forEach(function (f) { (f.directors || []).forEach(function (dn) { dirCounts[dn] = (dirCounts[dn] || 0) + 1; }); });
+      var directors = Object.keys(dirCounts).map(function (n) { return { name: n, films: dirCounts[n] }; })
+        .sort(function (a, b) { return b.films - a.films; });
+      var directorFilms = [];
+      if (dirName && tmdbKey()) {
+        try {
+          var dh = CC.parseTmdbSearch(await tmdb('/search/person', { query: dirName }));
+          if (dh) directorFilms = CC.parseTmdbDirectorCredits(await tmdb('/person/' + dh.id + '/movie_credits'));
+        } catch (e) {}
+      }
+      var prefs = readLS('SB_Budget_v1') || {};
+      var fit = dirName ? CC.fit({
+        actorFilms: films, directorFilms: directorFilms, directorName: dirName,
+        projectGenre: prefs.genre && prefs.genre !== 'auto' ? prefs.genre : '',
+        nowYear: new Date().getFullYear()
+      }) : null;
+      renderCard({
+        name: actor, films: films, directors: directors, popularity: popularity,
+        dirName: dirName, fit: fit,
+        quote: CC.quote({ films: films, popularity: popularity, nowYear: new Date().getFullYear() })
+      });
+    }
+    async function suggestCast() {
+      var dirName = $('prCiDir').value.trim();
+      if (!dirName) return T.toast('Name the target director first');
+      $('prCiOut').innerHTML = '<p class="bud-note">Mapping ' + esc(dirName) + '\'s collaborators…</p>';
+      try {
+        var d = CC.parseWikidataDirector(await sparql(CC.wikidataDirectorQuery(dirName)));
+        if (!d.films.length) { $('prCiOut').innerHTML = '<p class="bud-note">No director named "' + esc(dirName) + '" found on Wikidata.</p>'; return; }
+        var sug = CC.suggest(d.collaborators, '', 10);
+        $('prCiOut').innerHTML = '<div class="pr-ci-card">' +
+          '<div class="pr-ci-head"><b>' + esc(dirName) + '</b><span class="ps-hint">' + d.films.length + ' films on record</span></div>' +
+          '<div class="pr-ci-sec">Actors this director keeps coming back to — click one to analyze</div>' +
+          '<div class="pr-ci-chips">' + sug.map(function (x) {
+            return '<button class="wf-chip pr-ci-sug" data-name="' + esc(x.name) + '" style="cursor:pointer;border:none">' + esc(x.name) + ' ×' + x.films + '</button>';
+          }).join('') + '</div>' +
+          '<p class="ps-hint" style="margin-top:8px">Familiar collaborators shoot faster and price friendlier — the director\'s trust is already built.</p></div>';
+        $('prCiOut').querySelectorAll('.pr-ci-sug').forEach(function (b) {
+          b.addEventListener('click', function () {
+            $('prCiActor').value = b.getAttribute('data-name');
+            analyzeActor();
+          });
+        });
+      } catch (e) { $('prCiOut').innerHTML = '<p class="bud-note">Wikidata unavailable right now (' + esc(e.message) + ') — try again shortly.</p>'; }
+    }
+    $('prCiGo').addEventListener('click', analyzeActor);
+    $('prCiSuggest').addEventListener('click', suggestCast);
+  }
 
   /* ── tab dispatch ───────────────────────────────────────────────── */
   function show(tab) {
