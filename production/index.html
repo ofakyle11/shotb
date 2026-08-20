@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Production Office</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Production Office">
+<meta property="og:description" content="Casting, locations, continuity, daily reports, VFX, cue sheets, clearances, delivery QC and residuals — the studio back office in the browser.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260820d">
+<link rel="stylesheet" href="/producer/producer.css?v=20260820d">
+<link rel="stylesheet" href="/tools/tools.css?v=20260820d">
+<style>
+.pr-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0 14px}
+@media(max-width:1000px){.pr-two{grid-template-columns:1fr}}
+.pr-panel h4{font-size:11px;color:var(--gold);letter-spacing:.06em;text-transform:uppercase;margin:12px 0 8px}
+.pr-report{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;font-family:var(--mono);font-size:12px;line-height:1.9;white-space:pre-wrap;color:var(--text2)}
+.pr-note{font-size:10px;color:var(--dim);padding:8px 14px;line-height:1.6}
+.pr-inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px}
+.pr-inline label{font-size:11px;color:var(--text2);display:flex;gap:5px;align-items:center}
+.pr-inline input,.pr-inline select,.pr-inline textarea{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:11px;font-family:var(--mono)}
+.pr-sides{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin:0 14px;font-size:12px;color:var(--text2);white-space:pre-wrap;max-height:44vh;overflow:auto;font-family:var(--mono)}
+@media print{
+  .topbar,.tk-rail,.pr-inline,.toast{display:none!important}
+  body{background:#fff}
+  .pr-report,.pr-sides{color:#000;background:#fff;border:none;max-height:none}
+  .tk-pane.hidden{display:none!important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="logo"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></div>
+    <span class="tb-meta">Production Office</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/tools/">🧰 Tools</a>
+    <a class="tb-btn" href="/timeline/">← Studio</a>
+  </header>
+
+  <div class="tk-layout">
+    <nav class="tk-rail" id="prRail">
+      <div class="tk-railgroup">Prep</div>
+      <button data-tab="casting" class="on">Casting &amp; Sides</button>
+      <button data-tab="locations">Locations</button>
+      <div class="tk-railgroup">On set</div>
+      <button data-tab="continuity">Continuity</button>
+      <button data-tab="reports">Camera &amp; Sound</button>
+      <button data-tab="dpr">Daily Report</button>
+      <div class="tk-railgroup">Post</div>
+      <button data-tab="vfx">VFX Shots</button>
+      <button data-tab="cues">Cue Sheet</button>
+      <button data-tab="clearance">Clearances</button>
+      <div class="tk-railgroup">Business</div>
+      <button data-tab="delivery">Delivery QC</button>
+      <button data-tab="residuals">Residuals</button>
+    </nav>
+    <main class="tk-main">
+      <section class="tk-pane" id="pane-casting"></section>
+      <section class="tk-pane hidden" id="pane-locations"></section>
+      <section class="tk-pane hidden" id="pane-continuity"></section>
+      <section class="tk-pane hidden" id="pane-reports"></section>
+      <section class="tk-pane hidden" id="pane-dpr"></section>
+      <section class="tk-pane hidden" id="pane-vfx"></section>
+      <section class="tk-pane hidden" id="pane-cues"></section>
+      <section class="tk-pane hidden" id="pane-clearance"></section>
+      <section class="tk-pane hidden" id="pane-delivery"></section>
+      <section class="tk-pane hidden" id="pane-residuals"></section>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="tToast" aria-live="polite"></div>
+<script src="/tools/tools-core.js?v=20260820d"></script>
+<script src="/tools/lib-sun.js?v=20260820d"></script>
+<script src="lib-prod.js?v=20260820d"></script>
+<script src="production.js?v=20260820d"></script>
+</body>
+</html>

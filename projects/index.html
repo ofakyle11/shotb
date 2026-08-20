@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Projects</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Projects">
+<meta property="og:description" content="Back up, restore and switch between whole productions — one portable file per film.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260820d">
+<link rel="stylesheet" href="/producer/producer.css?v=20260820d">
+<style>
+.pv-main{flex:1;overflow-y:auto;padding:20px 24px 40px;max-width:880px;width:100%;margin:0 auto}
+.pv-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:24px 0 10px}
+.pv-active{background:var(--surface);border:1px solid var(--gold);border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.pv-active input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-family:var(--display);font-weight:700;font-size:15px;min-width:220px}
+.pv-active input:focus{outline:none;border-color:var(--gold)}
+.pv-meta{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.pv-slot{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.pv-slot b{font-family:var(--display);font-size:14px}
+.pv-slot .tb-btn{margin-left:0}
+.pv-spacer{flex:1}
+.pv-note{font-size:11px;color:var(--dim);line-height:1.6}
+.pv-mods{font-family:var(--mono);font-size:10px;color:var(--text2);line-height:1.9;columns:2;column-gap:30px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="logo"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></div>
+    <span class="tb-meta">Projects — back up, restore, switch</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/workflow/">Workflow</a>
+    <a class="tb-btn" href="/timeline/">← Studio</a>
+  </header>
+
+  <main class="pv-main">
+    <h2>Current project</h2>
+    <div class="pv-active">
+      <input id="pvName" title="Project name — rename freely">
+      <span class="pv-meta" id="pvStats"></span>
+      <span class="pv-spacer"></span>
+      <button class="tb-btn gold" id="pvExport" title="One portable .cinamate file with every module's data">⬇ Export backup</button>
+      <button class="tb-btn" id="pvSaveSlot" title="Snapshot the current state into this project's slot">💾 Save snapshot</button>
+    </div>
+    <p class="pv-note">Everything Cinamate saves lives in this browser. <b>Export a backup after real work sessions</b> — the file restores the entire production (script, boards, budget, schedule, cut, tools) on any machine. Editor media files re-import from disk.</p>
+    <div class="pv-mods" id="pvMods"></div>
+
+    <h2>Restore</h2>
+    <div class="pv-slot">
+      <span>Import a <b>.cinamate</b> backup — replaces the current workspace (it is stashed to its slot first).</span>
+      <span class="pv-spacer"></span>
+      <button class="tb-btn gold" id="pvImport">⬆ Import backup</button>
+      <input type="file" id="pvFile" accept=".cinamate,.json" hidden>
+    </div>
+
+    <h2>All projects on this machine</h2>
+    <div id="pvSlots"></div>
+    <div class="pv-slot" style="border-style:dashed">
+      <span>Start a fresh production — the current one is stashed to its slot first.</span>
+      <span class="pv-spacer"></span>
+      <button class="tb-btn" id="pvNew">+ New project</button>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="pvToast" aria-live="polite"></div>
+<script src="lib-vault.js?v=20260820d"></script>
+<script>
+(function () {
+  'use strict';
+  var V = window.CVault;
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('pvToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3000); }
+  function now() { return new Date().toISOString().slice(0, 16).replace('T', ' '); }
+  function kb(b) { return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
+
+  function render() {
+    var m = V.meta(localStorage);
+    var inv = V.inventory(V.snapshot(localStorage));
+    $('pvName').value = m.active;
+    $('pvStats').textContent = inv.count + ' modules · ' + kb(inv.bytes);
+    $('pvMods').innerHTML = inv.modules.slice(0, 14).map(function (x) {
+      return esc(x.key.replace(/^SB_/, '').replace(/_v\d+$/, '')) + ' · ' + kb(x.bytes);
+    }).join('<br>');
+    var names = Object.keys(m.slots).filter(function (n) { return n !== m.active; }).sort();
+    $('pvSlots').innerHTML = (names.length ? names : []).map(function (n) {
+      var s = m.slots[n];
+      var siz = V.inventory(s.stores || {});
+      return '<div class="pv-slot"><b>' + esc(n) + '</b>' +
+        '<span class="pv-meta">' + siz.count + ' modules · ' + kb(siz.bytes) + (s.savedAt ? ' · saved ' + esc(s.savedAt) : '') + '</span>' +
+        '<span class="pv-spacer"></span>' +
+        '<button class="tb-btn gold" data-open="' + esc(n) + '">Open</button>' +
+        '<button class="tb-btn" data-del="' + esc(n) + '">✕</button></div>';
+    }).join('') || '<p class="pv-note">No other projects yet — New project starts a second one, and switching keeps both safe.</p>';
+  }
+
+  $('pvName').addEventListener('change', function () {
+    var n = this.value.trim();
+    if (!n) { this.value = V.meta(localStorage).active; return; }
+    V.renameActive(localStorage, n);
+    render(); toast('Renamed to ' + n);
+  });
+  $('pvSaveSlot').addEventListener('click', function () {
+    V.saveActive(localStorage, now());
+    render(); toast('Snapshot saved');
+  });
+  $('pvExport').addEventListener('click', function () {
+    var m = V.meta(localStorage);
+    var data = V.archive(localStorage, m.active, now());
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+    a.download = m.active.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.cinamate';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
+    toast('Backup exported — keep it somewhere safe');
+  });
+  $('pvImport').addEventListener('click', function () { $('pvFile').click(); });
+  $('pvFile').addEventListener('change', function () {
+    var f = this.files[0]; if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      var arch;
+      try { arch = V.parseArchive(String(rd.result)); } catch (e) { return toast(e.message); }
+      if (!confirm('Restore "' + arch.name + '"? The current workspace is stashed to its project slot first.')) return;
+      V.saveActive(localStorage, now());
+      var m = V.meta(localStorage);
+      var name = arch.name || 'Imported project';
+      while (m.slots[name] && name !== m.active) name += ' (imported)';
+      V.restore(localStorage, arch);
+      m = V.meta(localStorage);
+      m.active = name;
+      m.slots[name] = { savedAt: now(), stores: arch.stores };
+      localStorage.setItem(V.META_KEY, JSON.stringify(m));
+      render(); toast('Restored "' + name + '" — every module now shows this production');
+    };
+    rd.readAsText(f);
+    this.value = '';
+  });
+  $('pvNew').addEventListener('click', function () {
+    var n = prompt('Name for the new production:', 'Untitled Film');
+    if (!n) return;
+    try { V.newProject(localStorage, n.trim(), now()); } catch (e) { return toast(e.message); }
+    render(); toast('Fresh workspace — "' + n.trim() + '"');
+  });
+  $('pvSlots').addEventListener('click', function (e) {
+    var open = e.target.getAttribute('data-open'), del = e.target.getAttribute('data-del');
+    if (open) {
+      V.switchTo(localStorage, open, now());
+      render(); toast('Switched to "' + open + '"');
+    }
+    if (del) {
+      if (!confirm('Delete project "' + del + '" and its saved data? The backup file, if you exported one, still works.')) return;
+      try { V.deleteSlot(localStorage, del); } catch (e2) { return toast(e2.message); }
+      render(); toast('Deleted "' + del + '"');
+    }
+  });
+
+  render();
+  window.CVaultApp = { render: render };
+})();
+</script>
+</body>
+</html>

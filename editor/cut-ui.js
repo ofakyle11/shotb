@@ -331,7 +331,9 @@
   }
   function drawCover(ctx, v, W, H) {
     var vw = v.videoWidth || W, vh = v.videoHeight || H;
-    var s = Math.min(W / vw, H / vh);
+    // widescreen targets letterbox (contain); vertical/square social
+    // targets crop-fill (cover) so the frame is full-bleed
+    var s = (H >= W) ? Math.max(W / vw, H / vh) : Math.min(W / vw, H / vh);
     var dw = vw * s, dh = vh * s;
     ctx.drawImage(v, (W - dw) / 2, (H - dh) / 2, dw, dh);
   }

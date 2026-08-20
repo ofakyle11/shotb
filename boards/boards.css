@@ -1,0 +1,68 @@
+/* CINAMATE Boards — storyboards / shot lists / key art */
+
+.bd-layout{flex:1;display:flex;overflow:hidden;min-height:0}
+.bd-layout.hidden{display:none}
+.bd-layout h3{font-size:11px;color:var(--gold);letter-spacing:.06em;text-transform:uppercase;margin:14px 0 8px}
+.bd-dim{font-size:10px;color:var(--dim);line-height:1.5}
+
+.bd-scenes{width:240px;min-width:210px;border-right:1px solid var(--border);background:var(--surface);overflow-y:auto;padding:0 12px 12px;display:flex;flex-direction:column;gap:6px}
+.bd-scenes .tb-btn{width:100%}
+.bd-scenelist{display:flex;flex-direction:column;gap:4px}
+.bd-scene{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:11px;color:var(--text2);cursor:pointer;line-height:1.4}
+.bd-scene:hover{border-color:var(--border2)}
+.bd-scene.on{border-color:var(--gold);color:var(--text)}
+.bd-scene b{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd-scene span{font-family:var(--mono);font-size:9px;color:var(--dim)}
+.bd-stats{font-family:var(--mono);font-size:10px;color:var(--text2);border-top:1px solid var(--border);padding-top:8px;line-height:1.8}
+
+.bd-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.bd-scenetitle{font-family:var(--display);font-size:14px}
+.bd-shots{flex:1;overflow-y:auto;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;align-content:start}
+.bd-shot{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.bd-frame{position:relative;aspect-ratio:16/9;background:#000;display:flex;align-items:center;justify-content:center}
+.bd-frame img{width:100%;height:100%;object-fit:cover}
+.bd-frame .bd-ph{color:var(--dim);font-size:11px;text-align:center;padding:8px}
+.bd-framebtns{position:absolute;bottom:6px;right:6px;display:flex;gap:4px;opacity:0;transition:.15s}
+.bd-frame:hover .bd-framebtns{opacity:1}
+.bd-framebtns button{border:1px solid var(--border2);background:rgba(10,22,40,.85);color:var(--text2);border-radius:5px;font-size:10px;padding:3px 7px;cursor:pointer}
+.bd-framebtns button:hover{color:#fff;border-color:var(--gold)}
+.bd-shotbody{padding:8px 10px;display:flex;flex-direction:column;gap:5px}
+.bd-shotrow{display:flex;gap:5px;align-items:center;font-size:10px}
+.bd-shotrow select,.bd-shotrow input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 5px;font-size:10px;font-family:var(--mono);min-width:0}
+.bd-shotrow select{flex:1}
+.bd-shotrow input.bd-lens{width:48px}
+.bd-shotrow input.bd-dur{width:42px}
+.bd-desc{width:100%;background:transparent;border:1px solid transparent;color:var(--text2);border-radius:5px;padding:4px 6px;font-size:11px;font-family:var(--body);resize:vertical;min-height:34px}
+.bd-desc:hover{border-color:var(--border)}
+.bd-desc:focus{outline:none;border-color:var(--gold);color:var(--text)}
+.bd-shotfoot{display:flex;gap:4px;padding:0 10px 8px}
+.bd-shotfoot .bd-n{font-family:var(--mono);font-size:10px;color:var(--dim);margin-right:auto}
+.bd-shotfoot button{border:none;background:transparent;color:var(--dim);cursor:pointer;font-size:12px}
+.bd-shotfoot button:hover{color:var(--text)}
+.bd-f{display:block;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.bd-f input,.bd-f select,.bd-f textarea{display:block;width:100%;margin-top:3px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:11px;font-family:var(--body)}
+
+.bd-kamain{align-items:center;justify-content:center;display:flex;overflow:auto;padding:16px}
+#kaCanvas{max-height:calc(100vh - 120px);max-width:100%;border:1px solid var(--border);border-radius:8px;background:#000}
+
+/* frame-grab modal */
+.bd-modal{position:fixed;inset:0;background:rgba(4,10,20,.8);display:flex;align-items:center;justify-content:center;z-index:60}
+.bd-modal.hidden{display:none}
+.bd-modalcard{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:16px;width:min(520px,92vw);display:flex;flex-direction:column;gap:10px}
+.bd-modalcard h3{margin:0;font-size:12px;color:var(--gold);text-transform:uppercase;letter-spacing:.06em}
+.bd-modalcard video{width:100%;border-radius:8px;background:#000;aspect-ratio:16/9}
+.bd-modalbtns{display:flex;gap:8px;justify-content:flex-end}
+
+/* print boards */
+@media print{
+  body{background:#fff}
+  .topbar,.bd-scenes,.ps-toolbar,.toast,.bd-modal{display:none!important}
+  .bd-layout,.bd-main{display:block!important;overflow:visible!important}
+  .bd-shots{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0}
+  .bd-shot{border:1px solid #999;break-inside:avoid}
+  .bd-frame{background:#eee}
+  .bd-framebtns,.bd-shotfoot button{display:none!important}
+  .bd-shotrow select,.bd-shotrow input,.bd-desc{color:#000!important;background:#fff!important;border-color:#ccc}
+  .bd-print-head{display:block!important;font:700 16px serif;margin:0 0 12px;color:#000}
+}
+.bd-print-head{display:none}

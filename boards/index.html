@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Boards</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Boards">
+<meta property="og:description" content="Shot lists, storyboards, animatics and key art — planned from the script, framed from your own renders.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260820d">
+<link rel="stylesheet" href="/producer/producer.css?v=20260820d">
+<link rel="stylesheet" href="boards.css?v=20260820d">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="logo"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></div>
+    <span class="tb-meta">Boards — shot lists · storyboards · key art</span>
+    <nav class="ps-tabs">
+      <button class="ps-tab on" data-bt="boards">Storyboards</button>
+      <button class="ps-tab" data-bt="keyart">Key art</button>
+    </nav>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/editor/">Editor</a>
+    <a class="tb-btn" href="/timeline/">← Studio</a>
+  </header>
+
+  <!-- ── storyboards ── -->
+  <div class="bd-layout" id="bdTabBoards">
+    <aside class="bd-scenes">
+      <h3>Scenes</h3>
+      <button class="tb-btn gold" id="bdSeed" title="Build the scene list from the Studio breakdown (or Writer beats)">⚡ Seed from script</button>
+      <div class="bd-scenelist" id="bdSceneList"></div>
+      <button class="tb-btn" id="bdAddScene">+ Scene</button>
+      <div class="bd-stats" id="bdStats"></div>
+    </aside>
+    <main class="bd-main">
+      <div class="ps-toolbar">
+        <b id="bdSceneTitle" class="bd-scenetitle">Pick a scene</b>
+        <button class="tb-btn gold" id="bdAddShot">+ Shot</button>
+        <button class="tb-btn" id="bdCoverage" title="Master + singles on the cast + insert">✨ Suggest coverage</button>
+        <div class="tb-spacer"></div>
+        <button class="tb-btn" id="bdCsv">⬇ Shot list CSV</button>
+        <button class="tb-btn" id="bdPrint" title="Printable board — 3 frames per row">🖨 Print boards</button>
+        <button class="tb-btn gold" id="bdAnimatic" title="Timed MP4 of the framed shots">⬇ Animatic</button>
+      </div>
+      <div class="bd-shots" id="bdShots"></div>
+    </main>
+  </div>
+
+  <!-- ── key art ── -->
+  <div class="bd-layout hidden" id="bdTabKeyart">
+    <aside class="bd-scenes">
+      <h3>Key art</h3>
+      <label class="bd-f">Title <input id="kaTitle" placeholder="THE LAST DISPATCH"></label>
+      <label class="bd-f">Tagline <input id="kaTag" placeholder="Every call has a caller."></label>
+      <label class="bd-f">Layout <select id="kaLayout"><option value="bottom">Title low</option><option value="top">Title high</option></select></label>
+      <label class="bd-f">Billing block <textarea id="kaCredits" rows="4" placeholder="A CINAMATE PICTURE  ·  WRITTEN BY …"></textarea></label>
+      <button class="tb-btn" id="kaBg">⬆ Background image</button>
+      <input type="file" id="kaBgFile" accept="image/*" hidden>
+      <button class="tb-btn" id="kaGrab" title="Pull a frame from a rendered Studio clip">📷 Frame from Studio clip</button>
+      <button class="tb-btn gold" id="kaPng">⬇ Export poster PNG</button>
+      <p class="bd-dim">2:3 one-sheet, 1600×2400 export. Frames from your own renders — brand fonts applied automatically.</p>
+    </aside>
+    <main class="bd-main bd-kamain">
+      <canvas id="kaCanvas" width="800" height="1200"></canvas>
+    </main>
+  </div>
+</div>
+
+<!-- frame-grab dialog -->
+<div class="bd-modal hidden" id="bdGrabModal">
+  <div class="bd-modalcard">
+    <h3>Frame from a rendered clip</h3>
+    <select class="uc-sel" id="bdGrabClip"></select>
+    <video id="bdGrabVideo" muted playsinline crossorigin="anonymous"></video>
+    <input type="range" id="bdGrabTime" min="0" max="100" value="10">
+    <div class="bd-modalbtns">
+      <button class="tb-btn" id="bdGrabCancel">Cancel</button>
+      <button class="tb-btn gold" id="bdGrabUse">Use this frame</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="bdToast" aria-live="polite"></div>
+<script src="/editor/lib-mp4.js?v=20260820d"></script>
+<script src="lib-shots.js?v=20260820d"></script>
+<script src="boards.js?v=20260820d"></script>
+</body>
+</html>
