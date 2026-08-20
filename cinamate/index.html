@@ -532,8 +532,8 @@
     box-shadow 350ms var(--ease-hover, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
-@supports (backdrop-filter: blur(18px)) or (-webkit-backdrop-filter: blur(18px)) {
-  .caps-card { -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%); }
+@supports (backdrop-filter: blur(18px)) {
+  .caps-card { backdrop-filter: blur(18px) saturate(140%); }
 }
 
 /* Holographic 1px border, revealed on hover (masked gradient) */
@@ -847,8 +847,8 @@
     color 350ms var(--ease-hover, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
-@supports (backdrop-filter: blur(18px)) or (-webkit-backdrop-filter: blur(18px)) {
-  .pipe-stage__chip { -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%); }
+@supports (backdrop-filter: blur(18px)) {
+  .pipe-stage__chip { backdrop-filter: blur(18px) saturate(140%); }
 }
 
 /* Active node: brightens as the pulse dot passes (JS toggles .is-active) */
@@ -1979,26 +1979,6 @@
   margin-left: auto;
   margin-right: auto;
 }
-
-/* ── phone fit: the letterspaced nbsp lines can't wrap, so they must
-     shrink until they fit a 390px viewport ─────────────────────── */
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
-body{overflow-x:hidden}
-.hero,.pipe{overflow-x:hidden}
-@media (max-width:560px){
-  .hero__stack{max-width:100vw;padding-left:12px;padding-right:12px}
-  .hero__kicker{font-size:9.5px;letter-spacing:.16em}
-  .hero__subline{font-size:8.6px;letter-spacing:.1em}
-  .hero__seats{font-size:8.6px;letter-spacing:.05em}
-  .hero__cta{padding:0.9rem 1.4rem}
-  .hero__cta-label{font-size:11px;letter-spacing:.14em}
-  .pipe__summary{font-size:9.5px;letter-spacing:.04em;padding:0 10px}
-  .pipe__labels{display:none}
-  .pipe__track{display:none}
-  .pipe__stages{flex-direction:column;align-items:center;gap:1.4rem}
-  .pipe-stage{width:100%;max-width:260px}
-  .pipe-stage::before,.pipe-stage::after{display:none}
-}
   </style>
   <noscript>
     <style>
@@ -2411,7 +2391,7 @@ body{overflow-x:hidden}
     </div>
 
     <p class="pipe__summary" data-reveal data-reveal-delay="240">
-      TYPICAL SCRIPT-TO-MASTER: <span class="pipe__summary-value">09:12:44</span> &middot; HUMAN CREW REQUIRED: <span class="pipe__summary-value">1 (YOU)</span>
+      TYPICAL&nbsp;SCRIPT-TO-MASTER:&nbsp;<span class="pipe__summary-value">09:12:44</span>&nbsp;&middot;&nbsp;HUMAN&nbsp;CREW&nbsp;REQUIRED:&nbsp;<span class="pipe__summary-value">1&nbsp;(YOU)</span>
     </p>
 
   </div>
@@ -2701,7 +2681,7 @@ body{overflow-x:hidden}
     </ul>
 
     <p class="pipe__summary" data-reveal data-reveal-delay="240" style="margin-top: 2.5rem">
-      WATERFALL DERIVES THE INDUSTRY&rsquo;S <span class="pipe__summary-value">2&ndash;2.5&times;</span> BREAKEVEN RULE &middot; <span class="pipe__summary-value">124</span> AUTOMATED CHECKS &middot; METHODOLOGY SHIPS WITH THE PLATFORM
+      WATERFALL&nbsp;DERIVES&nbsp;THE&nbsp;INDUSTRY&rsquo;S&nbsp;<span class="pipe__summary-value">2&ndash;2.5&times;</span>&nbsp;BREAKEVEN&nbsp;RULE&nbsp;&middot;&nbsp;<span class="pipe__summary-value">124</span>&nbsp;AUTOMATED&nbsp;CHECKS&nbsp;&middot;&nbsp;METHODOLOGY&nbsp;SHIPS&nbsp;WITH&nbsp;THE&nbsp;PLATFORM
     </p>
 
   </div>
