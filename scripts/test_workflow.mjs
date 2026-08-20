@@ -148,5 +148,12 @@ const byId = (a, id) => a.stages.find(s => s.id === id);
   ok(!threw, 'robust: malformed stores tolerated');
 }
 
+/* editor cut export satisfies the Final export step */
+{
+  const a = W.assess({ cut: { lastExport: { when: 'x', res: '1280x720' } } });
+  const d = a.stages.find(s => s.id === 'deliver');
+  ok(d.checklist.find(c => c.key === 'export').ok, 'deliver: cut export counts as final export');
+}
+
 if (failed) { console.error('\nWorkflow checks FAILED'); process.exit(1); }
 console.log('\nAll workflow checks passed.');

@@ -1,0 +1,63 @@
+/* CINAMATE Editor — bin / preview / timeline / inspector */
+
+.ed-layout{flex:1;display:flex;overflow:hidden;min-height:0}
+.ed-layout h3{font-size:11px;color:var(--gold);letter-spacing:.06em;text-transform:uppercase;margin:14px 0 8px}
+.ed-dim{font-size:10px;color:var(--dim);display:block;line-height:1.5}
+.ed-name{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 10px;font-size:12px;font-family:var(--display);font-weight:700;width:200px;margin-left:10px}
+.ed-name:focus{outline:none;border-color:var(--gold)}
+
+/* bin */
+.ed-bin{width:230px;min-width:200px;border-right:1px solid var(--border);background:var(--surface);overflow-y:auto;padding:0 12px 12px;display:flex;flex-direction:column;gap:6px}
+.ed-bin .tb-btn{width:100%}
+.ed-binlist{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.ed-binitem{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:11px;color:var(--text2);cursor:grab;display:flex;gap:8px;align-items:center;user-select:none}
+.ed-binitem:hover{border-color:var(--border2)}
+.ed-binitem.missing{opacity:.5;border-style:dashed}
+.ed-binitem img,.ed-binitem .ed-thumbph{width:52px;height:30px;border-radius:4px;object-fit:cover;background:#000;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px}
+.ed-binmeta{overflow:hidden}
+.ed-binmeta b{display:block;color:var(--text);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.ed-binmeta span{font-family:var(--mono);font-size:9px;color:var(--dim)}
+
+/* center */
+.ed-center{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.ed-previewwrap{padding:12px 14px 6px;display:flex;flex-direction:column;gap:8px;min-height:0}
+#edCanvas{width:100%;max-height:46vh;background:#000;border-radius:10px;border:1px solid var(--border);object-fit:contain;aspect-ratio:16/9}
+.ed-transport{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ed-tc{font-family:var(--mono);font-size:13px;color:var(--gold);font-weight:600}
+.ed-transport .ed-dim{display:inline;font-family:var(--mono)}
+
+/* timeline */
+.ed-timeline{flex:1;position:relative;overflow-x:auto;overflow-y:hidden;border-top:1px solid var(--border);background:var(--surface);padding-bottom:8px;min-height:170px}
+.ed-ruler{position:relative;height:22px;border-bottom:1px solid var(--border);margin-left:34px;cursor:pointer;font-family:var(--mono);font-size:8px;color:var(--dim)}
+.ed-ruler .tick{position:absolute;top:0;height:100%;border-left:1px solid var(--border);padding:4px 0 0 3px}
+.ed-track{display:flex;align-items:stretch;min-height:52px;border-bottom:1px solid var(--border)}
+.ed-track-t{min-height:30px}
+.ed-track-a{min-height:38px}
+.ed-tracklabel{width:34px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:var(--dim);border-right:1px solid var(--border)}
+.ed-strip{position:relative;flex:1;min-width:0}
+.ed-clip{position:absolute;top:4px;bottom:4px;background:var(--surface3);border:1px solid var(--border2);border-radius:6px;font-size:10px;color:var(--text2);padding:3px 6px;overflow:hidden;cursor:grab;user-select:none;white-space:nowrap}
+.ed-clip b{color:var(--text);font-size:10px}
+.ed-clip .ed-clipmeta{font-family:var(--mono);font-size:8px;color:var(--dim);display:block}
+.ed-clip.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.ed-clip.dragging{opacity:.5}
+.ed-clip canvas.ed-wave{position:absolute;left:0;right:0;bottom:0;height:14px;width:100%;opacity:.7;pointer-events:none}
+.ed-clip .ed-trans{position:absolute;left:0;top:0;bottom:0;width:8px;background:linear-gradient(90deg,rgba(91,141,184,.55),transparent);border-radius:6px 0 0 6px;pointer-events:none}
+.ed-clip .ed-handle{position:absolute;top:0;bottom:0;width:7px;cursor:ew-resize;z-index:2}
+.ed-clip .ed-handle.l{left:0}.ed-clip .ed-handle.r{right:0}
+.ed-clip .ed-handle:hover{background:rgba(91,141,184,.4)}
+.ed-clip.ed-title-clip{background:rgba(91,141,184,.14);border-color:rgba(91,141,184,.4)}
+.ed-clip.ed-audio-clip{background:rgba(74,139,122,.12);border-color:rgba(74,139,122,.4)}
+.ed-playhead{position:absolute;top:0;bottom:0;width:1px;background:var(--gold);left:34px;pointer-events:none;z-index:5}
+.ed-playhead::before{content:'';position:absolute;top:0;left:-4px;border:5px solid transparent;border-top-color:var(--gold)}
+
+/* inspector + export */
+.ed-side{width:250px;min-width:220px;border-left:1px solid var(--border);background:var(--surface);overflow-y:auto;padding:0 12px 14px}
+.ed-inspector label{display:block;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px}
+.ed-inspector input,.ed-inspector select,.ed-inspector textarea{display:block;width:100%;margin-top:3px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 7px;font-size:11px;font-family:var(--mono)}
+.ed-inspector input:focus,.ed-inspector select:focus{outline:none;border-color:var(--gold)}
+.ed-inspector .tb-btn{margin-top:4px}
+.ed-export{display:flex;flex-direction:column;gap:7px}
+.ed-export .uc-sel{margin-top:3px;margin-right:4px}
+.ed-progress{position:relative;height:18px;background:var(--surface2);border-radius:5px;overflow:hidden}
+.ed-progbar{height:100%;width:0;background:var(--gold);transition:width .2s}
+.ed-progress span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:var(--text)}

@@ -142,11 +142,12 @@
     });
 
     /* 7 · Deliver — finishing kit */
+    var cutExported = !!(s.cut && s.cut.lastExport);
     var deliver = [
       { key: 'captions', label: 'Captions', ok: count(s.captions) > 0 },
       { key: 'credits', label: 'Credit roll', ok: !!(s.credits && (s.credits.text || count(s.credits))) },
       { key: 'epk', label: 'Press kit', ok: !!(s.epk && count(s.epk)) },
-      { key: 'export', label: 'Final export', ok: revDone }
+      { key: 'export', label: 'Final export', ok: revDone || cutExported }
     ];
     var deliverDone = deliver.filter(function (d) { return d.ok; }).length;
     stages.push({
@@ -210,7 +211,8 @@
       epk: readLS('SB_EPK_v1'),
       crew: readLS('SB_Crew_v1'),
       reviewNotes: readLS('SB_ReviewNotes_v1'),
-      drafts: readLS('SB_Drafts_v1')
+      drafts: readLS('SB_Drafts_v1'),
+      cut: readLS('SB_Cut_v1')
     };
   }
 
