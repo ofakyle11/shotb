@@ -66,11 +66,13 @@
       // together with this list if the emails ever change.
       emails: [
         'mz465@shotbreak.io',
-        'kz465@shotbreak.io'
+        'kz465@shotbreak.io',
+        'hz465@shotbreak.io'
       ],
       meta: {
         mz465: { name: 'MZ465', color: '#38bdf8' },
-        kz465: { name: 'KZ465', color: '#818cf8' }
+        kz465: { name: 'KZ465', color: '#818cf8' },
+        hz465: { name: 'HZ465', color: '#7FA8CC' }
       }
     }
   };

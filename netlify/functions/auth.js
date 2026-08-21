@@ -39,7 +39,7 @@ async function findUser(email) {
 }
 
 // The ONLY accounts allowed to log in. All other logins removed.
-const ALLOWED_LOGINS = ['mz465@shotbreak.io', 'kz465@shotbreak.io'];
+const ALLOWED_LOGINS = ['mz465@shotbreak.io', 'kz465@shotbreak.io', 'hz465@shotbreak.io'];
 
 async function login(email, password) {
   if (!email || !password) return r(400, { error: 'Email and password required' });
@@ -91,7 +91,8 @@ async function signup(name, email, password) {
 // ── Owner Notifications (private — emails never exposed to frontend) ──
 const OWNER_EMAILS = [
   'mz465@shotbreak.io',
-  'kz465@shotbreak.io'
+  'kz465@shotbreak.io',
+  'hz465@shotbreak.io'
 ];
 
 async function notifyOwners(name, email) {

@@ -4,7 +4,7 @@
 
 const STORAGE_KEY='SB_Timeline_v1';
 const BOOT_VERSION='20260628a';
-const OWNER_EMAILS=new Set(['mz465@shotbreak.io','kz465@shotbreak.io']);
+const OWNER_EMAILS=new Set(['mz465@shotbreak.io','kz465@shotbreak.io','hz465@shotbreak.io']);
 const CHAR_SKIP=new Set(['INT','EXT','FADE','CUT','CLOSE','WIDE','THE','AND','RAIN','WATER','ROOF','SCENE','OPENING','SEQUENCE','DIALOGUE','ACTION','REACTION','CLIMAX','RESOLUTION','EPILOGUE','TRANSITION','ABANDONED','WAREHOUSE','BUILDING','STREET','NIGHT','DAY','MORNING','EVENING','LOCATION','INTERIOR','EXTERIOR']);
 const JUNK_CLOSE_ON_RE=/^Close on\s+((?:OPENING|TITLE|CLOSING|END|CREDIT|TEASER|PROLOGUE)\s+(?:SEQUENCE|SCENE|CREDITS)|SEQUENCE|DIALOGUE|ACTION|REACTION|TRANSITION|CLIMAX|RESOLUTION|EPILOGUE|CHARACTER\s+INTRO|OPENING\s+SCENE)/i;
 const JUNK_CHAR_WORDS=new Set([
@@ -117,7 +117,7 @@ function initAuth(){
     const emailRaw=$('loginEmail').value.trim(),pw=$('loginPw').value.trim();
     if(!emailRaw||!pw){err.textContent='Enter username/email and password';err.style.display='block';return}
     const short=emailRaw.toLowerCase().split('@')[0];
-    // 1. Owner-short login (mz465 / kz465 + OWNER_PW_* value) via /verify-owner
+    // 1. Owner-short login (mz465 / kz465 / hz465 + OWNER_PW_* value) via /verify-owner
     try{
       const r=await fetch('/.netlify/functions/verify-owner',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:short,password:pw})});
       if(r.ok){const d=await r.json();if(d&&d.token){setOwnerSession(d.name,d.token,d.expires);return}}
