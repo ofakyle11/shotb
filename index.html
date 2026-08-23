@@ -2844,6 +2844,20 @@
 
 
 <script src="js/cinamate-auth.js"></script>
+<script>
+/* Signed-in owners: the CINAMATE mark is the way back to the dashboard. */
+(function () {
+  try {
+    var op = window.CinamateAuth && window.CinamateAuth.operator && window.CinamateAuth.operator();
+    if (!op) return;
+    var t = document.getElementById('hero-title');
+    if (!t) return;
+    t.style.cursor = 'pointer';
+    t.title = 'Open the dashboard';
+    t.addEventListener('click', function () { window.location.href = '/dashboard.html'; });
+  } catch (e) { /* no-op */ }
+})();
+</script>
 <script src="js/effects.js"></script>
 <script>
 /* ================================================================
