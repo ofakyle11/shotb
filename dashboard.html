@@ -296,6 +296,7 @@ body { overflow: hidden; }
 
   .rail__logo,
   .rail__divider,
+  .rail__grouplabel,
   .rail__spacer { display: none; }
 
   .rail__item {
@@ -1392,8 +1393,7 @@ select.prod-field__input {
 
 
     <span class="rail__divider" aria-hidden="true"></span>
-    <span class="rail__grouplabel" aria-hidden="true">Modules</span>
-
+    <span class="rail__grouplabel" aria-hidden="true">Develop</span>
     <a class='rail__item rail__item--module' href='/writer/'>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h4"/></svg>
@@ -1404,30 +1404,22 @@ select.prod-field__input {
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="8" height="6" rx="1"/><rect x="13" y="5" width="8" height="6" rx="1"/><rect x="3" y="14" width="8" height="6" rx="1"/><path d="M13 17h8"/></svg>
       <span>Boards</span>
     </a>
-    <a class='rail__item rail__item--module' href='/timeline/'>
+    <a class='rail__item rail__item--module' href='/clearance/'>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="5" rx="1"/><rect x="3" y="14" width="12" height="5" rx="1"/></svg>
-      <span>Timeline</span>
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/><path d="M8 10.5h5M10.5 8v5"/></svg>
+      <span>Clear</span>
     </a>
+    <span class="rail__divider" aria-hidden="true"></span>
+    <span class="rail__grouplabel" aria-hidden="true">Prep</span>
     <a class='rail__item rail__item--module' href='/producer/'>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18"/><path d="M16.5 7.5a3.5 3.5 0 0 0-3.5-2.5h-1a3 3 0 0 0 0 6h1a3 3 0 0 1 0 6h-1a3.5 3.5 0 0 1-3.5-2.5"/></svg>
       <span>Budget</span>
     </a>
-    <a class='rail__item rail__item--module' href='/producer/#sales'>
+    <a class='rail__item rail__item--module' href='/contracts/'>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h16"/><path d="M6 16l4-5 3 3 5-7"/></svg>
-      <span>Sales</span>
-    </a>
-    <a class='rail__item rail__item--module' href='/production/'>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/><path d="M4 21h16"/></svg>
-      <span>Office</span>
-    </a>
-    <a class='rail__item rail__item--module' href='/editor/'>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 19 2.5-.6 9-9a1.8 1.8 0 0 0-2.5-2.5l-9 9Z"/><path d="M14 6.5 17.5 10"/></svg>
-      <span>Editor</span>
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 12h7M9 15.5h7"/><path d="M9 19c1-.8 2-.8 3 0s2 .8 3 0"/></svg>
+      <span>Deals</span>
     </a>
     <a class='rail__item rail__item--module' href='/props/'>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
@@ -1439,50 +1431,63 @@ select.prod-field__input {
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 12h7v9"/><path d="M10 12V3"/><path d="M14 21v-5h7"/></svg>
       <span>Sets</span>
     </a>
+    <a class='rail__item rail__item--module' href='/safety/'>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.5 6v5c0 4.6 3.1 8.1 7.5 10 4.4-1.9 7.5-5.4 7.5-10V6z"/><path d="M9.2 12.2l2 2 3.6-4"/></svg>
+      <span>Safety</span>
+    </a>
+    <span class="rail__divider" aria-hidden="true"></span>
+    <span class="rail__grouplabel" aria-hidden="true">Shoot</span>
+    <a class='rail__item rail__item--module' href='/timeline/'>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v5M12 15.5v5"/></svg>
+      <span>Studio</span>
+    </a>
+    <a class='rail__item rail__item--module' href='/production/'>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/><path d="M4 21h16"/></svg>
+      <span>Office</span>
+    </a>
     <a class='rail__item rail__item--module' href='/finance/'>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20"/><path d="M17 6.5a3.5 3.5 0 0 0-3.5-2.5h-3.2a3.2 3.2 0 0 0 0 6.4h3.4a3.2 3.2 0 0 1 0 6.4h-3.2A3.5 3.5 0 0 1 7 14.5"/><circle cx="19" cy="19" r="2.6"/></svg>
       <span>Money</span>
+    </a>
+    <a class='rail__item rail__item--module' href='/tools/'>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.5a4 4 0 0 0-5.6 4.9L4 16.3V20h3.7l4.9-4.9a4 4 0 0 0 4.9-5.6l-2.8 2.8-2.1-2.1z"/></svg>
+      <span>Tools</span>
+    </a>
+    <span class="rail__divider" aria-hidden="true"></span>
+    <span class="rail__grouplabel" aria-hidden="true">Post</span>
+    <a class='rail__item rail__item--module' href='/editor/'>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 19 2.5-.6 9-9a1.8 1.8 0 0 0-2.5-2.5l-9 9Z"/><path d="M14 6.5 17.5 10"/></svg>
+      <span>Editor</span>
     </a>
     <a class='rail__item rail__item--module' href='/screening/'>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="13" rx="2"/><path d="m10 9 5 2.5L10 14z"/><path d="M7 21h10"/></svg>
       <span>Screen</span>
     </a>
-    <a class='rail__item rail__item--module' href='/safety/'>
+    <span class="rail__divider" aria-hidden="true"></span>
+    <span class="rail__grouplabel" aria-hidden="true">Release</span>
+    <a class='rail__item rail__item--module' href='/producer/#sales'>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.5 6v5c0 4.6 3.1 8.1 7.5 10 4.4-1.9 7.5-5.4 7.5-10V6z"/><path d="M9.2 12.2l2 2 3.6-4"/></svg>
-      <span>Safety</span>
-    </a>
-    <a class='rail__item rail__item--module' href='/clearance/'>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/><path d="M8 10.5h5M10.5 8v5"/></svg>
-      <span>Clear</span>
-    </a>
-    <a class='rail__item rail__item--module' href='/contracts/'>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 12h7M9 15.5h7"/><path d="M9 19c1-.8 2-.8 3 0s2 .8 3 0"/></svg>
-      <span>Deals</span>
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h16"/><path d="M6 16l4-5 3 3 5-7"/></svg>
+      <span>Sales</span>
     </a>
     <a class='rail__item rail__item--module' href='/distribution/'>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg>
       <span>Deliver</span>
     </a>
-    <a class='rail__item rail__item--module' href='/timeline/'>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v5M12 15.5v5"/></svg>
-      <span>Studio</span>
-    </a>
+    <span class="rail__divider" aria-hidden="true"></span>
+    <span class="rail__grouplabel" aria-hidden="true">Always</span>
     <a class='rail__item rail__item--module' href='/workflow/'>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6H15a3 3 0 0 1 3 3v6.6"/></svg>
       <span>Workflow</span>
-    </a>
-    <a class='rail__item rail__item--module' href='/tools/'>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.5a4 4 0 0 0-5.6 4.9L4 16.3V20h3.7l4.9-4.9a4 4 0 0 0 4.9-5.6l-2.8 2.8-2.1-2.1z"/></svg>
-      <span>Tools</span>
     </a>
     <a class='rail__item rail__item--module' href='/projects/'>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
