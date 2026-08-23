@@ -44,6 +44,10 @@
       <h3>Media</h3>
       <button class="tb-btn gold" id="edFromStudio" title="Pull every rendered clip from the Studio timeline">⟳ Load Studio clips</button>
       <button class="tb-btn" id="edImport">+ Import files</button>
+      <h3 style="margin-top:12px">Assistant</h3>
+      <button class="tb-btn" id="edAssemble" title="Build a rough cut from the bin in story order — trims handles, crossfades scene changes">✨ Rough cut</button>
+      <button class="tb-btn" id="edTighten" title="Listen for dead air and trim it off the head and tail of every clip">✂ Tighten cut</button>
+      <button class="tb-btn" id="edBeatCut" title="Detect the beat in the A1 music track and land every cut on it">♪ Cut to beats</button>
       <input type="file" id="edFile" accept="video/*,audio/*" multiple hidden>
       <div class="ed-binlist" id="edBinList"></div>
       <p class="ed-dim" id="edBinHint">Studio clips or your own video and audio files. Double-click to add to the timeline.</p>

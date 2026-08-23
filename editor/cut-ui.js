@@ -303,7 +303,9 @@
       var v = ensureVideo(hit.clip.srcId);
       if (exact) await seekVideo(v, hit.srcTime, project.fps);
       if (v.readyState >= 2) {
+        ctx.filter = C.cssFilter(hit.clip.color);
         drawCover(ctx, v, W, H);
+        ctx.filter = 'none';
       }
       if (hit.prevHold && prevFrame.width) {
         ctx.globalAlpha = hit.prevHold.alpha;
@@ -354,7 +356,7 @@
     drawFrame(t, cx, cv.width, cv.height, true).then(function () { scrubQueued = false; });
   }
 
-  var rafId = null, lastWall = 0, activeSrc = null, lastHitI = -1;
+  var rafId = null, lastWall = 0, activeSrc = null, lastHitI = -1, shuttle = 1;
   function play() {
     if (playing) return pause();
     if (!project.video.length) return toast('Add clips to the timeline first');
@@ -363,7 +365,7 @@
     lastWall = performance.now();
     var loop = function (now) {
       if (!playing) return;
-      t += (now - lastWall) / 1000; lastWall = now;
+      t += (now - lastWall) / 1000 * shuttle; lastWall = now;
       var total = C.duration(project);
       if (t >= total) { pause(); seek(total); return; }
       var hit = C.videoAt(project, t);
@@ -375,7 +377,7 @@
           if (activeSrc && vids[activeSrc] && activeSrc !== hit.clip.srcId) vids[activeSrc].pause();
           lastHitI = hit.i; activeSrc = hit.clip.srcId;
           v.currentTime = hit.srcTime;
-          v.playbackRate = hit.clip.speed || 1;
+          v.playbackRate = (hit.clip.speed || 1) * shuttle;
           v.play().catch(function () {});
         } else if (Math.abs(v.currentTime - hit.srcTime) > 0.18) {
           v.currentTime = hit.srcTime;
@@ -441,6 +443,14 @@
           return '<option' + ((it.trans && it.trans.type) === ty ? ' selected' : '') + '>' + ty + '</option>';
         }).join('') + '</select></label>' +
         '<label>Transition length <input data-f="transDur" type="number" step="0.1" min="0" max="3" value="' + ((it.trans && it.trans.dur) || 0) + '"></label>' +
+        '<h3 style="margin-top:10px">Color</h3>' +
+        '<label>Exposure <input data-f="colEx" type="range" min="0.5" max="1.6" step="0.02" value="' + ((it.color && it.color.ex) || 1) + '"></label>' +
+        '<label>Contrast <input data-f="colCt" type="range" min="0.6" max="1.6" step="0.02" value="' + ((it.color && it.color.ct) || 1) + '"></label>' +
+        '<label>Saturation <input data-f="colSat" type="range" min="0" max="2" step="0.05" value="' + ((it.color && it.color.sat) || 1) + '"></label>' +
+        '<label>Warmth <input data-f="colTw" type="range" min="-1" max="1" step="0.05" value="' + ((it.color && it.color.tw) || 0) + '"></label>' +
+        '<div style="display:flex;gap:6px;margin:4px 0 8px">' +
+          '<button class="tb-btn" id="edAutoColor" title="Balance exposure and contrast from this frame">✨ Auto</button>' +
+          '<button class="tb-btn" id="edResetColor">Reset</button></div>' +
         '<button class="tb-btn" id="edDelSel">✕ Remove clip</button>';
     } else if (sel.track === 'titles') {
       el.innerHTML =
@@ -468,12 +478,41 @@
         var f = inp.getAttribute('data-f'), val = inp.value;
         if (f === 'transType') { it2.trans = it2.trans || { dur: 0.5 }; it2.trans.type = val; if (val !== 'cut' && !it2.trans.dur) it2.trans.dur = 0.5; }
         else if (f === 'transDur') { it2.trans = it2.trans || { type: 'crossfade' }; it2.trans.dur = parseFloat(val) || 0; }
+        else if (f.indexOf('col') === 0) {
+          it2.color = it2.color || { ex: 1, ct: 1, sat: 1, tw: 0 };
+          it2.color[{ colEx: 'ex', colCt: 'ct', colSat: 'sat', colTw: 'tw' }[f]] = parseFloat(val);
+        }
         else if (['in', 'out', 'speed', 'start', 'dur', 'gain', 'size'].indexOf(f) >= 0) it2[f] = parseFloat(val);
         else it2[f] = val;
         if (sel.track === 'video') C.clampTrim(it2, (binById(it2.srcId) || {}).dur || 0);
         if (JSON.stringify(project) === before) undoStack.pop(); // no-op change — keep undo clean
         renderAll(); save(); seek(t);
       });
+    });
+    var auto = $('edAutoColor');
+    if (auto) auto.addEventListener('click', function () {
+      var it2 = findSel(); if (!it2) return;
+      var v = ensureVideo(it2.srcId);
+      if (!v || v.readyState < 2) return toast('Scrub onto the clip first so a frame is loaded');
+      snap();
+      var cnv = document.createElement('canvas'); cnv.width = 160; cnv.height = 90;
+      var cctx = cnv.getContext('2d', { willReadFrequently: true });
+      try {
+        cctx.drawImage(v, 0, 0, 160, 90);
+        var d = cctx.getImageData(0, 0, 160, 90).data;
+        var hist = new Array(256).fill(0);
+        for (var px = 0; px < d.length; px += 4) {
+          hist[Math.min(255, Math.round(0.2126 * d[px] + 0.7152 * d[px + 1] + 0.0722 * d[px + 2]))]++;
+        }
+        it2.color = C.autoColor(hist);
+        renderInspector(); save(); seek(t);
+        toast('Balanced — exposure ' + it2.color.ex + ' · contrast ' + it2.color.ct);
+      } catch (e) { toast('This source blocks pixel reads — re-import it as a local file'); }
+    });
+    var resetC = $('edResetColor');
+    if (resetC) resetC.addEventListener('click', function () {
+      var it2 = findSel(); if (!it2) return;
+      snap(); delete it2.color; renderInspector(); save(); seek(t);
     });
     var del = $('edDelSel');
     if (del) del.addEventListener('click', function () {
@@ -805,6 +844,73 @@
     $('edZoom').addEventListener('input', function () { zoom = +this.value; renderTimeline(); });
     $('edUndo').addEventListener('click', undo);
     $('edRedo').addEventListener('click', redo);
+    var bAsm = $('edAssemble');
+    if (bAsm) bAsm.addEventListener('click', function () {
+      var sources = bin.filter(function (b) { return b.kind === 'video' && b.dur > 0.4 && !b.missing; })
+        .map(function (b) {
+          var m = /sc(?:ene)?\s*(\d+)/i.exec(b.name || '');
+          return { id: b.id, dur: b.dur, label: b.name, scene: m ? +m[1] : null };
+        });
+      if (!sources.length) return toast('Load Studio clips or import footage first');
+      snap();
+      var n = C.assemble(project, sources, {});
+      renderAll(); save(); seek(0);
+      toast('Rough cut assembled — ' + n + ' clips in story order, crossfades on scene changes');
+    });
+    async function envelopeFor(srcId, rate) {
+      var b = binById(srcId); if (!b || !b.url) return null;
+      try {
+        var ab = await (await fetch(b.url)).arrayBuffer();
+        var ac = new (window.AudioContext || window.webkitAudioContext)();
+        var buf = await ac.decodeAudioData(ab);
+        var ch = buf.getChannelData(0);
+        var per = Math.max(1, Math.floor(buf.sampleRate / rate));
+        var env = [];
+        for (var i = 0; i < ch.length; i += per) {
+          var m = 0;
+          for (var k2 = i; k2 < Math.min(ch.length, i + per); k2 += 16) m = Math.max(m, Math.abs(ch[k2]));
+          env.push(m);
+        }
+        ac.close();
+        return env;
+      } catch (e) { return null; }
+    }
+    var bTight = $('edTighten');
+    if (bTight) bTight.addEventListener('click', async function () {
+      if (!project.video.length) return toast('Nothing on the timeline yet');
+      bTight.disabled = true;
+      toast('Listening for dead air…');
+      var silBySrc = {}, seen = {};
+      for (var i = 0; i < project.video.length; i++) {
+        var srcId = project.video[i].srcId;
+        if (seen[srcId]) continue; seen[srcId] = 1;
+        var env = await envelopeFor(srcId, 50);
+        if (env) silBySrc[srcId] = C.silences(env, 50, {});
+      }
+      snap();
+      var cut2 = C.tighten(project, silBySrc, {});
+      bTight.disabled = false;
+      renderAll(); save(); seek(0);
+      toast(cut2 > 0 ? 'Tightened — ' + cut2 + 's of dead air removed' : 'No leading/trailing silence found');
+    });
+    var bBeats = $('edBeatCut');
+    if (bBeats) bBeats.addEventListener('click', async function () {
+      if (!project.audio.length) return toast('Drop a music track on A1 first — cuts land on its beats');
+      if (!project.video.length) return toast('Nothing on the timeline yet');
+      bBeats.disabled = true;
+      toast('Finding the beat…');
+      var env = await envelopeFor(project.audio[0].srcId, 50);
+      bBeats.disabled = false;
+      if (!env) return toast('Could not decode that audio — try a local file');
+      var bts = C.beats(env, 50, {});
+      if (bts.length < 3) return toast('No steady beat found in that track');
+      snap();
+      var srcDur = {};
+      bin.forEach(function (b) { srcDur[b.id] = b.dur || 0; });
+      var n2 = C.cutToBeats(project, bts, srcDur);
+      renderAll(); save(); seek(0);
+      toast('Cut to the music — ' + n2 + ' cuts on ' + bts.length + ' beats');
+    });
     $('edExport').addEventListener('click', exportMp4);
     $('edEdl').addEventListener('click', function () {
       if (!project.video.length) return toast('Nothing to export yet');
@@ -818,7 +924,13 @@
     });
     document.addEventListener('keydown', function (e) {
       if (/input|textarea|select/i.test((e.target.tagName || ''))) return;
-      if (e.code === 'Space') { e.preventDefault(); play(); }
+      if (e.code === 'Space') { e.preventDefault(); shuttle = 1; play(); }
+      if (e.key === 'j' || e.key === 'J') { seek(Math.max(0, t - 1)); }
+      if (e.key === 'k' || e.key === 'K') { shuttle = 1; if (playing) pause(); else play(); }
+      if (e.key === 'l' || e.key === 'L') {
+        if (!playing) { shuttle = 1; play(); }
+        else { shuttle = shuttle >= 4 ? 1 : shuttle * 2; toast('▶ ' + shuttle + 'x'); }
+      }
       if (e.key === 's' || e.key === 'S') $('edSplit').click();
       if ((e.key === 'Delete' || e.key === 'Backspace') && sel) { var d = $('edDelSel'); if (d) d.click(); }
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }

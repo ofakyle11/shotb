@@ -88,6 +88,15 @@
 (function () {
   'use strict';
   var S = window.CSet, KEY = 'SB_SetDesign_v1', PPF = 9;
+  /* scale the plan to fill the stage area — a 24 ft set should not render
+     as a postage stamp on a 27-inch monitor */
+  function fitPPF() {
+    var el = document.querySelector('.sd-center');
+    if (!el) return;
+    var w = Math.max(200, el.clientWidth - 44), h = Math.max(200, el.clientHeight - 44);
+    var p = plan();
+    PPF = Math.max(6, Math.min(44, Math.floor(Math.min(w / p.w, h / p.h))));
+  }
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   var toastTimer;
@@ -110,8 +119,10 @@
     $('sdPlanName').value = p.name; $('sdPlanW').value = p.w; $('sdPlanH').value = p.h; $('sdPlanScenes').value = p.scenes || '';
   }
   function renderCanvas() {
+    fitPPF();
     $('sdCanvas').innerHTML = S.toSVG(plan(), PPF, { sel: sel });
   }
+  window.addEventListener('resize', function () { renderCanvas(); });
   function renderSel() {
     var p = plan(), it = sel && S.itemById(p, sel);
     if (!it) { $('sdSel').innerHTML = '<p class="sd-dim">Nothing selected — click a piece on the plan.</p>'; return; }

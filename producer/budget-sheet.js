@@ -69,8 +69,74 @@
   function sheetTotals(sheet) {
     var sub = 0, act = 0;
     sheet.categories.forEach(function (c) { var t = catTotals(c); sub += t.est; act += t.actual; });
-    var cont = sub * num(sheet.contingencyPct) / 100;
-    return { subtotal: sub, contingency: cont, grand: sub + cont, actual: act };
+    var laborBase = 0;
+    sheet.categories.forEach(function (c) { if (LABOR_ACCTS[c.acct]) laborBase += catTotals(c).est; });
+    var fringes = Math.round(laborBase * num(sheet.fringesPct) / 100);
+    var bond = Math.round(sub * num(sheet.bondPct) / 100);
+    var insurance = Math.round(sub * num(sheet.insurancePct) / 100);
+    var basis = sub + fringes + bond + insurance;
+    var cont = basis * num(sheet.contingencyPct) / 100;
+    return { subtotal: sub, fringes: fringes, bond: bond, insurance: insurance,
+             contingency: cont, grand: basis + cont, actual: act };
+  }
+
+  /* ── line-producer brain: fringes, bond/insurance, norms, cashflow ──
+     Labor accounts carry payroll fringes (union H&P + payroll taxes);
+     bond and insurance quote as a % of the direct subtotal. All default
+     to 0 so sheets that already carry fringe line items never double up. */
+  var LABOR_ACCTS = { '2000': 1, '3000': 1, '4000': 1, '5000': 1, '6000': 1, '7000': 1, '8000': 1, '9000': 1, '10000': 1, '11000': 1 };
+  function extras(sheet) {
+    var laborBase = 0;
+    sheet.categories.forEach(function (c) { if (LABOR_ACCTS[c.acct]) laborBase += catTotals(c).est; });
+    var sub = 0;
+    sheet.categories.forEach(function (c) { sub += catTotals(c).est; });
+    return {
+      laborBase: laborBase,
+      fringes: Math.round(laborBase * num(sheet.fringesPct) / 100),
+      bond: Math.round(sub * num(sheet.bondPct) / 100),
+      insurance: Math.round(sub * num(sheet.insurancePct) / 100)
+    };
+  }
+
+  /* Typical share of the grand total per account — decades of published
+     top sheets distilled into bands. Outside the band isn't wrong, it's
+     a question the bond company will ask. */
+  var NORMS = { '1000': [1, 8], '2000': [3, 9], '3000': [2, 8], '4000': [8, 30],
+    '5000': [3, 10], '6000': [3, 9], '7000': [1, 3.5], '8000': [3, 9],
+    '9000': [3, 12], '10000': [1, 4], '11000': [0.5, 3], '12000': [2, 7],
+    '13000': [3, 11], '14000': [0.3, 2.5], '15000': [7, 18], '16000': [2, 7],
+    '17000': [0.3, 2], '18000': [2, 7] };
+  function norms(sheet) {
+    var tot = sheetTotals(sheet);
+    if (!(tot.grand > 0)) return [];
+    return sheet.categories.map(function (c) {
+      var pct = catTotals(c).est / tot.grand * 100;
+      var band = NORMS[c.acct];
+      return { acct: c.acct, name: c.name, pct: Math.round(pct * 10) / 10,
+        lo: band ? band[0] : null, hi: band ? band[1] : null,
+        flag: band && pct > 0 ? (pct < band[0] ? 'low' : pct > band[1] ? 'high' : 'ok') : 'ok' };
+    });
+  }
+
+  /* When each account's money actually leaves the bank: prep/shoot/post. */
+  var PHASE = { '1000': [1, 0, 0], '2000': [.4, .4, .2], '3000': [.3, .5, .2],
+    '4000': [.1, .8, .1], '5000': [.25, .65, .1], '6000': [.1, .85, .05],
+    '7000': [.1, .85, .05], '8000': [.1, .85, .05], '9000': [.5, .45, .05],
+    '10000': [.6, .35, .05], '11000': [.1, .85, .05], '12000': [.2, .7, .1],
+    '13000': [.4, .5, .1], '14000': [.2, .6, .2], '15000': [0, .05, .95],
+    '16000': [.7, .2, .1], '17000': [.2, .3, .5], '18000': [.3, .4, .3] };
+  function cashflow(sheet) {
+    var out = { prep: 0, shoot: 0, post: 0 };
+    sheet.categories.forEach(function (c) {
+      var est = catTotals(c).est;
+      var ph = PHASE[c.acct] || [.33, .34, .33];
+      out.prep += est * ph[0]; out.shoot += est * ph[1]; out.post += est * ph[2];
+    });
+    var tot = sheetTotals(sheet);
+    var overhead = tot.grand - (out.prep + out.shoot + out.post); // contingency + extras ride shoot/post
+    out.shoot += overhead * 0.5; out.post += overhead * 0.5;
+    out.prep = Math.round(out.prep); out.shoot = Math.round(out.shoot); out.post = Math.round(out.post);
+    return out;
   }
 
   /* Seed the estimated column from SBBudget's script-driven estimate
@@ -155,19 +221,46 @@
     var h = '<div class="bs-head">' +
       '<input id="bsName" value="' + esc(sheet.name) + '" title="Budget title">' +
       '<div class="bs-sub">Prepared by <input id="bsPrep" value="' + esc(sheet.preparedBy) + '" placeholder="name">' +
-      ' · Contingency <input id="bsCont" class="bs-cont" value="' + esc(sheet.contingencyPct) + '">%</div></div>';
+      ' · Contingency <input id="bsCont" class="bs-cont" value="' + esc(sheet.contingencyPct) + '">%' +
+      ' · Fringes <input id="bsFr" class="bs-cont" title="Payroll fringes on labor accounts (union H&P + payroll tax, typically 22–32%). Leave 0 if your sheet carries fringe line items." value="' + esc(sheet.fringesPct || 0) + '">%' +
+      ' · Bond <input id="bsBond" class="bs-cont" title="Completion bond, typically ~2% of direct costs" value="' + esc(sheet.bondPct || 0) + '">%' +
+      ' · Ins <input id="bsIns" class="bs-cont" title="Production insurance, typically 2–3% of direct costs" value="' + esc(sheet.insurancePct || 0) + '">%</div></div>';
+    var normRows = norms(sheet);
     sheet.categories.forEach(function (c, i) {
       var t = catTotals(c);
       var pct = tot.grand > 0 ? Math.round(t.est / tot.grand * 100) : 0;
+      var nr = normRows[i] || { flag: 'ok' };
+      var flagHtml = '';
+      if (t.est && nr.flag !== 'ok' && nr.lo != null) {
+        flagHtml = '<b style="color:' + (nr.flag === 'high' ? '#E08A8A' : '#C9A86C') + '" title="typical ' + nr.lo + '–' + nr.hi + '% of budget — worth a second look">' + (nr.flag === 'high' ? '▲' : '▽') + '</b> ';
+      }
       h += '<div class="bs-row' + (i === selected ? ' on' : '') + '" data-i="' + i + '">' +
         '<span class="bs-acct">' + esc(c.acct) + '</span>' +
         '<span class="bs-name">' + esc(c.name) + '</span>' +
         '<span class="bs-amt">' + (t.est ? fm(t.est) : '—') + '</span>' +
-        '<span class="bs-pct">' + (t.est ? pct + '%' : '') + '</span></div>';
+        '<span class="bs-pct">' + flagHtml + (t.est ? pct + '%' : '') + '</span></div>';
     });
     h += '<div class="bs-row bs-total-row"><span class="bs-acct"></span><span class="bs-name">Subtotal</span><span class="bs-amt">' + fm(tot.subtotal) + '</span><span class="bs-pct"></span></div>';
+    if (tot.fringes) h += '<div class="bs-row bs-total-row"><span class="bs-acct"></span><span class="bs-name">Payroll fringes (' + esc(sheet.fringesPct) + '% on labor)</span><span class="bs-amt">' + fm(tot.fringes) + '</span><span class="bs-pct"></span></div>';
+    if (tot.bond) h += '<div class="bs-row bs-total-row"><span class="bs-acct"></span><span class="bs-name">Completion bond (' + esc(sheet.bondPct) + '%)</span><span class="bs-amt">' + fm(tot.bond) + '</span><span class="bs-pct"></span></div>';
+    if (tot.insurance) h += '<div class="bs-row bs-total-row"><span class="bs-acct"></span><span class="bs-name">Insurance (' + esc(sheet.insurancePct) + '%)</span><span class="bs-amt">' + fm(tot.insurance) + '</span><span class="bs-pct"></span></div>';
     h += '<div class="bs-row bs-total-row"><span class="bs-acct">19000</span><span class="bs-name">Contingency (' + esc(sheet.contingencyPct) + '%)</span><span class="bs-amt">' + fm(tot.contingency) + '</span><span class="bs-pct"></span></div>';
     h += '<div class="bs-row bs-grand"><span class="bs-acct"></span><span class="bs-name">GRAND TOTAL' + (tot.actual ? ' · actual ' + fm(tot.actual) : '') + '</span><span class="bs-amt">' + fm(tot.grand) + '</span><span class="bs-pct"></span></div>';
+    if (tot.grand > 0) {
+      var cf = cashflow(sheet);
+      h += '<div class="bs-sub" style="margin-top:8px" title="When the money actually leaves the bank, by phase">CASH NEEDED — prep ' + fm(cf.prep) + ' · shoot ' + fm(cf.shoot) + ' · post ' + fm(cf.post) + '</div>';
+      var flagged = norms(sheet).filter(function (n) { return n.flag !== 'ok'; }).length;
+      if (flagged) h += '<div class="bs-sub" style="margin-top:2px">' + flagged + ' account' + (flagged === 1 ? '' : 's') + ' outside typical bands (▲ heavy · ▽ light) — hover the marker</div>';
+      if (root.CMoney) {
+        try {
+          var money = JSON.parse((root.localStorage && root.localStorage.getItem('SB_Money_v1')) || 'null');
+          if (money && (money.pos || []).length) {
+            var repM = root.CMoney.costReport(sheet, money);
+            h += '<div class="bs-sub" style="margin-top:2px"><a href="/finance/" style="color:inherit">MONEY ROOM — EFC ' + fm(repM.totals.efc) + ' · ' + (repM.totals.variance < 0 ? '<b style="color:#E08A8A">' + fm(-repM.totals.variance) + ' OVER</b>' : fm(repM.totals.variance) + ' under') + '</a></div>';
+          }
+        } catch (e) {}
+      }
+    }
     el.innerHTML = h;
 
     el.querySelectorAll('.bs-row[data-i]').forEach(function (row) {
@@ -177,6 +270,13 @@
     if (nameEl) nameEl.addEventListener('change', function () { sheet.name = nameEl.value; persist(); });
     if (prepEl) prepEl.addEventListener('change', function () { sheet.preparedBy = prepEl.value; persist(); });
     if (contEl) contEl.addEventListener('change', function () { sheet.contingencyPct = Math.max(0, Math.min(30, num(contEl.value))); persist(); renderTopSheet(); });
+    [['bsFr', 'fringesPct', 45], ['bsBond', 'bondPct', 6], ['bsIns', 'insurancePct', 8]].forEach(function (cfg) {
+      var el2 = $(cfg[0]);
+      if (el2) el2.addEventListener('change', function () {
+        sheet[cfg[1]] = Math.max(0, Math.min(cfg[2], num(el2.value)));
+        persist(); renderTopSheet();
+      });
+    });
   }
 
   function renderDetail() {
@@ -308,6 +408,7 @@
     sheetTotals: sheetTotals,
     seedFromEstimate: seedFromEstimate,
     sheetToCsv: sheetToCsv,
+    extras: extras, norms: norms, cashflow: cashflow,
     DEFAULT_CATEGORIES: DEFAULT_CATEGORIES
   };
 })(typeof window !== 'undefined' ? window : globalThis);
