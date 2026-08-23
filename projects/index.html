@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="/timeline/timeline.css?v=20260820d">
 <link rel="stylesheet" href="/producer/producer.css?v=20260820d">
 <link rel="stylesheet" href="/css/cinamate-ui.css?v=20260821c">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
 <style>
 .pv-main{flex:1;overflow-y:auto;padding:20px 24px 40px;max-width:880px;width:100%;margin:0 auto}
 .pv-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:24px 0 10px}
@@ -65,12 +66,21 @@
       <input type="file" id="pvFile" accept=".cinamate,.json" hidden>
     </div>
 
+    <h2>Studio cloud — shared between all owners</h2>
+    <div class="pv-slot">
+      <span>Push the current production to the studio cloud so every owner can open it from any machine. Pushing under the same name replaces the cloud copy.</span>
+      <span class="pv-spacer"></span>
+      <button class="tb-btn gold" id="pvCloudSave" title="Upload the active production to the shared studio cloud">☁⤒ Save to cloud</button>
+    </div>
+    <div id="pvCloud"><p class="pv-note">Checking the studio cloud…</p></div>
+
     <h2>All projects on this machine</h2>
     <div id="pvSlots"></div>
     <div class="pv-slot" style="border-style:dashed">
       <span>Start a fresh production — the current one is stashed to its slot first.</span>
       <span class="pv-spacer"></span>
       <button class="tb-btn" id="pvNew">+ New project</button>
+      <button class="tb-btn" id="pvSample" title="Load a worked example — script, budget, props, set plan, crew">◈ Load sample production</button>
     </div>
   </main>
 </div>
@@ -170,8 +180,95 @@
     }
   });
 
+  /* ── studio cloud (shared productions behind the owner login) ── */
+  var SYNC = '/.netlify/functions/projects-sync';
+  function cloudCall(params, body) {
+    var opts = body
+      ? { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      : { credentials: 'same-origin' };
+    return fetch(SYNC + (params || ''), opts).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok) throw new Error((j && j.error) || ('Cloud error ' + r.status));
+        return j;
+      });
+    });
+  }
+  function renderCloud() {
+    cloudCall('?op=list').then(function (j) {
+      var rows = j.productions || [];
+      $('pvCloud').innerHTML = rows.length ? rows.map(function (p) {
+        return '<div class="pv-slot"><b>☁ ' + esc(p.name) + '</b>' +
+          '<span class="pv-meta">' + kb(p.bytes || 0) +
+          (p.savedAt ? ' · saved ' + esc(p.savedAt) : '') +
+          (p.savedBy ? ' by ' + esc(String(p.savedBy).toUpperCase()) : '') + '</span>' +
+          '<span class="pv-spacer"></span>' +
+          '<button class="tb-btn gold" data-cpull="' + esc(p.name) + '">⤓ Open here</button>' +
+          '<button class="tb-btn" data-cdel="' + esc(p.name) + '">✕</button></div>';
+      }).join('') :
+      '<p class="pv-note">Nothing in the studio cloud yet — Save to cloud shares the current production with every owner.</p>';
+    }).catch(function (e) {
+      $('pvCloud').innerHTML = '<p class="pv-note">' + esc(e.message) + '</p>';
+    });
+  }
+  $('pvCloudSave').addEventListener('click', function () {
+    var m = V.meta(localStorage);
+    var btn = this; btn.disabled = true;
+    cloudCall('', { op: 'push', name: m.active, archive: V.archive(localStorage, m.active, now()) })
+      .then(function (j) {
+        toast('"' + m.active + '" saved to the studio cloud');
+        renderCloud();
+      })
+      .catch(function (e) { toast(e.message); })
+      .then(function () { btn.disabled = false; });
+  });
+  $('pvCloud').addEventListener('click', function (e) {
+    var pull = e.target.getAttribute('data-cpull'), del = e.target.getAttribute('data-cdel');
+    if (pull) {
+      cloudCall('?op=pull&name=' + encodeURIComponent(pull)).then(function (j) {
+        var arch = V.parseArchive(j.archive);
+        if (!confirm('Open "' + pull + '" from the cloud' +
+          (j.savedBy ? ' (saved ' + j.savedAt + ' by ' + String(j.savedBy).toUpperCase() + ')' : '') +
+          '? Your current workspace is stashed to its slot first.')) return;
+        V.saveActive(localStorage, now());
+        var m = V.meta(localStorage);
+        V.restore(localStorage, arch);
+        m = V.meta(localStorage);
+        m.active = pull;
+        m.slots[pull] = { savedAt: now(), stores: arch.stores };
+        localStorage.setItem(V.META_KEY, JSON.stringify(m));
+        render(); toast('Opened "' + pull + '" — every module now shows this production');
+      }).catch(function (e2) { toast(e2.message); });
+    }
+    if (del) {
+      if (!confirm('Remove "' + del + '" from the studio cloud for ALL owners? Copies on people\'s machines are untouched.')) return;
+      cloudCall('', { op: 'delete', name: del })
+        .then(function () { renderCloud(); toast('Removed from the cloud'); })
+        .catch(function (e2) { toast(e2.message); });
+    }
+  });
+
+  /* ── sample production (also reachable as /projects/?sample=1) ── */
+  function loadSample() {
+    fetch('sample.cinamate.json').then(function (r) { return r.text(); }).then(function (txt) {
+      var arch = V.parseArchive(txt);
+      if (!confirm('Load the sample production "' + arch.name + '"? Your current workspace is stashed to its slot first.')) return;
+      V.saveActive(localStorage, now());
+      var m = V.meta(localStorage);
+      var name = arch.name;
+      V.restore(localStorage, arch);
+      m = V.meta(localStorage);
+      m.active = name;
+      m.slots[name] = { savedAt: now(), stores: arch.stores };
+      localStorage.setItem(V.META_KEY, JSON.stringify(m));
+      render(); toast('Sample loaded — tour the modules to see it everywhere');
+    }).catch(function () { toast('Could not load the sample'); });
+  }
+  $('pvSample').addEventListener('click', loadSample);
+  if (/[?&]sample=1/.test(location.search)) setTimeout(loadSample, 300);
+
   render();
-  window.CVaultApp = { render: render };
+  renderCloud();
+  window.CVaultApp = { render: render, renderCloud: renderCloud };
 })();
 </script>
 </body>

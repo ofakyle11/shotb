@@ -1,0 +1,67 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   CINAMATE — mobile layer (additive, media-query-scoped only)
+   Loaded after each module's own styles. Desktop rendering is untouched;
+   below 768px the fixed multi-column workspaces stack, wide tables scroll
+   inside themselves, and touch targets grow. Inputs use 16px so iOS Safari
+   stops auto-zooming into fields.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  /* ── shared chrome ── */
+  .topbar { flex-wrap: wrap; row-gap: 6px; padding: 8px 10px; height: auto; }
+  .topbar .tb-btn { padding: 7px 10px; font-size: 11px; }
+  .tb-meta { flex-basis: 100%; order: 5; font-size: 10px; }
+  input, select, textarea { font-size: 16px; }
+  button, .tb-btn { min-height: 34px; -webkit-tap-highlight-color: transparent; }
+
+  /* ── Writer: three panels → one column ── */
+  .wr-layout { flex-direction: column; overflow-y: auto; height: auto; }
+  .wr-source, .wr-scenes, .wr-preview {
+    width: auto; max-width: none; flex: none;
+    border-right: none; border-left: none; border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Editor: bin / stage / inspector stack ── */
+  .ed-layout { flex-direction: column; overflow-y: auto; }
+  .ed-bin, .ed-side {
+    width: auto; flex: none;
+    border-right: none; border-left: none; border-bottom: 1px solid var(--border);
+  }
+  #edCanvas { max-width: 100%; height: auto; }
+  .ed-timeline { overflow-x: auto; }
+
+  /* ── Set Designer: palette / canvas / inspector stack ── */
+  .sd-layout { flex-direction: column; overflow-y: auto; }
+  .sd-side, .sd-insp {
+    width: auto; flex: 0 0 auto;
+    border-right: none; border-left: none; border-bottom: 1px solid var(--border);
+  }
+  .sd-center { overflow-x: auto; justify-content: flex-start; padding: 12px; }
+
+  /* ── Props: wide tables scroll inside themselves ── */
+  .pp-table { display: block; overflow-x: auto; }
+  .pp-main { padding: 14px 12px 60px; }
+  .pp-total { gap: 14px; font-size: 11px; }
+
+  /* ── Workflow: stage grid → single column ── */
+  .wf-stages { grid-template-columns: 1fr !important; }
+  .wf-hero { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .wf-main { padding: 14px 12px 60px; }
+
+  /* ── Projects ── */
+  .pv-main { padding: 14px 12px 60px; }
+  .pv-mods { columns: 1; }
+
+  /* ── generic safety net for the denser legacy pages (Studio, Producer,
+        Production Office, Boards, Tools): wide content scrolls in place
+        instead of stretching the page sideways. ── */
+  table { max-width: 100%; }
+  .bud-table, .ss-table, .cs-table, .dood-grid, .prod-table { display: block; overflow-x: auto; }
+  pre { overflow-x: auto; }
+}
+
+@media (max-width: 480px) {
+  .topbar .logo { font-size: 15px; }
+  .topbar .tb-btn { padding: 6px 8px; font-size: 10px; }
+}

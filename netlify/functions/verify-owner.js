@@ -64,12 +64,37 @@ function verifyOwnerToken(token) {
 
 exports.verifyOwnerToken = verifyOwnerToken;
 
+// Per-instance brute-force throttle: 12 attempts per IP per 10 minutes.
+// Warm lambda instances share the map; cold starts reset it — this raises
+// the cost of online guessing without a database, it is not a hard wall.
+const ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
+const ATTEMPT_MAX = 12;
+const attempts = new Map();
+function throttled(ip) {
+  const now = Date.now();
+  if (attempts.size > 500) attempts.clear();
+  const a = attempts.get(ip);
+  if (!a || now - a.t > ATTEMPT_WINDOW_MS) { attempts.set(ip, { n: 1, t: now }); return false; }
+  a.n++;
+  return a.n > ATTEMPT_MAX;
+}
+function clientIp(event) {
+  const h = event.headers || {};
+  return h["x-nf-client-connection-ip"] ||
+    String(h["x-forwarded-for"] || "").split(",")[0].trim() || "unknown";
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return respond(204, {});
   if (event.httpMethod !== "POST") return respond(405, { error: "POST only" });
 
   if (!process.env.OWNER_TOKEN_SECRET) {
     return respond(500, { error: "Owner auth not configured on server" });
+  }
+
+  if (throttled(clientIp(event))) {
+    return respond(429, { error: "Too many attempts — wait a few minutes and try again" });
   }
 
   let body;
@@ -87,11 +112,15 @@ exports.handler = async (event) => {
   const envVar = `OWNER_PW_${nameLower.toUpperCase()}`;
   const expected = process.env[envVar];
 
-  if (!expected) return respond(401, { error: "Invalid name or password" });
+  if (!expected) {
+    await sleep(150 + Math.floor(Math.random() * 250)); // uniform failure timing
+    return respond(401, { error: "Invalid name or password" });
+  }
   // Trim both sides — pasted passwords often carry stray whitespace, and
-  // env values can pick up a trailing newline. Our passwords are hex/base64,
-  // so edge whitespace is never meaningful.
+  // env values can pick up a trailing newline. Edge whitespace is never
+  // meaningful in our passwords.
   if (!safeEqual(String(password).trim(), String(expected).trim())) {
+    await sleep(150 + Math.floor(Math.random() * 250));
     return respond(401, { error: "Invalid name or password" });
   }
 

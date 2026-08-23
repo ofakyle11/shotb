@@ -191,6 +191,11 @@ execSync('zip -qj ' + JSON.stringify(join(work, 'verify-owner.zip')) + ' ' + JSO
 const fnZip = readFileSync(join(work, 'verify-owner.zip'));
 const fnSha = createHash('sha256').update(fnZip).digest('hex');
 
+cpSync(join(ROOT, 'netlify/functions/projects-sync.js'), join(fnDir, 'projects-sync.js'));
+execSync('zip -qj ' + JSON.stringify(join(work, 'projects-sync.zip')) + ' ' + JSON.stringify(join(fnDir, 'projects-sync.js')));
+const syncZip = readFileSync(join(work, 'projects-sync.zip'));
+const syncSha = createHash('sha256').update(syncZip).digest('hex');
+
 cpSync(join(ROOT, 'netlify/functions/gate.js'), join(fnRoot, 'gate.js'));
 if (terser) {
   writeFileSync(join(fnRoot, 'gate.js'), await minifyJs(readFileSync(join(fnRoot, 'gate.js'), 'utf8'), 'gate.js'));
@@ -228,6 +233,8 @@ if (!siteId) {
 const acct = await api('/accounts');
 const accountId = Array.isArray(acct.body) && acct.body[0] && acct.body[0].id;
 const wanted = {
+  CIN_API_TOKEN: process.env.CIN_API_TOKEN,
+  CIN_SITE_ID: process.env.CIN_SITE_ID,
   OWNER_PW_MZ465: process.env.OWNER_PW_MZ465,
   OWNER_PW_KZ465: process.env.OWNER_PW_KZ465,
   OWNER_PW_HZ465: process.env.OWNER_PW_HZ465,
@@ -267,11 +274,11 @@ for (const p of walk(site)) {
   files[rel] = sha;
   (bySha[sha] = bySha[sha] || []).push(p);
 }
-console.log(`Deploying ${Object.keys(files).length} public files + verify-owner + gate functions`);
+console.log(`Deploying ${Object.keys(files).length} public files + verify-owner/gate/projects-sync functions`);
 
 const dep = await api(`/sites/${siteId}/deploys`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ files, functions: { 'verify-owner': fnSha, 'gate': gateSha } }),
+  body: JSON.stringify({ files, functions: { 'verify-owner': fnSha, 'gate': gateSha, 'projects-sync': syncSha } }),
 });
 if (!dep.ok) { console.error('Deploy create failed:', dep.status, dep.body); process.exit(1); }
 const deployId = dep.body.id;
@@ -285,7 +292,7 @@ for (const sha of dep.body.required || []) {
   }
 }
 const requiredFns = dep.body.required_functions || [];
-for (const [name, sha, zip] of [['verify-owner', fnSha, fnZip], ['gate', gateSha, gateZip]]) {
+for (const [name, sha, zip] of [['verify-owner', fnSha, fnZip], ['gate', gateSha, gateZip], ['projects-sync', syncSha, syncZip]]) {
   if (!requiredFns.includes(sha)) continue;
   const r = await api(`/deploys/${deployId}/functions/${name}?runtime=js`, {
     method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: zip });
