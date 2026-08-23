@@ -69,9 +69,8 @@ button:disabled{opacity:.5;cursor:wait}
           err.textContent = 'That login didn’t match — check the name and password.';
           return;
         }
-        var maxAge = 12 * 60 * 60;
-        document.cookie = 'cin_owner=' + encodeURIComponent(res.j.token) +
-          '; Path=/; Max-Age=' + maxAge + '; Secure; SameSite=Lax';
+        /* The session cookie arrives HttpOnly via Set-Cookie on the response
+           above — page scripts never touch the token. */
         try {
           sessionStorage.setItem('cinamate.session',
             JSON.stringify({ operator: String(res.j.name || name).toUpperCase(), t: Date.now() }));

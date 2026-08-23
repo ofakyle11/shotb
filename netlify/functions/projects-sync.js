@@ -84,7 +84,9 @@ async function writeIndex(idx) {
 }
 
 function cleanName(name) {
-  const n = String(name || '').trim().slice(0, 80);
+  const n = String(name || '')
+    .replace(/[\u0000-\u001f\u007f]/g, '')   // control chars never belong in a title
+    .trim().slice(0, 80);
   if (!n || n === INDEX_KEY) return null;
   return n;
 }

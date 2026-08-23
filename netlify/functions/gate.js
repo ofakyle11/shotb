@@ -76,26 +76,31 @@ exports.handler = async (event) => {
   }
 
   let rel = normalize(path).replace(/\\/g, '/').replace(/^\/+/, '');
-  if (rel.indexOf('..') >= 0) {
+  if (rel.indexOf('..') >= 0 || rel.indexOf('\0') >= 0) {
     return { statusCode: 400, body: 'Bad path', headers: { 'Content-Type': 'text/plain' } };
   }
-  let file = join(__dirname, 'site', rel);
-  if (!rel || rel.slice(-1) === '/' || (existsSync(file) && statSync(file).isDirectory())) {
-    file = join(file, 'index.html');
-  }
-  if (!existsSync(file) && existsSync(file + '.html')) file += '.html'; // pretty URLs (/app)
-  if (!existsSync(file)) {
+  let file, body, ext;
+  try {
+    file = join(__dirname, 'site', rel);
+    if (!rel || rel.slice(-1) === '/' || (existsSync(file) && statSync(file).isDirectory())) {
+      file = join(file, 'index.html');
+    }
+    if (!existsSync(file) && existsSync(file + '.html')) file += '.html'; // pretty URLs (/app)
+    if (!existsSync(file)) throw new Error('missing');
+    ext = (file.split('.').pop() || '').toLowerCase();
+    body = readFileSync(file);
+  } catch (e) {
     return { statusCode: 404, body: 'Not found', headers: {
       'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } };
   }
-  const ext = (file.split('.').pop() || '').toLowerCase();
-  const body = readFileSync(file);
   const bin = BINARY.has(ext);
   const headersOut = {
     'Content-Type': MIME[ext] || 'application/octet-stream',
     'Cache-Control': 'private, no-store',
     'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'SAMEORIGIN'
+    'X-Frame-Options': 'SAMEORIGIN',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
   };
   // _headers rules never apply to function responses, so the cross-origin
   // isolation ffmpeg.wasm threading needs is re-issued here for the same

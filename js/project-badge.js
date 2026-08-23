@@ -69,12 +69,27 @@
 
   function cookieOwner() {
     try {
+      /* identity only — the real session token is HttpOnly and never read here */
+      var who = /(?:^|;\s*)cin_who=([^;]+)/.exec(document.cookie || '');
+      if (who) {
+        var n = decodeURIComponent(who[1]).trim().toLowerCase();
+        if (/^[a-z]{2}\d{3}$/.test(n)) return n;
+      }
       var m = /(?:^|;\s*)cin_owner=([^;]+)/.exec(document.cookie || '');
-      if (!m) return null;
-      var parts = decodeURIComponent(m[1]).split(':');
-      if (parts.length !== 4 || parts[0] !== 'owner') return null;
-      if (!(+parts[2] > Date.now())) return null;
-      return parts[1].toLowerCase();
+      if (m) {
+        var parts = decodeURIComponent(m[1]).split(':');
+        if (parts.length === 4 && parts[0] === 'owner' && +parts[2] > Date.now()) {
+          return parts[1].toLowerCase();
+        }
+      }
+      var raw = sessionStorage.getItem('cinamate.session');
+      if (raw) {
+        var s = JSON.parse(raw);
+        if (s && typeof s.operator === 'string' && /^[a-z]{2}\d{3}$/i.test(s.operator)) {
+          return s.operator.toLowerCase();
+        }
+      }
+      return null;
     } catch (e) { return null; }
   }
   function snapshotString() {

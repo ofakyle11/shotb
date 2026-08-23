@@ -21,15 +21,31 @@
 
 const crypto = require("crypto");
 
-const CORS = {
-  "Access-Control-Allow-Origin":  "*",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+// No CORS headers on purpose: sign-in is same-origin only. Without an
+// Access-Control-Allow-Origin, foreign pages can neither read responses
+// nor drive credential-guessing through visitors' browsers.
+const BASE_HEADERS = {
   "Content-Type": "application/json",
+  "Cache-Control": "no-store",
 };
 
-function respond(statusCode, body) {
-  return { statusCode, headers: CORS, body: JSON.stringify(body) };
+function respond(statusCode, body, setCookies) {
+  const out = { statusCode, headers: BASE_HEADERS, body: JSON.stringify(body) };
+  if (setCookies && setCookies.length) {
+    out.multiValueHeaders = { "Set-Cookie": setCookies };
+  }
+  return out;
+}
+
+// The real token travels HttpOnly so page scripts (and any future XSS) can
+// never read it; cin_who carries only the owner short for UI labels.
+function sessionCookies(token, name, maxAge) {
+  return [
+    "cin_owner=" + encodeURIComponent(token) +
+      "; Path=/; Max-Age=" + maxAge + "; Secure; HttpOnly; SameSite=Lax",
+    "cin_who=" + encodeURIComponent(name) +
+      "; Path=/; Max-Age=" + maxAge + "; Secure; SameSite=Lax",
+  ];
 }
 
 function safeEqual(a, b) {
@@ -102,12 +118,20 @@ exports.handler = async (event) => {
   try { body = JSON.parse(event.body || "{}"); }
   catch { return respond(400, { error: "Invalid JSON body" }); }
 
+  if (body.op === "logout") {
+    return respond(200, { ok: true }, [
+      "cin_owner=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax",
+      "cin_who=; Path=/; Max-Age=0; Secure; SameSite=Lax",
+    ]);
+  }
+
   const { name, password } = body;
   if (!name || !password) return respond(400, { error: "name and password required" });
 
   // Only mz465, kz465, hz465, rz465 and dz465 are valid owner names.
   const nameLower = String(name).toLowerCase();
   if (nameLower !== 'mz465' && nameLower !== 'kz465' && nameLower !== 'hz465' && nameLower !== 'rz465' && nameLower !== 'dz465') {
+    await sleep(150 + Math.floor(Math.random() * 250)); // same timing as a wrong password
     return respond(401, { error: "Invalid name or password" });
   }
   const envVar = `OWNER_PW_${nameLower.toUpperCase()}`;
@@ -131,5 +155,5 @@ exports.handler = async (event) => {
     token,
     name: nameLower,
     expires: Date.now() + 12 * 60 * 60 * 1000,
-  });
+  }, sessionCookies(token, nameLower, 12 * 60 * 60));
 };
