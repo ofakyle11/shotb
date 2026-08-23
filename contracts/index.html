@@ -28,6 +28,7 @@
 .dm-val{font-family:var(--mono)}
 .dm-committed{font-family:var(--mono);font-size:9.5px;color:#9BCB9B}
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
 <div class="app">
@@ -177,5 +178,6 @@
   window.CDealApp = { render: render, state: st };
 })();
 </script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
 </body>
 </html>

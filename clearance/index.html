@@ -32,6 +32,7 @@
 .cl-open{background:#C9A86C14;border:1px solid var(--gold);color:var(--gold)}
 select.cl-status{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 6px;font-size:11px}
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
 <div class="app">
@@ -148,5 +149,6 @@ select.cl-status{background:var(--surface2);border:1px solid var(--border);color
   window.CClearApp = { render: render, state: st };
 })();
 </script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
 </body>
 </html>

@@ -27,6 +27,7 @@ button:disabled{opacity:.5;cursor:wait}
 .note{margin-top:18px;font-size:11px;color:var(--patina);text-align:center;line-height:1.6}
 .note a{color:var(--brass);text-decoration:none}
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
 <form class="card" id="f">
@@ -84,5 +85,6 @@ button:disabled{opacity:.5;cursor:wait}
   });
 })();
 </script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
 </body>
 </html>

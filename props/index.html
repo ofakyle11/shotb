@@ -44,6 +44,7 @@
 .pp-rfq{width:100%;min-height:220px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.6}
 .pp-learn{font-family:var(--mono);font-size:10px;color:var(--dim)}
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
 <div class="app">
@@ -285,5 +286,6 @@
   window.CPropsApp = { render: renderRows, findHouses: findHouses, state: st };
 })();
 </script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
 </body>
 </html>

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Casting Office</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Casting Office">
+<meta property="og:description" content="Speaking roles pulled from the script, a candidate pipeline with hold-conflict warnings, one-click audition sides, and plain-language offer memos.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.co-main{flex:1;overflow-y:auto;padding:20px 24px 60px;max-width:1080px;width:100%;margin:0 auto}
+.co-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.co-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.co-bar input,.co-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
+.co-table{width:100%;border-collapse:collapse;font-size:12px}
+.co-table th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+.co-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.co-table input,.co-table select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 6px;font-size:11.5px;max-width:120px}
+.co-table input.co-wide{max-width:160px}
+.co-num{font-family:var(--mono);text-align:right}
+.co-strip{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:22px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin:10px 0}
+.co-strip b{color:var(--gold);font-size:15px}
+.co-rolerow{cursor:pointer}
+.co-rolerow.sel td{background:var(--surface)}
+.co-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
+.co-tag.booked{color:var(--gold);border-color:var(--gold)}
+.co-conflict{background:var(--surface);border:1px solid var(--red,#c0504d);border-radius:10px;padding:10px 14px;margin:8px 0;font-size:12px;color:var(--red,#e07a77);font-family:var(--mono)}
+.co-note{font-size:11px;color:var(--dim);line-height:1.6}
+.co-text{width:100%;min-height:240px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.6}
+.co-spacer{flex:1}
+.co-scenes{font-family:var(--mono);font-size:10px;color:var(--dim)}
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Casting Office — roles, candidates, sides, offers</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/production/">Cast Intelligence</a>
+    <a class="tb-btn" href="/contracts/">Contracts</a>
+    <a class="tb-btn" href="/timeline/">← Studio</a>
+  </header>
+
+  <main class="co-main">
+    <h2>1 · Roles board</h2>
+    <div class="co-bar">
+      <button class="tb-btn gold" id="coSeed" title="Scan the working screenplay for ALL-CAPS dialogue cues and list every speaking role">⟳ Seed roles from script</button>
+      <button class="tb-btn" id="coAddRole">+ Add role</button>
+      <span class="co-spacer"></span>
+      <span class="co-note">Click a role to work its candidate list below.</span>
+    </div>
+    <div class="co-strip" id="coStrip"></div>
+    <table class="co-table"><thead><tr>
+      <th>Role</th><th>Scenes</th><th class="co-num">Dialogue cues</th><th class="co-num">Candidates</th><th>Status</th><th></th>
+    </tr></thead><tbody id="coRoles"></tbody></table>
+    <p class="co-note">Roles are read from ALL-CAPS dialogue cues in the working screenplay — walla, transitions and sluglines are filtered out, but scan the list and prune anything the parser mistook for a character. Manual roles survive a re-seed.</p>
+
+    <h2 id="coCandTitle">2 · Candidates</h2>
+    <div class="co-bar">
+      <button class="tb-btn gold" id="coAddCand">+ Add candidate</button>
+      <span class="co-spacer"></span>
+      <span class="co-note">Statuses: submitted → callback → test → offer → hold → booked / released. Holds need both dates to be checked for conflicts.</span>
+    </div>
+    <table class="co-table"><thead><tr>
+      <th>Name</th><th>Contact</th><th>Self-tape</th><th>Status</th><th>Hold from</th><th>Hold to</th><th>Rate</th><th>Notes</th><th></th>
+    </tr></thead><tbody id="coCands"></tbody></table>
+    <div id="coConflicts"></div>
+    <p class="co-note">Contacts and self-tape links are whatever you paste in — nothing here is looked up or invented. Confirm holds directly with the reps before shifting the schedule; date ranges drift, so verify before relying on them.</p>
+
+    <h2>3 · Audition sides</h2>
+    <div class="co-bar">
+      <select id="coSideRole"></select>
+      <button class="tb-btn gold" id="coMakeSides">Generate sides</button>
+      <span class="co-spacer"></span>
+      <button class="tb-btn" id="coCopySides">Copy</button>
+      <button class="tb-btn" id="coDlSides" title="Save as a plain-text file">⭳ Download .txt</button>
+    </div>
+    <textarea class="co-text" id="coSides" spellcheck="false" placeholder="Pick a role and generate — every scene where the character speaks, slugline and body, numbered."></textarea>
+    <p class="co-note">Sides come straight from the working screenplay in this browser — regenerate after rewrites, and verify the draft is current before sending to reps.</p>
+
+    <h2>4 · Offer memo</h2>
+    <div class="co-bar">
+      <input id="coOffProd" placeholder="Production title" style="min-width:180px">
+      <input id="coOffActor" placeholder="Performer" style="min-width:150px">
+      <input id="coOffRole" placeholder="Role" style="min-width:130px">
+      <input id="coOffStart" type="date" title="Start date">
+      <input id="coOffEnd" type="date" title="End date">
+    </div>
+    <div class="co-bar">
+      <input id="coOffRate" placeholder="Rate — e.g. 3500" style="width:120px">
+      <select id="coOffUnit"><option value="weekly">per week</option><option value="daily">per day</option></select>
+      <input id="coOffBilling" placeholder="Billing — e.g. Main titles, 3rd position" style="min-width:220px">
+      <input id="coOffContact" placeholder="Your name" style="min-width:130px">
+      <span class="co-spacer"></span>
+      <button class="tb-btn" id="coCopyOffer">Copy</button>
+      <button class="tb-btn gold" id="coCommit" title="Record the booking as a committed cost (open PO) in the Money Room">$ Commit to Money Room</button>
+    </div>
+    <textarea class="co-text" id="coOffer" spellcheck="false"></textarea>
+    <p class="co-note">The memo states business points only — it is deliberately non-binding, and production counsel reviews the long-form before anyone signs. Committing sends an open PO to the Money Room under acct 1400 (Cast) so the cost report sees the money before the ink dries.</p>
+  </main>
+</div>
+
+<div class="toast" id="coToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="/finance/lib-money.js?v=20260823a"></script>
+<script src="lib-castdesk.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var C = window.CCastDesk;
+  var KEY = 'SB_CastingDesk_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('coToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3200); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+
+  var st = readLS(KEY) || { roles: [], sel: '', offer: {} };
+  st.roles = st.roles || []; st.offer = st.offer || {};
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  function selRole() { return st.roles.filter(function (r) { return r.id === st.sel; })[0] || null; }
+  function scriptText() { return String((readLS('SB_Timeline_v1') || {}).scriptText || ''); }
+  function flatCands() {
+    var out = [];
+    st.roles.forEach(function (r) {
+      (r.candidates || []).forEach(function (c) {
+        out.push({ id: c.id, name: c.name, role: r.name, status: c.status, holdFrom: c.holdFrom, holdTo: c.holdTo });
+      });
+    });
+    return out;
+  }
+
+  /* ── 1 · roles board ── */
+  function renderStrip() {
+    var s = C.boardSummary(st.roles);
+    $('coStrip').innerHTML =
+      '<span>Roles <b>' + s.roles + '</b></span>' +
+      '<span>Cast <b>' + s.rolesCast + '</b></span>' +
+      C.STATUSES.map(function (k) { return '<span>' + esc(k) + ' <b>' + s[k] + '</b></span>'; }).join('');
+  }
+  function roleStatusTag(r) {
+    var booked = (r.candidates || []).filter(function (c) { return c.status === 'booked'; })[0];
+    if (booked) return '<span class="co-tag booked">booked · ' + esc(booked.name) + '</span>';
+    var offers = (r.candidates || []).filter(function (c) { return c.status === 'offer' || c.status === 'hold'; }).length;
+    if (offers) return '<span class="co-tag">' + offers + ' in play</span>';
+    return '<span class="co-tag">open</span>';
+  }
+  function renderRoles() {
+    renderStrip();
+    $('coRoles').innerHTML = st.roles.map(function (r) {
+      return '<tr class="co-rolerow' + (r.id === st.sel ? ' sel' : '') + '" data-role="' + r.id + '">' +
+        '<td><input class="co-wide" data-f="name" value="' + esc(r.name) + '"></td>' +
+        '<td class="co-scenes">' + (r.sceneList && r.sceneList.length ? esc(r.sceneList.join(', ')) : (r.manual ? 'manual' : '—')) + '</td>' +
+        '<td class="co-num">' + (r.lines || 0) + '</td>' +
+        '<td class="co-num">' + (r.candidates || []).length + '</td>' +
+        '<td>' + roleStatusTag(r) + '</td>' +
+        '<td><button class="tb-btn" data-del="' + r.id + '">✕</button></td></tr>';
+    }).join('') || '<tr><td colspan="6" class="co-note">No roles yet — Seed from the working screenplay, or add roles by hand.</td></tr>';
+    renderSideSelect();
+  }
+  $('coSeed').addEventListener('click', function () {
+    var script = scriptText();
+    if (script.replace(/\s+/g, '').length < 40) return toast('No screenplay found — load one in the Studio or Writer first');
+    var found = C.charactersFromScript(script);
+    var byName = {};
+    st.roles.forEach(function (r) { byName[String(r.name).toUpperCase()] = r; });
+    var kept = st.roles.filter(function (r) { return r.manual; });
+    st.roles = found.map(function (f) {
+      var prev = byName[f.name];
+      return { id: prev ? prev.id : C.uid(), name: f.name, scenes: f.scenes, lines: f.lines,
+               sceneList: f.sceneList, manual: false, candidates: prev ? (prev.candidates || []) : [] };
+    }).concat(kept.filter(function (r) {
+      return !found.some(function (f) { return f.name === String(r.name).toUpperCase(); });
+    }));
+    if (!selRole()) st.sel = st.roles.length ? st.roles[0].id : '';
+    save(); renderAll();
+    toast(found.length + ' speaking roles found across ' + C.splitScenes(script).length + ' scenes');
+  });
+  $('coAddRole').addEventListener('click', function () {
+    var r = { id: C.uid(), name: 'NEW ROLE', scenes: 0, lines: 0, sceneList: [], manual: true, candidates: [] };
+    st.roles.push(r); st.sel = r.id;
+    save(); renderAll();
+  });
+  $('coRoles').addEventListener('change', function (e) {
+    var tr = e.target.closest('tr'); if (!tr) return;
+    var r = st.roles.filter(function (x) { return x.id === tr.getAttribute('data-role'); })[0];
+    if (!r) return;
+    if (e.target.getAttribute('data-f') === 'name') { r.name = e.target.value; save(); renderAll(); }
+  });
+  $('coRoles').addEventListener('click', function (e) {
+    var del = e.target.getAttribute('data-del');
+    if (del) {
+      st.roles = st.roles.filter(function (x) { return x.id !== del; });
+      if (st.sel === del) st.sel = st.roles.length ? st.roles[0].id : '';
+      save(); renderAll(); return;
+    }
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+    var tr = e.target.closest('tr');
+    if (tr && tr.getAttribute('data-role')) { st.sel = tr.getAttribute('data-role'); save(); renderAll(); }
+  });
+
+  /* ── 2 · candidates ── */
+  function renderCands() {
+    var r = selRole();
+    $('coCandTitle').textContent = '2 · Candidates' + (r ? ' — ' + r.name : '');
+    var rows = r ? (r.candidates || []) : [];
+    $('coCands').innerHTML = rows.map(function (c) {
+      return '<tr data-cand="' + c.id + '">' +
+        '<td><input class="co-wide" data-f="name" value="' + esc(c.name) + '"></td>' +
+        '<td><input class="co-wide" data-f="contact" value="' + esc(c.contact) + '" placeholder="agent / email"></td>' +
+        '<td><input data-f="selfTape" value="' + esc(c.selfTape) + '" placeholder="tape url">' +
+          (/^https?:\/\//i.test(c.selfTape || '') ? ' <a class="tb-btn" target="_blank" rel="noopener" href="' + esc(c.selfTape) + '">▶</a>' : '') + '</td>' +
+        '<td><select data-f="status">' + C.STATUSES.map(function (s) {
+          return '<option' + (s === c.status ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></td>' +
+        '<td><input data-f="holdFrom" type="date" value="' + esc(c.holdFrom) + '"></td>' +
+        '<td><input data-f="holdTo" type="date" value="' + esc(c.holdTo) + '"></td>' +
+        '<td><input data-f="rate" style="width:70px" value="' + esc(c.rate) + '" placeholder="rate"></td>' +
+        '<td><input class="co-wide" data-f="notes" value="' + esc(c.notes) + '"></td>' +
+        '<td><button class="tb-btn" data-offer="' + c.id + '" title="Draft the offer memo for this candidate — section 4">✉</button> ' +
+        '<button class="tb-btn" data-del="' + c.id + '">✕</button></td></tr>';
+    }).join('') || '<tr><td colspan="9" class="co-note">' + (r ? 'No candidates yet for this role.' : 'Select a role above first.') + '</td></tr>';
+    renderConflicts();
+  }
+  function renderConflicts() {
+    var conflicts = C.holdConflicts(flatCands());
+    $('coConflicts').innerHTML = conflicts.map(function (k) {
+      return '<div class="co-conflict">⚠ ' + esc(k.name) + ' — ' +
+        esc(k.a.status) + ' as ' + esc(k.a.role || '(role)') + ' ' + esc(k.a.from) + ' → ' + esc(k.a.to) +
+        ' overlaps ' + esc(k.b.status) + ' as ' + esc(k.b.role || '(role)') + ' ' + esc(k.b.from) + ' → ' + esc(k.b.to) +
+        '. Resolve with the reps before booking.</div>';
+    }).join('');
+  }
+  $('coAddCand').addEventListener('click', function () {
+    var r = selRole();
+    if (!r) return toast('Select a role on the board first');
+    r.candidates = r.candidates || [];
+    r.candidates.push({ id: C.uid(), name: '', contact: '', selfTape: '', status: 'submitted',
+                        holdFrom: '', holdTo: '', rate: '', notes: '' });
+    save(); renderAll();
+  });
+  $('coCands').addEventListener('change', function (e) {
+    var r = selRole(); if (!r) return;
+    var tr = e.target.closest('tr'); if (!tr) return;
+    var c = (r.candidates || []).filter(function (x) { return x.id === tr.getAttribute('data-cand'); })[0];
+    if (!c) return;
+    var f = e.target.getAttribute('data-f');
+    if (f) c[f] = e.target.value;
+    save(); renderAll();
+    if (f === 'status' && c.status === 'booked') toast(c.name + ' booked as ' + r.name + ' — draft the offer in section 4');
+  });
+  $('coCands').addEventListener('click', function (e) {
+    var r = selRole(); if (!r) return;
+    var del = e.target.getAttribute('data-del'), off = e.target.getAttribute('data-offer');
+    if (del) {
+      r.candidates = (r.candidates || []).filter(function (x) { return x.id !== del; });
+      save(); renderAll(); return;
+    }
+    if (off) {
+      var c = (r.candidates || []).filter(function (x) { return x.id === off; })[0];
+      if (!c) return;
+      st.offer.actor = c.name; st.offer.role = r.name;
+      if (c.rate) st.offer.rate = c.rate;
+      if (c.holdFrom) st.offer.startDate = c.holdFrom;
+      if (c.holdTo) st.offer.endDate = c.holdTo;
+      save(); fillOfferInputs(); renderOffer();
+      toast('Offer memo drafted for ' + (c.name || 'the candidate') + ' — section 4');
+    }
+  });
+
+  /* ── 3 · sides ── */
+  function renderSideSelect() {
+    var cur = $('coSideRole').value;
+    $('coSideRole').innerHTML = st.roles.map(function (r) {
+      return '<option value="' + esc(r.name) + '"' + (r.name === cur || (!cur && r.id === st.sel) ? ' selected' : '') + '>' + esc(r.name) + '</option>';
+    }).join('') || '<option value="">— no roles yet —</option>';
+  }
+  $('coMakeSides').addEventListener('click', function () {
+    var who = $('coSideRole').value;
+    if (!who) return toast('Seed or add a role first');
+    var text = C.sidesFor(scriptText(), who);
+    if (!text) return toast(who + ' has no dialogue in the working screenplay');
+    $('coSides').value = text;
+    toast('Sides ready for ' + who);
+  });
+  $('coCopySides').addEventListener('click', function () {
+    if (!$('coSides').value) return toast('Generate sides first');
+    navigator.clipboard.writeText($('coSides').value).then(function () { toast('Sides copied'); });
+  });
+  $('coDlSides').addEventListener('click', function () {
+    var text = $('coSides').value;
+    if (!text) return toast('Generate sides first');
+    var who = ($('coSideRole').value || 'role').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+    a.download = 'sides-' + who + '.txt';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+    toast('Sides downloaded');
+  });
+
+  /* ── 4 · offer memo ── */
+  var OFF_FIELDS = [['coOffProd', 'production'], ['coOffActor', 'actor'], ['coOffRole', 'role'],
+    ['coOffStart', 'startDate'], ['coOffEnd', 'endDate'], ['coOffRate', 'rate'],
+    ['coOffUnit', 'rateUnit'], ['coOffBilling', 'billing'], ['coOffContact', 'contact']];
+  function fillOfferInputs() {
+    OFF_FIELDS.forEach(function (p) { $(p[0]).value = st.offer[p[1]] || ($(p[0]).tagName === 'SELECT' ? 'weekly' : ''); });
+  }
+  function renderOffer() {
+    var o = {};
+    OFF_FIELDS.forEach(function (p) { o[p[1]] = $(p[0]).value; });
+    o.production = o.production || (readLS('CIN_Projects_v1') || {}).active || '';
+    o.date = new Date().toISOString().slice(0, 10);
+    $('coOffer').value = C.offerLetter(o);
+  }
+  OFF_FIELDS.forEach(function (p) {
+    $(p[0]).addEventListener('input', function () { st.offer[p[1]] = $(p[0]).value; save(); renderOffer(); });
+    $(p[0]).addEventListener('change', function () { st.offer[p[1]] = $(p[0]).value; save(); renderOffer(); });
+  });
+  $('coCopyOffer').addEventListener('click', function () {
+    navigator.clipboard.writeText($('coOffer').value).then(function () { toast('Offer memo copied'); });
+  });
+  $('coCommit').addEventListener('click', function () {
+    var amount = parseFloat(String($('coOffRate').value).replace(/[^0-9.]/g, ''));
+    if (!(amount > 0)) return toast('Enter a numeric rate first — the Money Room needs an amount');
+    var actor = $('coOffActor').value || '(performer)';
+    var role = $('coOffRole').value || '(role)';
+    var money = JSON.parse(localStorage.getItem('SB_Money_v1') || 'null') || CMoney.blank();
+    var po = CMoney.addPO(money, { vendor: actor, desc: 'Cast offer — ' + role + ' (' + ($('coOffUnit').value === 'daily' ? 'daily' : 'weekly') + ' rate)',
+      acct: '1400', amount: amount, date: new Date().toISOString().slice(0, 10) });
+    localStorage.setItem('SB_Money_v1', JSON.stringify(money));
+    toast(po.num + ' committed — $' + amount.toLocaleString() + ' to ' + actor + ' on acct 1400 (Cast)');
+  });
+
+  /* ── init ── */
+  function renderAll() { renderRoles(); renderCands(); }
+  fillOfferInputs();
+  renderAll();
+  renderOffer();
+  window.CCastDeskApp = { render: renderAll, state: st };
+})();
+</script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
+</body>
+</html>

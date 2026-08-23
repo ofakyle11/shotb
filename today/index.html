@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Today</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:title" content="CINAMATE — Today">
+<meta property="og:description" content="Today's call sheet on your phone — call time, scenes, cast, locations, hospital and safety notes.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<link rel="manifest" href="/manifest.webmanifest">
+<style>
+.td-main{flex:1;overflow-y:auto;padding:16px 14px 70px;max-width:640px;width:100%;margin:0 auto}
+.td-call{background:var(--surface);border:1px solid var(--gold);border-radius:14px;padding:18px;text-align:center;margin-bottom:12px}
+.td-call .big{font-family:var(--display);font-size:34px;color:var(--gold);letter-spacing:.03em}
+.td-call .sub{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:4px}
+.td-sec{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px}
+.td-sec h3{font-size:11px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px}
+.td-row{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;align-items:baseline}
+.td-row:last-child{border-bottom:none}
+.td-num{font-family:var(--mono);color:var(--gold);min-width:30px}
+.td-dn{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.td-note{font-size:11.5px;color:var(--dim);line-height:1.65}
+.td-hosp{border-color:#E08A8A}
+.td-hosp b{color:#E08A8A}
+.td-bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.td-bar select{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Today — the day, in your pocket</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/producer/#schedule">Schedule</a>
+    <a class="tb-btn" href="/dailies/">Dailies</a>
+  </header>
+
+  <main class="td-main">
+    <div class="td-bar">
+      <select id="tdDay"></select>
+    </div>
+    <div id="tdSheet"><p class="td-note">Pull the production from the studio cloud on this device (Projects → Studio cloud → Open here), and the schedule built in the Producer Suite shows up here — call time, scenes, cast, hospital and safety notes, phone-sized.</p></div>
+  </main>
+</div>
+
+<div class="toast" id="tdToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="/safety/lib-safety.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function eighths(n) { var w = Math.floor(n / 8), f = n % 8; return (w ? w : '') + (f ? (w ? ' ' : '') + f + '/8' : (w ? '' : '0')); }
+
+  var board = readLS('SB_ScheduleBoard_v1') || { scenes: [], dayMeta: {} };
+  var scenes = Array.isArray(board.scenes) ? board.scenes : [];
+  var maxDay = -1;
+  scenes.forEach(function (s) { if (s.day != null && s.day > maxDay) maxDay = s.day; });
+
+  function todayGuess() {
+    var mmdd = (new Date().getMonth() + 1) + '/' + new Date().getDate();
+    var mmdd2 = ('0' + (new Date().getMonth() + 1)).slice(-2) + '/' + ('0' + new Date().getDate()).slice(-2);
+    for (var d = 0; d <= maxDay; d++) {
+      var m = (board.dayMeta || {})[d];
+      if (m && m.date && (m.date === mmdd || m.date === mmdd2)) return d;
+    }
+    return 0;
+  }
+
+  function render(d) {
+    var scs = scenes.filter(function (s) { return s.day === d; });
+    if (!scenes.length) return; // keep the empty-state note
+    var meta = (board.dayMeta || {})[d] || {};
+    var tl = readLS('SB_Timeline_v1') || {};
+    var title = (readLS('CIN_Projects_v1') || {}).active || tl.title || 'Untitled Film';
+    var cast = {};
+    scs.forEach(function (s) { (s.cast || []).forEach(function (c) { cast[c] = 1; }); });
+    var locs = [];
+    scs.forEach(function (s) {
+      var L = String(s.heading || '').replace(/^(?:INT|EXT|INT\/EXT|I\/E)[.\s]+/i, '').split(/\s+-\s+/)[0].trim();
+      if (L && locs.indexOf(L) < 0) locs.push(L);
+    });
+    /* hospital: scout book locations matched loosely against today's sets */
+    var scout = readLS('SB_ScoutBook_v1') || {};
+    var scoutLocs = scout.locations || scout.items || [];
+    var hosp = null;
+    (Array.isArray(scoutLocs) ? scoutLocs : []).forEach(function (L) {
+      if (hosp || !L || !L.hospital) return;
+      var match = locs.some(function (x) {
+        return String(L.name || '').toLowerCase().indexOf(x.toLowerCase().slice(0, 8)) >= 0 ||
+               x.toLowerCase().indexOf(String(L.name || '').toLowerCase().slice(0, 8)) >= 0;
+      });
+      if (match || locs.length === 0) hosp = L;
+    });
+    if (!hosp) (Array.isArray(scoutLocs) ? scoutLocs : []).forEach(function (L) { if (!hosp && L && L.hospital) hosp = L; });
+    /* safety bullets for today's scene numbers */
+    var bullets = [];
+    try {
+      var an = window.CSafety.analyze(String(tl.scriptText || ''));
+      bullets = window.CSafety.meetingChecklist(an, scs.map(function (s) { return +s.num; }));
+    } catch (e) {}
+
+    var pages = scs.reduce(function (a, s) { return a + (+s.eighths || 0); }, 0);
+    var h = '<div class="td-call"><div style="font:700 15px Cinzel,serif;color:var(--text)">' + esc(title) + '</div>' +
+      '<div class="big">' + esc(meta.call || 'CALL TBD') + '</div>' +
+      '<div class="sub">DAY ' + (d + 1) + (meta.date ? ' · ' + esc(meta.date) : '') + ' · ' + eighths(pages) + ' PAGES</div></div>';
+
+    h += '<div class="td-sec"><h3>Scenes</h3>' + (scs.map(function (s) {
+      return '<div class="td-row"><span class="td-num">' + esc(s.num) + '</span>' +
+        '<span style="flex:1">' + esc(s.heading) + '</span>' +
+        '<span class="td-dn">' + (s.dn === 'night' ? 'NIGHT' : 'DAY') + ' · ' + eighths(+s.eighths || 0) + '</span></div>';
+    }).join('') || '<p class="td-note">No scenes scheduled on this day.</p>') + '</div>';
+
+    var castNames = Object.keys(cast).sort();
+    if (castNames.length) h += '<div class="td-sec"><h3>Cast working</h3><div style="font-size:13px;line-height:1.9">' + castNames.map(esc).join(' · ') + '</div></div>';
+    if (locs.length) h += '<div class="td-sec"><h3>Sets / locations</h3><div style="font-size:13px;line-height:1.9">' + locs.map(esc).join('<br>') + '</div></div>';
+
+    h += '<div class="td-sec td-hosp"><h3>Nearest hospital</h3>' + (hosp
+      ? '<div style="font-size:14px"><b>' + esc(hosp.hospital) + '</b>' + (hosp.hospitalAddress ? '<br><span class="td-note">' + esc(hosp.hospitalAddress) + '</span>' : '') + '</div>'
+      : '<p class="td-note">Not on file — set it per location in the <a href="/locations/" style="color:var(--gold)">Scout Book</a>. It belongs on every call sheet.</p>') + '</div>';
+
+    if (bullets.length) h += '<div class="td-sec"><h3>Safety — today</h3><div class="td-note">' + bullets.map(function (b) { return '☐ ' + esc(b); }).join('<br>') + '</div></div>';
+    if (meta.notes) h += '<div class="td-sec"><h3>Notes</h3><div class="td-note">' + esc(meta.notes) + '</div></div>';
+    $('tdSheet').innerHTML = h;
+  }
+
+  var sel = $('tdDay');
+  if (maxDay < 0) { sel.style.display = 'none'; }
+  else {
+    var opts = [];
+    for (var d = 0; d <= maxDay; d++) {
+      var m = (board.dayMeta || {})[d] || {};
+      opts.push('<option value="' + d + '">Day ' + (d + 1) + (m.date ? ' — ' + esc(m.date) : '') + '</option>');
+    }
+    sel.innerHTML = opts.join('');
+    var g = todayGuess();
+    sel.value = String(g);
+    sel.addEventListener('change', function () { render(+sel.value); });
+    render(g);
+  }
+  window.CTodayApp = { render: render };
+})();
+</script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
+</body>
+</html>

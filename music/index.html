@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Music Rights &amp; Score</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Music Rights &amp; Score">
+<meta property="og:description" content="Find every music moment in the script, plan sync and master licensing by tier, compare against an original score, and export a delivery cue sheet.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.mu-main{flex:1;overflow-y:auto;padding:20px 24px 60px;max-width:1120px;width:100%;margin:0 auto}
+.mu-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.mu-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.mu-bar input,.mu-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
+.mu-tablewrap{overflow-x:auto}
+.mu-table{width:100%;border-collapse:collapse;font-size:12px}
+.mu-table th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+.mu-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.mu-table input,.mu-table select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 6px;font-size:11.5px;max-width:110px}
+.mu-table input.mu-title{max-width:170px}
+.mu-num{font-family:var(--mono);text-align:right;white-space:nowrap}
+.mu-scene{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.mu-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
+.mu-tag.po{color:var(--gold);border-color:var(--gold)}
+.mu-total{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
+.mu-total b{color:var(--gold);font-size:15px}
+.mu-score{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-top:10px;font-size:12px;line-height:1.7}
+.mu-score b{font-family:var(--mono);color:var(--gold)}
+.mu-note{font-size:11px;color:var(--dim);line-height:1.6}
+.mu-text{width:100%;min-height:220px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.6;white-space:pre}
+.mu-spacer{flex:1}
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Music Rights &amp; Score — cues, licensing, cue sheet</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/clearance/">Clearance</a>
+    <a class="tb-btn" href="/finance/">Money Room</a>
+    <a class="tb-btn" href="/timeline/">← Studio</a>
+  </header>
+
+  <main class="mu-main">
+    <h2>1 · Cue list</h2>
+    <div class="mu-bar">
+      <button class="tb-btn gold" id="muScan" title="Scan the working screenplay for music moments — songs, jukeboxes, radios, bands, karaoke, quoted titles">♫ Scan script for cues</button>
+      <button class="tb-btn" id="muAdd">+ Add cue</button>
+      <span class="mu-spacer"></span>
+      <span class="mu-note" id="muCount"></span>
+    </div>
+    <div class="mu-tablewrap">
+    <table class="mu-table"><thead><tr>
+      <th>Title</th><th>Artist</th><th>Sc</th><th>Use</th><th>Tier</th><th>Scope</th><th>Status</th><th class="mu-num">Estimate</th><th>Actual&nbsp;$</th><th></th>
+    </tr></thead><tbody id="muRows"></tbody></table>
+    </div>
+    <p class="mu-note">Estimates are <b>planning figures only</b> — tier ranges per side (sync + master both required, library tracks one all-in fee), featured use at the top half of the range, background at the bottom half, main/end titles at 1.5× the midpoint, festival-only scope ≈15% of all-media with a step-up option to negotiate. Fees drift constantly — <b>verify every figure with the rights holders before relying on it</b>. Enter real quotes in the Actual column; setting a cue to <b>licensed</b> with an actual quote commits that amount to the Money Room (acct 15000) once.</p>
+
+    <h2>2 · Totals &amp; score-instead comparison</h2>
+    <div class="mu-total" id="muTotals"></div>
+    <div class="mu-bar" style="margin-top:12px">
+      <label class="mu-note">Minutes of score needed <input id="muMinutes" type="number" min="0" max="600" value="30" style="width:64px"></label>
+    </div>
+    <div class="mu-score" id="muScore"></div>
+
+    <h2>3 · License request letter</h2>
+    <div class="mu-bar">
+      <select id="muLetterCue" style="min-width:220px"></select>
+      <input id="muProd" placeholder="Production title" style="min-width:180px">
+      <input id="muCompany" placeholder="Company / prod office" style="min-width:170px">
+      <input id="muContact" placeholder="Your name" style="min-width:130px">
+      <span class="mu-spacer"></span>
+      <button class="tb-btn" id="muCopyLetter">Copy</button>
+      <a class="tb-btn gold" id="muMailLetter" href="#" title="Opens your email app with the request pre-filled">✉ Open in email</a>
+    </div>
+    <textarea class="mu-text" id="muLetter" spellcheck="false"></textarea>
+    <p class="mu-note">Address it to the publisher for the sync side and the label for the master side — often two different letters. A cue marked <b>quote requested</b> keeps the list honest about what is still out for pricing.</p>
+
+    <h2>4 · Cue sheet export</h2>
+    <div class="mu-bar">
+      <span class="mu-note">Delivery cue sheet — timings and publisher/master-owner fields are placeholders to fill at picture lock.</span>
+      <span class="mu-spacer"></span>
+      <button class="tb-btn" id="muCopySheet">Copy</button>
+      <button class="tb-btn gold" id="muDownloadSheet">⬇ Download .txt</button>
+    </div>
+    <textarea class="mu-text" id="muSheet" spellcheck="false" readonly></textarea>
+  </main>
+</div>
+
+<div class="toast" id="muToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="/finance/lib-money.js?v=20260823a"></script>
+<script src="lib-music.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var M = window.CMusic;
+  var KEY = 'SB_Music_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('muToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3200); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+
+  var st = readLS(KEY) || { cues: [], prod: '', company: '', contact: '', minutes: 30, letterCueId: '' };
+  st.cues = (st.cues || []).map(M.makeCue);
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  function cueById(id) { return st.cues.filter(function (c) { return c.id === id; })[0]; }
+
+  /* ── Money Room commit: once per cue, on licensed + actual quote ── */
+  function maybeCommit(c) {
+    if (c.status !== 'licensed' || !(c.actualQuote > 0) || c.committedPo) return;
+    var money = JSON.parse(localStorage.getItem('SB_Money_v1') || 'null') || CMoney.blank();
+    CMoney.addPO(money, {
+      vendor: (c.artist || 'Rights holder') + ' — music license',
+      desc: 'Sync/master license: "' + c.title + '" (' + c.use + ', ' + c.scope + ')',
+      acct: '15000', amount: c.actualQuote,
+      date: new Date().toISOString().slice(0, 10)
+    });
+    localStorage.setItem('SB_Money_v1', JSON.stringify(money));
+    c.committedPo = true;
+    toast('$' + c.actualQuote.toLocaleString() + ' committed to Money Room acct 15000 — "' + c.title + '"');
+  }
+
+  /* ── cue table ── */
+  function opts(list, cur) {
+    return list.map(function (v) {
+      return '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(v) + '</option>';
+    }).join('');
+  }
+  function renderRows() {
+    $('muRows').innerHTML = st.cues.map(function (c) {
+      var e = M.estimate(c);
+      return '<tr data-id="' + c.id + '">' +
+        '<td><input class="mu-title" data-f="title" value="' + esc(c.title) + '" title="' + esc(c.excerpt) + '"></td>' +
+        '<td><input data-f="artist" value="' + esc(c.artist) + '" placeholder="artist"></td>' +
+        '<td class="mu-scene">' + (c.scene || '—') + '</td>' +
+        '<td><select data-f="use">' + opts(M.USES, c.use) + '</select></td>' +
+        '<td><select data-f="tier">' + M.TIERS.map(function (t) {
+          return '<option value="' + t.id + '"' + (t.id === c.tier ? ' selected' : '') + '>' + esc(t.label.split(' /')[0]) + '</option>'; }).join('') + '</select></td>' +
+        '<td><select data-f="scope">' + opts(M.SCOPES, c.scope) + '</select></td>' +
+        '<td><select data-f="status">' + opts(M.STATUSES, c.status) + '</select>' +
+          (c.committedPo ? ' <span class="mu-tag po" title="Committed to the Money Room as an open PO">PO</span>' : '') + '</td>' +
+        '<td class="mu-num" title="' + esc(e.note) + '">$' + e.total.toLocaleString() +
+          (e.master ? ' <span class="mu-note">(s+m)</span>' : ' <span class="mu-note">(all-in)</span>') + '</td>' +
+        '<td><input data-f="actualQuote" type="number" min="0" style="width:84px" value="' + (c.actualQuote || '') + '" placeholder="quote"></td>' +
+        '<td><button class="tb-btn" data-del="' + c.id + '">✕</button></td></tr>';
+    }).join('') || '<tr><td colspan="10" class="mu-note">No cues yet — Scan reads the working screenplay in this browser, or add cues by hand.</td></tr>';
+    $('muCount').textContent = st.cues.length ? st.cues.length + ' cues (' + st.cues.filter(function (c) { return c.status === 'licensed'; }).length + ' licensed)' : '';
+    renderTotals(); renderLetterPicker(); renderLetter(); renderSheet();
+  }
+  $('muRows').addEventListener('change', function (e) {
+    var tr = e.target.closest('tr'); if (!tr) return;
+    var c = cueById(tr.getAttribute('data-id')); if (!c) return;
+    var f = e.target.getAttribute('data-f'); if (!f) return;
+    if (f === 'actualQuote') c.actualQuote = Math.max(0, +e.target.value || 0);
+    else if (f === 'status') M.setStatus(c, e.target.value);
+    else c[f] = e.target.value;
+    maybeCommit(c);
+    save(); renderRows();
+  });
+  $('muRows').addEventListener('click', function (e) {
+    var del = e.target.getAttribute('data-del'); if (!del) return;
+    st.cues = st.cues.filter(function (c) { return c.id !== del; });
+    save(); renderRows();
+  });
+  $('muScan').addEventListener('click', function () {
+    var tl = readLS('SB_Timeline_v1') || {};
+    var script = String(tl.scriptText || '');
+    if (script.trim().length < 40) return toast('No screenplay found — load one in the Studio or Writer first');
+    var hits = M.scanScript(script);
+    var seen = {};
+    st.cues.forEach(function (c) { seen[c.scene + '|' + c.excerpt] = true; });
+    var added = 0;
+    hits.forEach(function (h) {
+      var k = h.scene + '|' + h.excerpt;
+      if (seen[k]) return;
+      seen[k] = true;
+      st.cues.push(M.cueFromHit(h));
+      added++;
+    });
+    save(); renderRows();
+    toast(hits.length + ' music moments found across ' + M.splitScenes(script).length + ' scenes — ' + added + ' new cue' + (added === 1 ? '' : 's') + ' added');
+  });
+  $('muAdd').addEventListener('click', function () {
+    st.cues.push(M.makeCue({ title: 'New cue', manual: true }));
+    save(); renderRows();
+  });
+
+  /* ── totals + score comparison ── */
+  function renderTotals() {
+    var t = M.totals(st.cues);
+    $('muTotals').innerHTML =
+      '<span>Cues in play <b>' + t.count + '</b></span>' +
+      '<span>Planning estimate <b>$' + t.est.toLocaleString() + '</b></span>' +
+      '<span>Real quotes so far <b>$' + t.quoted.toLocaleString() + '</b></span>' +
+      '<span>Working total <b>$' + t.working.toLocaleString() + '</b></span>' +
+      '<span>Licensed &amp; committed <b>$' + t.licensed.toLocaleString() + '</b></span>';
+    var sc = M.scoreComparison(+$('muMinutes').value || 0);
+    var t2 = t.working;
+    var verdict = t2 <= 0 ? '' :
+      (sc.high < t2 ? ' At your working licensing total, an original score could come in <b>cheaper</b> even at the top of the range.' :
+       sc.low > t2 ? ' Your working licensing total is under even the low end — licensing looks like the cheaper path.' :
+       ' Your working licensing total sits inside the score range — worth pricing both.');
+    $('muScore').innerHTML = 'Score instead: <b>$' + sc.low.toLocaleString() + '</b> – <b>$' + sc.high.toLocaleString() + '</b> for ' +
+      (+$('muMinutes').value || 0) + ' finished minutes.' + verdict + '<br><span class="mu-note">' + esc(sc.note) + '</span>';
+  }
+  $('muMinutes').addEventListener('change', function () { st.minutes = +this.value || 0; save(); renderTotals(); });
+
+  /* ── license letter ── */
+  function renderLetterPicker() {
+    var cur = st.letterCueId;
+    $('muLetterCue').innerHTML = '<option value="">— pick a cue —</option>' + st.cues.map(function (c) {
+      return '<option value="' + c.id + '"' + (c.id === cur ? ' selected' : '') + '>' + esc(c.title) + (c.artist ? ' — ' + esc(c.artist) : '') + '</option>';
+    }).join('');
+  }
+  function renderLetter() {
+    var c = cueById(st.letterCueId);
+    $('muLetter').value = M.licenseRequest({
+      production: $('muProd').value || (readLS('CIN_Projects_v1') || {}).active || 'Untitled production',
+      company: $('muCompany').value, contact: $('muContact').value, cue: c || {}
+    });
+    $('muMailLetter').href = 'mailto:?subject=' + encodeURIComponent('Sync license request — ' + (c ? c.title : 'music cue')) +
+      '&body=' + encodeURIComponent($('muLetter').value).slice(0, 1800);
+  }
+  $('muLetterCue').addEventListener('change', function () {
+    st.letterCueId = this.value; save(); renderLetter();
+    var c = cueById(st.letterCueId);
+    if (c && c.status === 'identified') { M.setStatus(c, 'quote requested'); save(); renderRows(); toast('"' + c.title + '" marked quote requested'); }
+  });
+  ['muProd', 'muCompany', 'muContact'].forEach(function (id) {
+    $(id).addEventListener('input', function () {
+      st.prod = $('muProd').value; st.company = $('muCompany').value; st.contact = $('muContact').value;
+      save(); renderLetter();
+    });
+  });
+  $('muCopyLetter').addEventListener('click', function () {
+    navigator.clipboard.writeText($('muLetter').value).then(function () { toast('Letter copied — paste into any email'); });
+  });
+
+  /* ── cue sheet ── */
+  function renderSheet() {
+    $('muSheet').value = M.cueSheet(st.cues, {
+      production: $('muProd').value || (readLS('CIN_Projects_v1') || {}).active || 'Untitled production',
+      date: new Date().toISOString().slice(0, 10)
+    });
+  }
+  $('muCopySheet').addEventListener('click', function () {
+    navigator.clipboard.writeText($('muSheet').value).then(function () { toast('Cue sheet copied'); });
+  });
+  $('muDownloadSheet').addEventListener('click', function () {
+    var blob = new Blob([$('muSheet').value], { type: 'text/plain' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'cue-sheet.txt';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    toast('Cue sheet downloaded');
+  });
+
+  /* ── init ── */
+  $('muProd').value = st.prod || ''; $('muCompany').value = st.company || ''; $('muContact').value = st.contact || '';
+  $('muMinutes').value = st.minutes != null ? st.minutes : 30;
+  renderRows();
+  window.CMusicApp = { render: renderRows, state: st };
+})();
+</script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
+</body>
+</html>

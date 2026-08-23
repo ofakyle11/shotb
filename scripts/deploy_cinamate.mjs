@@ -136,6 +136,7 @@ if (terser) {
    shared files the landing itself loads. EVERYTHING else moves inside
    the gate function — anonymous requests never receive it.            */
 const PUBLIC_FILES = new Set(['index.html', 'login.html', 'favicon.ico',
+  'manifest.webmanifest', 'sw.js',
   'apple-touch-icon.png', 'robots.txt', 'sitemap.xml', '404.html',
   '_redirects', '_headers', // repo originals — merged/kept below, must stay CDN-side
   'css/theme.css', 'js/cinamate-auth.js', 'js/effects.js']);

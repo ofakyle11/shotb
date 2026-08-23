@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — VFX Pipeline</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — VFX Pipeline">
+<meta property="og:description" content="VFX shot board from the script, planning estimates vs vendor bids, on-set plate checklists, and awards committed straight to the Money Room.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.vx-main{flex:1;overflow-y:auto;padding:20px 24px 60px;max-width:1100px;width:100%;margin:0 auto}
+.vx-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.vx-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.vx-bar input,.vx-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
+.vx-table{width:100%;border-collapse:collapse;font-size:12px}
+.vx-table th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+.vx-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.vx-table input,.vx-table select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 6px;font-size:11.5px;max-width:110px}
+.vx-table input.vx-desc{max-width:200px;width:200px}
+.vx-num{font-family:var(--mono);text-align:right}
+.vx-code{font-family:var(--mono);font-size:11px;color:var(--gold);cursor:pointer;white-space:nowrap}
+.vx-ver{font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
+.vx-st{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap}
+.vx-st-briefed{color:var(--dim)} .vx-st-bid{color:#7fb3d5;border-color:#7fb3d5}
+.vx-st-awarded{color:var(--gold);border-color:var(--gold)} .vx-st-plates{color:#c39bd3;border-color:#c39bd3}
+.vx-st-temp{color:#f0b27a;border-color:#f0b27a} .vx-st-final{color:#7dcea0;border-color:#7dcea0}
+.vx-st-approved{color:#2ecc71;border-color:#2ecc71}
+.vx-total{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
+.vx-total b{color:var(--gold);font-size:15px}
+.vx-note{font-size:11px;color:var(--dim);line-height:1.6}
+.vx-spacer{flex:1}
+.vx-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.vx-check{list-style:none;padding:0;margin:6px 0 0}
+.vx-check li{font-size:12px;padding:4px 0 4px 22px;position:relative;border-bottom:1px dashed var(--border)}
+.vx-check li:before{content:'▢';position:absolute;left:2px;color:var(--gold)}
+.vx-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
+.vx-over{color:#e74c3c} .vx-under{color:#7dcea0}
+.vx-sheet{width:100%;min-height:260px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.6;white-space:pre}
+.vx-selrow{outline:1px solid var(--gold)}
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">VFX Pipeline — shot board, bids, plates, day sheet</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/finance/">Money Room</a>
+    <a class="tb-btn" href="/props/">Props</a>
+    <a class="tb-btn" href="/timeline/">← Studio</a>
+  </header>
+
+  <main class="vx-main">
+    <h2>1 · Shot board</h2>
+    <div class="vx-bar">
+      <button class="tb-btn gold" id="vxDetect" title="Scan the working screenplay for VFX-likely action and suggest shots">⟳ Detect from script</button>
+      <button class="tb-btn" id="vxAdd">+ Add shot</button>
+      <span class="vx-spacer"></span>
+      <input id="vxProj" placeholder="Production title (for version names)" style="min-width:220px">
+    </div>
+    <table class="vx-table"><thead><tr>
+      <th>Code</th><th>Sc</th><th>Description</th><th>Complexity</th><th>Method</th><th>Vendor</th><th class="vx-num">Bid $</th><th>Status</th><th>Version</th><th></th>
+    </tr></thead><tbody id="vxRows"></tbody></table>
+    <div class="vx-total" id="vxBoard"></div>
+    <p class="vx-note">Click a shot code to open its plate checklist below. Detect adds one suggested shot per cue per scene — it reads the working screenplay saved in this browser, so refresh from the Studio if the script changed.</p>
+
+    <h2>2 · Plate checklist — on-set capture for the selected shot</h2>
+    <div id="vxPlates" class="vx-card"><p class="vx-note">Select a shot above (click its code) to see what set must capture for post.</p></div>
+
+    <h2>3 · Money — planning estimates vs bids</h2>
+    <table class="vx-table"><thead><tr>
+      <th>Code</th><th>Complexity</th><th class="vx-num">Planning est. range</th><th class="vx-num">Bid $</th><th>Bid vs est.</th><th>Status</th><th></th>
+    </tr></thead><tbody id="vxMoney"></tbody></table>
+    <div class="vx-total" id="vxMoneyTotals"></div>
+    <p class="vx-note">Ranges are internal <b>planning estimates</b> by complexity band — not quotes; real vendor bids always win. Award a bid to commit it to the Money Room under acct 15000 (VFX) as an open PO; each award commits once. Verify bids and vendor scope before relying on these figures — VFX pricing drifts with schedule and iteration count.</p>
+
+    <h2>4 · On-set VFX day sheet</h2>
+    <div class="vx-bar">
+      <button class="tb-btn gold" id="vxSheetBuild">⟳ Rebuild sheet</button>
+      <button class="tb-btn" id="vxSheetCopy">Copy</button>
+      <span class="vx-note">All shots grouped by scene with their plate needs — print it for the VFX wrangler.</span>
+    </div>
+    <textarea class="vx-sheet" id="vxSheet" spellcheck="false"></textarea>
+  </main>
+</div>
+
+<div class="toast" id="vxToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="/finance/lib-money.js?v=20260823a"></script>
+<script src="lib-vfx.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var V = window.CVfx;
+  var KEY = 'SB_VfxBoard_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('vxToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3200); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+
+  var st = readLS(KEY) || { shots: [], sel: '', project: '' };
+  if (!st.shots) st.shots = [];
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  function shotById(id) { return st.shots.filter(function (s) { return s.id === id; })[0]; }
+  function money(n) { return '$' + (+n || 0).toLocaleString(); }
+
+  /* ── 1 · shot board ── */
+  function renderRows() {
+    $('vxRows').innerHTML = st.shots.map(function (sh) {
+      return '<tr data-id="' + sh.id + '"' + (sh.id === st.sel ? ' class="vx-selrow"' : '') + '>' +
+        '<td><span class="vx-code" data-sel="' + sh.id + '" title="Open plate checklist">' + esc(sh.code) + '</span></td>' +
+        '<td><input data-f="scene" type="number" min="0" style="width:52px" value="' + (+sh.scene || 0) + '"></td>' +
+        '<td><input class="vx-desc" data-f="desc" value="' + esc(sh.desc) + '"></td>' +
+        '<td><select data-f="complexity">' + V.COMPLEXITIES.map(function (c) {
+          return '<option' + (c === sh.complexity ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></td>' +
+        '<td><input data-f="method" value="' + esc(sh.method) + '" placeholder="comp / CG / sim"></td>' +
+        '<td><input data-f="vendor" value="' + esc(sh.vendor) + '" placeholder="vendor"></td>' +
+        '<td class="vx-num"><input data-f="bid" type="number" min="0" style="width:84px" value="' + (sh.bid || '') + '" placeholder="bid"></td>' +
+        '<td><select data-f="status">' + V.STATUSES.map(function (s) {
+          return '<option' + (s === sh.status ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
+          '</select> <span class="vx-st vx-st-' + esc(sh.status) + '">' + esc(sh.status) + '</span></td>' +
+        '<td class="vx-ver">' + esc(sh.version) + ' <button class="tb-btn" data-bump="' + sh.id + '" title="Publish next version — ' + esc(V.versionName($('vxProj').value || st.project, sh)) + '">+v</button></td>' +
+        '<td><button class="tb-btn" data-del="' + sh.id + '">✕</button></td></tr>';
+    }).join('') || '<tr><td colspan="10" class="vx-note">No shots yet — Detect from script scans the working screenplay, or add shots by hand.</td></tr>';
+    var b = V.board(st.shots);
+    $('vxBoard').innerHTML =
+      '<span>Shots <b>' + b.total + '</b></span>' +
+      V.STATUSES.map(function (s) {
+        return b.counts[s] ? '<span><span class="vx-st vx-st-' + s + '">' + s + '</span> <b>' + b.counts[s] + '</b></span>' : '';
+      }).join('') +
+      '<span>Awarded <b>' + money(b.totalAwarded) + '</b></span>';
+  }
+  $('vxRows').addEventListener('change', function (e) {
+    var tr = e.target.closest('tr'); if (!tr) return;
+    var sh = shotById(tr.getAttribute('data-id')); if (!sh) return;
+    var f = e.target.getAttribute('data-f'); if (!f) return;
+    if (f === 'scene') sh.scene = Math.max(0, +e.target.value || 0);
+    else if (f === 'bid') sh.bid = Math.max(0, +e.target.value || 0);
+    else sh[f] = e.target.value;
+    save(); renderAll();
+  });
+  $('vxRows').addEventListener('click', function (e) {
+    var sel = e.target.getAttribute('data-sel'), del = e.target.getAttribute('data-del'), bump = e.target.getAttribute('data-bump');
+    if (sel) { st.sel = sel; save(); renderAll(); }
+    if (del) {
+      st.shots = st.shots.filter(function (s) { return s.id !== del; });
+      if (st.sel === del) st.sel = '';
+      save(); renderAll();
+    }
+    if (bump) {
+      var sh = shotById(bump); if (!sh) return;
+      sh.version = V.bumpVersion(sh.version);
+      save(); renderAll();
+      toast('Next version: ' + V.versionName($('vxProj').value || 'PROJECT', sh));
+    }
+  });
+  $('vxDetect').addEventListener('click', function () {
+    var tl = readLS('SB_Timeline_v1') || {};
+    var script = String(tl.scriptText || '');
+    if (script.trim().length < 40) return toast('No screenplay found — load one in the Studio or Writer first');
+    var sugg = V.detectShots(script);
+    var have = {};
+    st.shots.forEach(function (s) { have[s.scene + '|' + s.desc] = true; });
+    var added = 0;
+    sugg.forEach(function (g) {
+      var k = g.scene + '|' + g.hint;
+      if (have[k]) return;
+      have[k] = true;
+      st.shots.push(V.makeShot(st.shots, { scene: g.scene, desc: g.hint, complexity: g.complexity, method: '', status: 'briefed' }));
+      added++;
+    });
+    save(); renderAll();
+    toast(added + ' suggested shot' + (added === 1 ? '' : 's') + ' added from ' + V.splitScenes(script).length + ' scenes — review complexity before bidding');
+  });
+  $('vxAdd').addEventListener('click', function () {
+    var sh = V.makeShot(st.shots, { scene: 0, desc: 'New shot', complexity: 'medium' });
+    st.shots.push(sh); st.sel = sh.id;
+    save(); renderAll();
+  });
+  $('vxProj').addEventListener('input', function () { st.project = this.value; save(); renderSheet(); });
+
+  /* ── 2 · plate checklist ── */
+  function renderPlates() {
+    var sh = shotById(st.sel);
+    if (!sh) {
+      $('vxPlates').innerHTML = '<p class="vx-note">Select a shot above (click its code) to see what set must capture for post.</p>';
+      return;
+    }
+    var items = V.plateChecklist(sh.complexity);
+    $('vxPlates').innerHTML =
+      '<b>' + esc(sh.code) + '</b> <span class="vx-tag">' + esc(sh.complexity) + '</span> ' +
+      '<span class="vx-note">' + esc(sh.desc || '') + '</span>' +
+      '<ul class="vx-check">' + items.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>' +
+      '<p class="vx-note">Checklist scales with complexity — confirm exact plate needs with the awarded vendor before the shoot day; pipelines differ.</p>';
+  }
+
+  /* ── 3 · money ── */
+  function renderMoney() {
+    $('vxMoney').innerHTML = st.shots.map(function (sh) {
+      var c = V.bidVsEst(sh);
+      var verdict = c.status === 'no-bid' ? '<span class="vx-tag">no bid yet</span>'
+        : c.status === 'within' ? '<span class="vx-under">within range</span>'
+        : c.status === 'above' ? '<span class="vx-over">' + money(c.delta) + ' over range</span>'
+        : '<span class="vx-under">' + money(-c.delta) + ' under range</span>';
+      var canCommit = c.bid > 0 && !sh.committedPo;
+      return '<tr>' +
+        '<td class="vx-code">' + esc(sh.code) + '</td>' +
+        '<td><span class="vx-tag">' + esc(sh.complexity) + '</span></td>' +
+        '<td class="vx-num">' + money(c.est.lo) + ' – ' + money(c.est.hi) + '</td>' +
+        '<td class="vx-num">' + (c.bid ? money(c.bid) : '—') + '</td>' +
+        '<td>' + verdict + '</td>' +
+        '<td><span class="vx-st vx-st-' + esc(sh.status) + '">' + esc(sh.status) + '</span></td>' +
+        '<td>' + (sh.committedPo ? '<span class="vx-tag">PO committed</span>'
+          : canCommit ? '<button class="tb-btn gold" data-award="' + sh.id + '">Award → Money Room</button>'
+          : '<span class="vx-note">enter a bid to award</span>') + '</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="vx-note">No shots on the board yet.</td></tr>';
+    var b = V.board(st.shots);
+    $('vxMoneyTotals').innerHTML =
+      '<span>Planning range <b>' + money(b.estLo) + ' – ' + money(b.estHi) + '</b> <span class="vx-tag">planning estimate</span></span>' +
+      '<span>Bids in <b>' + money(b.totalBid) + '</b></span>' +
+      '<span>Awarded <b>' + money(b.totalAwarded) + '</b></span>' +
+      (b.uncommitted ? '<span class="vx-over">' + b.uncommitted + ' awarded bid(s) not yet committed</span>' : '');
+  }
+  $('vxMoney').addEventListener('click', function (e) {
+    var id = e.target.getAttribute('data-award'); if (!id) return;
+    var sh = shotById(id); if (!sh) return;
+    if (sh.committedPo) return toast(sh.code + ' is already committed to the Money Room');
+    if (!(+sh.bid > 0)) return toast('Enter the vendor bid first');
+    if (V.statusRank(sh.status) < V.statusRank('awarded')) sh.status = 'awarded';
+    var money2 = JSON.parse(localStorage.getItem('SB_Money_v1') || 'null') || CMoney.blank();
+    var po = CMoney.addPO(money2, { vendor: sh.vendor || 'VFX vendor TBD', desc: sh.code + ' — ' + (sh.desc || 'VFX shot'),
+      acct: '15000', amount: sh.bid, date: new Date().toISOString().slice(0, 10) });
+    localStorage.setItem('SB_Money_v1', JSON.stringify(money2));
+    sh.committedPo = true;
+    save(); renderAll();
+    toast(po.num + ' committed — ' + money(sh.bid) + ' to acct 15000 (VFX) for ' + sh.code);
+  });
+
+  /* ── 4 · day sheet ── */
+  function renderSheet() {
+    $('vxSheet').value = V.daySheet(st.shots, $('vxProj').value || st.project || (readLS('CIN_Projects_v1') || {}).active || '');
+  }
+  $('vxSheetBuild').addEventListener('click', function () { renderSheet(); toast('Day sheet rebuilt from the board'); });
+  $('vxSheetCopy').addEventListener('click', function () {
+    navigator.clipboard.writeText($('vxSheet').value).then(function () { toast('Copied — paste into the call sheet email'); });
+  });
+
+  function renderAll() { renderRows(); renderPlates(); renderMoney(); renderSheet(); }
+
+  /* ── init ── */
+  $('vxProj').value = st.project || '';
+  renderAll();
+  window.VfxApp = { render: renderAll, state: st };
+})();
+</script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
+</body>
+</html>

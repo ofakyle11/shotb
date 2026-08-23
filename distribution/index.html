@@ -33,6 +33,7 @@
 .dt-conflict{border-color:#E08A8A}
 .dt-mono{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
 <div class="app">
@@ -156,5 +157,6 @@
   window.CDistApp = { render: render, state: st };
 })();
 </script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
 </body>
 </html>

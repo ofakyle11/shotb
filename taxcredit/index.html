@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Tax Credit Ledger</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Tax Credit Ledger">
+<meta property="og:description" content="Tag Money Room spend as incentive-qualified, watch the estimated credit track against the Advisor's model, and work the application checklist.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.tc-main{flex:1;overflow-y:auto;padding:20px 24px 60px;max-width:1080px;width:100%;margin:0 auto}
+.tc-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.tc-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.tc-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px;max-width:340px}
+.tc-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:12px;line-height:1.7}
+.tc-card b{color:var(--gold)}
+.tc-table{width:100%;border-collapse:collapse;font-size:12px}
+.tc-table th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+.tc-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.tc-num{font-family:var(--mono);text-align:right}
+.tc-table th.tc-num{text-align:right}
+.tc-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
+.tc-tag.guess{color:var(--gold);border-color:var(--gold)}
+.tc-meter{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
+.tc-meter b{color:var(--gold);font-size:15px}
+.tc-warn{background:var(--surface);border:1px solid #E08A8A;border-radius:10px;padding:10px 14px;font-size:12px;color:#E08A8A;margin-top:10px}
+.tc-note{font-size:11px;color:var(--dim);line-height:1.6}
+.tc-check{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start}
+.tc-check input{margin-top:3px}
+.tc-check .tc-why{font-size:11px;color:var(--dim);display:block;margin-top:2px}
+.tc-neg{color:#E08A8A}
+.tc-pos{color:#9BCB9B}
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Tax Credit Ledger — qualified spend, credit estimate, application trail</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/finance/">Money Room</a>
+    <a class="tb-btn" href="/workflow/">Advisor</a>
+  </header>
+
+  <main class="tc-main">
+    <h2>1 · Jurisdiction</h2>
+    <div class="tc-bar">
+      <select id="tcJuris"></select>
+      <span class="tc-tag" id="tcJurisSrc"></span>
+    </div>
+    <div class="tc-card" id="tcJurisInfo"></div>
+    <p class="tc-note">Program terms are the Advisor's curated table of PUBLISHED rates (2025-26 vintage) — incentive programs change rates, caps and windows every legislative session, so <b>verify current terms with your accountant before relying on any figure here</b>.</p>
+
+    <h2>2 · Qualified-spend ledger</h2>
+    <div class="tc-bar">
+      <button class="tb-btn" id="tcRefresh" title="Re-read POs and petty cash from the Money Room">⟳ Refresh from Money Room</button>
+      <button class="tb-btn" id="tcResetTags" title="Drop all manual tags and fall back to the heuristic guesses">Reset tags to guesses</button>
+      <span class="tc-note" id="tcLedgerChip"></span>
+    </div>
+    <table class="tc-table"><thead><tr>
+      <th>Ref</th><th>Vendor / who · description</th><th>Acct</th><th>Money</th><th class="tc-num">Amount</th><th>Qualified?</th>
+    </tr></thead><tbody id="tcRows"></tbody></table>
+    <p class="tc-note">Rows marked <span class="tc-tag guess">guess</span> use a starting heuristic — travel, insurance, bond, legal and financing costs (and anything flagged out-of-jurisdiction) are guessed NON-qualified, everything else qualified. Tick or untick a box to override; your tags stick and the guess label disappears. The guesses are a starting point only — your accountant decides what actually qualifies.</p>
+
+    <h2>3 · Credit meter</h2>
+    <div class="tc-meter" id="tcMeter"></div>
+    <div id="tcWarnings"></div>
+    <p class="tc-note">Est. credit = qualified actual + committed spend × qualified-fraction × midpoint of the published rate band — an <b>estimate</b>, not a ruling. The Advisor model applies the same formula to your whole budget sheet total; the delta shows how the real ledger is tracking against that assumption. Credits pay out months after audit — they reduce net cost, not the cash you need up front.</p>
+
+    <h2>4 · Application checklist</h2>
+    <div id="tcChecklist"></div>
+    <p class="tc-note" id="tcCheckFlag"></p>
+  </main>
+</div>
+
+<div class="toast" id="tcToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="/finance/lib-money.js?v=20260823a"></script>
+<script src="lib-taxcred.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var T = window.CTaxCred, M = window.CMoney;
+  var KEY = 'SB_TaxLedger_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('tcToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3200); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function fm(n) { return '$' + Math.round(n).toLocaleString(); }
+
+  var st = readLS(KEY) || { jurisId: '', tags: {}, check: {} };
+  if (!st.tags) st.tags = {};
+  if (!st.check) st.check = {};
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+
+  function money() { return readLS('SB_Money_v1') || (M ? M.blank() : { pos: [], petty: [] }); }
+  function advisorIncentive() { return (readLS('SB_Budget_v1') || {}).incentive || ''; }
+  function juris() { return T.jurisById(st.jurisId || advisorIncentive()); }
+  function budgetTotal() {
+    var sheet = readLS('SB_BudgetSheet_v1') || { categories: [] };
+    var byAcct = M ? M.budgetByAcct(sheet) : {};
+    var t = 0;
+    Object.keys(byAcct).forEach(function (a) { t += byAcct[a].budget; });
+    return t;
+  }
+
+  /* ── 1 · jurisdiction ── */
+  function renderJuris() {
+    var adv = T.jurisById(advisorIncentive());
+    $('tcJuris').innerHTML =
+      '<option value=""' + (st.jurisId ? '' : ' selected') + '>Follow the Advisor — ' + esc(adv.label) + '</option>' +
+      T.JURIS.map(function (j) {
+        return '<option value="' + esc(j.id) + '"' + (st.jurisId === j.id ? ' selected' : '') + '>' + esc(j.label) + '</option>';
+      }).join('');
+    $('tcJurisSrc').textContent = st.jurisId ? 'manual override' : 'from Advisor pick';
+    var j = juris();
+    var mid = T.midpoint(j.rate);
+    $('tcJurisInfo').innerHTML = j.id === 'none'
+      ? 'No incentive jurisdiction modeled yet — pick one above, or model one on the <a href="/workflow/" style="color:var(--gold)">Advisor</a> first.'
+      : '<b>' + esc(j.label) + '</b> · rate band ' + Math.round(j.rate[0] * 100) + '–' + Math.round(j.rate[1] * 100) +
+        '% (midpoint ' + (mid * 100).toFixed(1) + '%) on qualified spend · typically ~' + Math.round(j.qualPct * 100) + '% of a budget qualifies' +
+        (j.minSpend ? ' · minimum spend ~' + fm(j.minSpend) : '') +
+        (j.budgetCap ? ' · program aimed at budgets ≤ ~' + fm(j.budgetCap) : '') +
+        (j.note ? '<br><span class="tc-note">' + esc(j.note) + '</span>' : '');
+  }
+  $('tcJuris').addEventListener('change', function () {
+    st.jurisId = this.value;
+    save(); renderAll();
+    toast(st.jurisId ? 'Jurisdiction overridden — ' + T.jurisById(st.jurisId).label : 'Following the Advisor pick again');
+  });
+
+  /* ── 2 · ledger ── */
+  function renderLedger() {
+    var j = juris();
+    var rows = T.rowsFromMoney(money());
+    $('tcRows').innerHTML = rows.map(function (r) {
+      var tagged = st.tags[r.id] === true || st.tags[r.id] === false;
+      var q = T.isQualified(r, st.tags, j);
+      return '<tr>' +
+        '<td class="tc-num" style="text-align:left">' + esc(r.ref) + '</td>' +
+        '<td>' + esc(r.party) + (r.party && r.desc ? ' · ' : '') + esc(r.desc) + '</td>' +
+        '<td class="tc-num" style="text-align:left">' + esc(r.acct) + '</td>' +
+        '<td><span class="tc-tag">' + esc(r.bucket) + '</span></td>' +
+        '<td class="tc-num">' + fm(r.amount) + '</td>' +
+        '<td><input type="checkbox" data-tag="' + esc(r.id) + '"' + (q ? ' checked' : '') + '>' +
+        (tagged ? ' <span class="tc-tag">tagged</span>' : ' <span class="tc-tag guess">guess</span>') + '</td></tr>';
+    }).join('') || '<tr><td colspan="6" class="tc-note">No spend recorded yet — issue POs and log petty cash in the <a href="/finance/" style="color:var(--gold)">Money Room</a>, then refresh.</td></tr>';
+    $('tcLedgerChip').textContent = rows.length
+      ? rows.length + ' rows · ' + rows.filter(function (r) { return st.tags[r.id] === true || st.tags[r.id] === false; }).length + ' tagged by you'
+      : '';
+  }
+  $('tcRows').addEventListener('change', function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute('data-tag');
+    if (!id) return;
+    st.tags[id] = !!e.target.checked;
+    save(); renderAll();
+    toast('Row tagged ' + (e.target.checked ? 'QUALIFIED' : 'not qualified') + ' — meter updated');
+  });
+  $('tcRefresh').addEventListener('click', function () { renderAll(); toast('Ledger re-read from the Money Room'); });
+  $('tcResetTags').addEventListener('click', function () {
+    st.tags = {};
+    save(); renderAll();
+    toast('All manual tags dropped — heuristic guesses back in charge');
+  });
+
+  /* ── 3 · credit meter ── */
+  function renderMeter() {
+    var j = juris();
+    var model = T.creditModel(j, st.tags, money(), budgetTotal());
+    var deltaCls = model.delta < 0 ? 'tc-neg' : 'tc-pos';
+    $('tcMeter').innerHTML =
+      '<span>Qualified spend <b>' + fm(model.qualifiedSpend) + '</b> <span class="tc-note">of ' + fm(model.totalSpend) + ' (' + model.qualifiedCount + '/' + model.rowCount + ' rows' + (model.guessedCount ? ', ' + model.guessedCount + ' guessed' : '') + ')</span></span>' +
+      '<span>Est. credit <b>' + fm(model.estCredit) + '</b> <span class="tc-note">at ' + (model.midRate * 100).toFixed(1) + '% midpoint</span></span>' +
+      '<span>Advisor model <b>' + fm(model.advisorModel) + '</b> <span class="tc-note">on ' + fm(budgetTotal()) + ' budget × ' + Math.round(model.qualPct * 100) + '%</span></span>' +
+      '<span>Delta vs Advisor <b class="' + deltaCls + '">' + (model.delta >= 0 ? '+' : '−') + fm(Math.abs(model.delta)) + '</b></span>';
+    var warn = '';
+    if (j.id === 'none') warn += '<div class="tc-warn">No jurisdiction modeled — the meter reads zero until one is picked.</div>';
+    if (model.belowMin) warn += '<div class="tc-warn">Minimum spend not met — the ledger shows ' + fm(model.totalSpend) + ' against a ~' + fm(model.minSpend) + ' program floor, so the estimated credit is $0 until spend crosses it (raw model would read ' + fm(model.rawCredit) + ').</div>';
+    if (model.overCap) warn += '<div class="tc-warn">Budget above this program\'s cap (~' + fm(model.budgetCap) + ') — ' + esc(model.note) + '. Confirm eligibility before counting on this credit.</div>';
+    if (!budgetTotal()) warn += '<div class="tc-warn" style="border-color:var(--border);color:var(--dim)">No budget sheet found (SB_BudgetSheet) — the Advisor-model column reads $0. Build a budget in the Producer Suite to compare.</div>';
+    $('tcWarnings').innerHTML = warn;
+  }
+
+  /* ── 4 · checklist ── */
+  function renderChecklist() {
+    var j = juris();
+    var cl = T.checklist(j);
+    $('tcChecklist').innerHTML = cl.items.map(function (it) {
+      var k = j.id + ':' + it.id;
+      return '<div class="tc-check"><input type="checkbox" data-check="' + esc(k) + '"' + (st.check[k] ? ' checked' : '') + '>' +
+        '<label>' + esc(it.step) + '<span class="tc-why">' + esc(it.why) + '</span></label></div>';
+    }).join('');
+    $('tcCheckFlag').textContent = cl.flag + ' Checked-off items are saved per jurisdiction in this browser.';
+  }
+  $('tcChecklist').addEventListener('change', function (e) {
+    var k = e.target.getAttribute && e.target.getAttribute('data-check');
+    if (!k) return;
+    st.check[k] = !!e.target.checked;
+    save();
+  });
+
+  function renderAll() { renderJuris(); renderLedger(); renderMeter(); renderChecklist(); }
+  renderAll();
+  window.CTaxCredApp = { render: renderAll, state: st };
+})();
+</script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
+</body>
+</html>

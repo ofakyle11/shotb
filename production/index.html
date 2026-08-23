@@ -50,6 +50,7 @@
   .tk-pane.hidden{display:none!important}
 }
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
 <div class="app">
@@ -102,5 +103,6 @@
 <script src="lib-prod.js?v=20260821a"></script>
 <script src="lib-cast.js?v=20260821a"></script>
 <script src="production.js?v=20260821a"></script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
 </body>
 </html>

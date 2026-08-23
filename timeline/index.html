@@ -29,6 +29,7 @@
 <script src="/js/learn.js?v=20260821b"></script>
 <script src="/js/config.js"></script>
 <script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+<link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
 <div class="app">
@@ -315,5 +316,6 @@
 <script src="/js/ffmpeg-wasm.js?v=20260628a"></script>
 <script src="/editor/timeline-engine.js?v=20260628a"></script>
 <script src="timeline.js?v=20260628a"></script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
 </body>
 </html>

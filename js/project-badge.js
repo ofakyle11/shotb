@@ -55,4 +55,97 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
+
+  /* ── studio cloud auto-sync ─────────────────────────────────────────
+     Quietly backs the active production up to the studio cloud after real
+     work: every 4 minutes of activity (and when the tab hides) the SB_*
+     stores are hashed; if they changed since the last push AND the cloud
+     copy isn't someone else's newer save, the production is pushed with
+     this owner's name on it. Overwrite protection: another owner's newer
+     cloud save turns the badge amber instead of being clobbered. */
+  var SYNC_MS = 4 * 60 * 1000;
+  var lastPushedHash = null;
+  var lastSafe = false;
+
+  function cookieOwner() {
+    try {
+      var m = /(?:^|;\s*)cin_owner=([^;]+)/.exec(document.cookie || '');
+      if (!m) return null;
+      var parts = decodeURIComponent(m[1]).split(':');
+      if (parts.length !== 4 || parts[0] !== 'owner') return null;
+      if (!(+parts[2] > Date.now())) return null;
+      return parts[1].toLowerCase();
+    } catch (e) { return null; }
+  }
+  function snapshotString() {
+    var keys = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (/^SB_[A-Za-z0-9]+_v\d+$/.test(k)) keys.push(k);
+    }
+    keys.sort();
+    var out = {};
+    keys.forEach(function (k) { out[k] = localStorage.getItem(k); });
+    return JSON.stringify(out);
+  }
+  function hashStr(s) {
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return h.toString(36) + ':' + s.length;
+  }
+  function markBadge(state, title) {
+    var b = document.getElementById('cinProjBadge');
+    if (!b) return;
+    b.style.borderColor = state === 'ok' ? 'rgba(155,203,155,.5)'
+      : state === 'warn' ? 'rgba(201,168,108,.7)' : 'rgba(139,163,184,.28)';
+    if (title) b.title = title;
+  }
+  function autoSync(viaBeacon) {
+    var me = cookieOwner();
+    if (!me) return;
+    var stores = snapshotString();
+    if (stores === '{}') return;                     // empty workspace — nothing to save
+    var h = hashStr(stores);
+    if (h === lastPushedHash) return;                // no changes since last push
+    var name = activeName();
+    var archive = JSON.stringify({ format: 'cinamate/1', name: name,
+      savedAt: 'auto', stores: JSON.parse(stores) });
+    if (archive.length > 3800000) return;            // near the cloud cap — manual push territory
+    var body = JSON.stringify({ op: 'push', name: name, archive: archive });
+    if (viaBeacon && navigator.sendBeacon && lastSafe) {
+      navigator.sendBeacon('/.netlify/functions/projects-sync', body);
+      lastPushedHash = h;
+      return;
+    }
+    /* safety check first: never clobber another owner's newer save */
+    fetch('/.netlify/functions/projects-sync?op=list', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j) { lastSafe = false; return; }
+        var mine = (j.productions || []).filter(function (p) { return p.name === name; })[0];
+        if (mine && mine.savedBy && mine.savedBy !== me && lastPushedHash === null) {
+          lastSafe = false;
+          markBadge('warn', 'Cloud copy of "' + name + '" was saved by ' + mine.savedBy.toUpperCase() +
+            ' — open Projects to pull it or push over it deliberately. Auto-sync is holding back.');
+          return;
+        }
+        lastSafe = true;
+        return fetch('/.netlify/functions/projects-sync', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' }, body: body
+        }).then(function (r2) {
+          if (r2.ok) {
+            lastPushedHash = h;
+            markBadge('ok', 'Active project — auto-saved to the studio cloud ' +
+              new Date().toTimeString().slice(0, 5) + '. Click to manage.');
+          }
+        });
+      })
+      .catch(function () { /* offline — next tick retries */ });
+  }
+  setInterval(function () { autoSync(false); }, SYNC_MS);
+  setTimeout(function () { autoSync(false); }, 25000);   // first pass shortly after load
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') autoSync(true);
+  });
 })();

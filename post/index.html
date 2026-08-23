@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Post Supervisor</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Post Supervisor">
+<meta property="og:description" content="The post-production calendar solved forward or backward from your delivery date, cut version logging, vendor bids committed straight to the Money Room, and delivery readiness hints.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.po-main{flex:1;overflow-y:auto;padding:20px 24px 60px;max-width:1080px;width:100%;margin:0 auto}
+.po-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.po-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.po-bar input,.po-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
+.po-table{width:100%;border-collapse:collapse;font-size:12px}
+.po-table th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+.po-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.po-table input,.po-table select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 6px;font-size:11.5px;max-width:110px}
+.po-date{font-family:var(--mono);white-space:nowrap}
+.po-dep{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.po-crit td{background:rgba(200,164,92,.06)}
+.po-crit .po-name::after{content:" ●";color:var(--gold);font-size:9px;vertical-align:2px}
+.po-banner{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
+.po-banner b{color:var(--gold);font-size:15px}
+.po-note{font-size:11px;color:var(--dim);line-height:1.6}
+.po-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
+.po-tag.gold{color:var(--gold);border-color:var(--gold)}
+.po-vname{font-family:var(--mono);color:var(--gold);font-size:12px}
+.po-num{font-family:var(--mono);text-align:right}
+.po-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.po-card b{font-family:var(--display);font-size:14px}
+.po-spacer{flex:1}
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Post Supervisor — calendar, versions, vendor bids, delivery</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/distribution/">Distribution</a>
+    <a class="tb-btn" href="/finance/">Money Room</a>
+    <a class="tb-btn" href="/timeline/">← Studio</a>
+  </header>
+
+  <main class="po-main">
+    <h2>1 · The calendar</h2>
+    <div class="po-bar">
+      <label class="po-note" id="poDateLabel">Delivery date <input id="poDate" type="date"></label>
+      <select id="poDir" title="Solve the calendar forward from the assembly start, or backward so delivery lands on the date">
+        <option value="backward">⇤ Backward — delivery lands ON this date</option>
+        <option value="forward">⇥ Forward — assembly starts on this date</option>
+      </select>
+      <span class="po-spacer"></span>
+      <button class="tb-btn" id="poReset" title="Restore the template durations">↺ Template days</button>
+    </div>
+    <table class="po-table"><thead><tr>
+      <th>Milestone</th><th>Days</th><th>Start</th><th>End</th><th>Blocked by</th>
+    </tr></thead><tbody id="poRows"></tbody></table>
+    <div class="po-banner" id="poBanner"></div>
+    <p class="po-note">Working days only — weekends are skipped automatically; a weekend anchor date snaps to the nearest working day. Milestones marked <span style="color:var(--gold)">●</span> sit on the critical path: a day lost there is a day lost on delivery. Durations are template estimates — verify against your facility bookings before relying on any date here.</p>
+
+    <h2>2 · Versions log</h2>
+    <div class="po-bar">
+      <input id="poProj" placeholder="Project name — e.g. Night Harvest" style="min-width:220px">
+      <select id="poStage"></select>
+      <input id="poVNotes" placeholder="Notes — what changed in this cut" style="min-width:240px;flex:1">
+      <button class="tb-btn gold" id="poLogV">+ Log version</button>
+    </div>
+    <p class="po-note">Next up: <span class="po-vname" id="poVPreview"></span></p>
+    <table class="po-table"><thead><tr>
+      <th>Version</th><th>Stage</th><th>Date</th><th>Notes</th><th></th>
+    </tr></thead><tbody id="poVRows"></tbody></table>
+
+    <h2>3 · Vendor bids</h2>
+    <div class="po-bar">
+      <select id="poBService"></select>
+      <input id="poBVendor" placeholder="Vendor" style="min-width:180px">
+      <input id="poBAmt" type="number" min="0" placeholder="Bid $" style="width:110px">
+      <button class="tb-btn gold" id="poBAdd">+ Add bid</button>
+    </div>
+    <table class="po-table"><thead><tr>
+      <th>Service</th><th>Vendor</th><th class="po-num">Bid</th><th>Status</th><th></th><th></th>
+    </tr></thead><tbody id="poBRows"></tbody></table>
+    <p class="po-note">Awarding a bid commits the amount to the Money Room as an open PO on acct 15000 (Post-production) — once only, even if you press award twice. Bids are the numbers you were quoted, not platform estimates.</p>
+
+    <h2>4 · Delivery readiness</h2>
+    <div id="poReady"></div>
+    <p class="po-note">As each milestone completes, the matching deliverable becomes ready to tick in <a href="/distribution/" style="color:var(--gold)">/distribution/</a> — nothing is ticked for you. Dates are calendar estimates from section 1; verify with your post house before promising them to a distributor.</p>
+  </main>
+</div>
+
+<div class="toast" id="poToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="/finance/lib-money.js?v=20260823a"></script>
+<script src="lib-post.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var P = window.CPost;
+  var KEY = 'SB_Post_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('poToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3200); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+
+  var st = readLS(KEY) || { anchor: '', direction: 'backward', dayOverrides: {}, project: '', versions: [], bids: [] };
+  if (!st.dayOverrides) st.dayOverrides = {};
+  if (!st.versions) st.versions = [];
+  if (!st.bids) st.bids = [];
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+
+  function milestones() {
+    return P.template().map(function (m) {
+      var o = st.dayOverrides[m.id];
+      if (o > 0) m.days = o;
+      return m;
+    });
+  }
+  function fmtNice(iso) {
+    if (!iso) return '—';
+    var d = P.parseISO(iso);
+    return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()] + ' ' + iso;
+  }
+
+  /* ── 1 · calendar ── */
+  function currentSchedule() {
+    return P.schedule(milestones(), st.anchor || $('poDate').value || '', st.direction);
+  }
+  function renderCalendar() {
+    $('poDateLabel').firstChild.nodeValue = st.direction === 'backward' ? 'Delivery date ' : 'Assembly starts ';
+    var s = currentSchedule();
+    var names = {}; s.rows.forEach(function (r) { names[r.id] = r.name; });
+    $('poRows').innerHTML = s.rows.map(function (r) {
+      return '<tr' + (r.critical ? ' class="po-crit"' : '') + ' data-id="' + esc(r.id) + '">' +
+        '<td class="po-name">' + esc(r.name) + '</td>' +
+        '<td><input data-days="' + esc(r.id) + '" type="number" min="1" max="200" style="width:56px" value="' + r.days + '"></td>' +
+        '<td class="po-date">' + fmtNice(r.start) + '</td>' +
+        '<td class="po-date">' + fmtNice(r.end) + '</td>' +
+        '<td class="po-dep">' + (r.blockedBy.length ? r.blockedBy.map(function (b) { return esc(names[b] || b); }).join(' + ') : '—') + '</td></tr>';
+    }).join('');
+    $('poBanner').innerHTML = s.error ? '<span>Dependency cycle — check the milestone graph</span>' :
+      '<span>Critical path <b>' + s.criticalPath + ' working days</b></span>' +
+      (s.start ? '<span>Post runs <b>' + fmtNice(s.start) + '</b> → <b>' + fmtNice(s.end) + '</b></span>'
+               : '<span class="po-dep" style="align-self:center">pick a date above to place it on the calendar</span>') +
+      '<span class="po-dep" style="align-self:center">' + s.path.map(function (id) { return esc(names[id] || id); }).join(' → ') + '</span>';
+    renderReady(s);
+  }
+  $('poDate').addEventListener('change', function () { st.anchor = this.value; save(); renderCalendar(); });
+  $('poDir').addEventListener('change', function () { st.direction = this.value; save(); renderCalendar(); });
+  $('poRows').addEventListener('change', function (e) {
+    var id = e.target.getAttribute('data-days'); if (!id) return;
+    st.dayOverrides[id] = Math.max(1, +e.target.value || 1);
+    save(); renderCalendar();
+  });
+  $('poReset').addEventListener('click', function () {
+    st.dayOverrides = {}; save(); renderCalendar(); toast('Durations back to the template');
+  });
+
+  /* ── 2 · versions ── */
+  var STAGES = P.template().map(function (m) { return { id: m.id, name: m.name }; });
+  $('poStage').innerHTML = STAGES.map(function (s) {
+    return '<option value="' + esc(s.id) + '"' + (s.id === 'directors-cut' ? ' selected' : '') + '>' + esc(s.name) + '</option>';
+  }).join('');
+  function stageName(id) {
+    var hit = STAGES.filter(function (s) { return s.id === id; })[0];
+    return hit ? hit.name : id;
+  }
+  function renderVersions() {
+    var proj = $('poProj').value || st.project || '';
+    $('poVPreview').textContent = P.versionName(proj, $('poStage').value, P.nextVersion(st.versions, $('poStage').value));
+    $('poVRows').innerHTML = st.versions.slice().reverse().map(function (v) {
+      return '<tr><td class="po-vname">' + esc(P.versionName(proj, v.stage, v.n)) + '</td>' +
+        '<td>' + esc(stageName(v.stage)) + '</td>' +
+        '<td class="po-date">' + esc(v.date || '—') + '</td>' +
+        '<td>' + esc(v.notes || '') + '</td>' +
+        '<td><button class="tb-btn" data-vdel="' + esc(v.id) + '">✕</button></td></tr>';
+    }).join('') || '<tr><td colspan="5" class="po-note">No versions logged yet — every cut that leaves the edit suite deserves a line here.</td></tr>';
+  }
+  $('poLogV').addEventListener('click', function () {
+    var v = P.addVersion(st.versions, { stage: $('poStage').value,
+      date: new Date().toISOString().slice(0, 10), notes: $('poVNotes').value.trim() });
+    $('poVNotes').value = '';
+    save(); renderVersions();
+    toast('Logged ' + P.versionName($('poProj').value || st.project, v.stage, v.n));
+  });
+  $('poVRows').addEventListener('click', function (e) {
+    var id = e.target.getAttribute('data-vdel'); if (!id) return;
+    st.versions = st.versions.filter(function (v) { return v.id !== id; });
+    save(); renderVersions();
+  });
+  $('poProj').addEventListener('input', function () { st.project = this.value; save(); renderVersions(); });
+  $('poStage').addEventListener('change', renderVersions);
+
+  /* ── 3 · vendor bids ── */
+  $('poBService').innerHTML = P.SERVICES.map(function (s) {
+    return '<option value="' + esc(s) + '">' + esc(s.toUpperCase()) + '</option>';
+  }).join('');
+  function renderBids() {
+    $('poBRows').innerHTML = st.bids.map(function (b) {
+      var low = P.lowBid(st.bids, b.service);
+      return '<tr><td class="po-dep">' + esc(b.service.toUpperCase()) + '</td>' +
+        '<td>' + esc(b.vendor) + '</td>' +
+        '<td class="po-num">$' + (+b.bid || 0).toLocaleString() + (low && low.id === b.id ? ' <span class="po-tag">low</span>' : '') + '</td>' +
+        '<td>' + (b.awarded ? '<span class="po-tag gold">awarded' + (b.committedPo ? ' · committed' : '') + '</span>' : '<span class="po-tag">bid</span>') + '</td>' +
+        '<td>' + (b.awarded ? '' : '<button class="tb-btn gold" data-award="' + esc(b.id) + '">Award</button>') + '</td>' +
+        '<td><button class="tb-btn" data-bdel="' + esc(b.id) + '">✕</button></td></tr>';
+    }).join('') || '<tr><td colspan="6" class="po-note">No bids yet — collect at least two quotes per service before awarding.</td></tr>';
+  }
+  $('poBAdd').addEventListener('click', function () {
+    var b = P.addBid(st.bids, { service: $('poBService').value, vendor: $('poBVendor').value, bid: $('poBAmt').value });
+    if (!b) return toast('Pick a service first');
+    $('poBVendor').value = ''; $('poBAmt').value = '';
+    save(); renderBids();
+  });
+  $('poBRows').addEventListener('click', function (e) {
+    var del = e.target.getAttribute('data-bdel'), aw = e.target.getAttribute('data-award');
+    if (del) {
+      var gone = st.bids.filter(function (b) { return b.id === del; })[0];
+      if (gone && gone.committedPo) return toast('Already committed to the Money Room — void ' + gone.committedPo + ' there first');
+      st.bids = st.bids.filter(function (b) { return b.id !== del; });
+      save(); renderBids(); return;
+    }
+    if (!aw) return;
+    var res = P.awardBid(st.bids, aw);
+    if (!res) return;
+    if (res.needsCommit) {
+      var money = JSON.parse(localStorage.getItem('SB_Money_v1') || 'null') || CMoney.blank();
+      var po = CMoney.addPO(money, { vendor: res.bid.vendor,
+        desc: 'Post ' + res.bid.service.toUpperCase() + ' — awarded bid',
+        acct: '15000', amount: res.bid.bid, date: new Date().toISOString().slice(0, 10) });
+      localStorage.setItem('SB_Money_v1', JSON.stringify(money));
+      res.bid.committedPo = po.num;
+      toast('Awarded ' + res.bid.vendor + ' — $' + (+res.bid.bid).toLocaleString() + ' committed to Money Room (' + po.num + ', acct 15000)');
+    } else {
+      toast('Already committed as ' + res.bid.committedPo + ' — nothing re-sent to the Money Room');
+    }
+    save(); renderBids();
+  });
+
+  /* ── 4 · delivery readiness ── */
+  function renderReady(s) {
+    var hints = P.distReadiness((s && s.rows) || []);
+    $('poReady').innerHTML = hints.map(function (h) {
+      return '<div class="po-card"><b>' + esc(h.deliverable) + '</b>' +
+        '<span class="po-tag">after ' + esc(h.milestone) + '</span>' +
+        '<span class="po-date po-dep">est. ' + esc(fmtNice(h.ready)) + '</span>' +
+        '<span class="po-spacer"></span>' +
+        '<a class="tb-btn" href="/distribution/">ready to tick in /distribution/ →</a></div>';
+    }).join('') || '<p class="po-note">Set a date in section 1 to see when each deliverable comes available.</p>';
+  }
+
+  /* ── init ── */
+  if (st.anchor) $('poDate').value = st.anchor;
+  $('poDir').value = st.direction || 'backward';
+  $('poProj').value = st.project || '';
+  renderCalendar(); renderVersions(); renderBids();
+  window.PostApp = { render: function () { renderCalendar(); renderVersions(); renderBids(); }, state: st };
+})();
+</script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
+</body>
+</html>

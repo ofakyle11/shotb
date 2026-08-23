@@ -1986,6 +1986,52 @@
       [data-reveal] { opacity: 1 !important; transform: none !important; }
     </style>
   </noscript>
+<link rel="manifest" href="/manifest.webmanifest">
+<style>
+/* ============================================================
+   MODULE WALL — condensed phase-grouped directory of every room.
+   Rows expand on hover (fine pointers) and on tap (accordion).
+   ============================================================ */
+.caps__grid--four { grid-template-columns: repeat(2, 1fr); max-width: 980px; margin: 0 auto; }
+@media (max-width: 719px) { .caps__grid--four { grid-template-columns: 1fr; } }
+.wall { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 18px; margin-top: 2.2rem; }
+@media (max-width: 899px) { .wall { grid-template-columns: 1fr; } }
+.wall__phase { border: 1px solid rgba(139,163,184,.16); border-radius: 14px; padding: 16px 16px 8px; background: rgba(18,37,58,.45); }
+.wall__label { display: flex; align-items: baseline; gap: 10px; margin: 0 0 4px; font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: #C9A86C; }
+.wall__labelsub { font-size: 10px; letter-spacing: .04em; text-transform: none; color: #8BA3B8; font-family: Inter, system-ui, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wall__label::after { content: ""; flex: 1; min-width: 18px; height: 1px; background: linear-gradient(90deg, rgba(201,168,108,.35), transparent); align-self: center; }
+.wall__list { list-style: none; margin: 0; padding: 0; }
+.wall__item { border-bottom: 1px solid rgba(139,163,184,.10); }
+.wall__item:last-child { border-bottom: none; }
+.wall__row { display: flex; width: 100%; align-items: center; gap: 10px; background: none; border: none; color: #E8EEF4; padding: 9px 2px; font-family: Inter, system-ui, sans-serif; cursor: pointer; text-align: left; }
+.wall__row svg { width: 17px; height: 17px; flex: none; color: #8BA3B8; transition: color .2s; }
+.wall__row:hover svg, .wall__item.is-open .wall__row svg { color: #C9A86C; }
+.wall__name { font-weight: 600; font-size: 13.5px; white-space: nowrap; }
+.wall__hint { flex: 1; font-size: 11.5px; color: #8BA3B8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wall__chev { flex: none; color: #5B8DB8; font-size: 10px; transition: transform .25s; }
+.wall__item.is-open .wall__chev { transform: rotate(90deg); }
+.wall__more { overflow: hidden; max-height: 0; opacity: 0; transition: max-height .3s ease, opacity .25s ease; }
+.wall__item.is-open .wall__more { max-height: 190px; opacity: 1; }
+@media (hover: hover) and (pointer: fine) {
+  .wall__item:hover .wall__more, .wall__item:focus-within .wall__more { max-height: 190px; opacity: 1; }
+  .wall__item:hover .wall__chev { transform: rotate(90deg); }
+}
+.wall__more p { margin: 0 0 8px; padding-left: 27px; font-size: 12.5px; line-height: 1.6; color: #A9BBCB; }
+.wall__open { display: inline-block; margin: 0 0 12px 27px; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .08em; color: #C9A86C; text-decoration: none; }
+.wall__open:hover { text-decoration: underline; }
+.wall__hint { min-width: 0; }
+.wall__labelsub { min-width: 0; }
+.wall__phase, .wall__row { min-width: 0; }
+@media (max-width: 759px) {
+  .pipe-stage { flex-wrap: wrap; }
+  .pipe-stage__caption { flex-basis: 100%; padding-left: calc(64px + 1.25rem); white-space: normal; }
+}
+@media (max-width: 480px) {
+  .hero__kicker { font-size: 0.65rem; letter-spacing: 0.2em; }
+  .hero__subline { font-size: 0.65rem; letter-spacing: 0.18em; }
+  .hero__seats { font-size: 0.625rem; }
+}
+</style>
 </head>
 <body>
 
@@ -2015,7 +2061,7 @@
     <span class="hero__hud-item hero__hud-item--tl">LAT&nbsp;34.0522&nbsp;/&nbsp;LON&nbsp;-118.2437&nbsp;&mdash;&nbsp;STUDIO&nbsp;ORBIT</span>
     <span class="hero__hud-item hero__hud-item--tr">LOCAL&nbsp;RENDER&nbsp;TIME&nbsp;&mdash;&nbsp;<span class="hero__hud-clock" id="hero-clock">--:--:-- UTC</span></span>
     <span class="hero__hud-item hero__hud-item--bl">BUILD&nbsp;2.7.1-CRIMSON</span>
-    <span class="hero__hud-item hero__hud-item--br">NODES&nbsp;4,096&nbsp;/&nbsp;4,096&nbsp;<span class="hero__hud-dot">&#9679;</span></span>
+    <span class="hero__hud-item hero__hud-item--br">RENDER&nbsp;NODE&nbsp;&mdash;&nbsp;YOUR&nbsp;GPU&nbsp;<span class="hero__hud-dot">&#9679;</span></span>
   </div>
 
   <!-- Content stack -->
@@ -2023,7 +2069,7 @@
 
     <p class="hero__kicker">
       <span class="hero__kicker-mark">&#9679;</span>
-      INVITATION-ONLY&nbsp;//&nbsp;PRIVATE&nbsp;BETA&nbsp;03
+      INVITATION-ONLY&nbsp;// PRIVATE&nbsp;BETA&nbsp;03
     </p>
 
     <h1 class="hero__title" id="hero-title">
@@ -2047,7 +2093,7 @@
       The first private studio that turns a screenplay into a finished&nbsp;film.
     </p>
 
-    <p class="hero__subline">FROM&nbsp;SCRIPT&nbsp;TO&nbsp;DISTRIBUTION&nbsp;&mdash;&nbsp;COMMAND&nbsp;EVERY&nbsp;STAGE.</p>
+    <p class="hero__subline">FROM&nbsp;SCRIPT&nbsp;TO&nbsp;DISTRIBUTION&nbsp;&mdash; COMMAND&nbsp;EVERY&nbsp;STAGE.</p>
 
     <div class="hero__cta-block">
       <a class="hero__cta" id="hero-cta" href="#suite">
@@ -2055,7 +2101,7 @@
         <span class="hero__cta-arrow" aria-hidden="true">&#8595;</span>
       </a>
       <p class="hero__seats">
-        CALIBRATED&nbsp;ON&nbsp;<span class="hero__seats-count">3,708</span>&nbsp;RELEASED&nbsp;FEATURES&nbsp;&middot;&nbsp;EVERY&nbsp;RATE&nbsp;SOURCE-CITED
+        CALIBRATED&nbsp;ON&nbsp;<span class="hero__seats-count">3,708</span>&nbsp;RELEASED&nbsp;FEATURES&nbsp;&middot; EVERY&nbsp;RATE&nbsp;SOURCE-CITED
       </p>
     </div>
 
@@ -2068,24 +2114,24 @@
            frag-hero.js randomizes a few values on load, then mirrors
            the first sequence into the second. -->
       <span class="hero__ticker-seq" id="hero-ticker-seq">
-        <span class="hero__ticker-item">RENDER GRID: <b class="t-ok">ONLINE</b></span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">ACTIVE GENERATIONS: <b class="t-num" data-tick="generations">217</b></span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">QUEUE DEPTH: <b class="t-num" data-tick="queue">00:00:41</b></span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">NEURAL CINEMATOGRAPHER v9.4 &mdash; <b class="t-ok">STABLE</b></span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">LAST MASTER DELIVERED: <b class="t-num">8K</b> &middot; <b class="t-num">24FPS</b> &middot; <b class="t-num" data-tick="runtime">02:11:36</b> RUNTIME</span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">SCORE ENGINE: 96-PIECE VIRTUAL ORCHESTRA <b class="t-ok">READY</b></span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">INCENTIVE PROGRAMS TRACKED: <b class="t-num">20</b></span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">UPTIME: <b class="t-num">99.997%</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">RENDER GRID: <b class="t-ok">YOUR GPU &mdash; LOCAL BRIDGE</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">WORKING MODULES: <b class="t-num">28</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">CLOUD RENDER BILL: <b class="t-num">$0.00</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">INCENTIVE PROGRAMS TRACKED: <b class="t-num">21</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">PERMIT OFFICES ON FILE: <b class="t-num">6 HUBS</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">STAGE DIRECTORY: <b class="t-num">36 FACILITIES</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">PROJECT STATE: <b class="t-ok">ONE &mdash; SHARED BY EVERY ROOM</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">EXPORT PATH: <b class="t-num">H.264 &middot; EDL &middot; OTIO</b></span><i class="hero__ticker-sep">&#9670;</i>
       </span>
       <span class="hero__ticker-seq" id="hero-ticker-seq-dup">
-        <span class="hero__ticker-item">RENDER GRID: <b class="t-ok">ONLINE</b></span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">ACTIVE GENERATIONS: <b class="t-num">217</b></span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">QUEUE DEPTH: <b class="t-num">00:00:41</b></span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">NEURAL CINEMATOGRAPHER v9.4 &mdash; <b class="t-ok">STABLE</b></span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">LAST MASTER DELIVERED: <b class="t-num">8K</b> &middot; <b class="t-num">24FPS</b> &middot; <b class="t-num">02:11:36</b> RUNTIME</span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">SCORE ENGINE: 96-PIECE VIRTUAL ORCHESTRA <b class="t-ok">READY</b></span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">INCENTIVE PROGRAMS TRACKED: <b class="t-num">20</b></span><i class="hero__ticker-sep">&#9670;</i>
-        <span class="hero__ticker-item">UPTIME: <b class="t-num">99.997%</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">RENDER GRID: <b class="t-ok">YOUR GPU &mdash; LOCAL BRIDGE</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">WORKING MODULES: <b class="t-num">28</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">CLOUD RENDER BILL: <b class="t-num">$0.00</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">INCENTIVE PROGRAMS TRACKED: <b class="t-num">21</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">PERMIT OFFICES ON FILE: <b class="t-num">6 HUBS</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">STAGE DIRECTORY: <b class="t-num">36 FACILITIES</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">PROJECT STATE: <b class="t-ok">ONE &mdash; SHARED BY EVERY ROOM</b></span><i class="hero__ticker-sep">&#9670;</i>
+        <span class="hero__ticker-item">EXPORT PATH: <b class="t-num">H.264 &middot; EDL &middot; OTIO</b></span><i class="hero__ticker-sep">&#9670;</i>
       </span>
     </div>
   </div>
@@ -2117,168 +2163,56 @@
     <header class="caps__header" data-reveal>
       <p class="caps__kicker">//&nbsp;01&nbsp;&mdash;&nbsp;CAPABILITIES</p>
       <h2 class="caps__title" id="caps-title">A complete studio, rendered in&nbsp;silicon.</h2>
-      <p class="caps__dek">Six systems. One pipeline. Every craft of filmmaking, reproduced at machine&nbsp;scale.</p>
+      <p class="caps__dek">Four flagship systems. Twenty-eight working rooms. One shared production state &mdash; and everything on this page is live in the&nbsp;product.</p>
     </header>
 
-    <ul class="caps__grid" role="list">
+    <ul class="caps__grid caps__grid--four" role="list">
 
-      <!-- SYS.01 — Script-to-Screen -->
       <li class="caps-card" data-reveal>
         <i class="caps-card__ticks" aria-hidden="true"></i>
         <span class="caps-card__id" aria-hidden="true">SYS.01</span>
-        <span class="caps-card__icon" aria-hidden="true">
-          <svg viewBox="0 0 28 28" width="28" height="28" fill="none"
-               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 3.5h11l5 5V24.5H6z"/>
-            <path d="M17 3.5v5h5"/>
-            <path d="M9.5 12h9M9.5 15.5h9M9.5 19h4"/>
-            <path d="M17 18l4 2.5-4 2.5z" fill="currentColor" stroke="none" opacity="0.9"/>
-          </svg>
-        </span>
-        <h3 class="caps-card__title">Script-to-Screen</h3>
-        <p class="caps-card__desc">Feed it a screenplay in Fountain, Final Draft, or plain prose. It returns a cut.</p>
+        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="14" r="3.2"/><circle cx="14" cy="14" r="10"/><path d="M14 4v5M14 19v5M4 14h5M19 14h5"/></svg></span>
+        <h3 class="caps-card__title">Studio &middot; Local Generation</h3>
+        <p class="caps-card__desc">Script to screen through the Cinamate bridge on your own machine. Nothing uploads &mdash; the render farm is your GPU, and every draft is priced before a frame&nbsp;renders.</p>
         <dl class="caps-card__telemetry">
-          <div class="caps-card__readout">
-            <dt>PARSE&nbsp;118&nbsp;PP</dt>
-            <dd>00:00:03.2</dd>
-          </div>
-          <div class="caps-card__readout">
-            <dt>SCENE&nbsp;GRAPH</dt>
-            <dd>1,842&nbsp;NODES</dd>
-          </div>
+          <div class="caps-card__readout"><dt>RENDERS</dt><dd>ON&nbsp;YOUR&nbsp;MACHINE</dd></div>
+          <div class="caps-card__readout"><dt>CLOUD&nbsp;BILL</dt><dd>$0</dd></div>
         </dl>
       </li>
 
-      <!-- SYS.02 — Neural Cinematography -->
       <li class="caps-card" data-reveal data-reveal-delay="80">
         <i class="caps-card__ticks" aria-hidden="true"></i>
         <span class="caps-card__id" aria-hidden="true">SYS.02</span>
-        <span class="caps-card__icon" aria-hidden="true">
-          <svg viewBox="0 0 28 28" width="28" height="28" fill="none"
-               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="14" cy="14" r="10.5"/>
-            <circle cx="14" cy="14" r="2.4"/>
-            <path d="M14 3.5v6.1M23.1 8.75l-5.3 3.05M23.1 19.25l-5.3-3.05M14 24.5v-6.1M4.9 19.25l5.3-3.05M4.9 8.75l5.3 3.05"/>
-          </svg>
-        </span>
-        <h3 class="caps-card__title">Neural Cinematography</h3>
-        <p class="caps-card__desc">A virtual DP trained on a century of composition. Lenses, blocking, coverage &mdash; chosen, not guessed.</p>
+        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="21" height="16" rx="1.5"/><path d="M3.5 11h21M8 6v16M20 6v16"/><path d="M11.5 15.5l3 2-3 2z"/></svg></span>
+        <h3 class="caps-card__title">The Cutting Room</h3>
+        <p class="caps-card__desc">A real editor in the browser &mdash; multi-track, titles, waveforms &mdash; with an assistant that rough-cuts from story order, tightens silence, cuts to the music and balances&nbsp;color.</p>
         <dl class="caps-card__telemetry">
-          <div class="caps-card__readout">
-            <dt>LENS&nbsp;KIT</dt>
-            <dd>21&nbsp;VIRTUAL&nbsp;PRIMES</dd>
-          </div>
-          <div class="caps-card__readout">
-            <dt>COVERAGE</dt>
-            <dd>11&nbsp;ANGLES/SCENE</dd>
-          </div>
+          <div class="caps-card__readout"><dt>EXPORT</dt><dd>H.264&nbsp;+&nbsp;AAC</dd></div>
+          <div class="caps-card__readout"><dt>CONFORM</dt><dd>EDL&nbsp;&middot;&nbsp;OTIO</dd></div>
         </dl>
       </li>
 
-      <!-- SYS.03 — Voice & Score Synthesis -->
       <li class="caps-card" data-reveal data-reveal-delay="160">
         <i class="caps-card__ticks" aria-hidden="true"></i>
         <span class="caps-card__id" aria-hidden="true">SYS.03</span>
-        <span class="caps-card__icon" aria-hidden="true">
-          <svg viewBox="0 0 28 28" width="28" height="28" fill="none"
-               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 14h2.5M25 14h-2.5"/>
-            <path d="M7.5 10.5v7M11 6.5v15M14.5 9v10M18 4.5v19M21.5 11v6"/>
-          </svg>
-        </span>
-        <h3 class="caps-card__title">Voice &amp; Score Synthesis</h3>
-        <p class="caps-card__desc">Original performances and a full orchestral score, composed to your cut, cleared at birth.</p>
+        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2.5v23"/><path d="M20 8a4 4 0 0 0-4-3h-4a4 4 0 0 0 0 8h4a4 4 0 0 1 0 8h-4a4 4 0 0 1-4-3"/></svg></span>
+        <h3 class="caps-card__title">The Money Room</h3>
+        <p class="caps-card__desc">Estimates that learn from real invoices, purchase orders, and the weekly cost report producers actually run &mdash; budget, actual, committed, estimated final cost &mdash; with overruns surfacing while there&rsquo;s time to&nbsp;act.</p>
         <dl class="caps-card__telemetry">
-          <div class="caps-card__readout">
-            <dt>VOICE&nbsp;MODELS</dt>
-            <dd>312&nbsp;LICENSED</dd>
-          </div>
-          <div class="caps-card__readout">
-            <dt>ORCHESTRA</dt>
-            <dd>96&nbsp;PC&nbsp;&middot;&nbsp;48kHz</dd>
-          </div>
+          <div class="caps-card__readout"><dt>COST&nbsp;REPORT</dt><dd>LIVE&nbsp;EFC</dd></div>
+          <div class="caps-card__readout"><dt>ESTIMATES</dt><dd>SELF-CALIBRATING</dd></div>
         </dl>
       </li>
 
-      <!-- SYS.04 — 8K Neural Render Farm -->
-      <li class="caps-card" data-reveal>
+      <li class="caps-card" data-reveal data-reveal-delay="240">
         <i class="caps-card__ticks" aria-hidden="true"></i>
         <span class="caps-card__id" aria-hidden="true">SYS.04</span>
-        <span class="caps-card__icon" aria-hidden="true">
-          <svg viewBox="0 0 28 28" width="28" height="28" fill="none"
-               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="4" y="4" width="8.5" height="8.5" rx="1.5"/>
-            <rect x="15.5" y="4" width="8.5" height="8.5" rx="1.5"/>
-            <rect x="4" y="15.5" width="8.5" height="8.5" rx="1.5"/>
-            <rect x="15.5" y="15.5" width="8.5" height="8.5" rx="1.5"/>
-            <circle cx="8.25" cy="8.25" r="1" fill="currentColor" stroke="none"/>
-            <circle cx="19.75" cy="19.75" r="1" fill="currentColor" stroke="none"/>
-          </svg>
-        </span>
-        <h3 class="caps-card__title">8K Neural Render Farm</h3>
-        <p class="caps-card__desc">Four thousand dedicated nodes. Overnight, your film exists.</p>
+        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20a4.5 4.5 0 0 1-.5-8.97 6 6 0 0 1 11.6-1.4A4.75 4.75 0 0 1 19.5 20z"/><path d="M14 12v8M11 17l3 3 3-3"/></svg></span>
+        <h3 class="caps-card__title">A Studio That Remembers</h3>
+        <p class="caps-card__desc">One production locked across every room, backed up whole to the studio cloud, auto-synced as you work &mdash; and a learning layer that calibrates the next film from this&nbsp;one.</p>
         <dl class="caps-card__telemetry">
-          <div class="caps-card__readout">
-            <dt>THROUGHPUT</dt>
-            <dd>44&nbsp;MIN&nbsp;FOOTAGE/HR</dd>
-          </div>
-          <div class="caps-card__readout">
-            <dt>GRID</dt>
-            <dd>4,096&nbsp;NODES&nbsp;<span class="caps-card__live" aria-hidden="true">&#9679;</span></dd>
-          </div>
-        </dl>
-      </li>
-
-      <!-- SYS.05 — Director Copilot -->
-      <li class="caps-card" data-reveal data-reveal-delay="80">
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">SYS.05</span>
-        <span class="caps-card__icon" aria-hidden="true">
-          <svg viewBox="0 0 28 28" width="28" height="28" fill="none"
-               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 6.5h20v13.5h-9l-4.5 3.5v-3.5H4z"/>
-            <path d="M8 11l3 2.5-3 2.5"/>
-            <path d="M13.5 16h6.5"/>
-          </svg>
-        </span>
-        <h3 class="caps-card__title">Director Copilot</h3>
-        <p class="caps-card__desc">Give notes in plain language &mdash; &ldquo;colder,&rdquo; &ldquo;hold the shot,&rdquo; &ldquo;she hesitates&rdquo; &mdash; and watch the scene rebuild.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout">
-            <dt>NOTE&nbsp;&rarr;&nbsp;RETAKE</dt>
-            <dd>00:00:19</dd>
-          </div>
-          <div class="caps-card__readout">
-            <dt>REVISION&nbsp;DEPTH</dt>
-            <dd>UNLIMITED</dd>
-          </div>
-        </dl>
-      </li>
-
-      <!-- SYS.06 — Continuity Engine -->
-      <li class="caps-card" data-reveal data-reveal-delay="160">
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">SYS.06</span>
-        <span class="caps-card__icon" aria-hidden="true">
-          <svg viewBox="0 0 28 28" width="28" height="28" fill="none"
-               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="8" width="13" height="12" rx="1.5"/>
-            <path d="M16 12h5.5a3.5 3.5 0 0 1 0 7H16" opacity="0.9"/>
-            <path d="M3 12h13M6.5 8v-2M12.5 8v-2M6.5 22v-2M12.5 22v-2"/>
-            <circle cx="9.5" cy="16" r="1.2" fill="currentColor" stroke="none"/>
-          </svg>
-        </span>
-        <h3 class="caps-card__title">Continuity Engine</h3>
-        <p class="caps-card__desc">Faces, wardrobe, light, and logic held consistent across every frame of a feature.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout">
-            <dt>IDENTITY&nbsp;LOCK</dt>
-            <dd>99.98%</dd>
-          </div>
-          <div class="caps-card__readout">
-            <dt>TRACKED&nbsp;ENTITIES</dt>
-            <dd>4,210</dd>
-          </div>
+          <div class="caps-card__readout"><dt>FULL&nbsp;BACKUP</dt><dd>ONE&nbsp;FILE</dd></div>
+          <div class="caps-card__readout"><dt>AUTO-SYNC</dt><dd>EVERY&nbsp;4&nbsp;MIN</dd></div>
         </dl>
       </li>
 
@@ -2391,7 +2325,7 @@
     </div>
 
     <p class="pipe__summary" data-reveal data-reveal-delay="240">
-      TYPICAL&nbsp;SCRIPT-TO-MASTER:&nbsp;<span class="pipe__summary-value">09:12:44</span>&nbsp;&middot;&nbsp;HUMAN&nbsp;CREW&nbsp;REQUIRED:&nbsp;<span class="pipe__summary-value">1&nbsp;(YOU)</span>
+      TYPICAL&nbsp;SCRIPT-TO-MASTER:&nbsp;<span class="pipe__summary-value">09:12:44</span>&nbsp;&middot; HUMAN&nbsp;CREW&nbsp;REQUIRED:&nbsp;<span class="pipe__summary-value">1&nbsp;(YOU)</span>
     </p>
 
   </div>
@@ -2411,216 +2345,415 @@
     <header class="caps__header" data-reveal>
       <p class="caps__kicker">//&nbsp;03&nbsp;&mdash;&nbsp;THE&nbsp;WHOLE&nbsp;STUDIO</p>
       <h2 class="caps__title" id="suite-title">Every department. One&nbsp;address.</h2>
-      <p class="caps__dek">Development to delivery &mdash; twenty working modules that share one project state, advise each other, and learn from every picture you&nbsp;make.</p>
+      <p class="caps__dek">Development to delivery &mdash; twenty-eight working rooms that share one project state, advise each other, and learn from every picture you make. Touch a room to see what it&nbsp;does.</p>
     </header>
 
-    <ul class="caps__grid" role="list">
-
-      <li class="caps-card" data-reveal>
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.01</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h9l5 5v16H7z"/><path d="M16 3.5v5h5"/><path d="M10.5 13h7M10.5 16.5h7M10.5 20h4"/></svg></span>
-        <h3 class="caps-card__title">Writer</h3>
-        <p class="caps-card__desc">A treatment goes in &mdash; PDF or Word &mdash; and a structured screenplay comes out: scene beats, inferred sluglines, cast detected, Fountain export that any script app opens.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>INPUT</dt><dd>PDF&nbsp;&middot;&nbsp;DOCX</dd></div>
-          <div class="caps-card__readout"><dt>OUTPUT</dt><dd>FOUNTAIN&nbsp;DRAFT</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal data-reveal-delay="80">
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.02</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="9.5" height="7" rx="1"/><rect x="15" y="5" width="9.5" height="7" rx="1"/><rect x="3.5" y="16" width="9.5" height="7" rx="1"/><path d="M15 19.5h9.5"/></svg></span>
-        <h3 class="caps-card__title">Storyboards &amp; Shot Lists</h3>
-        <p class="caps-card__desc">Coverage suggested from your actual cast &mdash; master, singles, insert. Frames pulled from your own renders. Printable boards, a timed animatic, key&nbsp;art.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>COVERAGE</dt><dd>AUTO-SUGGESTED</dd></div>
-          <div class="caps-card__readout"><dt>ANIMATIC</dt><dd>TIMED&nbsp;MP4</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal data-reveal-delay="160">
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.03</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="14" r="3.2"/><circle cx="14" cy="14" r="9.5"/><path d="M14 4.5v4M14 19.5v4M4.5 14h4M19.5 14h4"/></svg></span>
-        <h3 class="caps-card__title">Studio &middot; Local Generation</h3>
-        <p class="caps-card__desc">Script to screen through the Cinamate bridge on your own machine. Nothing uploads &mdash; the render farm is your GPU, and every draft is priced before a frame renders.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>RENDERS</dt><dd>ON&nbsp;YOUR&nbsp;MACHINE</dd></div>
-          <div class="caps-card__readout"><dt>CLOUD&nbsp;BILL</dt><dd>$0</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal>
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.04</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3.5" width="20" height="21" rx="1.5"/><path d="M4 9h20M9.5 9v15.5"/><path d="M12.5 13h8M12.5 16.5h8M12.5 20h4.5"/></svg></span>
-        <h3 class="caps-card__title">Producer&rsquo;s Estimate &amp; Budget</h3>
-        <p class="caps-card__desc">Scenes measured in eighths, priced to union scale &mdash; and the sheet learns: every real invoice calibrates the next estimate, on this film and the&nbsp;next.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>TOP&nbsp;SHEET</dt><dd>18&nbsp;ACCOUNTS</dd></div>
-          <div class="caps-card__readout"><dt>ESTIMATES</dt><dd>SELF-CALIBRATING</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal data-reveal-delay="80">
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.05</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="21" height="5" rx="1"/><rect x="3.5" y="11.5" width="21" height="5" rx="1"/><rect x="3.5" y="19" width="13" height="5" rx="1"/><path d="M20.5 21.5h4M22.5 19.5v4"/></svg></span>
-        <h3 class="caps-card__title">Stripboard, DOOD &amp; Weather</h3>
-        <p class="caps-card__desc">The board builds itself from the script, cast spans computed, call sheets print-ready &mdash; with sunrise, golden hour and a weather-risk score on every shoot&nbsp;day.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>CAST&nbsp;MATRIX</dt><dd>SW&nbsp;/&nbsp;W&nbsp;/&nbsp;H&nbsp;/&nbsp;WF</dd></div>
-          <div class="caps-card__readout"><dt>GOLDEN&nbsp;HOUR</dt><dd>&plusmn;2&nbsp;MIN</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal data-reveal-delay="160">
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.06</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><circle cx="19" cy="19" r="3"/><path d="M21.5 6.5l-15 15"/></svg></span>
-        <h3 class="caps-card__title">Location &amp; Incentive Advisor</h3>
-        <p class="caps-card__desc">Twenty-one tax jurisdictions ranked for <em>your</em> film &mdash; real dollars back on your actual budget, matched to the world your script describes and the crew depth to shoot&nbsp;it.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>JURISDICTIONS</dt><dd>21&nbsp;PROGRAMS</dd></div>
-          <div class="caps-card__readout"><dt>RANKED&nbsp;BY</dt><dd>$&nbsp;&times;&nbsp;LOOK&nbsp;&times;&nbsp;CREW</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal>
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.07</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="9" r="4"/><path d="M3.5 24c.8-4.4 3.4-6.5 6.5-6.5s5.7 2.1 6.5 6.5"/><path d="M18.5 7.5l2 2 4-4.5"/><path d="M20 14.5c2.6.6 4 2.4 4.5 5"/></svg></span>
-        <h3 class="caps-card__title">Cast Intelligence</h3>
-        <p class="caps-card__desc">Filmography, the directors they&rsquo;ve worked with, a fit score against the director you want, collaborator suggestions &mdash; and a quote band floored at SAG&nbsp;scale.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>FIT&nbsp;SCORE</dt><dd>OUT&nbsp;OF&nbsp;100</dd></div>
-          <div class="caps-card__readout"><dt>QUOTES</dt><dd>BANDED&nbsp;+&nbsp;FLOORED</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal data-reveal-delay="80">
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.08</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 24V4"/><path d="M4 24h20"/><path d="M7.5 19l5-6 4 3 6.5-9"/></svg></span>
-        <h3 class="caps-card__title">Sales, Waterfall &amp; Residuals</h3>
-        <p class="caps-card__desc">Honest quantile bands from 3,708 released films, the full waterfall from worldwide gross to producer net, guild residuals estimated on convention&nbsp;rates.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>CALIBRATION</dt><dd>3,708&nbsp;FILMS</dd></div>
-          <div class="caps-card__readout"><dt>BANDS</dt><dd>P10&nbsp;&ndash;&nbsp;P90</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal data-reveal-delay="160">
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.09</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="21" height="16" rx="1.5"/><path d="M3.5 11h21M8 6v16M20 6v16"/><path d="M11.5 15.5l3 2-3 2z"/></svg></span>
-        <h3 class="caps-card__title">Editor</h3>
-        <p class="caps-card__desc">A real cutting room in the browser &mdash; multi-track, transitions, titles, waveforms &mdash; exporting H.264/AAC through our own MP4 writer, with EDL and OTIO conform for&nbsp;Resolve.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>EXPORT</dt><dd>H.264&nbsp;+&nbsp;AAC</dd></div>
-          <div class="caps-card__readout"><dt>CONFORM</dt><dd>EDL&nbsp;&middot;&nbsp;OTIO</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal>
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.10</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l10-5 10 5v13"/><path d="M10 21v-7h8v7"/><path d="M4 21h20"/></svg></span>
-        <h3 class="caps-card__title">Production Office</h3>
-        <p class="caps-card__desc">Casting and audition sides, locations and permits, continuity, camera and sound reports, an auto-assembled daily production report, VFX tracking, cue sheets, clearances, delivery&nbsp;QC.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>DEPARTMENTS</dt><dd>10</dd></div>
-          <div class="caps-card__readout"><dt>DAILY&nbsp;REPORT</dt><dd>AUTO-ASSEMBLED</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal data-reveal-delay="80">
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.11</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6a4 4 0 0 0-5.6 5L4 16.4V20h3.6L13 14.6A4 4 0 0 0 18 9l-3 3-2-2z"/><path d="M18.5 18.5l4 4" opacity=".8"/></svg></span>
-        <h3 class="caps-card__title">Production Tools &times;20</h3>
-        <p class="caps-card__desc">Digital slate, union timecards, MHL offload verification, frame-accurate dailies review, LUT preview, captions, credit rolls, press kits, festival tracking, finance&nbsp;waterfall&hellip;</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>TOOLS</dt><dd>20&nbsp;ON&nbsp;BOARD</dd></div>
-          <div class="caps-card__readout"><dt>SERVERS&nbsp;REQUIRED</dt><dd>0</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal data-reveal-delay="160">
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.12</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="14" r="10.5"/><path d="M14 8.5v5.5l3.8 2.6"/><path d="M9 3.5l-2.5 2M19 3.5l2.5 2" opacity=".85"/></svg></span>
-        <h3 class="caps-card__title">Workflow, Advisor &amp; Memory</h3>
-        <p class="caps-card__desc">Mission control reads every module &mdash; what&rsquo;s ready, what&rsquo;s next, who to hire, where to shoot. One project locked across the site, whole productions backed up to a single file, and a platform that learns your true costs and your machine&rsquo;s real&nbsp;speed.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>SELF-LEARNING</dt><dd>ON-DEVICE</dd></div>
-          <div class="caps-card__readout"><dt>FULL&nbsp;BACKUP</dt><dd>ONE&nbsp;FILE</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal>
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.13</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M24.5 19V9L14 3 3.5 9v10L14 25z"/><path d="M3.9 9.2 14 15l10.1-5.8"/><path d="M14 25V15"/></svg></span>
-        <h3 class="caps-card__title">Props Department</h3>
-        <p class="caps-card__desc">The script breaks itself down into props, priced by the trade&rsquo;s own rules &mdash; rent&nbsp;vs&nbsp;buy, armorer days, hero multiples &mdash; then lists the prop houses around your shoot with numbers to call and the quote request already&nbsp;written.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>SOURCING</dt><dd>LIVE&nbsp;MAP&nbsp;DATA</dd></div>
-          <div class="caps-card__readout"><dt>PRICING</dt><dd>SELF-CALIBRATING</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal data-reveal-delay="80">
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.14</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="21" height="21" rx="1"/><path d="M3.5 14h8.5v10.5"/><path d="M12 14V3.5"/><path d="M17 24.5v-6h7.5"/></svg></span>
-        <h3 class="caps-card__title">Set Designer</h3>
-        <p class="caps-card__desc">Top-down set and stage plans drawn in the browser &mdash; flats, doors, dressing, camera positions with true lens fields of view, lighting throws &mdash; snapped to a real-world grid and exported crew-ready as PNG or&nbsp;vector.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>LENS&nbsp;FOV</dt><dd>TRUE&nbsp;OPTICS</dd></div>
-          <div class="caps-card__readout"><dt>EXPORT</dt><dd>PNG&nbsp;&middot;&nbsp;SVG</dd></div>
-        </dl>
-      </li>
-
-      <li class="caps-card" data-reveal>
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.15</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2.5v23"/><path d="M20 8a4 4 0 0 0-4-3h-4a4 4 0 0 0 0 8h4a4 4 0 0 1 0 8h-4a4 4 0 0 1-4-3"/></svg></span>
-        <h3 class="caps-card__title">Money Room &amp; Deal Memos</h3>
-        <p class="caps-card__desc">Purchase orders, petty cash and the weekly cost report &mdash; budget vs actual vs committed vs estimated final cost &mdash; with crew and cast deal memos that become commitments the moment they&rsquo;re signed. Overruns surface while there&rsquo;s still time to&nbsp;act.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>COST&nbsp;REPORT</dt><dd>LIVE&nbsp;EFC</dd></div>
-          <div class="caps-card__readout"><dt>SIGNED&nbsp;DEALS</dt><dd>AUTO-COMMITTED</dd></div>
-        </dl>
-      </li>
-      <li class="caps-card" data-reveal data-reveal-delay="80">
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.16</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3 5 6.5v6c0 5.4 3.6 9.6 9 11.5 5.4-1.9 9-6.1 9-11.5v-6z"/><path d="m10.5 14 2.4 2.4 4.6-5"/></svg></span>
-        <h3 class="caps-card__title">Set Safety &amp; Clearance</h3>
-        <p class="caps-card__desc">Risk assessments drafted from the screenplay itself &mdash; weapons, stunts, water, fire, vehicles flagged with their control measures &mdash; paid duty police booked with a direct line wherever the shoot is based, and the pre-E&amp;O clearance scan with release letters&nbsp;drafted.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>RISK&nbsp;DOCS</dt><dd>FROM&nbsp;THE&nbsp;SCRIPT</dd></div>
-          <div class="caps-card__readout"><dt>PAID&nbsp;DUTY</dt><dd>ONE&nbsp;CLICK</dd></div>
-        </dl>
-      </li>
-      <li class="caps-card" data-reveal data-reveal-delay="160">
-        <i class="caps-card__ticks" aria-hidden="true"></i>
-        <span class="caps-card__id" aria-hidden="true">MOD.17</span>
-        <span class="caps-card__icon" aria-hidden="true"><svg viewBox="0 0 28 28" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="23" height="15" rx="2"/><path d="m11.5 10.5 6 3-6 3z"/></svg></span>
-        <h3 class="caps-card__title">Screening &amp; Delivery</h3>
-        <p class="caps-card__desc">Timecoded review notes on any cut that land in the Editor as markers, the delivery schedule reshaped per buyer &mdash; festival to streamer &mdash; release windows with exclusivity-clash warnings, and a registry of exactly who holds a&nbsp;screener.</p>
-        <dl class="caps-card__telemetry">
-          <div class="caps-card__readout"><dt>REVIEW&nbsp;NOTES</dt><dd>FRAME-ACCURATE</dd></div>
-          <div class="caps-card__readout"><dt>DELIVERY</dt><dd>PER-BUYER</dd></div>
-        </dl>
-      </li>
-
-    </ul>
+    <div class="wall" id="module-wall">
+      <div class="wall__phase" data-reveal>
+        <h3 class="wall__label">Develop<span class="wall__labelsub">The picture on paper</span></h3>
+        <ul class="wall__list" role="list">
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h4"/></svg>
+            <span class="wall__name">Writer</span>
+            <span class="wall__hint">Treatment in &mdash; screenplay out</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Drop a treatment as PDF or Word and get a structured draft back: scene beats, inferred sluglines, detected cast, and a Fountain export any script app opens.</p>
+            <a class="wall__open" href="/writer/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="8" height="6" rx="1"/><rect x="13" y="5" width="8" height="6" rx="1"/><rect x="3" y="14" width="8" height="6" rx="1"/><path d="M13 17h8"/></svg>
+            <span class="wall__name">Storyboards</span>
+            <span class="wall__hint">Boards, shot lists, animatic</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Coverage suggested from your actual cast, printable boards, key art, and a timed animatic cut from your own frames.</p>
+            <a class="wall__open" href="/boards/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5V12l6 6"/></svg>
+            <span class="wall__name">Investors</span>
+            <span class="wall__hint">The money, before the movie</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Track commitments, model the recoupment waterfall &mdash; fees, debt, gap, equity premium, the back-end split &mdash; and print the finance plan.</p>
+            <a class="wall__open" href="/investors/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/><path d="M8 10.5h5M10.5 8v5"/></svg>
+            <span class="wall__name">Clearance</span>
+            <span class="wall__hint">The pre-E&amp;O script scan</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>The screenplay scanned for brands, music, artwork and real people, with release letters drafted before the lawyers bill.</p>
+            <a class="wall__open" href="/clearance/">OPEN &rarr;</a>
+          </div>
+        </li>
+        </ul>
+      </div>
+      <div class="wall__phase" data-reveal>
+        <h3 class="wall__label">Prep<span class="wall__labelsub">Everything before the first slate</span></h3>
+        <ul class="wall__list" role="list">
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="1.5"/><path d="M4 8h16M9 8v12.5"/><path d="M11.5 12h6M11.5 15.5h6"/></svg>
+            <span class="wall__name">Producer Suite</span>
+            <span class="wall__hint">Budget, stripboard, call sheets</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Scenes measured in eighths and priced to union scale &mdash; fringes, bond, insurance and cashflow on the sheet &mdash; while the board builds itself and call sheets print.</p>
+            <a class="wall__open" href="/producer/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 12h7M9 15.5h7"/><path d="M9 19c1-.8 2-.8 3 0s2 .8 3 0"/></svg>
+            <span class="wall__name">Deal Memos</span>
+            <span class="wall__hint">Crew &amp; cast on paper</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>SAG-floored deal memos that become Money Room commitments the moment they&rsquo;re signed.</p>
+            <a class="wall__open" href="/contracts/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.5 3.8-5.2 7-5.2s5.8 1.7 7 5.2"/></svg>
+            <span class="wall__name">Casting Office</span>
+            <span class="wall__hint">Sessions, offers, availability</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>The casting desk &mdash; sessions, callbacks, offers and holds, run against the parts your script actually has.</p>
+            <a class="wall__open" href="/casting/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.4-6.5-10a6.5 6.5 0 0 1 13 0c0 4.6-6.5 10-6.5 10z"/><circle cx="12" cy="10.5" r="2.3"/></svg>
+            <span class="wall__name">Scout Book</span>
+            <span class="wall__hint">Locations, permits, stages</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Every location with its permit office, fees and lead time on file &mdash; six major hubs verified &mdash; plus a 36-facility stage directory.</p>
+            <a class="wall__open" href="/locations/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4 4 7l2 3 2-1v11h8V9l2 1 2-3-4-3a4 4 0 0 1-8 0z"/></svg>
+            <span class="wall__name">Wardrobe</span>
+            <span class="wall__hint">Costumes by character &amp; change</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Costume plots by character and change, budgeted and tracked from fitting to wrap.</p>
+            <a class="wall__open" href="/wardrobe/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8l-9-5-9 5v8l9 5z"/><path d="M3.3 7.9 12 12.8l8.7-4.9"/><path d="M12 22V12.8"/></svg>
+            <span class="wall__name">Props</span>
+            <span class="wall__hint">Breakdown, pricing, prop houses</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>The script breaks itself down into props priced by the trade&rsquo;s own rules, with prop houses around your shoot and the quote request already written.</p>
+            <a class="wall__open" href="/props/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 12h7v9"/><path d="M10 12V3"/><path d="M14 21v-5h7"/></svg>
+            <span class="wall__name">Set Designer</span>
+            <span class="wall__hint">Stage plans, true optics</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Top-down set plans with flats, dressing, camera positions and true lens fields of view, exported crew-ready.</p>
+            <a class="wall__open" href="/sets/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.5 6v5c0 4.6 3.1 8.1 7.5 10 4.4-1.9 7.5-5.4 7.5-10V6z"/><path d="M9.2 12.2l2 2 3.6-4"/></svg>
+            <span class="wall__name">Safety</span>
+            <span class="wall__hint">Risks, police, animals</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Risk assessments drafted from the screenplay, paid-duty police with a direct line wherever you shoot, and the animal department costed per species.</p>
+            <a class="wall__open" href="/safety/">OPEN &rarr;</a>
+          </div>
+        </li>
+        </ul>
+      </div>
+      <div class="wall__phase" data-reveal>
+        <h3 class="wall__label">Shoot<span class="wall__labelsub">The days that cost the most</span></h3>
+        <ul class="wall__list" role="list">
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v5M12 15.5v5"/></svg>
+            <span class="wall__name">Studio</span>
+            <span class="wall__hint">Script to screen, locally</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>The generation floor &mdash; every scene rendered through the bridge on your own machine, priced before a frame renders.</p>
+            <a class="wall__open" href="/timeline/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/><path d="M4 21h16"/></svg>
+            <span class="wall__name">Production Office</span>
+            <span class="wall__hint">Continuity, DPRs, VFX, QC</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Continuity, camera and sound reports, the auto-assembled daily production report, cue sheets and delivery QC.</p>
+            <a class="wall__open" href="/production/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20"/><path d="M17 6.5a3.5 3.5 0 0 0-3.5-2.5h-3.2a3.2 3.2 0 0 0 0 6.4h3.4a3.2 3.2 0 0 1 0 6.4h-3.2A3.5 3.5 0 0 1 7 14.5"/><circle cx="19" cy="19" r="2.6"/></svg>
+            <span class="wall__name">Money Room</span>
+            <span class="wall__hint">POs &amp; the cost report</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Purchase orders, petty cash and the weekly cost report &mdash; budget, actual, committed, estimated final cost &mdash; with overruns surfacing early.</p>
+            <a class="wall__open" href="/finance/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.5a4 4 0 0 0-5.6 4.9L4 16.3V20h3.7l4.9-4.9a4 4 0 0 0 4.9-5.6l-2.8 2.8-2.1-2.1z"/></svg>
+            <span class="wall__name">Tools &times;20</span>
+            <span class="wall__hint">Slate, timecards, offload, LUTs</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Digital slate, union timecards, MHL offload verification, LUT preview, captions, credit rolls, press kits and more.</p>
+            <a class="wall__open" href="/tools/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M7 5v4M12 5v4M17 5v4"/></svg>
+            <span class="wall__name">Dailies</span>
+            <span class="wall__hint">Circle takes, ship selects</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Frame-accurate dailies review &mdash; circle the good takes and push selects straight to the cutting room.</p>
+            <a class="wall__open" href="/dailies/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>
+            <span class="wall__name">Today</span>
+            <span class="wall__hint">The day, in your pocket</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>A phone-sized call sheet: call time, scenes, cast, nearest hospital and today&rsquo;s safety notes.</p>
+            <a class="wall__open" href="/today/">OPEN &rarr;</a>
+          </div>
+        </li>
+        </ul>
+      </div>
+      <div class="wall__phase" data-reveal>
+        <h3 class="wall__label">Post<span class="wall__labelsub">Where the film is actually made</span></h3>
+        <ul class="wall__list" role="list">
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 19 2.5-.6 9-9a1.8 1.8 0 0 0-2.5-2.5l-9 9Z"/><path d="M14 6.5 17.5 10"/></svg>
+            <span class="wall__name">Editor</span>
+            <span class="wall__hint">The cutting room, assisted</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Multi-track editing in the browser with an assistant that rough-cuts from story order, tightens silence, cuts to the beat and balances color.</p>
+            <a class="wall__open" href="/editor/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="13" rx="2"/><path d="m10 9 5 2.5L10 14z"/><path d="M7 21h10"/></svg>
+            <span class="wall__name">Screening Room</span>
+            <span class="wall__hint">Notes that land as markers</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Timecoded review notes on any cut that arrive in the Editor as markers on the ruler.</p>
+            <a class="wall__open" href="/screening/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 19 9-9"/><path d="M15 4l.9 2.1L18 7l-2.1.9L15 10l-.9-2.1L12 7l2.1-.9z"/><path d="M19 13l.6 1.4L21 15l-1.4.6L19 17l-.6-1.4L17 15l1.4-.6z"/></svg>
+            <span class="wall__name">VFX Board</span>
+            <span class="wall__hint">Shots, bids, vendors</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Every VFX shot tracked from bid to final, with honest rate bands from simple cleanup to hero work.</p>
+            <a class="wall__open" href="/vfx/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="18" r="2.6"/><circle cx="17" cy="16" r="2.6"/><path d="M9.6 18V6.5L19.6 4v12"/></svg>
+            <span class="wall__name">Music</span>
+            <span class="wall__hint">Cue sheets &amp; song pricing</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Cue sheets, licensing tiers from library track to famous artist &mdash; sync and master per side &mdash; and score priced per minute.</p>
+            <a class="wall__open" href="/music/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h13l-2.5 3.5L18 11H5"/></svg>
+            <span class="wall__name">Post Supervisor</span>
+            <span class="wall__hint">Milestones, back from the date</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>The post calendar computed backward from your delivery date &mdash; lock, conform, mix, grade, QC &mdash; weekends skipped.</p>
+            <a class="wall__open" href="/post/">OPEN &rarr;</a>
+          </div>
+        </li>
+        </ul>
+      </div>
+      <div class="wall__phase" data-reveal>
+        <h3 class="wall__label">Release<span class="wall__labelsub">Getting it seen and getting paid</span></h3>
+        <ul class="wall__list" role="list">
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h16"/><path d="M6 16l4-5 3 3 5-7"/></svg>
+            <span class="wall__name">Sales &amp; Waterfall</span>
+            <span class="wall__hint">What it may earn, honestly</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Quantile revenue bands calibrated on thousands of released films, and the full waterfall from worldwide gross to producer net.</p>
+            <a class="wall__open" href="/producer/#sales">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/></svg>
+            <span class="wall__name">Distribution</span>
+            <span class="wall__hint">Deliverables per buyer</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>The delivery schedule reshaped per buyer &mdash; festival to streamer &mdash; release windows with clash warnings, and a screener registry.</p>
+            <a class="wall__open" href="/distribution/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="5"/><path d="m8.8 13.2-1.8 7 5-2.8 5 2.8-1.8-7"/></svg>
+            <span class="wall__name">Festivals</span>
+            <span class="wall__hint">Deadlines &amp; premiere status</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Fourteen major festivals with approximate deadlines and fees, entries tracked from submission to premiere.</p>
+            <a class="wall__open" href="/festivals/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 5 5 19"/><circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg>
+            <span class="wall__name">Tax Credits</span>
+            <span class="wall__hint">The incentive ledger</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Twenty-one jurisdictions decoded, with a ledger that tracks qualified spend through to the claim.</p>
+            <a class="wall__open" href="/taxcredit/">OPEN &rarr;</a>
+          </div>
+        </li>
+        </ul>
+      </div>
+      <div class="wall__phase" data-reveal>
+        <h3 class="wall__label">Always on<span class="wall__labelsub">Underneath every phase</span></h3>
+        <ul class="wall__list" role="list">
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8.4 6H15a3 3 0 0 1 3 3v6.6"/></svg>
+            <span class="wall__name">Workflow</span>
+            <span class="wall__hint">Mission control</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Reads every room &mdash; what&rsquo;s ready, what&rsquo;s next, who to hire, where to shoot.</p>
+            <a class="wall__open" href="/workflow/">OPEN &rarr;</a>
+          </div>
+        </li>
+        <li class="wall__item">
+          <button type="button" class="wall__row" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h5l2 2h9v10H4z"/><path d="M4 7V5h6l2 2"/></svg>
+            <span class="wall__name">Projects</span>
+            <span class="wall__hint">Vault &amp; studio cloud</span>
+            <span class="wall__chev" aria-hidden="true">&#9656;</span>
+          </button>
+          <div class="wall__more">
+            <p>Whole productions backed up to one file, auto-synced to the studio cloud, shared across your owner team.</p>
+            <a class="wall__open" href="/projects/">OPEN &rarr;</a>
+          </div>
+        </li>
+        </ul>
+      </div>
+    </div>
   </div>
 </section>
+<script>
+(function () {
+  'use strict';
+  var wall = document.getElementById('module-wall');
+  if (!wall) return;
+  wall.addEventListener('click', function (ev) {
+    var t = ev.target;
+    var row = (t && t.closest) ? t.closest('.wall__row') : null;
+    if (!row) return;
+    var item = row.parentNode;
+    var wasOpen = item.className.indexOf('is-open') >= 0;
+    var open = wall.querySelectorAll('.wall__item.is-open');
+    for (var i = 0; i < open.length; i++) {
+      open[i].className = open[i].className.replace(' is-open', '');
+      var r = open[i].querySelector('.wall__row');
+      if (r) r.setAttribute('aria-expanded', 'false');
+    }
+    if (!wasOpen) {
+      item.className += ' is-open';
+      row.setAttribute('aria-expanded', 'true');
+    }
+  });
+})();
+</script>
 
 
 <!-- ================================================================
@@ -2723,7 +2856,7 @@
     </ul>
 
     <p class="pipe__summary" data-reveal data-reveal-delay="240" style="margin-top: 2.5rem">
-      WATERFALL&nbsp;DERIVES&nbsp;THE&nbsp;INDUSTRY&rsquo;S&nbsp;<span class="pipe__summary-value">2&ndash;2.5&times;</span>&nbsp;BREAKEVEN&nbsp;RULE&nbsp;&middot;&nbsp;<span class="pipe__summary-value">124</span>&nbsp;AUTOMATED&nbsp;CHECKS&nbsp;&middot;&nbsp;METHODOLOGY&nbsp;SHIPS&nbsp;WITH&nbsp;THE&nbsp;PLATFORM
+      WATERFALL&nbsp;DERIVES&nbsp;THE&nbsp;INDUSTRY&rsquo;S&nbsp;<span class="pipe__summary-value">2&ndash;2.5&times;</span>&nbsp;BREAKEVEN&nbsp;RULE&nbsp;&middot; <span class="pipe__summary-value">124</span>&nbsp;AUTOMATED&nbsp;CHECKS&nbsp;&middot; METHODOLOGY&nbsp;SHIPS&nbsp;WITH&nbsp;THE&nbsp;PLATFORM
     </p>
 
   </div>
@@ -3921,5 +4054,6 @@
 })();
 </script>
 
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
 </body>
 </html>

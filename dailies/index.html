@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Dailies</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Dailies">
+<meta property="og:description" content="Phone-first on-set take logger — auto slate numbers, one-tap circled takes, camera &amp; sound report exports, and script coverage gaps at a glance.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.dl-main{flex:1;overflow-y:auto;padding:20px 24px 140px;max-width:1080px;width:100%;margin:0 auto}
+.dl-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.dl-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.dl-bar input,.dl-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px 12px;font-size:15px;min-height:52px}
+.dl-note{font-size:11px;color:var(--dim);line-height:1.6}
+.dl-form{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.dl-form label{display:flex;flex-direction:column;gap:5px;font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em}
+.dl-form input,.dl-form select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-size:16px;min-height:52px;width:100%}
+.dl-form .dl-wide{grid-column:1/-1}
+.dl-big{min-height:52px;font-size:15px;font-weight:600;border-radius:10px;padding:12px 18px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text)}
+.dl-big.gold{background:var(--gold);border-color:var(--gold);color:#14181d}
+.dl-big.circ{border-color:var(--gold);color:var(--gold);background:transparent}
+.dl-big.circ.on{background:var(--gold);color:#14181d}
+.dl-cam{display:flex;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.dl-cam button{min-height:52px;min-width:64px;font-size:16px;font-weight:700;border:0;background:var(--surface2);color:var(--dim);cursor:pointer}
+.dl-cam button.on{background:var(--gold);color:#14181d}
+.dl-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.dl-table th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+.dl-table td{padding:8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.dl-table .dl-mono{font-family:var(--mono)}
+.dl-dot{min-height:44px;min-width:44px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--dim);font-size:17px;cursor:pointer}
+.dl-dot.on{border-color:var(--gold);color:var(--gold)}
+.dl-export{width:100%;min-height:230px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11px;line-height:1.55;white-space:pre;overflow-x:auto}
+.dl-stat{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin:10px 0}
+.dl-stat b{color:var(--gold);font-size:15px}
+.dl-gap{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:6px;font-size:12px;display:flex;gap:10px;align-items:center}
+.dl-gap .dl-n{font-family:var(--mono);color:var(--gold);min-width:32px}
+.dl-sticky{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:10px;z-index:40}
+.dl-sticky .dl-big{flex:1}
+@media(min-width:900px){.dl-sticky{display:none}.dl-main{padding-bottom:60px}}
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Dailies Logger — takes, circles, on-set reports</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/editor/">Editor</a>
+    <a class="tb-btn" href="/production/">Production</a>
+    <a class="tb-btn" href="/timeline/">← Studio</a>
+  </header>
+
+  <main class="dl-main">
+    <h2>1 · Today</h2>
+    <div class="dl-bar">
+      <label class="dl-note">Shoot day <input id="dlDate" type="date"></label>
+      <label class="dl-note">Unit
+        <select id="dlUnit"><option>MAIN</option><option>2ND</option><option>SPLINTER</option></select>
+      </label>
+      <span class="dl-note" id="dlDayStat"></span>
+    </div>
+    <div class="dl-form">
+      <label>Scene <input id="dlScene" inputmode="numeric" placeholder="12"></label>
+      <label>Slate <input id="dlSlate" placeholder="12A" autocapitalize="characters"></label>
+      <label>Take <input id="dlTake" type="number" inputmode="numeric" min="1" value="1"></label>
+      <label>Camera
+        <span class="dl-cam"><button id="dlCamA" class="on" type="button">A</button><button id="dlCamB" type="button">B</button></span>
+      </label>
+      <label>Lens <input id="dlLens" placeholder="32mm"></label>
+      <label>Sound roll <input id="dlRoll" placeholder="SR03"></label>
+      <label>TC in <input id="dlTc" placeholder="10:14:22:07" inputmode="numeric"></label>
+      <label>NG reason
+        <select id="dlNg"><option value=""></option><option>focus</option><option>boom in</option><option>performance</option><option>camera</option><option>sound</option><option>plane / noise</option><option>false start</option></select>
+      </label>
+      <label class="dl-wide">Note <input id="dlNote" placeholder="dir loved the turn at the window"></label>
+      <div class="dl-wide dl-bar" style="margin:0">
+        <button class="dl-big gold" id="dlAdd" title="Log this take — the next take number is prefilled automatically">+ TAKE</button>
+        <button class="dl-big" id="dlSetup" title="New camera setup on the same scene — bumps the slate letter">NEW SETUP</button>
+        <button class="dl-big circ" id="dlCircle" title="Circle / uncircle the take you just logged">● CIRCLE LAST</button>
+      </div>
+    </div>
+    <p class="dl-note">Scene → slate → take prefill from what you have already shot: same scene suggests take&nbsp;+1, a new scene starts at slate <span class="dl-mono">A</span> take 1, NEW SETUP bumps the letter (12A&nbsp;→&nbsp;12B). Everything stays in this browser.</p>
+
+    <h2>2 · Take log</h2>
+    <div class="dl-bar">
+      <select id="dlFilterDay"><option value="">All days</option></select>
+      <span class="dl-note" id="dlLogCount"></span>
+    </div>
+    <div style="overflow-x:auto"><table class="dl-table"><thead><tr>
+      <th>●</th><th>Day</th><th>Scene</th><th>Slate</th><th>Tk</th><th>Cam</th><th>Lens</th><th>Roll</th><th>TC in</th><th>Notes / NG</th><th></th>
+    </tr></thead><tbody id="dlRows"></tbody></table></div>
+
+    <h2>3 · Reports — camera &amp; sound</h2>
+    <div class="dl-bar">
+      <select id="dlRepDay"></select>
+      <button class="dl-big" id="dlRepCam">Camera report</button>
+      <button class="dl-big" id="dlRepSnd">Sound report</button>
+      <button class="dl-big" id="dlRepCopy">Copy</button>
+    </div>
+    <textarea class="dl-export" id="dlReport" spellcheck="false" readonly></textarea>
+    <p class="dl-note">These exports mirror the classic paper reports (circled takes marked ●) but they are your on-set log, not the deliverable of record — verify against the camera assistant's and sound mixer's own sheets before lab / DIT turnover.</p>
+
+    <h2>4 · Coverage &amp; circles</h2>
+    <div class="dl-stat" id="dlRate"></div>
+    <div class="dl-bar">
+      <button class="dl-big" id="dlPicks" title="Write the circled-take pull list for the Editor module">Send picks to Editor</button>
+      <button class="dl-big" id="dlPicksCopy">Copy pull list</button>
+    </div>
+    <div id="dlGaps"></div>
+    <textarea class="dl-export" id="dlPicksText" spellcheck="false" readonly style="min-height:150px"></textarea>
+  </main>
+</div>
+
+<div class="dl-sticky">
+  <button class="dl-big gold" id="dlAdd2">+ TAKE</button>
+  <button class="dl-big circ" id="dlCircle2">● CIRCLE</button>
+</div>
+
+<div class="toast" id="dlToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="lib-dailies.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var D = window.CDailies;
+  var KEY = 'SB_Dailies_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('dlToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3200); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+
+  var st = readLS(KEY) || { days: [], takes: [], cur: { date: '', unit: 'MAIN' }, lastId: '' };
+  if (!st.days) st.days = [];
+  if (!st.takes) st.takes = [];
+  if (!st.cur) st.cur = { date: '', unit: 'MAIN' };
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  function scriptText() { return String((readLS('SB_Timeline_v1') || {}).scriptText || ''); }
+  function prodName() { return (readLS('CIN_Projects_v1') || {}).active || ''; }
+  function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function curDay() { return $('dlDate').value || st.cur.date || today(); }
+  function camVal() { return $('dlCamB').classList.contains('on') ? 'B' : 'A'; }
+
+  function touchDay() {
+    var d = curDay(), u = $('dlUnit').value;
+    st.cur = { date: d, unit: u };
+    var hit = st.days.filter(function (x) { return x.date === d && x.unit === u; })[0];
+    if (!hit) st.days.push({ date: d, unit: u });
+    save();
+  }
+
+  /* ── prefill from the log ── */
+  function prefill() {
+    var sc = $('dlScene').value.trim();
+    if (!sc) return;
+    var n = D.nextSlate(st.takes, sc);
+    $('dlSlate').value = n.slate;
+    $('dlTake').value = n.take;
+  }
+  $('dlScene').addEventListener('input', prefill);
+
+  /* ── log a take ── */
+  function addTake() {
+    var sc = $('dlScene').value.trim();
+    if (!sc) return toast('Scene number first — the slate follows from it');
+    touchDay();
+    var t = D.makeTake({
+      day: curDay(), scene: sc, slate: $('dlSlate').value || sc + 'A',
+      take: $('dlTake').value, camera: camVal(), circled: false,
+      ngReason: $('dlNg').value, notes: $('dlNote').value,
+      soundRoll: $('dlRoll').value, lens: $('dlLens').value, tcIn: $('dlTc').value
+    });
+    st.takes.push(t);
+    st.lastId = t.id;
+    save();
+    $('dlNote').value = ''; $('dlNg').value = ''; $('dlTc').value = '';
+    prefill();
+    render();
+    toast('Logged ' + t.slate + ' take ' + t.take + ' (' + t.camera + '-cam)');
+  }
+  function newSetup() {
+    var sc = $('dlScene').value.trim();
+    if (!sc) return toast('Scene number first');
+    var n = D.nextSetup(st.takes, sc);
+    $('dlSlate').value = n.slate;
+    $('dlTake').value = n.take;
+    toast('New setup — slate ' + n.slate);
+  }
+  function circleLast() {
+    var t = st.takes.filter(function (x) { return x.id === st.lastId; })[0] || st.takes[st.takes.length - 1];
+    if (!t) return toast('No take logged yet');
+    t.circled = !t.circled;
+    save(); render();
+    toast((t.circled ? '● Circled ' : 'Uncircled ') + t.slate + ' take ' + t.take);
+  }
+  $('dlAdd').addEventListener('click', addTake);
+  $('dlAdd2').addEventListener('click', addTake);
+  $('dlSetup').addEventListener('click', newSetup);
+  $('dlCircle').addEventListener('click', circleLast);
+  $('dlCircle2').addEventListener('click', circleLast);
+  $('dlCamA').addEventListener('click', function () { $('dlCamA').classList.add('on'); $('dlCamB').classList.remove('on'); });
+  $('dlCamB').addEventListener('click', function () { $('dlCamB').classList.add('on'); $('dlCamA').classList.remove('on'); });
+  $('dlDate').addEventListener('change', function () { touchDay(); render(); });
+  $('dlUnit').addEventListener('change', function () { touchDay(); render(); });
+
+  /* ── take log table ── */
+  function renderLog() {
+    var filter = $('dlFilterDay').value;
+    var rows = D.sortTakes(st.takes).filter(function (t) { return !filter || t.day === filter; });
+    $('dlRows').innerHTML = rows.map(function (t) {
+      return '<tr data-id="' + esc(t.id) + '">' +
+        '<td><button class="dl-dot' + (t.circled ? ' on' : '') + '" data-circ="' + esc(t.id) + '" title="Toggle circled">●</button></td>' +
+        '<td class="dl-mono">' + esc(t.day) + '</td>' +
+        '<td class="dl-mono">' + esc(t.scene) + '</td>' +
+        '<td class="dl-mono">' + esc(t.slate) + '</td>' +
+        '<td class="dl-mono">' + esc(t.take) + '</td>' +
+        '<td class="dl-mono">' + esc(t.camera) + '</td>' +
+        '<td class="dl-mono">' + esc(t.lens) + '</td>' +
+        '<td class="dl-mono">' + esc(t.soundRoll) + '</td>' +
+        '<td class="dl-mono">' + esc(t.tcIn) + '</td>' +
+        '<td>' + esc(t.notes) + (t.ngReason ? ' <span class="dl-note">[NG: ' + esc(t.ngReason) + ']</span>' : '') + '</td>' +
+        '<td><button class="dl-dot" data-del="' + esc(t.id) + '" title="Delete this take">✕</button></td></tr>';
+    }).join('') || '<tr><td colspan="11" class="dl-note">No takes yet — log the first one above.</td></tr>';
+    $('dlLogCount').textContent = rows.length + ' take' + (rows.length === 1 ? '' : 's') + (filter ? ' on ' + filter : ' total');
+  }
+  $('dlRows').addEventListener('click', function (e) {
+    var c = e.target.getAttribute('data-circ'), d = e.target.getAttribute('data-del');
+    if (c) {
+      var t = st.takes.filter(function (x) { return x.id === c; })[0];
+      if (t) { t.circled = !t.circled; save(); render(); }
+    }
+    if (d) {
+      st.takes = st.takes.filter(function (x) { return x.id !== d; });
+      save(); render(); toast('Take deleted');
+    }
+  });
+  $('dlFilterDay').addEventListener('change', renderLog);
+
+  /* ── reports ── */
+  function dayOptions(sel, withAll) {
+    var days = [];
+    st.takes.forEach(function (t) { if (t.day && days.indexOf(t.day) < 0) days.push(t.day); });
+    days.sort();
+    var keep = sel.value;
+    sel.innerHTML = (withAll ? '<option value="">All days</option>' : '') +
+      days.map(function (d) { return '<option' + (d === keep ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('');
+    if (!withAll && !sel.value && days.length) sel.value = days[days.length - 1];
+  }
+  function unitFor(day) {
+    var hit = st.days.filter(function (x) { return x.date === day; })[0];
+    return hit ? hit.unit : st.cur.unit;
+  }
+  function showReport(kind) {
+    var day = $('dlRepDay').value;
+    if (!day) return toast('No shoot days logged yet');
+    var opts = { unit: unitFor(day), production: prodName() || undefined };
+    $('dlReport').value = kind === 'snd' ? D.soundReport(st.takes, day, opts) : D.cameraReport(st.takes, day, opts);
+  }
+  $('dlRepCam').addEventListener('click', function () { showReport('cam'); });
+  $('dlRepSnd').addEventListener('click', function () { showReport('snd'); });
+  $('dlRepCopy').addEventListener('click', function () {
+    if (!$('dlReport').value) return toast('Generate a report first');
+    navigator.clipboard.writeText($('dlReport').value).then(function () { toast('Report copied'); });
+  });
+
+  /* ── coverage, circles, editor picks ── */
+  function renderCoverage() {
+    var cr = D.circleRate(st.takes);
+    $('dlRate').innerHTML =
+      '<span>Takes <b>' + cr.overall.total + '</b></span>' +
+      '<span>Circled <b>' + cr.overall.circled + '</b> (' + cr.overall.pct + '%)</span>' +
+      cr.byDay.map(function (d) { return '<span>' + esc(d.day) + ' <b>' + d.circled + '/' + d.total + '</b></span>'; }).join('');
+    var script = scriptText();
+    if (script.trim().length < 40) {
+      $('dlGaps').innerHTML = '<p class="dl-note">No screenplay in this browser — load one in the Studio or Writer and the coverage check lists every scene you have not shot yet.</p>';
+      return;
+    }
+    var cov = D.coverageByScene(st.takes, script);
+    $('dlGaps').innerHTML =
+      '<p class="dl-note">' + cov.covered + ' of ' + cov.total + ' script scenes have at least one take. Not yet covered:</p>' +
+      (cov.gaps.map(function (g) {
+        return '<div class="dl-gap"><span class="dl-n">' + g.n + '</span><span>' + esc(g.slug) + '</span></div>';
+      }).join('') || '<p class="dl-note">Nothing — every script scene has coverage. Check the circle rate before calling it a wrap.</p>');
+  }
+  function renderPicks() {
+    var picks = D.editorPicks(st.takes);
+    $('dlPicksText').value = D.picksText(picks);
+    return picks;
+  }
+  $('dlPicks').addEventListener('click', function () {
+    var picks = renderPicks().map(function (p) { return { scene: p.scene, slate: p.slate, take: p.take, notes: p.notes }; });
+    try { localStorage.setItem('SB_DailiesPicks_v1', JSON.stringify(picks)); } catch (e) {}
+    toast(picks.length + ' circled take' + (picks.length === 1 ? '' : 's') + ' sent — the Editor can use it as a pull list');
+  });
+  $('dlPicksCopy').addEventListener('click', function () {
+    navigator.clipboard.writeText($('dlPicksText').value).then(function () { toast('Pull list copied'); });
+  });
+
+  function render() {
+    renderLog();
+    dayOptions($('dlFilterDay'), true);
+    dayOptions($('dlRepDay'), false);
+    renderCoverage();
+    renderPicks();
+    var dayRows = st.takes.filter(function (t) { return t.day === curDay(); });
+    var cr = D.circleRate(dayRows);
+    $('dlDayStat').textContent = dayRows.length ? dayRows.length + ' takes today · ' + cr.overall.circled + ' circled' : '';
+  }
+
+  /* ── init ── */
+  $('dlDate').value = st.cur.date || today();
+  $('dlUnit').value = st.cur.unit || 'MAIN';
+  render();
+  window.DailiesApp = { render: render, state: st };
+})();
+</script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
+</body>
+</html>

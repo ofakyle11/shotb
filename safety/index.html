@@ -31,6 +31,7 @@
 .sf-card{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .sf-card b{font-family:var(--display);font-size:14px}
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
 <div class="app">
@@ -75,6 +76,23 @@
       <button class="tb-btn" id="pdCommit" title="Issue a committed PO in the Money Room">→ Commit to Money Room</button>
     </div>
     <p class="sf-note">Typical paid-duty terms carry a 3–4 hour minimum call plus an admin fee (10% assumed) — confirm exact rates with the service; the estimate updates as you type.</p>
+
+    <h2>3b · Animal department</h2>
+    <div id="anDetect" class="sf-note">Assess the script (section 1) and any animal work is listed here automatically.</div>
+    <div class="sf-bar" style="margin-top:8px">
+      <select id="anSpecies" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px"></select>
+      <label class="sf-note">Shoot days <input id="anDays" type="number" min="1" value="2" style="width:54px"></label>
+      <label class="sf-note">Prep days <input id="anPrep" type="number" min="0" value="1" style="width:54px"></label>
+      <label class="sf-note"><input type="checkbox" id="anVet" checked> vet on call</label>
+      <b id="anTotal" style="font-family:var(--mono);color:var(--gold)"></b>
+      <button class="tb-btn" id="anCommit" title="Issue a committed PO in the Money Room">→ Commit to Money Room</button>
+    </div>
+    <div id="anDir" class="sf-note" style="margin-top:6px"></div>
+    <div class="sf-bar" style="margin-top:8px">
+      <button class="tb-btn" id="anCheck">Compliance checklist</button>
+    </div>
+    <div id="anCheckOut" class="sf-note"></div>
+    <p class="sf-note">Rates are planning estimates — coordinators quote per animal and action. Only trained animals with professional handlers; the compliance list follows the certified animal-safety monitoring standard.</p>
 
     <h2>4 · Safety meeting</h2>
     <div class="sf-bar">
@@ -200,6 +218,51 @@
     }).join('<br>');
   });
 
+  /* ── animal department ── */
+  $('anSpecies').innerHTML = S.ANIMAL_SPECIES.map(function (sp) {
+    return '<option value="' + sp.id + '">' + esc(sp.label) + '</option>';
+  }).join('');
+  function renderAnimals() {
+    var e = S.animalEstimate({ species: $('anSpecies').value, days: $('anDays').value,
+      prepDays: $('anPrep').value, vet: $('anVet').checked });
+    $('anTotal').textContent = '≈ $' + e.total.toLocaleString() +
+      ' (animal $' + e.animal.toLocaleString() + ' + wrangler $' + e.wrangler.toLocaleString() +
+      (e.vet ? ' + vet $' + e.vet.toLocaleString() : '') + ')' + (e.note ? ' · ' + e.note : '');
+    var city = $('sfCity').value.trim();
+    var known = S.WRANGLERS.filter(function (w) {
+      return !city || w.hub.toLowerCase().indexOf(city.split(',')[0].toLowerCase()) >= 0;
+    });
+    $('anDir').innerHTML = '<b style="color:var(--text)">Coordinators:</b> ' +
+      known.map(function (w) { return esc(w.name) + ' (' + esc(w.hub.split(',')[0]) + ')'; }).join(' · ') +
+      (known.length ? ' · ' : '') +
+      '<a style="color:var(--gold)" target="_blank" rel="noopener" href="' +
+      esc(S.wranglerSearchLink(city || 'your shoot city')) + '">find coordinators near the shoot ↗</a>';
+    if (analysis) {
+      var found = S.animalsInScript((readLS('SB_Timeline_v1') || {}).scriptText || '');
+      $('anDetect').innerHTML = found.length
+        ? '<b style="color:var(--text)">Animal work in the script:</b> ' + found.map(function (f) {
+            return 'Sc ' + f.scene + ' (' + esc(f.species) + ')'; }).join(' · ')
+        : 'No animal work detected in the current draft.';
+    }
+  }
+  ['anDays', 'anPrep'].forEach(function (id) { $(id).addEventListener('input', renderAnimals); });
+  $('anSpecies').addEventListener('change', renderAnimals);
+  $('anVet').addEventListener('change', renderAnimals);
+  $('anCommit').addEventListener('click', function () {
+    var M = window.CMoney; if (!M) return toast('Money Room engine missing');
+    var e = S.animalEstimate({ species: $('anSpecies').value, days: $('anDays').value,
+      prepDays: $('anPrep').value, vet: $('anVet').checked });
+    var money = readLS('SB_Money_v1') || M.blank();
+    M.addPO(money, { vendor: 'Animal coordinator — ' + e.species,
+      desc: e.days + ' shoot + ' + e.prepDays + ' prep days', acct: '9000', amount: e.total, date: now() });
+    localStorage.setItem('SB_Money_v1', JSON.stringify(money));
+    toast('$' + e.total.toLocaleString() + ' committed in the Money Room');
+  });
+  $('anCheck').addEventListener('click', function () {
+    $('anCheckOut').innerHTML = S.animalChecklist().map(function (i) { return '☐ ' + esc(i); }).join('<br>');
+  });
+  renderAnimals();
+
   /* ── incidents ── */
   function renderIncidents() {
     $('inRows').innerHTML = st.incidents.map(function (i) {
@@ -221,5 +284,6 @@
   window.CSafetyApp = { scan: scan, state: st };
 })();
 </script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
 </body>
 </html>

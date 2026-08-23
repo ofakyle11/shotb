@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Festival Strategist</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Festival Strategist">
+<meta property="og:description" content="Major-festival directory with honest windows, premiere-sequencing strategy, a submissions tracker with fee totals, and a buyer CRM.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.fs-main{flex:1;overflow-y:auto;padding:20px 24px 60px;max-width:1080px;width:100%;margin:0 auto}
+.fs-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.fs-banner{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--text2);margin-bottom:12px}
+.fs-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.fs-bar input,.fs-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
+.fs-tier{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 6px}
+.fs-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+.fs-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.fs-card.off{opacity:.38}
+.fs-card b{font-family:var(--display);font-size:14px}
+.fs-card .fs-city{font-family:var(--mono);font-size:10px;color:var(--dim);margin-left:6px}
+.fs-card p{font-size:11px;color:var(--text2);margin:5px 0 0;line-height:1.55}
+.fs-card .fs-fee{color:var(--dim)}
+.fs-link{font-family:var(--mono);font-size:10.5px;color:var(--gold);text-decoration:none}
+.fs-strat{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;font-size:12px;line-height:1.65;margin-bottom:12px}
+.fs-strat b{color:var(--gold)}
+.fs-table{width:100%;border-collapse:collapse;font-size:12px}
+.fs-table th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+.fs-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.fs-table input,.fs-table select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 6px;font-size:11.5px;max-width:130px}
+.fs-num{font-family:var(--mono);text-align:right}
+.fs-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
+.fs-tag.acc{color:var(--gold);border-color:var(--gold)}
+.fs-tag.past{color:#e07b6a;border-color:#e07b6a}
+.fs-total{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
+.fs-total b{color:var(--gold);font-size:15px}
+.fs-note{font-size:11px;color:var(--dim);line-height:1.6}
+.fs-spacer{flex:1}
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Festival Strategist — premieres, submissions, buyers</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/distribution/">Distribution</a>
+    <a class="tb-btn" href="/producer/">Producer Suite</a>
+  </header>
+
+  <main class="fs-main">
+    <h2>1 · The majors</h2>
+    <div class="fs-banner">⚠ Windows and fees drift every year — verify on FilmFreeway or the festival site before planning. Everything below is deliberately approximate; deadlines you enter yourself in section 2 are the ones that count.</div>
+    <div class="fs-bar">
+      <label class="fs-note">Where has the film premiered?
+        <select id="fsPrem">
+          <option value="unpremiered">Nowhere yet — unpremiered</option>
+          <option value="us-premiered">It has screened in the US</option>
+          <option value="world-premiered">World premiere already happened</option>
+        </select>
+      </label>
+    </div>
+    <div class="fs-strat" id="fsStrat"></div>
+    <div id="fsMajors"></div>
+
+    <h2>2 · My submissions</h2>
+    <div class="fs-bar">
+      <input id="fsSubFest" placeholder="Festival" list="fsFestList" style="min-width:170px">
+      <datalist id="fsFestList"></datalist>
+      <input id="fsSubCat" placeholder="Category — e.g. Narrative Feature" style="min-width:180px">
+      <input id="fsSubDl" type="date" title="Deadline — enter the one you verified yourself">
+      <input id="fsSubFee" type="number" min="0" step="1" placeholder="Fee $" style="width:80px">
+      <button class="tb-btn gold" id="fsSubAdd">+ Log submission</button>
+    </div>
+    <table class="fs-table"><thead><tr>
+      <th>Festival</th><th>Category</th><th>Deadline</th><th class="fs-num">Fee&nbsp;$</th><th>Submitted on</th><th>Result</th><th></th>
+    </tr></thead><tbody id="fsSubRows"></tbody></table>
+    <div class="fs-total" id="fsFees"></div>
+    <p class="fs-note">Deadlines here are the ones you entered and verified yourself — the platform never guesses dates. Fees count as <em>paid</em> once a submitted-on date is on record; before that they show as planned spend.</p>
+
+    <h2>3 · Buyers</h2>
+    <div class="fs-bar">
+      <input id="fsBuyName" placeholder="Contact name" style="min-width:140px">
+      <input id="fsBuyCo" placeholder="Company" style="min-width:140px">
+      <input id="fsBuyTerr" placeholder="Territory — e.g. North America" style="min-width:150px">
+      <input id="fsBuyFocus" placeholder="Focus — e.g. genre, docs" style="min-width:130px">
+      <button class="tb-btn gold" id="fsBuyAdd">+ Add buyer</button>
+    </div>
+    <table class="fs-table"><thead><tr>
+      <th>Name</th><th>Company</th><th>Territory</th><th>Focus</th><th>Last contact</th><th>Notes</th><th></th><th></th>
+    </tr></thead><tbody id="fsBuyRows"></tbody></table>
+    <p class="fs-note" id="fsBuyStale"></p>
+
+    <h2>4 · Screeners</h2>
+    <p class="fs-note" id="fsScreeners"></p>
+  </main>
+</div>
+
+<div class="toast" id="fsToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="lib-fest.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var F = window.CFest;
+  var KEY = 'SB_Festivals_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('fsToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3200); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function todayISO() { return new Date().toISOString().slice(0, 10); }
+
+  var st = readLS(KEY) || { premiereStatus: 'unpremiered', subs: [], buyers: [] };
+  st.subs = st.subs || []; st.buyers = st.buyers || [];
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+
+  /* ── 1 · majors + strategy ── */
+  function renderMajors() {
+    var strat = F.strategy(st.premiereStatus);
+    $('fsStrat').innerHTML = '<b>Strategy — ' + esc(strat.status) + ':</b> ' + esc(strat.note) +
+      '<br><span class="fs-note">Tiers still in play: ' + strat.tiers.map(function (t) { return '<span class="fs-tag acc">' + esc(t) + '</span>'; }).join(' ') + '</span>';
+    var groups = F.byTier(F.MAJORS);
+    $('fsMajors').innerHTML = F.TIERS.map(function (tier) {
+      var list = groups[tier] || [];
+      if (!list.length) return '';
+      var inPlay = strat.tiers.indexOf(tier) >= 0;
+      return '<div class="fs-tier">' + esc(F.TIER_LABELS[tier]) + (inPlay ? '' : ' — out of play for your premiere status') + '</div>' +
+        '<div class="fs-cards">' + list.map(function (f) {
+          return '<div class="fs-card' + (inPlay ? '' : ' off') + '">' +
+            '<b>' + esc(f.name) + '</b><span class="fs-city">' + esc(f.city) + '</span> ' +
+            '<a class="fs-link" target="_blank" rel="noopener" href="' + esc(F.searchLink(f.name)) + '">verify dates ↗</a>' +
+            '<p>' + esc(f.seasonWindow) + '</p>' +
+            '<p>' + esc(f.premiereNote) + '</p>' +
+            '<p class="fs-fee">' + esc(f.feeHint) + ' — verify before relying on it</p>' +
+            '</div>';
+        }).join('') + '</div>';
+    }).join('');
+  }
+  $('fsPrem').addEventListener('change', function () {
+    st.premiereStatus = this.value; save(); renderMajors();
+    toast('Strategy updated for ' + this.value.replace('-', ' '));
+  });
+
+  /* ── 2 · submissions ── */
+  function renderSubs() {
+    var up = F.upcoming(st.subs, todayISO());
+    var order = {}; up.forEach(function (s, i) { order[s.id] = i; });
+    var pastById = {}; up.forEach(function (s) { pastById[s.id] = s.past; });
+    var sorted = st.subs.slice().sort(function (a, b) {
+      var ai = order[a.id] != null ? order[a.id] : 999, bi = order[b.id] != null ? order[b.id] : 999;
+      return ai - bi;
+    });
+    $('fsSubRows').innerHTML = sorted.map(function (s) {
+      return '<tr data-id="' + s.id + '">' +
+        '<td>' + esc(s.festival) + '</td>' +
+        '<td>' + esc(s.category) + '</td>' +
+        '<td class="fs-num">' + esc(s.deadline || '—') +
+          (pastById[s.id] ? ' <span class="fs-tag past">past</span>' : '') + '</td>' +
+        '<td class="fs-num">' + (+s.fee || 0).toLocaleString() + '</td>' +
+        '<td><input data-f="submittedOn" type="date" value="' + esc(s.submittedOn) + '"></td>' +
+        '<td><select data-f="result">' + F.RESULTS.map(function (r) {
+          return '<option' + (r === s.result ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>' +
+          (s.result === 'accepted' ? ' <span class="fs-tag acc">in!</span>' : '') + '</td>' +
+        '<td><button class="tb-btn" data-del="' + s.id + '">✕</button></td></tr>';
+    }).join('') || '<tr><td colspan="7" class="fs-note">No submissions logged yet — add the first one above.</td></tr>';
+    var fees = F.feesTotal(st.subs), counts = F.resultCounts(st.subs);
+    $('fsFees').innerHTML =
+      '<span>Fees paid <b>$' + fees.paid.toLocaleString() + '</b></span>' +
+      '<span>Planned <b>$' + fees.planned.toLocaleString() + '</b></span>' +
+      '<span>All-in <b>$' + fees.total.toLocaleString() + '</b></span>' +
+      '<span>Pending <b>' + counts.pending + '</b></span>' +
+      '<span>Accepted <b>' + counts.accepted + '</b></span>';
+  }
+  $('fsSubAdd').addEventListener('click', function () {
+    var fest = $('fsSubFest').value.trim();
+    if (!fest) return toast('Name the festival first');
+    st.subs.push(F.newSub({ festival: fest, category: $('fsSubCat').value.trim(),
+      deadline: $('fsSubDl').value, fee: $('fsSubFee').value }));
+    $('fsSubFest').value = ''; $('fsSubCat').value = ''; $('fsSubDl').value = ''; $('fsSubFee').value = '';
+    save(); renderSubs(); toast('Submission logged — ' + fest);
+  });
+  $('fsSubRows').addEventListener('change', function (e) {
+    var tr = e.target.closest('tr'); if (!tr) return;
+    var s = st.subs.filter(function (x) { return x.id === tr.getAttribute('data-id'); })[0];
+    if (!s) return;
+    var f = e.target.getAttribute('data-f');
+    if (f === 'result') { F.setResult(st.subs, s.id, e.target.value); if (e.target.value === 'accepted') toast('Accepted — congratulations!'); }
+    else if (f === 'submittedOn') s.submittedOn = e.target.value;
+    save(); renderSubs();
+  });
+  $('fsSubRows').addEventListener('click', function (e) {
+    var del = e.target.getAttribute('data-del'); if (!del) return;
+    st.subs = st.subs.filter(function (x) { return x.id !== del; });
+    save(); renderSubs();
+  });
+
+  /* ── 3 · buyers ── */
+  function renderBuyers() {
+    $('fsBuyRows').innerHTML = st.buyers.map(function (b) {
+      return '<tr data-id="' + b.id + '">' +
+        '<td>' + esc(b.name) + '</td>' +
+        '<td>' + esc(b.company) + '</td>' +
+        '<td><input data-f="territory" value="' + esc(b.territory) + '"></td>' +
+        '<td><input data-f="focus" value="' + esc(b.focus) + '"></td>' +
+        '<td><input data-f="lastContact" type="date" value="' + esc(b.lastContact) + '"></td>' +
+        '<td><input data-f="notes" value="' + esc(b.notes) + '" placeholder="notes"></td>' +
+        '<td><a class="fs-link" target="_blank" rel="noopener" href="' + esc(F.buyerSearchLink(b)) + '">look up ↗</a></td>' +
+        '<td><button class="tb-btn" data-del="' + b.id + '">✕</button></td></tr>';
+    }).join('') || '<tr><td colspan="8" class="fs-note">No buyers yet — log every acquisitions contact you meet on the circuit.</td></tr>';
+    var stale = F.staleBuyers(st.buyers, todayISO(), 30);
+    $('fsBuyStale').textContent = st.buyers.length
+      ? (stale.length ? stale.length + ' buyer' + (stale.length === 1 ? '' : 's') + ' not contacted in 30+ days — worth a follow-up.' : 'Every buyer contacted within the last 30 days.')
+      : '';
+  }
+  $('fsBuyAdd').addEventListener('click', function () {
+    var name = $('fsBuyName').value.trim();
+    if (!name) return toast('Name the contact first');
+    st.buyers.push(F.newBuyer({ name: name, company: $('fsBuyCo').value.trim(),
+      territory: $('fsBuyTerr').value.trim(), focus: $('fsBuyFocus').value.trim() }));
+    $('fsBuyName').value = ''; $('fsBuyCo').value = ''; $('fsBuyTerr').value = ''; $('fsBuyFocus').value = '';
+    save(); renderBuyers(); toast('Buyer added — ' + name);
+  });
+  $('fsBuyRows').addEventListener('change', function (e) {
+    var tr = e.target.closest('tr'); if (!tr) return;
+    var b = st.buyers.filter(function (x) { return x.id === tr.getAttribute('data-id'); })[0];
+    var f = e.target.getAttribute('data-f');
+    if (b && f) { b[f] = e.target.value; save(); renderBuyers(); }
+  });
+  $('fsBuyRows').addEventListener('click', function (e) {
+    var del = e.target.getAttribute('data-del'); if (!del) return;
+    st.buyers = st.buyers.filter(function (x) { return x.id !== del; });
+    save(); renderBuyers();
+  });
+
+  /* ── 4 · screeners note (from Distribution) ── */
+  function renderScreeners() {
+    var sc = F.screenersOut(readLS('SB_Dist_v1'));
+    $('fsScreeners').innerHTML = (sc.out
+      ? '<b>' + sc.out + '</b> screener' + (sc.out === 1 ? '' : 's') + ' out to buyers and programmers (' + sc.watched + ' watched). '
+      : 'No screeners on record yet. ') +
+      'Screener links, expiries and watch status live in <a class="fs-link" href="/distribution/">Distribution →</a>';
+  }
+
+  /* ── init ── */
+  var dl = $('fsFestList');
+  dl.innerHTML = F.MAJORS.map(function (f) { return '<option value="' + esc(f.name) + '">'; }).join('');
+  $('fsPrem').value = st.premiereStatus || 'unpremiered';
+  function render() { renderMajors(); renderSubs(); renderBuyers(); renderScreeners(); }
+  render();
+  window.CFestApp = { render: render, state: st };
+})();
+</script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
+</body>
+</html>

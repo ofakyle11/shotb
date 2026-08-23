@@ -34,6 +34,7 @@
 .pv-note{font-size:11px;color:var(--dim);line-height:1.6}
 .pv-mods{font-family:var(--mono);font-size:10px;color:var(--text2);line-height:1.9;columns:2;column-gap:30px}
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
 <div class="app">
@@ -271,5 +272,6 @@
   window.CVaultApp = { render: render, renderCloud: renderCloud };
 })();
 </script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
 </body>
 </html>

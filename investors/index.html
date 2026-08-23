@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Investor Room</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Investor Room">
+<meta property="og:description" content="Cap table, indie recoupment waterfall simulator with breakeven, per-investor statements, and quarterly update letters — reconciled to the cent.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.iv-main{flex:1;overflow-y:auto;padding:20px 24px 60px;max-width:1080px;width:100%;margin:0 auto}
+.iv-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.iv-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.iv-bar input,.iv-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
+.iv-wrap{overflow-x:auto}
+.iv-table{width:100%;border-collapse:collapse;font-size:12px}
+.iv-table th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+.iv-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.iv-table input,.iv-table select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 6px;font-size:11.5px;max-width:110px}
+.iv-table input.iv-name{max-width:160px}
+.iv-num{font-family:var(--mono);text-align:right;white-space:nowrap}
+.iv-kind{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.iv-total{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
+.iv-total b{color:var(--gold);font-size:15px}
+.iv-note{font-size:11px;color:var(--dim);line-height:1.6}
+.iv-be{font-family:var(--mono);font-size:12px;color:var(--gold);margin:8px 0}
+.iv-slider{flex:1;min-width:200px;accent-color:var(--gold)}
+.iv-text{width:100%;min-height:240px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.6}
+.iv-spacer{flex:1}
+.iv-over{color:#e07a5f}
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Investor Room — cap table, waterfall, statements</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/finance/">Money Room</a>
+    <a class="tb-btn" href="/producer/">Producer Suite</a>
+    <a class="tb-btn" href="/timeline/">← Studio</a>
+  </header>
+
+  <main class="iv-main">
+    <h2>1 · Cap table</h2>
+    <div class="iv-bar">
+      <button class="tb-btn gold" id="ivAdd">+ Add investor</button>
+      <span class="iv-spacer"></span>
+      <span class="iv-note">Backend % = share of the 50% investor profit pool. Leave blank for pro-rata by amount.</span>
+    </div>
+    <div class="iv-wrap"><table class="iv-table"><thead><tr>
+      <th>Investor</th><th>Class</th><th class="iv-num">Amount $</th><th class="iv-num">Interest %/yr</th><th class="iv-num">Premium %</th><th class="iv-num">Backend %</th><th>Contact</th><th>Notes</th><th></th>
+    </tr></thead><tbody id="ivRows"></tbody></table></div>
+    <div class="iv-total" id="ivCapTotals"></div>
+    <p class="iv-note">Debt and gap carry simple annual interest; equity carries a recoupment premium (industry-standard default 20%). These are modeling terms — the executed financing agreements govern. Verify terms against signed paperwork before relying on any figure here.</p>
+
+    <h2>2 · Waterfall simulator</h2>
+    <div class="iv-bar">
+      <label class="iv-note">Gross receipts $ <input id="ivGross" type="number" min="0" step="1000" style="width:120px"></label>
+      <input class="iv-slider" id="ivSlider" type="range" min="0" max="2000000" step="1000">
+      <label class="iv-note">Sales fee % <input id="ivFee" type="number" min="0" max="99" style="width:56px"></label>
+      <label class="iv-note">Expenses off top $ <input id="ivExp" type="number" min="0" step="500" style="width:90px"></label>
+      <label class="iv-note">Years to recoup <input id="ivYears" type="number" min="0.25" step="0.25" style="width:60px"></label>
+    </div>
+    <div class="iv-be" id="ivBreakeven"></div>
+    <div class="iv-wrap"><table class="iv-table"><thead><tr>
+      <th>Investor</th><th>Class</th><th class="iv-num">Invested</th><th class="iv-num">Recouped</th><th class="iv-num">Profit</th><th class="iv-num">Total</th><th class="iv-num">% of inv.</th><th class="iv-num">Multiple</th>
+    </tr></thead><tbody id="ivWfRows"></tbody></table></div>
+    <div class="iv-total" id="ivWfTotals"></div>
+    <p class="iv-note">Standard indie order: sales fee + expenses off the top → debt principal + interest → gap principal + interest → equity principal + premium → remaining profit split 50/50 producer pool / investor pool. Shortfalls inside a tier pay pro-rata. Every run reconciles to the cent against gross. This is a simulation, not an accounting — verify against collection-account statements before relying on it.</p>
+
+    <h2>3 · Statements</h2>
+    <div class="iv-bar">
+      <select id="ivStSel" style="min-width:200px"></select>
+      <label class="iv-note">As of <input id="ivStWhen" type="date"></label>
+      <span class="iv-spacer"></span>
+      <button class="tb-btn" id="ivStCopy">Copy</button>
+    </div>
+    <textarea class="iv-text" id="ivStText" spellcheck="false" readonly></textarea>
+
+    <h2>4 · Quarterly update letter</h2>
+    <div class="iv-bar">
+      <input id="ivLtProd" placeholder="Production title" style="min-width:180px">
+      <input id="ivLtPeriod" placeholder="Period — e.g. Q3 2026" style="min-width:140px">
+      <input id="ivLtContact" placeholder="Your name" style="min-width:130px">
+      <input id="ivLtCompany" placeholder="Company" style="min-width:130px">
+      <span class="iv-spacer"></span>
+      <button class="tb-btn" id="ivLtCopy">Copy</button>
+      <a class="tb-btn gold" id="ivLtMail" href="#" title="Opens your email app with the letter pre-filled">✉ Open in email</a>
+    </div>
+    <div class="iv-bar">
+      <input id="ivLtHi" placeholder="Highlights, one per line — e.g. Wrapped principal photography" style="flex:1;min-width:260px">
+    </div>
+    <textarea class="iv-text" id="ivLtText" spellcheck="false" readonly></textarea>
+    <p class="iv-note" id="ivLtSrc"></p>
+  </main>
+</div>
+
+<div class="toast" id="ivToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="/finance/lib-money.js?v=20260823a"></script>
+<script src="lib-invest.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var I = window.CInvest, M = window.CMoney;
+  var KEY = 'SB_Investors_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('ivToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3200); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+
+  var st = readLS(KEY) || { investors: [], gross: 0, salesFeePct: 15, expensesOffTop: 0, years: 1,
+                            sel: '', prod: '', period: '', contact: '', company: '', highlights: '' };
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  function opts() { return { salesFeePct: +$('ivFee').value || 0, expensesOffTop: +$('ivExp').value || 0, years: +$('ivYears').value || 1 }; }
+
+  /* ── 1 · cap table ── */
+  function renderCap() {
+    $('ivRows').innerHTML = st.investors.map(function (v) {
+      var n = I.normalize(v);
+      var money = n.kind === 'equity';
+      return '<tr data-id="' + esc(v.id) + '">' +
+        '<td><input class="iv-name" data-f="name" value="' + esc(v.name || '') + '"></td>' +
+        '<td><select data-f="kind">' + I.KINDS.map(function (k) {
+          return '<option value="' + k + '"' + (k === n.kind ? ' selected' : '') + '>' + k + '</option>'; }).join('') + '</select></td>' +
+        '<td class="iv-num"><input data-f="amount" type="number" min="0" step="1000" value="' + n.amount + '"></td>' +
+        '<td class="iv-num"><input data-f="interestPct" type="number" min="0" step="0.5" value="' + n.interestPct + '"' + (money ? ' disabled title="Interest applies to debt/gap only"' : '') + '></td>' +
+        '<td class="iv-num"><input data-f="premiumPct" type="number" min="0" step="1" value="' + n.premiumPct + '"' + (money ? '' : ' disabled title="Premium applies to equity only"') + '></td>' +
+        '<td class="iv-num"><input data-f="backendPct" type="number" min="0" step="1" value="' + (v.backendPct == null || v.backendPct === '' ? '' : v.backendPct) + '" placeholder="pro-rata"></td>' +
+        '<td><input data-f="contact" value="' + esc(v.contact || '') + '" placeholder="email / phone"></td>' +
+        '<td><input data-f="notes" value="' + esc(v.notes || '') + '"></td>' +
+        '<td><button class="tb-btn" data-del="' + esc(v.id) + '">✕</button></td></tr>';
+    }).join('') || '<tr><td colspan="9" class="iv-note">No investors yet — add the people financing the picture.</td></tr>';
+    var cap = I.capTable(st.investors, opts());
+    $('ivCapTotals').innerHTML =
+      '<span>Raised <b>' + I.fmt(cap.raised) + '</b></span>' +
+      '<span>Equity <b>' + I.fmt(cap.byKind.equity) + '</b></span>' +
+      '<span>Debt <b>' + I.fmt(cap.byKind.debt) + '</b></span>' +
+      '<span>Gap <b>' + I.fmt(cap.byKind.gap) + '</b></span>' +
+      '<span>Owed at full recoupment <b>' + I.fmt(cap.owedByKind.equity + cap.owedByKind.debt + cap.owedByKind.gap) + '</b></span>' +
+      '<span>Backend <b>' + (cap.explicitBackend ? 'explicit %' : 'pro-rata') + '</b></span>';
+  }
+  $('ivRows').addEventListener('change', function (e) {
+    var tr = e.target.closest('tr'); if (!tr) return;
+    var v = st.investors.filter(function (x) { return x.id === tr.getAttribute('data-id'); })[0];
+    if (!v) return;
+    var f = e.target.getAttribute('data-f'); if (!f) return;
+    if (f === 'backendPct') v.backendPct = e.target.value === '' ? null : +e.target.value;
+    else if (f === 'amount' || f === 'interestPct' || f === 'premiumPct') v[f] = +e.target.value || 0;
+    else v[f] = e.target.value;
+    save(); renderAll();
+  });
+  $('ivRows').addEventListener('click', function (e) {
+    var del = e.target.getAttribute('data-del'); if (!del) return;
+    st.investors = st.investors.filter(function (x) { return x.id !== del; });
+    save(); renderAll();
+  });
+  $('ivAdd').addEventListener('click', function () {
+    st.investors.push({ id: 'i' + Date.now(), name: 'New investor', kind: 'equity', amount: 50000,
+                        interestPct: 0, premiumPct: 20, backendPct: null, contact: '', notes: '' });
+    save(); renderAll();
+  });
+
+  /* ── 2 · waterfall ── */
+  function renderWf() {
+    var o = opts();
+    var be = I.breakeven(st.investors, o);
+    var w = I.waterfall(st.investors, st.gross, o);
+    var sliderMax = Math.max(100000, Math.ceil(((be.gross || 0) * 2.5 || 1000000) / 100000) * 100000);
+    $('ivSlider').max = sliderMax;
+    $('ivSlider').value = Math.min(st.gross, sliderMax);
+    $('ivBreakeven').textContent = be.gross == null ? '⚠ ' + be.note
+      : 'Breakeven — full recoupment (' + I.fmt(be.owedTotal) + ' owed) at ' + I.fmt(be.gross) + ' gross receipts.';
+    $('ivWfRows').innerHTML = w.rows.map(function (r) {
+      return '<tr><td>' + esc(r.name) + '</td>' +
+        '<td class="iv-kind">' + r.kind + '</td>' +
+        '<td class="iv-num">' + I.fmt(r.invested) + '</td>' +
+        '<td class="iv-num">' + I.fmt(r.recouped) + '</td>' +
+        '<td class="iv-num">' + I.fmt(r.profit) + '</td>' +
+        '<td class="iv-num">' + I.fmt(r.total) + '</td>' +
+        '<td class="iv-num' + (r.pctOfInvestment < 100 ? ' iv-over' : '') + '">' + r.pctOfInvestment.toFixed(1) + '%</td>' +
+        '<td class="iv-num">' + r.multiple.toFixed(2) + 'x</td></tr>';
+    }).join('') || '<tr><td colspan="8" class="iv-note">Add investors above, then drag the gross receipts slider.</td></tr>';
+    $('ivWfTotals').innerHTML =
+      '<span>Gross <b>' + I.fmt(w.gross) + '</b></span>' +
+      '<span>Sales fee <b>' + I.fmt(w.salesFee) + '</b></span>' +
+      '<span>Expenses <b>' + I.fmt(w.expenses) + '</b></span>' +
+      '<span>To investors <b>' + I.fmt(w.totals.total) + '</b></span>' +
+      '<span>Producer profit <b>' + I.fmt(w.producerProfit) + '</b></span>' +
+      (w.undistributed ? '<span>Undistributed <b>' + I.fmt(w.undistributed) + '</b></span>' : '');
+    renderStatement(); renderLetter();
+  }
+  $('ivGross').addEventListener('input', function () { st.gross = Math.max(0, +this.value || 0); save(); renderWf(); });
+  $('ivSlider').addEventListener('input', function () { st.gross = +this.value || 0; $('ivGross').value = st.gross; save(); renderWf(); });
+  ['ivFee', 'ivExp', 'ivYears'].forEach(function (id) {
+    $(id).addEventListener('change', function () {
+      var o = opts(); st.salesFeePct = o.salesFeePct; st.expensesOffTop = o.expensesOffTop; st.years = o.years;
+      save(); renderAll();
+    });
+  });
+
+  /* ── 3 · statements ── */
+  function renderStatement() {
+    var sel = $('ivStSel');
+    sel.innerHTML = st.investors.map(function (v) {
+      return '<option value="' + esc(v.id) + '"' + (v.id === st.sel ? ' selected' : '') + '>' + esc(v.name || 'Unnamed') + '</option>';
+    }).join('') || '<option value="">— no investors —</option>';
+    var v = st.investors.filter(function (x) { return x.id === (sel.value || st.sel); })[0];
+    if (!v) { $('ivStText').value = 'Add an investor in the cap table first.'; return; }
+    var w = I.waterfall(st.investors, st.gross, opts());
+    var row = w.rows.filter(function (r) { return r.id === v.id; })[0];
+    $('ivStText').value = I.statement(v, row, $('ivStWhen').value || '');
+  }
+  $('ivStSel').addEventListener('change', function () { st.sel = this.value; save(); renderStatement(); });
+  $('ivStWhen').addEventListener('change', renderStatement);
+  $('ivStCopy').addEventListener('click', function () {
+    navigator.clipboard.writeText($('ivStText').value).then(function () { toast('Statement copied'); });
+  });
+
+  /* ── 4 · update letter ── */
+  function renderLetter() {
+    var sheet = readLS('SB_BudgetSheet_v1');
+    var budget = I.budgetTotal(sheet);
+    var efc = 0, srcBits = [];
+    if (budget > 0) srcBits.push('budget grand total from the budgeting suite (' + I.fmt(budget) + ')');
+    var money = readLS('SB_Money_v1');
+    if (money && M && M.costReport) {
+      try { efc = M.costReport(sheet || { categories: [] }, money).totals.efc || 0; } catch (e) { efc = 0; }
+      if (efc > 0) srcBits.push('EFC from the Money Room cost report (' + I.fmt(efc) + ')');
+    }
+    $('ivLtSrc').textContent = srcBits.length
+      ? 'Pulled live from this browser: ' + srcBits.join(' · ') + '. Figures are estimates — verify before relying on them.'
+      : 'No budget or Money Room data in this browser yet — the letter says so honestly rather than inventing figures.';
+    var text = I.updateLetter({
+      production: $('ivLtProd').value || (readLS('CIN_Projects_v1') || {}).active || '',
+      period: $('ivLtPeriod').value,
+      when: new Date().toISOString().slice(0, 10),
+      investors: st.investors, opts: opts(),
+      budgetTotal: budget, efc: efc,
+      receipts: st.gross, highlights: $('ivLtHi').value,
+      contact: $('ivLtContact').value, company: $('ivLtCompany').value
+    });
+    $('ivLtText').value = text;
+    $('ivLtMail').href = 'mailto:?subject=' + encodeURIComponent('Investor update — ' + ($('ivLtProd').value || 'production')) +
+      '&body=' + encodeURIComponent(text).slice(0, 1800);
+  }
+  ['ivLtProd', 'ivLtPeriod', 'ivLtContact', 'ivLtCompany', 'ivLtHi'].forEach(function (id) {
+    $(id).addEventListener('input', function () {
+      st.prod = $('ivLtProd').value; st.period = $('ivLtPeriod').value;
+      st.contact = $('ivLtContact').value; st.company = $('ivLtCompany').value; st.highlights = $('ivLtHi').value;
+      save(); renderLetter();
+    });
+  });
+  $('ivLtCopy').addEventListener('click', function () {
+    navigator.clipboard.writeText($('ivLtText').value).then(function () { toast('Letter copied — paste into any email'); });
+  });
+
+  function renderAll() { renderCap(); renderWf(); }
+
+  /* ── init ── */
+  $('ivFee').value = st.salesFeePct != null ? st.salesFeePct : 15;
+  $('ivExp').value = st.expensesOffTop || 0;
+  $('ivYears').value = st.years || 1;
+  $('ivGross').value = st.gross || 0;
+  $('ivLtProd').value = st.prod || ''; $('ivLtPeriod').value = st.period || '';
+  $('ivLtContact').value = st.contact || ''; $('ivLtCompany').value = st.company || '';
+  $('ivLtHi').value = st.highlights || '';
+  renderAll();
+  window.CInvestApp = { render: renderAll, state: st };
+})();
+</script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
+</body>
+</html>

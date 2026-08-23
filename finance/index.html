@@ -32,6 +32,7 @@
 .mr-note{font-size:11px;color:var(--dim);line-height:1.6}
 .mr-chip{font-family:var(--mono);font-size:10px;color:var(--dim);border:1px solid var(--border);border-radius:5px;padding:2px 8px}
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
 </head>
 <body>
 <div class="app">
@@ -181,5 +182,6 @@
   window.CMoneyApp = { render: render, state: st };
 })();
 </script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
 </body>
 </html>

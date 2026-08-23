@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Wardrobe</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Wardrobe">
+<meta property="og:description" content="Wardrobe &amp; Looks — characters from the script, looks with piece-by-piece costs, a scene-by-scene change plot with quick-change and continuity flags, and photo continuity.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.wd-main{flex:1;overflow-y:auto;padding:20px 24px 60px;max-width:1080px;width:100%;margin:0 auto}
+.wd-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.wd-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.wd-bar input,.wd-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
+.wd-note{font-size:11px;color:var(--dim);line-height:1.6}
+.wd-chip{font-family:var(--mono);font-size:10.5px;border:1px solid var(--border);border-radius:14px;padding:3px 10px;cursor:pointer;background:var(--surface);color:var(--text)}
+.wd-chip:hover{border-color:var(--gold);color:var(--gold)}
+.wd-look{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.wd-look-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.wd-look-head input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:12px}
+.wd-look-head .wd-char{max-width:150px;font-weight:600}
+.wd-look-head .wd-lname{max-width:170px}
+.wd-look-head .wd-scenes{max-width:130px;font-family:var(--mono)}
+.wd-look-head .wd-sizes{max-width:170px}
+.wd-cost{font-family:var(--mono);font-size:12px;color:var(--gold);margin-left:auto}
+.wd-table{width:100%;border-collapse:collapse;font-size:12px}
+.wd-table th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)}
+.wd-table td{padding:4px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.wd-table input,.wd-table select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 6px;font-size:11.5px}
+.wd-warn{font-family:var(--mono);font-size:10.5px;color:#e8b34b;margin-top:6px}
+.wd-flag{font-family:var(--mono);font-size:10px;border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
+.wd-flag.qc{color:#e8735a;border-color:#e8735a}
+.wd-flag.span{color:var(--gold);border-color:var(--gold)}
+.wd-gridwrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px}
+.wd-grid{border-collapse:collapse;font-size:11px;min-width:100%}
+.wd-grid th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;padding:6px 10px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+.wd-grid td{padding:5px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap}
+.wd-grid td.qc{color:#e8735a}
+.wd-grid td.sc{font-family:var(--mono);color:var(--dim)}
+.wd-total{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
+.wd-total b{color:var(--gold);font-size:15px}
+.wd-photos{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.wd-photo{position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface)}
+.wd-photo img{display:block;width:150px;height:110px;object-fit:cover}
+.wd-photo .wd-cap{font-family:var(--mono);font-size:9.5px;color:var(--dim);padding:3px 6px;display:block}
+.wd-photo button{position:absolute;top:4px;right:4px}
+</style>
+<link rel="manifest" href="/manifest.webmanifest">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Wardrobe &amp; Looks — change plot, budget, continuity</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/casting/">Casting Office</a>
+    <a class="tb-btn" href="/props/">Props</a>
+    <a class="tb-btn" href="/timeline/">← Studio</a>
+  </header>
+
+  <main class="wd-main">
+    <h2>1 · Characters &amp; looks</h2>
+    <div class="wd-bar">
+      <button class="tb-btn gold" id="wdSeed" title="Scan the working screenplay for speaking characters">⟳ Seed characters from script</button>
+      <button class="tb-btn" id="wdAddLook">+ Add look</button>
+      <span class="wd-note">Click a character chip to start a look for them. Scenes take ranges — e.g. <span style="font-family:var(--mono)">1, 4-6, 12</span>.</span>
+    </div>
+    <div class="wd-bar" id="wdChars"><span class="wd-note">No characters yet — seed from the script, or just add a look and type a name.</span></div>
+    <div id="wdLooks"></div>
+
+    <h2>2 · Change plot</h2>
+    <p class="wd-note">Scene-by-scene grid of who wears which look. <span class="wd-flag qc">quick change</span> — same character changes looks between adjacent scenes: stage the change near set. <span class="wd-flag span">continuity span</span> — a look returns after a gap: photograph it on the first day it works.</p>
+    <div class="wd-gridwrap"><table class="wd-grid" id="wdGrid"></table></div>
+    <div id="wdFlags"></div>
+
+    <h2>3 · Budget rollup</h2>
+    <div class="wd-total" id="wdTotals"></div>
+    <div id="wdRollup" style="margin-top:10px"></div>
+    <div class="wd-bar" style="margin-top:10px">
+      <button class="tb-btn gold" id="wdCommit" title="Record the wardrobe total as an open purchase order in the Money Room">Commit total to Money Room (acct 10000)</button>
+      <span class="wd-note">Piece costs are your estimates until quotes land — verify before relying on the rollup for the cost report.</span>
+    </div>
+
+    <h2>4 · Photo continuity</h2>
+    <div class="wd-bar">
+      <select id="wdPhotoLook"></select>
+      <input id="wdPhotoFile" type="file" accept="image/*" style="max-width:230px">
+      <span class="wd-note">Photos are resized and kept in this browser (IndexedDB) — attached to the look, stamped with the date taken in.</span>
+    </div>
+    <div class="wd-photos" id="wdPhotos"></div>
+  </main>
+</div>
+
+<div class="toast" id="wdToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="/finance/lib-money.js?v=20260823a"></script>
+<script src="lib-ward.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var W = window.CWard;
+  var KEY = 'SB_Wardrobe_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('wdToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3200); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+
+  var st = readLS(KEY) || { chars: [], looks: [] };
+  if (!st.chars) st.chars = [];
+  if (!st.looks) st.looks = [];
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+
+  function script() { return String((readLS('SB_Timeline_v1') || {}).scriptText || ''); }
+  var hazards = W.sceneHazards(script());
+  function lookById(id) { return st.looks.filter(function (l) { return l.id === id; })[0]; }
+
+  /* ── IndexedDB photo store ── */
+  var DB = 'cinamate_wardrobe', STORE = 'photos', dbPromise = null;
+  function idb() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise(function (res, rej) {
+      var rq = indexedDB.open(DB, 1);
+      rq.onupgradeneeded = function () { rq.result.createObjectStore(STORE, { keyPath: 'id' }); };
+      rq.onsuccess = function () { res(rq.result); };
+      rq.onerror = function () { rej(rq.error); };
+    });
+    return dbPromise;
+  }
+  function idbPut(rec) {
+    return idb().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).put(rec);
+        tx.oncomplete = function () { res(rec); };
+        tx.onerror = function () { rej(tx.error); };
+      });
+    });
+  }
+  function idbGet(id) {
+    return idb().then(function (db) {
+      return new Promise(function (res) {
+        var rq = db.transaction(STORE, 'readonly').objectStore(STORE).get(id);
+        rq.onsuccess = function () { res(rq.result || null); };
+        rq.onerror = function () { res(null); };
+      });
+    });
+  }
+  function idbDel(id) {
+    return idb().then(function (db) {
+      return new Promise(function (res) {
+        var tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).delete(id);
+        tx.oncomplete = function () { res(true); };
+        tx.onerror = function () { res(false); };
+      });
+    });
+  }
+
+  /* ── 1 · characters & looks ── */
+  function renderChars() {
+    $('wdChars').innerHTML = st.chars.length ? st.chars.map(function (c) {
+      return '<button class="wd-chip" data-char="' + esc(c.name) + '" title="Add a look for ' + esc(c.name) + ' — appears in ' + c.scenes.length + ' scene(s)">' +
+        esc(c.name) + ' · ' + c.scenes.length + ' sc</button>';
+    }).join('') : '<span class="wd-note">No characters yet — seed from the script, or just add a look and type a name.</span>';
+  }
+  function pieceRows(l) {
+    return l.pieces.map(function (p, i) {
+      return '<tr><td><input data-p="item" data-i="' + i + '" value="' + esc(p.item) + '" style="min-width:150px"></td>' +
+        '<td><select data-p="source" data-i="' + i + '">' + W.SOURCES.map(function (s) {
+          return '<option' + (s === p.source ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></td>' +
+        '<td><input data-p="cost" data-i="' + i + '" type="number" min="0" step="1" value="' + (p.cost || 0) + '" style="width:80px"></td>' +
+        '<td><button class="tb-btn" data-delpiece="' + i + '">✕</button></td></tr>';
+    }).join('');
+  }
+  function renderLooks() {
+    $('wdLooks').innerHTML = st.looks.map(function (l) {
+      var adv = W.multiplesAdvice(l, hazards);
+      return '<div class="wd-look" data-id="' + l.id + '">' +
+        '<div class="wd-look-head">' +
+        '<input class="wd-char" data-f="character" value="' + esc(l.character) + '" placeholder="Character">' +
+        '<input class="wd-lname" data-f="lookName" value="' + esc(l.lookName) + '" placeholder="Look name">' +
+        '<input class="wd-scenes" data-f="sceneNums" value="' + esc(l.sceneNums.join(', ')) + '" placeholder="Scenes 1, 4-6">' +
+        '<input class="wd-sizes" data-f="sizes" value="' + esc(l.sizes) + '" placeholder="Sizes / fittings">' +
+        '<span class="wd-cost">$' + W.lookCost(l).toLocaleString() + '</span>' +
+        '<button class="tb-btn" data-dellook="' + l.id + '" title="Remove this look (and its photos)">✕</button>' +
+        '</div>' +
+        '<table class="wd-table"><thead><tr><th>Piece</th><th>Source</th><th>Cost $</th><th></th></tr></thead>' +
+        '<tbody>' + pieceRows(l) + '</tbody></table>' +
+        '<div class="wd-bar" style="margin-top:6px;margin-bottom:0">' +
+        '<button class="tb-btn" data-addpiece="' + l.id + '">+ Piece</button>' +
+        '<input data-f="notes" value="' + esc(l.notes) + '" placeholder="Notes — aging, dye, doubles…" style="flex:1;min-width:180px">' +
+        '</div>' +
+        (adv.multiples > 1 ? '<div class="wd-warn">⚠ ' + esc(adv.note) + '</div>' : '') +
+        '</div>';
+    }).join('') || '<p class="wd-note">No looks yet.</p>';
+  }
+  $('wdSeed').addEventListener('click', function () {
+    var sc = script();
+    if (sc.trim().length < 40) return toast('No screenplay found — load one in the Studio or Writer first');
+    hazards = W.sceneHazards(sc);
+    st.chars = W.charactersFromScript(sc).map(function (c) { return { name: c.name, scenes: c.scenes }; });
+    save(); renderAll();
+    toast(st.chars.length + ' characters found across ' + W.splitScenes(sc).length + ' scenes');
+  });
+  function addLook(character, scenes) {
+    var n = st.looks.filter(function (l) { return l.character === character; }).length + 1;
+    st.looks.push(W.newLook({ character: character, lookName: 'Look ' + n, sceneNums: scenes || [] }));
+    save(); renderAll();
+  }
+  $('wdAddLook').addEventListener('click', function () { addLook('', []); });
+  $('wdChars').addEventListener('click', function (e) {
+    var c = e.target.getAttribute('data-char'); if (!c) return;
+    var ch = st.chars.filter(function (x) { return x.name === c; })[0];
+    addLook(c, ch ? ch.scenes : []);
+    toast('Look added for ' + c + ' — set its scenes and pieces');
+  });
+  $('wdLooks').addEventListener('change', function (e) {
+    var card = e.target.closest('.wd-look'); if (!card) return;
+    var l = lookById(card.getAttribute('data-id')); if (!l) return;
+    var f = e.target.getAttribute('data-f'), p = e.target.getAttribute('data-p');
+    if (f === 'sceneNums') l.sceneNums = W.parseSceneNums(e.target.value);
+    else if (f) l[f] = e.target.value;
+    else if (p) {
+      var pc = l.pieces[+e.target.getAttribute('data-i')];
+      if (pc) { if (p === 'cost') pc.cost = +e.target.value || 0; else pc[p] = e.target.value; }
+    }
+    save(); renderAll();
+  });
+  $('wdLooks').addEventListener('click', function (e) {
+    var add = e.target.getAttribute('data-addpiece'), del = e.target.getAttribute('data-dellook'),
+        dp = e.target.getAttribute('data-delpiece');
+    if (add) { var l = lookById(add); if (l) { l.pieces.push(W.makePiece({})); save(); renderAll(); } }
+    if (del) {
+      var gone = lookById(del);
+      if (gone && gone.photoIds) gone.photoIds.forEach(function (id) { idbDel(id); });
+      st.looks = st.looks.filter(function (x) { return x.id !== del; });
+      save(); renderAll();
+    }
+    if (dp != null && dp !== '') {
+      var card = e.target.closest('.wd-look'), lk = card && lookById(card.getAttribute('data-id'));
+      if (lk) { lk.pieces.splice(+dp, 1); save(); renderAll(); }
+    }
+  });
+
+  /* ── 2 · change plot ── */
+  function renderPlot() {
+    var plot = W.changePlot(st.looks, W.splitScenes(script()).length);
+    var qcAt = {};
+    plot.quickChanges.forEach(function (q) { qcAt[q.character + '@' + q.toScene] = true; qcAt[q.character + '@' + q.fromScene] = true; });
+    if (!plot.sceneCount || !plot.characters.length) {
+      $('wdGrid').innerHTML = '<tr><td class="wd-note" style="padding:10px">Give looks scene numbers and the grid fills in.</td></tr>';
+    } else {
+      var head = '<tr><th>Sc</th>' + plot.characters.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>';
+      var rows = plot.grid.map(function (row) {
+        var by = {};
+        row.wearing.forEach(function (w) { (by[w.character] = by[w.character] || []).push(w.lookName); });
+        return '<tr><td class="sc">' + row.scene + '</td>' + plot.characters.map(function (c) {
+          var cls = qcAt[c + '@' + row.scene] ? ' class="qc"' : '';
+          return '<td' + cls + '>' + (by[c] ? esc(by[c].join(' + ')) : '·') + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+      $('wdGrid').innerHTML = head + rows;
+    }
+    var flags = '';
+    plot.quickChanges.forEach(function (q) {
+      flags += '<p class="wd-note"><span class="wd-flag qc">quick change</span> ' + esc(q.character) +
+        ' — sc ' + q.fromScene + ' “' + esc(q.fromLook) + '” → sc ' + q.toScene + ' “' + esc(q.toLook) + '”. Stage the change near set with a dresser standing by.</p>';
+    });
+    plot.continuitySpans.forEach(function (s) {
+      flags += '<p class="wd-note"><span class="wd-flag span">continuity span</span> ' + esc(s.character) +
+        ' — “' + esc(s.lookName) + '” returns across scenes ' + s.scenes.join(', ') + ': ' + esc(s.note) + ' before it wraps for the day.</p>';
+    });
+    plot.conflicts.forEach(function (c) {
+      flags += '<p class="wd-note"><span class="wd-flag">conflict</span> ' + esc(c.character) + ' has two looks down for scene ' + c.scene + ' — pick one.</p>';
+    });
+    $('wdFlags').innerHTML = flags || '<p class="wd-note">No quick changes or continuity spans flagged yet.</p>';
+  }
+
+  /* ── 3 · budget rollup ── */
+  function renderBudget() {
+    var t = W.totalsBySource(st.looks);
+    $('wdTotals').innerHTML =
+      '<span>Buy <b>$' + t.buy.toLocaleString() + '</b></span>' +
+      '<span>Rent <b>$' + t.rent.toLocaleString() + '</b></span>' +
+      '<span>Build <b>$' + t.build.toLocaleString() + '</b></span>' +
+      '<span>Cast-own <b>$' + t['cast-own'].toLocaleString() + '</b></span>' +
+      '<span>Wardrobe total <b>$' + t.total.toLocaleString() + '</b></span>';
+    var roll = W.rollupByCharacter(st.looks);
+    $('wdRollup').innerHTML = roll.length ?
+      '<table class="wd-table"><thead><tr><th>Character</th><th>Looks</th><th>Cost $</th></tr></thead><tbody>' +
+      roll.map(function (r) {
+        return '<tr><td>' + esc(r.character) + '</td><td>' + r.looks + '</td><td style="font-family:var(--mono)">$' + r.cost.toLocaleString() + '</td></tr>';
+      }).join('') + '</tbody></table>' : '<p class="wd-note">Add pieces with costs and the rollup builds itself.</p>';
+  }
+  $('wdCommit').addEventListener('click', function () {
+    var t = W.totalsBySource(st.looks);
+    if (!(t.total > 0)) return toast('Nothing to commit — add piece costs first');
+    var money = JSON.parse(localStorage.getItem('SB_Money_v1') || 'null') || CMoney.blank();
+    var po = CMoney.addPO(money, { vendor: 'Wardrobe dept', desc: 'Wardrobe — ' + st.looks.length + ' look(s), ' + W.rollupByCharacter(st.looks).length + ' character(s)',
+      acct: '10000', amount: t.total, date: new Date().toISOString().slice(0, 10) });
+    localStorage.setItem('SB_Money_v1', JSON.stringify(money));
+    toast('Committed $' + t.total.toLocaleString() + ' to Money Room acct 10000 (' + po.num + ')');
+  });
+
+  /* ── 4 · photo continuity ── */
+  function renderPhotoLooks() {
+    $('wdPhotoLook').innerHTML = st.looks.map(function (l) {
+      return '<option value="' + l.id + '">' + esc((l.character || '?') + ' — ' + l.lookName) + '</option>';
+    }).join('') || '<option value="">— add a look first —</option>';
+  }
+  function renderPhotos() {
+    var host = $('wdPhotos');
+    var ids = [];
+    st.looks.forEach(function (l) { (l.photoIds || []).forEach(function (id) { ids.push({ id: id, look: l }); }); });
+    if (!ids.length) { host.innerHTML = '<p class="wd-note">No continuity photos yet.</p>'; return; }
+    host.innerHTML = '';
+    ids.forEach(function (ref) {
+      idbGet(ref.id).then(function (rec) {
+        if (!rec) return;
+        var div = document.createElement('div');
+        div.className = 'wd-photo';
+        div.innerHTML = '<img alt="' + esc(ref.look.lookName) + '">' +
+          '<span class="wd-cap">' + esc((ref.look.character || '?') + ' · ' + ref.look.lookName + ' · ' + (rec.date || '')) + '</span>' +
+          '<button class="tb-btn" data-delphoto="' + esc(rec.id) + '">✕</button>';
+        div.querySelector('img').src = rec.dataUrl;
+        host.appendChild(div);
+      });
+    });
+  }
+  $('wdPhotoFile').addEventListener('change', function () {
+    var file = this.files && this.files[0]; if (!file) return;
+    var l = lookById($('wdPhotoLook').value);
+    if (!l) return toast('Add a look first, then attach photos to it');
+    var input = this;
+    var rd = new FileReader();
+    rd.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var fit = W.fitWithin(img.width, img.height, 1024);
+        var cv = document.createElement('canvas');
+        cv.width = fit.w; cv.height = fit.h;
+        cv.getContext('2d').drawImage(img, 0, 0, fit.w, fit.h);
+        var rec = { id: 'ph' + Date.now() + Math.random().toString(36).slice(2, 6),
+                    lookId: l.id, dataUrl: cv.toDataURL('image/jpeg', 0.82),
+                    date: new Date().toISOString().slice(0, 10) };
+        idbPut(rec).then(function () {
+          l.photoIds = l.photoIds || [];
+          l.photoIds.push(rec.id);
+          save(); renderPhotos(); input.value = '';
+          toast('Photo attached to ' + (l.character || '?') + ' — ' + l.lookName);
+        }, function () { toast('Could not save the photo in this browser'); });
+      };
+      img.src = rd.result;
+    };
+    rd.readAsDataURL(file);
+  });
+  $('wdPhotos').addEventListener('click', function (e) {
+    var id = e.target.getAttribute('data-delphoto'); if (!id) return;
+    idbDel(id).then(function () {
+      st.looks.forEach(function (l) { l.photoIds = (l.photoIds || []).filter(function (x) { return x !== id; }); });
+      save(); renderPhotos(); toast('Photo removed');
+    });
+  });
+
+  /* ── init ── */
+  function renderAll() { renderChars(); renderLooks(); renderPlot(); renderBudget(); renderPhotoLooks(); }
+  renderAll();
+  renderPhotos();
+  window.WardrobeApp = { render: renderAll, renderPhotos: renderPhotos, state: st };
+})();
+</script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
+</body>
+</html>

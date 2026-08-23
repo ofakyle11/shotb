@@ -226,6 +226,82 @@
              perDay: Math.round(perDay), adminPct: Math.round(admin * 100), total: total };
   }
 
+  /* ── animal department ───────────────────────────────────────────────
+     Coordinators are quote-based and regional — the directory carries only
+     names we can stand behind plus honest lookups; rates are planning
+     estimates, and the compliance list follows the industry's certified
+     animal-safety monitoring standard. */
+  var ANIMAL_SPECIES = [
+    { id: 'dog',      label: 'Dog (trained)',        day: [400, 800],  wrangler: true },
+    { id: 'cat',      label: 'Cat (trained)',        day: [400, 600],  wrangler: true },
+    { id: 'horse',    label: 'Horse',                day: [500, 1000], wrangler: true, note: 'Add stunt/riding double coordination for action.' },
+    { id: 'livestock',label: 'Livestock (cow/goat/sheep/pig)', day: [300, 600], wrangler: true },
+    { id: 'bird',     label: 'Bird (trained)',       day: [300, 500],  wrangler: true },
+    { id: 'reptile',  label: 'Reptile / snake',      day: [250, 500],  wrangler: true, note: 'Venomous species need specialist handlers and are banned on many stages.' },
+    { id: 'exotic',   label: 'Exotic / big animal',  day: [1500, 5000], wrangler: true, note: 'Heavily restricted or banned in many jurisdictions — legal review before scheduling.' }
+  ];
+  var WRANGLER_DAY = [600, 900];   // professional coordinator/wrangler per day
+  var VET_DAY = [150, 300];        // vet on call where required
+  var SPECIES_RE = [
+    ['dog', /\b(dog|puppy|hound|german shepherd|retriever)\b/i],
+    ['cat', /\b(cat|kitten)\b/i],
+    ['horse', /\b(horse|stallion|mare|pony)\b/i],
+    ['livestock', /\b(cow|cattle|goat|sheep|pig|chicken|rooster)\b/i],
+    ['bird', /\b(bird|raven|crow|owl|falcon|parrot|dove)\b/i],
+    ['reptile', /\b(snake|lizard|reptile|alligator)\b/i],
+    ['exotic', /\b(wolf|bear|lion|tiger|monkey|elephant|deer)\b/i]
+  ];
+  function animalsInScript(scriptText) {
+    var out = [];
+    splitScenes(scriptText).forEach(function (sc) {
+      var text = sc.slug + '\n' + sc.body.join('\n');
+      SPECIES_RE.forEach(function (pair) {
+        if (pair[1].test(text)) out.push({ scene: sc.n, species: pair[0] });
+      });
+    });
+    return out;
+  }
+  /* planning estimate: species day rates + wrangler + prep + vet, midpoints */
+  function animalEstimate(o) {
+    o = o || {};
+    var sp = null;
+    ANIMAL_SPECIES.forEach(function (s) { if (s.id === o.species) sp = s; });
+    if (!sp) sp = ANIMAL_SPECIES[0];
+    var days = Math.max(1, +o.days || 1);
+    var prep = Math.max(0, +o.prepDays || 0);
+    var mid = function (r) { return (r[0] + r[1]) / 2; };
+    var animal = mid(sp.day) * days;
+    var wrangler = mid(WRANGLER_DAY) * (days + prep);
+    var vet = o.vet ? mid(VET_DAY) * days : 0;
+    return { species: sp.label, days: days, prepDays: prep,
+             animal: Math.round(animal), wrangler: Math.round(wrangler),
+             vet: Math.round(vet), total: Math.round(animal + wrangler + vet),
+             note: sp.note || '' };
+  }
+  /* certified animal-safety compliance list — attach to the risk assessment */
+  function animalChecklist() {
+    return [
+      'Professional animal coordinator/wrangler engaged — only they handle the animals',
+      'Certified animal-safety representative notified/on set for significant animal action',
+      'Veterinary exam current; vet on call (on set for stunts or exotic work)',
+      'No sedation or tripping devices — performance through training only',
+      'Rest, water, shade and quiet holding area scheduled between setups',
+      'Take limits agreed with the coordinator before rolling',
+      'Set quieted and rehearsed with stand-ins before the animal works',
+      'Apply for the certified "no animals were harmed" end-credit monitoring program',
+      'Animal action detailed on the call sheet and covered in the safety meeting'
+    ];
+  }
+  /* directory: only entries we can stand behind by name; everything else is
+     an honest lookup for the shoot's own hub */
+  var WRANGLERS = [
+    { name: 'Birds & Animals Unlimited', hub: 'Los Angeles, USA', spec: 'Major studio animal training/coordination house', verified: true }
+  ];
+  function wranglerSearchLink(city) {
+    return 'https://www.google.com/search?q=' + encodeURIComponent(
+      'film animal wrangler coordinator ' + String(city || '').split(',')[0]);
+  }
+
   /* incident log */
   function blank() { return { v: 1, incidents: [], ack: {} }; }
   function addIncident(store, fields) {
@@ -242,6 +318,9 @@
     assessmentText: assessmentText, meetingChecklist: meetingChecklist,
     POLICE: POLICE, policeFor: policeFor, policeSearchLink: policeSearchLink,
     paidDutyNeeds: paidDutyNeeds, paidDutyEstimate: paidDutyEstimate,
+    ANIMAL_SPECIES: ANIMAL_SPECIES, animalsInScript: animalsInScript,
+    animalEstimate: animalEstimate, animalChecklist: animalChecklist,
+    WRANGLERS: WRANGLERS, wranglerSearchLink: wranglerSearchLink,
     blank: blank, addIncident: addIncident
   };
 })(typeof window !== 'undefined' ? window : globalThis);
