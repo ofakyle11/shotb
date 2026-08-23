@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Clearance</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:title" content="CINAMATE — Clearance">
+<meta property="og:description" content="The pre-E&amp;O script clearance read, automated — brands, music, phones, artwork, footage flagged by scene, with the release letters drafted.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.cl-main{flex:1;overflow-y:auto;padding:20px 24px 60px;max-width:1000px;width:100%;margin:0 auto}
+.cl-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.cl-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.cl-find{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px;margin-bottom:8px}
+.cl-risk{display:inline-block;font-family:var(--mono);font-size:9px;border-radius:4px;padding:1px 7px;text-transform:uppercase;letter-spacing:.05em;margin-right:8px}
+.cl-high{background:#E08A8A22;color:#E08A8A}
+.cl-medium{background:#C9A86C22;color:#C9A86C}
+.cl-low{background:#8BA3B822;color:#8BA3B8}
+.cl-ex{font-family:var(--mono);font-size:10.5px;color:var(--text2);display:block;margin:5px 0}
+.cl-note{font-size:11px;color:var(--dim);line-height:1.6}
+.cl-doc{width:100%;min-height:230px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11px;line-height:1.55}
+.cl-banner{border-radius:10px;padding:12px 16px;font-family:var(--mono);font-size:12px;margin-bottom:10px}
+.cl-ready{background:#9BCB9B18;border:1px solid #9BCB9B;color:#9BCB9B}
+.cl-open{background:#C9A86C14;border:1px solid var(--gold);color:var(--gold)}
+select.cl-status{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 6px;font-size:11px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Clearance — the pre-E&amp;O script read</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/writer/">Writer</a>
+    <a class="tb-btn" href="/production/">Office</a>
+  </header>
+
+  <main class="cl-main">
+    <h2>Script clearance scan</h2>
+    <div class="cl-bar">
+      <button class="tb-btn gold" id="clScan">⟳ Scan the screenplay</button>
+      <span class="cl-note" id="clMeta"></span>
+    </div>
+    <div id="clBanner"></div>
+    <div id="clRows"><p class="cl-note">Scans every scene for real brands and companies, music references, on-screen artwork, non-555 phone numbers, real people, broadcast/archival footage, currency reproduction and signage — each flagged with the standard fix. Work the list to pending-zero and you're E&amp;O-ready.</p></div>
+
+    <h2>Letters &amp; releases</h2>
+    <div class="cl-bar">
+      <select id="clKind" class="cl-status">
+        <option value="materials">Materials permission request</option>
+        <option value="sync">Sync license request</option>
+        <option value="location">Location release</option>
+        <option value="appearance">Appearance release</option>
+      </select>
+      <input id="clItem" placeholder="Item / name / address" style="min-width:220px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px">
+      <button class="tb-btn gold" id="clDraft">Draft letter</button>
+      <button class="tb-btn" id="clCopy">Copy</button>
+    </div>
+    <textarea class="cl-doc" id="clDoc" spellcheck="false"></textarea>
+  </main>
+</div>
+
+<div class="toast" id="clToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="lib-clear.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var C = window.CClear, KEY = 'SB_ClearScan_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('clToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3000); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+
+  var st = readLS(KEY) || { findings: [], scannedAt: '' };
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+
+  function render() {
+    var sum = C.summary(st.findings);
+    $('clMeta').textContent = st.findings.length
+      ? sum.total + ' findings · ' + sum.open + ' open' + (st.scannedAt ? ' · scanned ' + st.scannedAt : '')
+      : '';
+    $('clBanner').innerHTML = !st.findings.length ? '' : sum.eoReady
+      ? '<div class="cl-banner cl-ready">CLEAR — every finding addressed. Package the report with your E&amp;O application.</div>'
+      : '<div class="cl-banner cl-open">' + sum.open + ' finding' + (sum.open === 1 ? '' : 's') + ' still open — E&amp;O underwriters will ask about every one.</div>';
+    $('clRows').innerHTML = st.findings.map(function (f) {
+      return '<div class="cl-find">' +
+        '<span class="cl-risk cl-' + f.risk + '">' + f.risk + '</span>' +
+        '<b>SC ' + f.scene + '</b> · ' + esc(f.cat.toUpperCase()) + ' — <b>' + esc(f.term) + '</b>' +
+        '<span class="cl-ex">' + esc(f.excerpt) + '</span>' +
+        '<span class="cl-note">' + esc(f.action) + '</span> ' +
+        '<select class="cl-status" data-fid="' + f.id + '">' +
+          ['pending', 'cleared', 'rewritten', 'accepted risk'].map(function (s2) {
+            return '<option' + (s2 === f.status ? ' selected' : '') + '>' + s2 + '</option>'; }).join('') +
+        '</select></div>';
+    }).join('') || '<p class="cl-note">Nothing scanned yet.</p>';
+  }
+
+  $('clScan').addEventListener('click', function () {
+    var tl = readLS('SB_Timeline_v1') || {};
+    var script = String(tl.scriptText || '');
+    if (script.trim().length < 40) return toast('No screenplay found — load one in the Studio or Writer first');
+    var fresh = C.scan(script);
+    /* keep statuses already worked on matching term+scene */
+    var prior = {};
+    st.findings.forEach(function (f) { prior[f.cat + '|' + f.scene + '|' + f.term] = f.status; });
+    fresh.forEach(function (f) { var p = prior[f.cat + '|' + f.scene + '|' + f.term]; if (p) f.status = p; });
+    st.findings = fresh;
+    st.scannedAt = new Date().toISOString().slice(0, 10);
+    save(); render();
+    toast(fresh.length + ' findings across the screenplay');
+  });
+  $('clRows').addEventListener('change', function (e) {
+    var id = e.target.getAttribute('data-fid'); if (!id) return;
+    var f = st.findings.filter(function (x) { return x.id === id; })[0];
+    if (f) { f.status = e.target.value; save(); render(); }
+  });
+
+  function opts() {
+    var tl = readLS('SB_Timeline_v1') || {};
+    return { production: (readLS('CIN_Projects_v1') || {}).active || tl.title || '',
+             item: $('clItem').value, context: '', contact: '', company: '' };
+  }
+  $('clDraft').addEventListener('click', function () {
+    var k = $('clKind').value, o = opts();
+    $('clDoc').value = k === 'sync' ? C.syncRequest(o)
+      : k === 'location' ? C.locationRelease({ production: o.production, address: o.item })
+      : k === 'appearance' ? C.appearanceRelease({ production: o.production, name: o.item })
+      : C.materialsRequest(o);
+  });
+  $('clCopy').addEventListener('click', function () {
+    navigator.clipboard.writeText($('clDoc').value).then(function () { toast('Copied'); });
+  });
+
+  render();
+  window.CClearApp = { render: render, state: st };
+})();
+</script>
+</body>
+</html>

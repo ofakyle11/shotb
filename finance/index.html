@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Money Room</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:title" content="CINAMATE — Money Room">
+<meta property="og:description" content="Purchase orders, petty cash and the weekly cost report — budget vs actual vs committed vs estimated final cost, live.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.mr-main{flex:1;overflow-y:auto;padding:20px 24px 60px;max-width:1100px;width:100%;margin:0 auto}
+.mr-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.mr-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.mr-bar input,.mr-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
+.mr-table{width:100%;border-collapse:collapse;font-size:12px}
+.mr-table th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:right;padding:6px 8px;border-bottom:1px solid var(--border)}
+.mr-table th:first-child,.mr-table th:nth-child(2){text-align:left}
+.mr-table td{padding:6px 8px;border-bottom:1px solid var(--border);font-family:var(--mono);text-align:right}
+.mr-table td:first-child,.mr-table td:nth-child(2){text-align:left;font-family:var(--body,Inter)}
+.mr-table input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 6px;font-size:11px;width:84px;text-align:right}
+.mr-over{color:#E08A8A;font-weight:600}
+.mr-ok{color:#9BCB9B}
+.mr-total td{border-top:2px solid var(--gold);font-weight:600}
+.mr-note{font-size:11px;color:var(--dim);line-height:1.6}
+.mr-chip{font-family:var(--mono);font-size:10px;color:var(--dim);border:1px solid var(--border);border-radius:5px;padding:2px 8px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Money Room — POs, petty cash, weekly cost report</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/contracts/">Deal Memos</a>
+    <a class="tb-btn" href="/producer/">Budget</a>
+  </header>
+
+  <main class="mr-main">
+    <h2>Cost report <span class="mr-chip" id="mrChip"></span></h2>
+    <div class="mr-bar">
+      <button class="tb-btn gold" id="mrSnap" title="Freeze this week's totals into the record">📌 Take weekly snapshot</button>
+      <button class="tb-btn" id="mrCsv">⬇ CSV</button>
+      <span class="mr-note" id="mrSnapNote"></span>
+      <span style="flex:1"></span>
+      <span class="mr-note" id="mrLearn"></span>
+    </div>
+    <table class="mr-table"><thead><tr>
+      <th>Acct</th><th>Category</th><th>Budget</th><th>Actual</th><th>Committed</th><th>ETC</th><th>EFC</th><th>Variance</th>
+    </tr></thead><tbody id="mrRows"></tbody></table>
+    <p class="mr-note">Actual = paid/invoiced POs + petty cash. Committed = open POs and signed deals. ETC defaults to the money left in the plan — override it per line when you know better. EFC = Actual + Committed + ETC; red variance means the account lands over budget <b>unless something changes now</b>. Every actual quietly calibrates the estimators for your next film.</p>
+
+    <h2>Purchase orders</h2>
+    <div class="mr-bar">
+      <input id="poVendor" placeholder="Vendor" style="min-width:150px">
+      <input id="poDesc" placeholder="What for" style="min-width:190px">
+      <select id="poAcct"></select>
+      <input id="poAmount" type="number" min="0" placeholder="$" style="width:100px">
+      <button class="tb-btn gold" id="poAdd">+ Issue PO</button>
+    </div>
+    <table class="mr-table"><thead><tr>
+      <th style="text-align:left">PO</th><th style="text-align:left">Vendor · Description</th><th>Acct</th><th>Amount</th><th>Status</th><th></th>
+    </tr></thead><tbody id="poRows"></tbody></table>
+
+    <h2>Petty cash</h2>
+    <div class="mr-bar">
+      <input id="pcWho" placeholder="Who" style="width:120px">
+      <input id="pcDesc" placeholder="What for" style="min-width:180px">
+      <select id="pcAcct"></select>
+      <input id="pcAmount" type="number" min="0" placeholder="$" style="width:90px">
+      <button class="tb-btn" id="pcAdd">+ Log receipt</button>
+    </div>
+    <div id="pcRows" class="mr-note"></div>
+  </main>
+</div>
+
+<div class="toast" id="mrToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="/js/learn.js?v=20260823a"></script>
+<script src="lib-money.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var M = window.CMoney, KEY = 'SB_Money_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('mrToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3000); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function fm(n) { return '$' + Math.round(n).toLocaleString(); }
+  function now() { return new Date().toISOString().slice(0, 10); }
+
+  var st = readLS(KEY) || M.blank();
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  function sheet() { return readLS('SB_BudgetSheet_v1') || { categories: [] }; }
+
+  function acctOptions() {
+    var accts = M.budgetByAcct(sheet());
+    var keys = Object.keys(accts).sort();
+    if (!keys.length) keys = ['1100', '2000', '3000', '5000'];
+    var html = keys.map(function (a) {
+      return '<option value="' + a + '">' + a + (accts[a] ? ' · ' + esc(accts[a].name) : '') + '</option>';
+    }).join('');
+    $('poAcct').innerHTML = html; $('pcAcct').innerHTML = html;
+  }
+
+  function render() {
+    var rep = M.costReport(sheet(), st);
+    $('mrRows').innerHTML = rep.rows.map(function (r) {
+      return '<tr><td>' + r.acct + '</td><td>' + esc(r.name) + '</td>' +
+        '<td>' + fm(r.budget) + '</td><td>' + fm(r.actual) + '</td><td>' + fm(r.committed) + '</td>' +
+        '<td><input data-etc="' + r.acct + '" value="' + (st.etc[r.acct] != null && st.etc[r.acct] !== '' ? st.etc[r.acct] : r.etc) + '"></td>' +
+        '<td>' + fm(r.efc) + '</td>' +
+        '<td class="' + (r.over ? 'mr-over' : 'mr-ok') + '">' + (r.over ? '' : '+') + fm(r.variance).replace('$-', '-$') + '</td></tr>';
+    }).join('') +
+    '<tr class="mr-total"><td></td><td>ESTIMATED FINAL COST</td>' +
+      '<td>' + fm(rep.totals.budget) + '</td><td>' + fm(rep.totals.actual) + '</td><td>' + fm(rep.totals.committed) + '</td><td>' + fm(rep.totals.etc) + '</td>' +
+      '<td>' + fm(rep.totals.efc) + '</td><td class="' + (rep.totals.over ? 'mr-over' : 'mr-ok') + '">' + (rep.totals.over ? '' : '+') + fm(rep.totals.variance).replace('$-', '-$') + '</td></tr>';
+    $('mrChip').textContent = rep.openPOs + ' open POs · week ' + (st.snapshots.length + 1);
+    $('mrSnapNote').textContent = st.snapshots.length
+      ? 'last snapshot: week ' + st.snapshots[st.snapshots.length - 1].week + ' (' + st.snapshots[st.snapshots.length - 1].date + ') EFC ' + fm(st.snapshots[st.snapshots.length - 1].totals.efc)
+      : '';
+    $('poRows').innerHTML = st.pos.map(function (p) {
+      return '<tr><td style="text-align:left">' + p.num + '</td>' +
+        '<td style="text-align:left">' + esc(p.vendor) + ' · ' + esc(p.desc) + '</td>' +
+        '<td>' + p.acct + '</td><td>' + fm(p.amount) + '</td>' +
+        '<td><select data-postatus="' + p.id + '">' + ['open', 'invoiced', 'paid', 'void'].map(function (s2) {
+          return '<option' + (s2 === p.status ? ' selected' : '') + '>' + s2 + '</option>'; }).join('') + '</select></td>' +
+        '<td><button class="tb-btn" data-del="' + p.id + '">✕</button></td></tr>';
+    }).join('') || '<tr><td colspan="6" style="text-align:left" class="mr-note">No POs yet — every dollar you commit should enter through one.</td></tr>';
+    $('pcRows').innerHTML = st.petty.map(function (p) {
+      return '<div>' + esc(p.date) + ' · <b>' + esc(p.who) + '</b> — ' + esc(p.desc) + ' · acct ' + p.acct + ' · ' + fm(p.amount) +
+        ' <button class="tb-btn" data-del="' + p.id + '">✕</button></div>';
+    }).join('') || 'No petty cash logged.';
+    var fed = M.feedLearning(sheet(), st);
+    $('mrLearn').textContent = fed ? fed + ' actuals fed to the estimator brain' : '';
+  }
+
+  $('poAdd').addEventListener('click', function () {
+    if (!(+$('poAmount').value > 0)) return toast('Amount first');
+    M.addPO(st, { vendor: $('poVendor').value, desc: $('poDesc').value, acct: $('poAcct').value, amount: $('poAmount').value, date: now() });
+    $('poVendor').value = ''; $('poDesc').value = ''; $('poAmount').value = '';
+    save(); render(); toast('PO issued — committed until invoiced');
+  });
+  $('pcAdd').addEventListener('click', function () {
+    if (!(+$('pcAmount').value > 0)) return toast('Amount first');
+    M.addPetty(st, { who: $('pcWho').value, desc: $('pcDesc').value, acct: $('pcAcct').value, amount: $('pcAmount').value, date: now() });
+    $('pcWho').value = ''; $('pcDesc').value = ''; $('pcAmount').value = '';
+    save(); render(); toast('Receipt logged as actual spend');
+  });
+  document.addEventListener('change', function (e) {
+    var ps = e.target.getAttribute && e.target.getAttribute('data-postatus');
+    var etc = e.target.getAttribute && e.target.getAttribute('data-etc');
+    if (ps) { M.setPoStatus(st, ps, e.target.value); save(); render(); }
+    if (etc) { st.etc[etc] = e.target.value; save(); render(); }
+  });
+  document.addEventListener('click', function (e) {
+    var del = e.target.getAttribute && e.target.getAttribute('data-del');
+    if (del && confirm('Remove this line?')) { M.removeRow(st, del); save(); render(); }
+  });
+  $('mrSnap').addEventListener('click', function () {
+    var s = M.snapshot(st, M.costReport(sheet(), st), now());
+    save(); render(); toast('Week ' + s.week + ' locked into the record');
+  });
+  $('mrCsv').addEventListener('click', function () {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([M.csv(M.costReport(sheet(), st))], { type: 'text/csv' }));
+    a.download = 'cost-report.csv'; a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
+  });
+
+  acctOptions(); render();
+  window.CMoneyApp = { render: render, state: st };
+})();
+</script>
+</body>
+</html>

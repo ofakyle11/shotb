@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Safety &amp; Risk</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:title" content="CINAMATE — Safety &amp; Risk">
+<meta property="og:description" content="Risk assessments drafted from the script itself, safety meeting checklists, paid duty police booking, and the incident log.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.sf-main{flex:1;overflow-y:auto;padding:20px 24px 60px;max-width:1000px;width:100%;margin:0 auto}
+.sf-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.sf-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.sf-bar input,.sf-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
+.sf-scene{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.sf-scene b{font-family:var(--display)}
+.sf-h{display:inline-block;font-family:var(--mono);font-size:9.5px;border-radius:4px;padding:1px 7px;margin:3px 6px 0 0;text-transform:uppercase;letter-spacing:.05em}
+.sf-h3{background:#E08A8A22;color:#E08A8A}
+.sf-h2c{background:#C9A86C22;color:#C9A86C}
+.sf-h1{background:#8BA3B822;color:#8BA3B8}
+.sf-doc{width:100%;min-height:260px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11px;line-height:1.55}
+.sf-note{font-size:11px;color:var(--dim);line-height:1.6}
+.sf-card{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.sf-card b{font-family:var(--display);font-size:14px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Safety &amp; Risk — assessments, police, incidents</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/finance/">Money Room</a>
+    <a class="tb-btn" href="/producer/">Producer Suite</a>
+  </header>
+
+  <main class="sf-main">
+    <h2>1 · Hazards found in the screenplay</h2>
+    <div class="sf-bar">
+      <button class="tb-btn gold" id="sfScan">⟳ Assess the script</button>
+      <span class="sf-note" id="sfMeta"></span>
+    </div>
+    <div id="sfScenes"><p class="sf-note">Reads the working screenplay and flags weapons, stunts, fire, water, vehicles, heights, animals, night work, crowds, electrical and aerial — each with the standard control measures and the specialist who owns them.</p></div>
+
+    <h2>2 · Risk assessment document</h2>
+    <div class="sf-bar">
+      <input id="sfBy" placeholder="Prepared by" style="width:160px">
+      <button class="tb-btn" id="sfCopy">Copy</button>
+      <button class="tb-btn gold" id="sfDl">⬇ Download for the call sheet pack</button>
+    </div>
+    <textarea class="sf-doc" id="sfDoc" spellcheck="false">Assess the script first.</textarea>
+
+    <h2>3 · Paid duty police</h2>
+    <div class="sf-bar">
+      <input id="sfCity" placeholder="Shoot city — e.g. Toronto" style="min-width:200px">
+      <button class="tb-btn gold" id="sfPolice">Find the program</button>
+      <button class="tb-btn" id="sfAdvisor" title="Use the Advisor's incentive location">Use Advisor location</button>
+    </div>
+    <div id="sfPoliceCard"><p class="sf-note">Street shoots book officers through the local service's paid duty / film program. Scenes that trigger the requirement are listed automatically after a script assessment.</p></div>
+    <div class="sf-bar" style="margin-top:10px">
+      <label class="sf-note">Officers <input id="pdOff" type="number" min="1" value="2" style="width:54px"></label>
+      <label class="sf-note">Hours/day <input id="pdHrs" type="number" min="1" value="8" style="width:54px"></label>
+      <label class="sf-note">Rate/hr $ <input id="pdRate" type="number" min="1" value="90" style="width:64px"></label>
+      <label class="sf-note">Days <input id="pdDays" type="number" min="1" value="3" style="width:54px"></label>
+      <b id="pdTotal" style="font-family:var(--mono);color:var(--gold)"></b>
+      <button class="tb-btn" id="pdCommit" title="Issue a committed PO in the Money Room">→ Commit to Money Room</button>
+    </div>
+    <p class="sf-note">Typical paid-duty terms carry a 3–4 hour minimum call plus an admin fee (10% assumed) — confirm exact rates with the service; the estimate updates as you type.</p>
+
+    <h2>4 · Safety meeting</h2>
+    <div class="sf-bar">
+      <input id="sfDayScenes" placeholder="Today's scene numbers — e.g. 3, 7, 12 (blank = all)" style="min-width:280px">
+      <button class="tb-btn" id="sfMeet">Build checklist</button>
+    </div>
+    <div id="sfMeetOut" class="sf-note"></div>
+
+    <h2>5 · Incident log</h2>
+    <div class="sf-bar">
+      <input id="inWho" placeholder="Person involved" style="width:150px">
+      <input id="inWhat" placeholder="What happened" style="min-width:220px">
+      <input id="inAction" placeholder="Action taken" style="min-width:170px">
+      <label class="sf-note"><input type="checkbox" id="inInjury"> injury</label>
+      <button class="tb-btn gold" id="inAdd">+ Log incident</button>
+    </div>
+    <div id="inRows" class="sf-note"></div>
+  </main>
+</div>
+
+<div class="toast" id="sfToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="lib-safety.js?v=20260823a"></script>
+<script src="/finance/lib-money.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var S = window.CSafety, KEY = 'SB_Safety_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('sfToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3000); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function now() { return new Date().toISOString().slice(0, 10); }
+
+  var st = readLS(KEY) || S.blank();
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  var analysis = null;
+
+  function scan() {
+    var tl = readLS('SB_Timeline_v1') || {};
+    var script = String(tl.scriptText || '');
+    if (script.trim().length < 40) return toast('No screenplay found — load one in the Studio or Writer first');
+    analysis = S.analyze(script);
+    $('sfMeta').textContent = analysis.flagged.length + ' of ' + analysis.scenes + ' scenes carry hazards · risk score ' + analysis.riskScore;
+    $('sfScenes').innerHTML = analysis.flagged.map(function (sc) {
+      return '<div class="sf-scene"><b>SC ' + sc.scene + '</b> — ' + esc(sc.slug) + '<br>' +
+        sc.hazards.map(function (h) {
+          return '<span class="sf-h sf-h' + (h.sev === 2 ? '2c' : h.sev) + '" title="' + esc(h.personnel) + '">' + esc(h.label) + '</span>';
+        }).join('') + '</div>';
+    }).join('') || '<p class="sf-note">No flagged hazards — brief the basics anyway.</p>';
+    var prod = (readLS('CIN_Projects_v1') || {}).active || tl.title || 'Untitled production';
+    $('sfDoc').value = S.assessmentText(analysis, prod, $('sfBy').value, now());
+    renderPolice();
+  }
+  $('sfScan').addEventListener('click', scan);
+  $('sfBy').addEventListener('input', function () { if (analysis) scan(); });
+  $('sfCopy').addEventListener('click', function () {
+    navigator.clipboard.writeText($('sfDoc').value).then(function () { toast('Copied'); });
+  });
+  $('sfDl').addEventListener('click', function () {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([$('sfDoc').value], { type: 'text/plain' }));
+    a.download = 'risk-assessment.txt'; a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
+  });
+
+  /* ── paid duty police ── */
+  function pd() {
+    return S.paidDutyEstimate({ officers: $('pdOff').value, hours: $('pdHrs').value, rate: $('pdRate').value, days: $('pdDays').value });
+  }
+  function renderPolice() {
+    var city = $('sfCity').value.trim();
+    var entry = S.policeFor(city);
+    var reasons = analysis ? S.paidDutyNeeds(analysis) : [];
+    var html = '';
+    if (city) {
+      html += '<div class="sf-card"><b>' + esc(entry ? entry.service : 'Local police service') + '</b>' +
+        '<span class="sf-note">' + esc(entry ? entry.program : 'paid duty / film program') + (entry ? ' · ' + esc(entry.city) : '') + '</span>' +
+        '<span style="flex:1"></span>' +
+        (entry && entry.url
+          ? '<a class="tb-btn gold" target="_blank" rel="noopener" href="' + esc(entry.url) + '">Request officers ↗</a>'
+          : '<a class="tb-btn gold" target="_blank" rel="noopener" href="' + esc(S.policeSearchLink(entry, city)) + '">Find the request page ↗</a>') +
+        '</div>';
+    }
+    if (reasons.length) {
+      html += '<p class="sf-note" style="margin-top:8px"><b style="color:var(--text)">Scenes that need officers:</b><br>' +
+        reasons.map(function (r) { return 'Sc ' + r.scene + ' — ' + esc(r.why); }).join('<br>') + '</p>';
+    } else if (analysis) {
+      html += '<p class="sf-note" style="margin-top:8px">No scenes currently trigger a paid-duty requirement — book officers anyway for any public-street work.</p>';
+    }
+    if (html) $('sfPoliceCard').innerHTML = html;
+    var e = pd();
+    $('pdTotal').textContent = '≈ $' + e.total.toLocaleString() + ' (' + e.officers + ' × ' + e.hours + 'h × $' + e.rate + ' × ' + e.days + 'd +' + e.adminPct + '%)';
+    st.police = { city: city, est: e }; save();
+  }
+  ['pdOff', 'pdHrs', 'pdRate', 'pdDays'].forEach(function (id) { $(id).addEventListener('input', renderPolice); });
+  $('sfPolice').addEventListener('click', renderPolice);
+  $('sfCity').addEventListener('keydown', function (e) { if (e.key === 'Enter') renderPolice(); });
+  $('sfAdvisor').addEventListener('click', function () {
+    var inc = (readLS('SB_Budget_v1') || {}).incentive;
+    var entry = S.policeFor(inc);
+    if (!entry) return toast('No Advisor location yet — model a jurisdiction on the Workflow page first');
+    $('sfCity').value = entry.city; renderPolice();
+  });
+  $('pdCommit').addEventListener('click', function () {
+    var M = window.CMoney; if (!M) return toast('Money Room engine missing');
+    var money = readLS('SB_Money_v1') || M.blank();
+    var e = pd();
+    var entry = S.policeFor($('sfCity').value.trim());
+    M.addPO(money, { vendor: (entry ? entry.service : 'Police service') + ' — paid duty',
+      desc: e.officers + ' officers × ' + e.days + ' days', acct: '3000', amount: e.total, date: now() });
+    localStorage.setItem('SB_Money_v1', JSON.stringify(money));
+    toast('$' + e.total.toLocaleString() + ' committed in the Money Room');
+  });
+
+  /* ── safety meeting ── */
+  $('sfMeet').addEventListener('click', function () {
+    if (!analysis) return toast('Assess the script first');
+    var nums = $('sfDayScenes').value.split(/[\s,]+/).filter(Boolean).map(Number);
+    $('sfMeetOut').innerHTML = S.meetingChecklist(analysis, nums).map(function (i) {
+      return '☐ ' + esc(i);
+    }).join('<br>');
+  });
+
+  /* ── incidents ── */
+  function renderIncidents() {
+    $('inRows').innerHTML = st.incidents.map(function (i) {
+      return '<div>' + esc(i.date) + ' · <b>' + esc(i.who) + '</b> — ' + esc(i.what) +
+        (i.injury ? ' <span style="color:#E08A8A">[INJURY]</span>' : '') +
+        (i.action ? ' · action: ' + esc(i.action) : '') + '</div>';
+    }).join('') || 'No incidents on record. Keep it that way.';
+  }
+  $('inAdd').addEventListener('click', function () {
+    if (!$('inWhat').value.trim()) return toast('Describe what happened');
+    S.addIncident(st, { date: now(), who: $('inWho').value, what: $('inWhat').value,
+      action: $('inAction').value, injury: $('inInjury').checked });
+    $('inWho').value = ''; $('inWhat').value = ''; $('inAction').value = ''; $('inInjury').checked = false;
+    save(); renderIncidents(); toast('Logged — injuries also need the insurer notified');
+  });
+
+  if (st.police && st.police.city) $('sfCity').value = st.police.city;
+  renderIncidents(); renderPolice();
+  window.CSafetyApp = { scan: scan, state: st };
+})();
+</script>
+</body>
+</html>

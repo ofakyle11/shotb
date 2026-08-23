@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Distribution</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:title" content="CINAMATE — Distribution">
+<meta property="og:description" content="The delivery schedule per buyer, the release windows plan, and a registry of exactly who holds a screener.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.dt-main{flex:1;overflow-y:auto;padding:20px 24px 60px;max-width:1000px;width:100%;margin:0 auto}
+.dt-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.dt-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.dt-bar input,.dt-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
+.dt-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.dt-group{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.dt-group h4{font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px}
+.dt-item{display:flex;gap:8px;align-items:center;font-size:12px;padding:3px 0;cursor:pointer}
+.dt-item.off{opacity:.4}
+.dt-item.done span{text-decoration:line-through;color:var(--dim)}
+.dt-progwrap{flex:1;height:8px;background:var(--surface2);border-radius:4px;min-width:140px}
+.dt-prog{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--patina,#8BA3B8),var(--brass,#C9A86C))}
+.dt-note{font-size:11px;color:var(--dim);line-height:1.6}
+.dt-row{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:7px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px}
+.dt-conflict{border-color:#E08A8A}
+.dt-mono{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Distribution — deliverables, windows, screeners</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/producer/#sales">Sales</a>
+    <a class="tb-btn" href="/production/">Office</a>
+  </header>
+
+  <main class="dt-main">
+    <h2>Delivery schedule</h2>
+    <div class="dt-bar">
+      <select id="dtBuyer"></select>
+      <div class="dt-progwrap"><div class="dt-prog" id="dtProg" style="width:0%"></div></div>
+      <b class="dt-mono" id="dtPct"></b>
+    </div>
+    <div class="dt-groups" id="dtGroups"></div>
+    <p class="dt-note">The checklist reshapes to the buyer — a festival premiere needs five items, a streamer wants the lot. Dim items aren't required for this buyer but still tick off if you have them.</p>
+
+    <h2>Release windows</h2>
+    <div class="dt-bar">
+      <input id="wTerr" placeholder="Territory" style="width:130px" value="Worldwide">
+      <select id="wChan"><option>Theatrical</option><option>Festival</option><option selected>SVOD</option><option>TVOD</option><option>AVOD</option><option>Broadcast</option><option>Airline</option></select>
+      <input id="wWin" placeholder="Window — e.g. 90 days" style="width:120px">
+      <input id="wStart" type="date" style="width:140px">
+      <input id="wWho" placeholder="Licensee" style="width:140px">
+      <button class="tb-btn gold" id="wAdd">+ Add window</button>
+    </div>
+    <div id="wRows"></div>
+
+    <h2>Screener registry</h2>
+    <div class="dt-bar">
+      <input id="scWho" placeholder="Recipient" style="width:150px">
+      <input id="scCo" placeholder="Company" style="width:150px">
+      <input id="scLink" placeholder="Link / method sent" style="min-width:180px">
+      <button class="tb-btn gold" id="scAdd">+ Log screener</button>
+    </div>
+    <div id="scRows"></div>
+    <p class="dt-note">Every screener on the record: who has the picture, since when, and whether they've confirmed watching. If a copy leaks, this list is where the conversation starts.</p>
+  </main>
+</div>
+
+<div class="toast" id="dtToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="lib-dist.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var D = window.CDist, KEY = 'SB_Dist_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('dtToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3000); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function now() { return new Date().toISOString().slice(0, 10); }
+
+  var st = readLS(KEY) || D.blank();
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+
+  $('dtBuyer').innerHTML = Object.keys(D.BUYER_PRESETS).map(function (k) {
+    return '<option value="' + k + '"' + (k === st.buyer ? ' selected' : '') + '>' + D.BUYER_PRESETS[k].label + '</option>';
+  }).join('');
+
+  function render() {
+    var c = D.checklist(st);
+    $('dtProg').style.width = c.pct + '%';
+    $('dtPct').textContent = c.complete + '/' + c.required + ' · ' + c.pct + '%';
+    $('dtGroups').innerHTML = Object.keys(c.groups).map(function (g) {
+      return '<div class="dt-group"><h4>' + esc(g) + '</h4>' +
+        c.groups[g].map(function (it) {
+          return '<div class="dt-item' + (it.required ? '' : ' off') + (it.done ? ' done' : '') + '" data-toggle="' + it.id + '">' +
+            (it.done ? '✅' : '☐') + ' <span>' + esc(it.label) + '</span></div>';
+        }).join('') + '</div>';
+    }).join('');
+    var conflicts = {};
+    D.windowConflicts(st).forEach(function (x) { conflicts[x.a] = conflicts[x.b] = x.key; });
+    $('wRows').innerHTML = st.windows.map(function (w) {
+      return '<div class="dt-row' + (conflicts[w.id] ? ' dt-conflict' : '') + '"><b>' + esc(w.territory) + '</b> · ' + esc(w.channel) +
+        (w.window ? ' · ' + esc(w.window) : '') + (w.start ? ' · from ' + esc(w.start) : '') +
+        (w.licensee ? ' · ' + esc(w.licensee) : '') +
+        (conflicts[w.id] ? ' <span class="dt-mono" style="color:#E08A8A">exclusivity clash: ' + esc(conflicts[w.id]) + '</span>' : '') +
+        '<span style="flex:1"></span><button class="tb-btn" data-del="' + w.id + '">✕</button></div>';
+    }).join('') || '<p class="dt-note">No windows planned yet.</p>';
+    $('scRows').innerHTML = st.screeners.map(function (s) {
+      return '<div class="dt-row"><b>' + esc(s.recipient) + '</b>' + (s.company ? ' · ' + esc(s.company) : '') +
+        ' <span class="dt-mono">sent ' + esc(s.sentAt) + (s.link ? ' · ' + esc(s.link) : '') + '</span>' +
+        '<span style="flex:1"></span>' +
+        '<button class="tb-btn" data-watch="' + s.id + '">' + (s.watched ? '👁 watched' : 'mark watched') + '</button>' +
+        '<button class="tb-btn" data-del="' + s.id + '">✕</button></div>';
+    }).join('') || '<p class="dt-note">No screeners out.</p>';
+  }
+
+  $('dtBuyer').addEventListener('change', function () { st.buyer = this.value; save(); render(); });
+  $('dtGroups').addEventListener('click', function (e) {
+    var t = e.target.closest('[data-toggle]'); if (!t) return;
+    D.toggle(st, t.getAttribute('data-toggle')); save(); render();
+  });
+  $('wAdd').addEventListener('click', function () {
+    D.addWindow(st, { territory: $('wTerr').value, channel: $('wChan').value,
+      window: $('wWin').value, start: $('wStart').value, licensee: $('wWho').value });
+    save(); render();
+  });
+  $('scAdd').addEventListener('click', function () {
+    if (!$('scWho').value.trim()) return toast('Who is it going to?');
+    D.addScreener(st, { recipient: $('scWho').value, company: $('scCo').value, link: $('scLink').value, sentAt: now() });
+    $('scWho').value = ''; $('scCo').value = ''; $('scLink').value = '';
+    save(); render(); toast('On the record');
+  });
+  document.addEventListener('click', function (e) {
+    var del = e.target.getAttribute && e.target.getAttribute('data-del');
+    var watch = e.target.getAttribute && e.target.getAttribute('data-watch');
+    if (del && confirm('Remove this row?')) { D.removeRow(st, del); save(); render(); }
+    if (watch) { var s = st.screeners.filter(function (x) { return x.id === watch; })[0];
+      if (s) { s.watched = !s.watched; save(); render(); } }
+  });
+
+  render();
+  window.CDistApp = { render: render, state: st };
+})();
+</script>
+</body>
+</html>

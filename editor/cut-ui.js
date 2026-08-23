@@ -203,6 +203,11 @@
     var step = zoom >= 120 ? 1 : zoom >= 50 ? 2 : 5;
     var h = '';
     for (var s = 0; s * zoom < w; s += step) h += '<span class="tick" style="left:' + (s * zoom) + 'px">' + (s % (step * 2) === 0 ? C.tc(s, project.fps).slice(3, 8) : '') + '</span>';
+    // Screening Room notes land here as review markers — click one to jump.
+    (project.markers || []).forEach(function (m, i) {
+      var txt = String(m.text || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+      h += '<span class="tick" data-mark="' + (+m.sec || 0) + '" title="' + txt + '" style="left:' + ((+m.sec || 0) * zoom) + 'px;border-left:2px solid #C9A86C;height:100%;cursor:pointer">▾</span>';
+    });
     el.innerHTML = h;
   }
 

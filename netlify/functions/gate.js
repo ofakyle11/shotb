@@ -12,7 +12,7 @@ const { createHmac, timingSafeEqual } = require('crypto');
 const { readFileSync, existsSync, statSync } = require('fs');
 const { join, normalize } = require('path');
 
-const NAMES = ['mz465', 'kz465', 'hz465', 'rz465'];
+const NAMES = ['mz465', 'kz465', 'hz465', 'rz465', 'dz465'];
 
 const MIME = {
   html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8',

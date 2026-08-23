@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Screening Room</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:title" content="CINAMATE — Screening Room">
+<meta property="og:description" content="Timecoded review notes on any cut — notes travel with the production and land in the Editor as markers.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-mobile.css?v=20260823a">
+<style>
+.sr-layout{flex:1;display:flex;min-height:0}
+.sr-left{flex:1.4;display:flex;flex-direction:column;padding:16px;min-width:0}
+.sr-right{flex:1;border-left:1px solid var(--border);overflow-y:auto;padding:16px}
+.sr-right h3,.sr-left h3{font-size:11px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
+.sr-video{width:100%;background:#000;border-radius:8px;border:1px solid var(--border);max-height:52vh}
+.sr-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.sr-bar input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
+.sr-tc{font-family:var(--mono);font-size:14px;color:var(--gold)}
+.sr-note{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:7px;display:flex;gap:10px;align-items:flex-start}
+.sr-note.done{opacity:.55}
+.sr-note .tc{font-family:var(--mono);font-size:11px;color:var(--gold);cursor:pointer;white-space:nowrap}
+.sr-note .who{font-family:var(--mono);font-size:9.5px;color:var(--dim)}
+.sr-dim{font-size:11px;color:var(--dim);line-height:1.6}
+.sr-prog{font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:10px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="logo" href="/dashboard.html" title="Back to the dashboard" style="color:inherit;text-decoration:none"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></a>
+    <span class="tb-meta">Screening Room — notes at the frame, not in an email</span>
+    <div class="tb-spacer"></div>
+    <select id="srSessions" class="uc-sel" style="max-width:200px"></select>
+    <button class="tb-btn" id="srNew">+ New review</button>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/editor/">← Editor</a>
+  </header>
+
+  <div class="sr-layout">
+    <main class="sr-left">
+      <h3>The cut</h3>
+      <video class="sr-video" id="srVideo" controls playsinline></video>
+      <div class="sr-bar">
+        <button class="tb-btn gold" id="srLoad">⟳ Load cut file</button>
+        <input type="file" id="srFile" accept="video/*" hidden>
+        <span class="sr-tc" id="srTc">00:00:00:00</span>
+        <span style="flex:1"></span>
+        <span class="sr-dim" id="srFileName">Everyone loads the same exported cut — only the notes travel.</span>
+      </div>
+      <div class="sr-bar">
+        <input id="srText" placeholder="Type the note, Enter drops it at the playhead" style="flex:1;min-width:200px">
+        <button class="tb-btn gold" id="srAdd" title="Add note at current time (or press Enter)">+ Note @ playhead</button>
+      </div>
+      <p class="sr-dim">Push the production to the studio cloud after a session and every owner gets these notes; they open the same cut on their machine and the timecodes line up.</p>
+    </main>
+
+    <aside class="sr-right">
+      <h3>Notes</h3>
+      <div class="sr-prog" id="srProg"></div>
+      <div id="srNotes"></div>
+      <div class="sr-bar">
+        <button class="tb-btn gold" id="srToEditor" title="Open notes become brass markers on the Editor ruler">→ Send open notes to Editor</button>
+        <button class="tb-btn" id="srExport">⬇ Notes .txt</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="toast" id="srToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="lib-screen.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var S = window.CScreen, KEY = 'SB_Screening_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('srToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3000); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function who() {
+    try { return (JSON.parse(sessionStorage.getItem('cinamate.session') || '{}').operator) || ''; } catch (e) { return ''; }
+  }
+  function now() { return new Date().toISOString().slice(0, 16).replace('T', ' '); }
+
+  var st = readLS(KEY) || S.blank();
+  if (!st.sessions.length) S.newSession(st, 'Cut review 1', who(), now());
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  function sess() { return S.session(st); }
+
+  var video = $('srVideo');
+  function renderSessions() {
+    $('srSessions').innerHTML = st.sessions.map(function (s) {
+      return '<option value="' + s.id + '"' + (s.id === st.active ? ' selected' : '') + '>' + esc(s.title) + '</option>';
+    }).join('');
+  }
+  function renderNotes() {
+    var s = sess();
+    var p = S.progress(s);
+    $('srProg').textContent = p.total + ' notes · ' + p.open + ' open' + (p.locked ? ' — ALL ADDRESSED ✓' : '');
+    $('srNotes').innerHTML = S.sortNotes(s).map(function (n) {
+      return '<div class="sr-note' + (n.status === 'done' ? ' done' : '') + '">' +
+        '<span class="tc" data-seek="' + n.sec + '">' + S.fmtTc(n.sec, s.fps) + '</span>' +
+        '<div style="flex:1"><div>' + esc(n.text) + '</div><span class="who">' + esc(n.author) + (n.at ? ' · ' + esc(n.at) : '') + '</span></div>' +
+        '<button class="tb-btn" data-tog="' + n.id + '" title="Toggle addressed">' + (n.status === 'open' ? '☐' : '✅') + '</button>' +
+        '<button class="tb-btn" data-rm="' + n.id + '">✕</button></div>';
+    }).join('') || '<p class="sr-dim">No notes yet — play the cut and drop the first one.</p>';
+  }
+  function renderAll() { renderSessions(); renderNotes(); }
+
+  $('srLoad').addEventListener('click', function () { $('srFile').click(); });
+  $('srFile').addEventListener('change', function () {
+    var f = this.files[0]; if (!f) return;
+    video.src = URL.createObjectURL(f);
+    $('srFileName').textContent = f.name;
+    toast('Cut loaded — space to play, notes land at the playhead');
+  });
+  setInterval(function () { $('srTc').textContent = S.fmtTc(video.currentTime || 0, sess().fps); }, 120);
+
+  function addNote() {
+    var text = $('srText').value.trim();
+    if (!text) return toast('Type the note first');
+    S.addNote(sess(), video.currentTime || 0, text, who(), now());
+    $('srText').value = '';
+    save(); renderNotes();
+  }
+  $('srAdd').addEventListener('click', addNote);
+  $('srText').addEventListener('keydown', function (e) { if (e.key === 'Enter') addNote(); });
+
+  $('srNotes').addEventListener('click', function (e) {
+    var seek = e.target.getAttribute('data-seek');
+    if (seek != null) { video.currentTime = +seek; video.pause(); }
+    var tog = e.target.getAttribute('data-tog');
+    if (tog) { var n = sess().notes.filter(function (x) { return x.id === tog; })[0];
+      if (n) { S.setStatus(sess(), tog, n.status === 'open' ? 'done' : 'open'); save(); renderNotes(); } }
+    var rm = e.target.getAttribute('data-rm');
+    if (rm) { S.removeNote(sess(), rm); save(); renderNotes(); }
+  });
+
+  $('srSessions').addEventListener('change', function () { st.active = this.value; save(); renderAll(); });
+  $('srNew').addEventListener('click', function () {
+    var t = prompt('Name this review:', 'Cut review ' + (st.sessions.length + 1));
+    if (!t) return;
+    S.newSession(st, t.trim(), who(), now());
+    save(); renderAll();
+  });
+
+  $('srToEditor').addEventListener('click', function () {
+    var markers = S.toMarkers(sess());
+    var cut = readLS('SB_Cut_v1') || {};
+    cut.project = cut.project || {};
+    cut.project.markers = markers;
+    localStorage.setItem('SB_Cut_v1', JSON.stringify(cut));
+    toast(markers.length + ' open notes are now markers on the Editor ruler');
+  });
+  $('srExport').addEventListener('click', function () {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([S.exportText(sess())], { type: 'text/plain' }));
+    a.download = 'review-notes.txt'; a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
+  });
+
+  renderAll();
+  window.CScreenApp = { render: renderAll, state: st };
+})();
+</script>
+</body>
+</html>

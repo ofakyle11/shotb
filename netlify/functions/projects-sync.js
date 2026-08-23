@@ -17,7 +17,7 @@
 
 const { createHmac, timingSafeEqual } = require('crypto');
 
-const NAMES = ['mz465', 'kz465', 'hz465', 'rz465'];
+const NAMES = ['mz465', 'kz465', 'hz465', 'rz465', 'dz465'];
 const STORE = 'cinamate-projects';
 const INDEX_KEY = '_index';
 const MAX_ARCHIVE_BYTES = 4 * 1024 * 1024; // localStorage-sized projects, not media
