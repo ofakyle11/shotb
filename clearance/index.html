@@ -103,7 +103,9 @@ select.cl-status{background:var(--surface2);border:1px solid var(--border);color
           ['pending', 'cleared', 'rewritten', 'accepted risk'].map(function (s2) {
             return '<option' + (s2 === f.status ? ' selected' : '') + '>' + s2 + '</option>'; }).join('') +
         '</select></div>';
-    }).join('') || '<p class="cl-note">Nothing scanned yet.</p>';
+    }).join('') || (st.scannedAt
+      ? '<div class="cl-banner cl-ready">Scan came back clean — no clearance flags in this draft. Re-scan after rewrites.</div>'
+      : '<p class="cl-note">Nothing scanned yet.</p>');
   }
 
   $('clScan').addEventListener('click', function () {
