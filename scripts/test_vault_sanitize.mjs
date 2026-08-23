@@ -55,6 +55,18 @@ t('data: image kept', o.scenes[0].shots[0].img.startsWith('data:image/png;base64
 t('blob: url kept', o.scenes[0].shots[1].img.startsWith('blob:'));
 t('site-relative path kept', o.scenes[0].shots[2].img === '/assets/frame.png');
 
+// 4b. camelCase URL fields — the ones an exact-name list would miss
+s = mem();
+V.restore(s, { format: 'cinamate/1', stores: { SB_Timeline_v1: JSON.stringify({
+  clips: [{ id: 'c1', videoUrl: BREAKOUT, activeClipUrl: BREAKOUT, posterImage: BREAKOUT,
+            refUrl: 'https://example.com/ok.png', prompt: 'a "quiet" <room>' }] }) } });
+o = JSON.parse(s.getItem('SB_Timeline_v1'));
+t('videoUrl is scrubbed', o.clips[0].videoUrl === '');
+t('activeClipUrl is scrubbed', o.clips[0].activeClipUrl === '');
+t('posterImage is scrubbed', o.clips[0].posterImage === '');
+t('a real https ref survives', o.clips[0].refUrl === 'https://example.com/ok.png');
+t('prompt prose untouched', o.clips[0].prompt === 'a "quiet" <room>');
+
 // 5. prototype pollution through an archive
 s = mem();
 V.restore(s, { format: 'cinamate/1', stores: { SB_Props_v1: '{"__proto__":{"polluted":"yes"},"props":[]}' } });

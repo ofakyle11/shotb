@@ -42,8 +42,11 @@
      the reader's session. Prose fields (script text, notes, descriptions)
      are left exactly as written: they are rendered as text, and mangling
      them would corrupt real work.                                      */
-  var UNSAFE_FIELD = /^(id|uid|key|acct|account|num|no|code|slug|ref|src|url|img|image|thumb|photo|plate|poster|frame|href|link|status|type|kind|unit|tier|scope)$/i;
-  var URLISH_FIELD = /^(src|url|img|image|thumb|photo|plate|poster|frame|href|link|refurl|plateurl)$/i;
+  var UNSAFE_FIELD = /^(id|uid|key|acct|account|num|no|code|slug|ref|status|type|kind|unit|tier|scope)$/i;
+  /* Suffix match: an exact list always misses one (videoUrl, activeClipUrl,
+     bitmapUrl…). Anything ending in a media/URL word is treated as a URL. */
+  var URLISH_FIELD = /(^|[a-z0-9_])(url|uri|src|img|image|thumb|photo|plate|poster|frame|href|link)$/i;
+  function isUnsafeField(k) { return UNSAFE_FIELD.test(k) || URLISH_FIELD.test(k); }
   function cleanField(name, v) {
     if (typeof v !== 'string') return v;
     if (URLISH_FIELD.test(name)) {
@@ -63,7 +66,7 @@
       if (k === '__proto__' || k === 'constructor' || k === 'prototype') { delete node[k]; return; }
       node[k] = (typeof node[k] === 'object' && node[k] !== null)
         ? scrub(node[k], k)
-        : (UNSAFE_FIELD.test(k) ? cleanField(k, node[k]) : node[k]);
+        : (isUnsafeField(k) ? cleanField(k, node[k]) : node[k]);
     });
     return node;
   }
