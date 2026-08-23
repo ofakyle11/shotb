@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Set Designer</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Set Designer">
+<meta property="og:description" content="Top-down set and stage plans in the browser — flats, dressing, camera positions with true lens fields of view, lighting throws, and PNG/SVG export for the crew.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<style>
+.sd-layout{flex:1;display:flex;min-height:0}
+.sd-side{width:230px;flex:0 0 230px;border-right:1px solid var(--border);overflow-y:auto;padding:14px}
+.sd-side h3{font-size:11px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:14px 0 8px}
+.sd-side h3:first-child{margin-top:0}
+.sd-pal{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sd-pal button{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 4px;font-size:10.5px;cursor:pointer}
+.sd-pal button:hover{border-color:var(--gold);color:var(--gold)}
+.sd-plan{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.sd-plan.on{border-color:var(--gold)}
+.sd-plan b{font-family:var(--display);font-weight:700;flex:1}
+.sd-center{flex:1;overflow:auto;padding:18px;display:flex;align-items:flex-start;justify-content:center}
+.sd-canvas{touch-action:none;user-select:none;box-shadow:0 8px 40px rgba(0,0,0,.45);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.sd-canvas svg{display:block}
+.sd-insp{width:250px;flex:0 0 250px;border-left:1px solid var(--border);overflow-y:auto;padding:14px}
+.sd-insp h3{font-size:11px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:14px 0 8px}
+.sd-insp h3:first-child{margin-top:0}
+.sd-field{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:11px;color:var(--dim)}
+.sd-field span{width:56px}
+.sd-field input{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 7px;font-size:11.5px;min-width:0}
+.sd-dim{font-size:11px;color:var(--dim);line-height:1.6}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="logo"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></div>
+    <span class="tb-meta">Set Designer — plans the art department can build from</span>
+    <div class="tb-spacer"></div>
+    <button class="tb-btn" id="sdSvg" title="Vector plan — opens in Illustrator/Figma">⬇ SVG</button>
+    <button class="tb-btn gold" id="sdPng" title="Plan as an image for call sheets and email">⬇ PNG</button>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/props/">Props</a>
+    <a class="tb-btn" href="/timeline/">← Studio</a>
+  </header>
+
+  <div class="sd-layout">
+    <aside class="sd-side">
+      <h3>Sets</h3>
+      <div id="sdPlans"></div>
+      <button class="tb-btn" id="sdNewPlan" style="width:100%">+ New set plan</button>
+      <h3>Add to plan</h3>
+      <div class="sd-pal" id="sdPal"></div>
+      <p class="sd-dim" style="margin-top:12px">Click a piece to drop it mid-stage, then drag it into place. Everything snaps to a 6-inch grid. Delete removes the selected piece.</p>
+    </aside>
+
+    <main class="sd-center"><div class="sd-canvas" id="sdCanvas"></div></main>
+
+    <aside class="sd-insp">
+      <h3>Plan</h3>
+      <div class="sd-field"><span>Name</span><input id="sdPlanName"></div>
+      <div class="sd-field"><span>Width ft</span><input id="sdPlanW" type="number" min="6" max="200"></div>
+      <div class="sd-field"><span>Depth ft</span><input id="sdPlanH" type="number" min="6" max="200"></div>
+      <div class="sd-field"><span>Scenes</span><input id="sdPlanScenes" placeholder="e.g. 4, 12, 18A"></div>
+      <h3>Selected piece</h3>
+      <div id="sdSel"><p class="sd-dim">Nothing selected — click a piece on the plan.</p></div>
+      <p class="sd-dim">Camera cones show the true horizontal field of view for the lens (full-frame). Rotate the camera to aim it; the gaffer's light throws work the same way.</p>
+    </aside>
+  </div>
+</div>
+
+<div class="toast" id="sdToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="lib-set.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var S = window.CSet, KEY = 'SB_SetDesign_v1', PPF = 9;
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('sdToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3000); }
+
+  var doc;
+  try { doc = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+  if (!doc || !Array.isArray(doc.plans) || !doc.plans.length) doc = S.newDoc();
+  var sel = null;
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(doc)); } catch (e) {} }
+  function plan() { return doc.plans.filter(function (p) { return p.id === doc.active; })[0] || doc.plans[0]; }
+
+  function renderPlans() {
+    $('sdPlans').innerHTML = doc.plans.map(function (p) {
+      return '<div class="sd-plan' + (p.id === plan().id ? ' on' : '') + '" data-plan="' + p.id + '"><b>' + esc(p.name) + '</b>' +
+        '<span class="sd-dim">' + p.items.length + '</span>' +
+        (doc.plans.length > 1 ? '<button class="tb-btn" data-delplan="' + p.id + '">✕</button>' : '') + '</div>';
+    }).join('');
+    var p = plan();
+    $('sdPlanName').value = p.name; $('sdPlanW').value = p.w; $('sdPlanH').value = p.h; $('sdPlanScenes').value = p.scenes || '';
+  }
+  function renderCanvas() {
+    $('sdCanvas').innerHTML = S.toSVG(plan(), PPF, { sel: sel });
+  }
+  function renderSel() {
+    var p = plan(), it = sel && S.itemById(p, sel);
+    if (!it) { $('sdSel').innerHTML = '<p class="sd-dim">Nothing selected — click a piece on the plan.</p>'; return; }
+    var st = S.STENCILS[it.type] || {};
+    $('sdSel').innerHTML =
+      '<p class="sd-dim" style="margin-bottom:8px"><b style="color:var(--text)">' + esc(st.label || it.type) + '</b></p>' +
+      '<div class="sd-field"><span>Label</span><input data-f="label" value="' + esc(it.label) + '"></div>' +
+      '<div class="sd-field"><span>X ft</span><input data-f="x" type="number" step="0.5" value="' + it.x + '"></div>' +
+      '<div class="sd-field"><span>Y ft</span><input data-f="y" type="number" step="0.5" value="' + it.y + '"></div>' +
+      '<div class="sd-field"><span>W ft</span><input data-f="w" type="number" step="0.5" min="0.4" value="' + it.w + '"></div>' +
+      '<div class="sd-field"><span>D ft</span><input data-f="h" type="number" step="0.5" min="0.4" value="' + it.h + '"></div>' +
+      '<div class="sd-field"><span>Rotate°</span><input data-f="rot" type="number" step="5" value="' + (it.rot || 0) + '"></div>' +
+      (st.kind === 'camera' ? '<div class="sd-field"><span>Lens mm</span><input data-f="lens" type="number" min="8" max="300" value="' + (it.lens || 35) + '"></div>' +
+        '<p class="sd-dim">FOV ' + S.fovDeg(it.lens) + '°</p>' : '') +
+      '<button class="tb-btn" id="sdDel" style="width:100%;margin-top:6px">🗑 Remove piece</button>';
+  }
+  function renderAll() { renderPlans(); renderCanvas(); renderSel(); }
+
+  /* palette */
+  $('sdPal').innerHTML = Object.keys(S.STENCILS).map(function (k) {
+    return '<button data-add="' + k + '">' + esc(S.STENCILS[k].label) + '</button>';
+  }).join('');
+  $('sdPal').addEventListener('click', function (e) {
+    var k = e.target.getAttribute('data-add'); if (!k) return;
+    var it = S.addItem(plan(), k);
+    sel = it.id; save(); renderAll();
+  });
+
+  /* plans list + fields */
+  $('sdPlans').addEventListener('click', function (e) {
+    var del = e.target.getAttribute('data-delplan');
+    if (del) {
+      if (!confirm('Delete this set plan?')) return;
+      doc.plans = doc.plans.filter(function (p) { return p.id !== del; });
+      if (doc.active === del) doc.active = doc.plans[0].id;
+      sel = null; save(); renderAll(); return;
+    }
+    var open = e.target.closest('[data-plan]');
+    if (open) { doc.active = open.getAttribute('data-plan'); sel = null; save(); renderAll(); }
+  });
+  $('sdNewPlan').addEventListener('click', function () {
+    var p = S.newPlan(doc, 'Set ' + (doc.plans.length + 1), 24, 18);
+    doc.active = p.id; sel = null; save(); renderAll();
+  });
+  [['sdPlanName', 'name'], ['sdPlanW', 'w'], ['sdPlanH', 'h'], ['sdPlanScenes', 'scenes']].forEach(function (pair) {
+    $(pair[0]).addEventListener('change', function () {
+      var p = plan();
+      p[pair[1]] = pair[1] === 'w' || pair[1] === 'h' ? Math.max(6, +this.value || 24) : this.value;
+      save(); renderAll();
+    });
+  });
+
+  /* selection + drag on the SVG */
+  var drag = null;
+  function planXY(ev) {
+    var svg = $('sdCanvas').querySelector('svg');
+    var r = svg.getBoundingClientRect();
+    return { x: (ev.clientX - r.left) / PPF, y: (ev.clientY - r.top) / PPF };
+  }
+  $('sdCanvas').addEventListener('pointerdown', function (ev) {
+    var pt = planXY(ev);
+    var it = S.hitTest(plan(), pt.x, pt.y);
+    sel = it ? it.id : null;
+    if (it) drag = { id: it.id, dx: it.x - pt.x, dy: it.y - pt.y, moved: false };
+    renderCanvas(); renderSel();
+    if (it) ev.preventDefault();
+  });
+  window.addEventListener('pointermove', function (ev) {
+    if (!drag) return;
+    var it = S.itemById(plan(), drag.id); if (!it) return;
+    var pt = planXY(ev);
+    it.x = S.snap(Math.max(0, Math.min(plan().w, pt.x + drag.dx)));
+    it.y = S.snap(Math.max(0, Math.min(plan().h, pt.y + drag.dy)));
+    drag.moved = true;
+    renderCanvas();
+  });
+  window.addEventListener('pointerup', function () {
+    if (drag && drag.moved) { save(); renderSel(); }
+    drag = null;
+  });
+  $('sdSel').addEventListener('change', function (e) {
+    var f = e.target.getAttribute('data-f'); if (!f) return;
+    var it = sel && S.itemById(plan(), sel); if (!it) return;
+    it[f] = f === 'label' ? e.target.value : +e.target.value || 0;
+    if (f !== 'label') it[f] = f === 'rot' ? it[f] % 360 : Math.max(f === 'x' || f === 'y' ? 0 : 0.4, it[f]);
+    save(); renderCanvas(); renderSel();
+  });
+  $('sdSel').addEventListener('click', function (e) {
+    if (e.target.id !== 'sdDel') return;
+    S.removeItem(plan(), sel); sel = null; save(); renderAll();
+  });
+  window.addEventListener('keydown', function (e) {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) {
+      S.removeItem(plan(), sel); sel = null; save(); renderAll();
+    }
+  });
+
+  /* export */
+  function svgString() { return S.toSVG(plan(), 14, {}); }
+  function fname(ext) { return plan().name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.' + ext; }
+  $('sdSvg').addEventListener('click', function () {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([svgString()], { type: 'image/svg+xml' }));
+    a.download = fname('svg'); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
+    toast('SVG saved — vector, scales to any size');
+  });
+  $('sdPng').addEventListener('click', function () {
+    var img = new Image();
+    img.onload = function () {
+      var c = document.createElement('canvas');
+      c.width = img.width * 2; c.height = img.height * 2;
+      var ctx = c.getContext('2d');
+      ctx.scale(2, 2); ctx.drawImage(img, 0, 0);
+      c.toBlob(function (b) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(b); a.download = fname('png'); a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
+        toast('PNG saved — drop it on the call sheet');
+      }, 'image/png');
+    };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString());
+  });
+
+  renderAll();
+  window.CSetApp = { doc: doc, render: renderAll };
+})();
+</script>
+</body>
+</html>

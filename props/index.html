@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CINAMATE — Props</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png">
+<meta property="og:site_name" content="CINAMATE">
+<meta property="og:type" content="website">
+<meta property="og:title" content="CINAMATE — Props">
+<meta property="og:description" content="Prop breakdown from the script, rent-vs-buy budgeting, and callable prop houses in your shooting area — with one-click quote requests.">
+<meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/timeline/timeline.css?v=20260823a">
+<link rel="stylesheet" href="/producer/producer.css?v=20260823a">
+<link rel="stylesheet" href="/css/cinamate-ui.css?v=20260823a">
+<style>
+.pp-main{flex:1;overflow-y:auto;padding:20px 24px 60px;max-width:1080px;width:100%;margin:0 auto}
+.pp-main h2{font-size:12px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:26px 0 10px}
+.pp-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.pp-bar input,.pp-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
+.pp-table{width:100%;border-collapse:collapse;font-size:12px}
+.pp-table th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+.pp-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.pp-table input,.pp-table select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 6px;font-size:11.5px;max-width:110px}
+.pp-table input.pp-name{max-width:170px}
+.pp-num{font-family:var(--mono);text-align:right}
+.pp-scenes{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.pp-total{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
+.pp-total b{color:var(--gold);font-size:15px}
+.pp-house{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.pp-house b{font-family:var(--display);font-size:14px}
+.pp-house .pp-spec{font-size:11px;color:var(--text2);flex-basis:100%;margin-top:-4px}
+.pp-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
+.pp-phone{font-family:var(--mono);font-size:12px;color:var(--gold);text-decoration:none}
+.pp-spacer{flex:1}
+.pp-note{font-size:11px;color:var(--dim);line-height:1.6}
+.pp-rfq{width:100%;min-height:220px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.6}
+.pp-learn{font-family:var(--mono);font-size:10px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="logo"><img src="/assets/logo-mark.svg" alt="" style="width:22px;height:22px;vertical-align:-5px;margin-right:9px">CINA<span>MATE</span></div>
+    <span class="tb-meta">Props Department — breakdown, budget, sourcing</span>
+    <div class="tb-spacer"></div>
+    <a class="tb-btn" href="/dashboard.html">⊞ Dashboard</a>
+    <a class="tb-btn" href="/sets/">Set Designer</a>
+    <a class="tb-btn" href="/producer/">Producer Suite</a>
+    <a class="tb-btn" href="/timeline/">← Studio</a>
+  </header>
+
+  <main class="pp-main">
+    <h2>1 · Prop breakdown</h2>
+    <div class="pp-bar">
+      <button class="tb-btn gold" id="ppBuild" title="Scan the working screenplay and list every prop it calls for">⟳ Rebuild from script</button>
+      <button class="tb-btn" id="ppAdd">+ Add prop</button>
+      <span class="pp-spacer"></span>
+      <label class="pp-note">Rental weeks <input id="ppWeeks" type="number" min="1" max="52" value="4" style="width:56px"></label>
+      <label class="pp-note">Shoot days <input id="ppDays" type="number" min="1" max="200" value="15" style="width:56px"></label>
+    </div>
+    <table class="pp-table"><thead><tr>
+      <th>Prop</th><th>Category</th><th>Scenes</th><th>Qty</th><th>Plan</th><th>Hero</th><th>Period</th><th class="pp-num">Estimate</th><th>Quoted&nbsp;$</th><th></th>
+    </tr></thead><tbody id="ppRows"></tbody></table>
+    <div class="pp-total" id="ppTotals"></div>
+    <p class="pp-note">Estimates use the industry 10% rule — weekly rental ≈ 10% of replacement value, later weeks discounted — with buy-vs-rent decided at the ~40% resale break-even. Weapons add a licensed armorer automatically. Enter real quotes in the Quoted column and <span class="pp-learn" id="ppLearnNote">the platform calibrates itself per category.</span></p>
+
+    <h2>2 · Prop houses near the shoot</h2>
+    <div class="pp-bar">
+      <input id="ppCity" placeholder="City — e.g. Toronto" style="min-width:220px">
+      <button class="tb-btn gold" id="ppFind">Find prop houses</button>
+      <button class="tb-btn" id="ppAdvisor" title="Use the location the Advisor picked for tax incentives">Use Advisor location</button>
+      <span class="pp-tag" id="ppSrcTag"></span>
+    </div>
+    <div id="ppHouses"><p class="pp-note">Pick a city (or take the Advisor's incentive pick) — directory houses for the major production hubs plus live map listings, with phone numbers where the map has them. Numbers you edit are saved.</p></div>
+
+    <h2>3 · Quote request</h2>
+    <div class="pp-bar">
+      <input id="ppProd" placeholder="Production title" style="min-width:200px">
+      <input id="ppDates" placeholder="Shoot dates — e.g. Oct 6–24" style="min-width:170px">
+      <input id="ppContact" placeholder="Your name" style="min-width:140px">
+      <span class="pp-spacer"></span>
+      <button class="tb-btn" id="ppCopyRfq">Copy</button>
+      <a class="tb-btn gold" id="ppMailRfq" href="#" title="Opens your email app with the request pre-filled">✉ Open in email</a>
+    </div>
+    <textarea class="pp-rfq" id="ppRfq" spellcheck="false"></textarea>
+  </main>
+</div>
+
+<div class="toast" id="ppToast" aria-live="polite"></div>
+<script src="/js/project-badge.js?v=20260823a"></script>
+<script src="/js/learn.js?v=20260823a"></script>
+<script src="lib-props.js?v=20260823a"></script>
+<script>
+(function () {
+  'use strict';
+  var P = window.CProps, L = window.CLearn;
+  var KEY = 'SB_Props_v1';
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var toastTimer;
+  function toast(m) { var el = $('ppToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3200); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+
+  var st = readLS(KEY) || { items: [], city: '', prod: '', dates: '', contact: '', weeks: 4, days: 15, phones: {}, houses: [] };
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  function plan() { return { weeks: +$('ppWeeks').value || 4, shootDays: +$('ppDays').value || 15 }; }
+
+  /* ── breakdown table ── */
+  function renderRows() {
+    var est = P.estimate(st.items, plan());
+    var byId = {}; est.rows.forEach(function (r) { byId[r.id] = r; });
+    $('ppRows').innerHTML = st.items.map(function (it) {
+      var r = byId[it.id] || { est: 0, mode: 'rent' };
+      return '<tr data-id="' + it.id + '">' +
+        '<td><input class="pp-name" data-f="name" value="' + esc(it.name) + '"></td>' +
+        '<td><select data-f="cat">' + P.CATEGORIES.map(function (c) {
+          return '<option value="' + c.id + '"' + (c.id === it.cat ? ' selected' : '') + '>' + esc(c.label) + '</option>'; }).join('') + '</select></td>' +
+        '<td class="pp-scenes">' + (it.scenes || []).join(', ') + '</td>' +
+        '<td><input data-f="qty" type="number" min="1" style="width:48px" value="' + (it.qty || 1) + '"></td>' +
+        '<td><select data-f="mode">' + ['auto', 'rent', 'buy'].map(function (m) {
+          return '<option' + (m === (it.mode || 'auto') ? ' selected' : '') + '>' + m + '</option>'; }).join('') +
+          '</select> <span class="pp-tag">' + r.mode + '</span></td>' +
+        '<td><input data-f="hero" type="checkbox"' + (it.hero ? ' checked' : '') + '></td>' +
+        '<td><input data-f="period" type="checkbox"' + (it.period ? ' checked' : '') + '></td>' +
+        '<td class="pp-num">$' + (r.est || 0).toLocaleString() + (r.learnedN ? ' <span class="pp-learn" title="calibrated from ' + r.learnedN + ' past quotes">·cal</span>' : '') + '</td>' +
+        '<td><input data-f="actual" type="number" min="0" style="width:80px" value="' + (it.actual || '') + '" placeholder="quote"></td>' +
+        '<td><button class="tb-btn" data-del="' + it.id + '">✕</button></td></tr>';
+    }).join('') || '<tr><td colspan="10" class="pp-note">No props yet — Rebuild from script reads the working screenplay in this browser.</td></tr>';
+    $('ppTotals').innerHTML =
+      '<span>Rentals &amp; purchases <b>$' + est.subtotal.toLocaleString() + '</b></span>' +
+      (est.armorer ? '<span>Armorer <b>$' + est.armorer.toLocaleString() + '</b></span>' : '') +
+      '<span>Contingency 10% <b>$' + est.contingency.toLocaleString() + '</b></span>' +
+      '<span>Props budget <b>$' + est.total.toLocaleString() + '</b></span>';
+    renderRfq();
+  }
+  $('ppRows').addEventListener('change', function (e) {
+    var tr = e.target.closest('tr'); if (!tr) return;
+    var it = st.items.filter(function (x) { return x.id === tr.getAttribute('data-id'); })[0];
+    if (!it) return;
+    var f = e.target.getAttribute('data-f');
+    if (f === 'hero' || f === 'period') it[f] = e.target.checked;
+    else if (f === 'qty') it.qty = Math.max(1, +e.target.value || 1);
+    else if (f === 'actual') {
+      it.actual = +e.target.value || 0;
+      if (it.actual > 0) { var n = P.recordQuote(it, plan(), it.actual); if (n) toast('Quote learned — future ' + it.cat + ' estimates calibrate on it'); }
+    } else if (f) it[f] = e.target.value;
+    save(); renderRows();
+  });
+  $('ppRows').addEventListener('click', function (e) {
+    var del = e.target.getAttribute('data-del'); if (!del) return;
+    st.items = st.items.filter(function (x) { return x.id !== del; });
+    save(); renderRows();
+  });
+  $('ppBuild').addEventListener('click', function () {
+    var tl = readLS('SB_Timeline_v1') || {};
+    var script = String(tl.scriptText || '');
+    if (script.trim().length < 40) return toast('No screenplay found — load one in the Studio or Writer first');
+    var found = P.breakdown(script);
+    var kept = st.items.filter(function (x) { return x.manual; });
+    st.items = found.concat(kept);
+    save(); renderRows();
+    toast(found.length + ' props found across ' + P.splitScenes(script).length + ' scenes');
+  });
+  $('ppAdd').addEventListener('click', function () {
+    st.items.push({ id: 'm' + Date.now(), name: 'New prop', cat: 'handprop', scenes: [], qty: 1, mode: 'auto', hero: false, period: false, actual: 0, manual: true });
+    save(); renderRows();
+  });
+  ['ppWeeks', 'ppDays'].forEach(function (id) {
+    $(id).addEventListener('change', function () { st.weeks = +$('ppWeeks').value; st.days = +$('ppDays').value; save(); renderRows(); });
+  });
+
+  /* ── sourcing ── */
+  function houseCards(list, city) {
+    return list.map(function (h, i) {
+      var phone = st.phones[h.name] || h.phone;
+      return '<div class="pp-house" data-name="' + esc(h.name) + '">' +
+        '<b>' + esc(h.name) + '</b>' +
+        '<span class="pp-tag">' + (h.source === 'directory' ? 'directory' : 'map listing') + '</span>' +
+        (phone ? '<a class="pp-phone" href="tel:' + esc(String(phone).replace(/[^+\d]/g, '')) + '">' + esc(phone) + '</a>'
+               : '<a class="pp-phone" target="_blank" rel="noopener" href="' + esc(P.searchLink(h, city)) + '">find number ↗</a>') +
+        '<button class="tb-btn" data-edit="' + esc(h.name) + '" title="Enter or correct the phone number">✎</button>' +
+        (h.website ? '<a class="tb-btn" target="_blank" rel="noopener" href="' + esc(h.website) + '">site ↗</a>' : '') +
+        '<span class="pp-spacer"></span>' +
+        '<button class="tb-btn gold" data-rfq="' + esc(h.name) + '">Request quote</button>' +
+        '<span class="pp-spec">' + esc(h.spec || '') + (h.address ? ' — ' + esc(h.address) : '') + '</span>' +
+        '</div>';
+    }).join('') || '<p class="pp-note">Nothing found around that city — try the nearest production hub, or run the research service on your generation machine for deeper lookups.</p>';
+  }
+  function renderHouses(list, city, srcNote) {
+    st.houses = list; st.city = city; save();
+    $('ppSrcTag').textContent = srcNote || '';
+    $('ppHouses').innerHTML =
+      houseCards(list, city) +
+      '<p class="pp-note">Always confirm details on the phone before quoting — directories and map data drift. Edits you make here stay saved for this production.</p>';
+  }
+  async function findHouses(city) {
+    if (!city) return toast('Type a city first');
+    var curated = P.housesFor(city);
+    var cacheKey = 'props:city:' + city.toLowerCase();
+    var cached = L && L.cacheGet ? L.cacheGet(cacheKey) : null;
+    if (cached) return renderHouses(P.mergeHouses(curated, cached), city, 'cached lookup');
+    toast('Searching around ' + city + '…');
+    /* 1 · the research service on the generation machine, if it's up */
+    var cfg = readLS('SB_LocalGPU_v1') || {};
+    var research = (st.researchUrl || (cfg.url || 'http://127.0.0.1:3456').replace(/:\d+$/, ':3457'));
+    try {
+      var ctl = new AbortController(); setTimeout(function () { ctl.abort(); }, 2500);
+      var r = await fetch(research + '/research/prophouses?city=' + encodeURIComponent(city), { signal: ctl.signal });
+      if (r.ok) {
+        var j = await r.json();
+        if (j && Array.isArray(j.houses)) {
+          if (L && L.cachePut) L.cachePut(cacheKey, j.houses);
+          return renderHouses(P.mergeHouses(curated, j.houses), city, 'via your generation machine');
+        }
+      }
+    } catch (e) { /* service not running — fall through to direct lookup */ }
+    /* 2 · direct keyless lookup: Nominatim geocode + Overpass around it */
+    try {
+      var g = await (await fetch(P.buildNominatimUrl(city))).json();
+      var geo = P.parseNominatim(g);
+      if (!geo) { renderHouses(curated, city, 'directory only'); return toast('Could not place that city on the map'); }
+      var o = await fetch(P.OVERPASS_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'data=' + encodeURIComponent(P.buildOverpassQL(geo.lat, geo.lon, 40)) });
+      var osm = o.ok ? P.parseOverpass(await o.json()) : [];
+      if (L && L.cachePut) L.cachePut(cacheKey, osm);
+      renderHouses(P.mergeHouses(curated, osm), city, osm.length + ' map listings');
+    } catch (e) {
+      renderHouses(curated, city, 'directory only — map lookup unreachable');
+    }
+  }
+  $('ppFind').addEventListener('click', function () { findHouses($('ppCity').value.trim()); });
+  $('ppCity').addEventListener('keydown', function (e) { if (e.key === 'Enter') findHouses(this.value.trim()); });
+  $('ppAdvisor').addEventListener('click', function () {
+    var prefs = readLS('SB_Budget_v1') || {};
+    var hub = P.hubForIncentive(prefs.incentive);
+    if (!hub) return toast('No Advisor location yet — model a jurisdiction on the Workflow page first');
+    $('ppCity').value = hub.city;
+    findHouses(hub.city);
+  });
+  $('ppHouses').addEventListener('click', function (e) {
+    var ed = e.target.getAttribute('data-edit'), rq = e.target.getAttribute('data-rfq');
+    if (ed) {
+      var cur = st.phones[ed] || '';
+      var v = prompt('Phone number for ' + ed + ':', cur);
+      if (v != null) { st.phones[ed] = v.trim(); save(); renderHouses(st.houses, st.city, $('ppSrcTag').textContent); }
+    }
+    if (rq) { st.rfqHouse = rq; save(); renderRfq(); toast('Quote request addressed to ' + rq + ' — section 3'); }
+  });
+
+  /* ── RFQ ── */
+  function renderRfq() {
+    var est = P.estimate(st.items, plan());
+    $('ppRfq').value = P.rfq({
+      production: $('ppProd').value || (readLS('CIN_Projects_v1') || {}).active || 'Untitled production',
+      dates: $('ppDates').value, city: st.city, contact: $('ppContact').value,
+      house: st.rfqHouse, items: est.rows
+    });
+    $('ppMailRfq').href = 'mailto:?subject=' + encodeURIComponent('Quote request — ' + ($('ppProd').value || 'production props')) +
+      '&body=' + encodeURIComponent($('ppRfq').value).slice(0, 1800);
+  }
+  ['ppProd', 'ppDates', 'ppContact'].forEach(function (id) {
+    $(id).addEventListener('input', function () { st.prod = $('ppProd').value; st.dates = $('ppDates').value; st.contact = $('ppContact').value; save(); renderRfq(); });
+  });
+  $('ppCopyRfq').addEventListener('click', function () {
+    navigator.clipboard.writeText($('ppRfq').value).then(function () { toast('Copied — paste into any email'); });
+  });
+
+  /* ── init ── */
+  $('ppWeeks').value = st.weeks || 4; $('ppDays').value = st.days || 15;
+  $('ppProd').value = st.prod || ''; $('ppDates').value = st.dates || ''; $('ppContact').value = st.contact || '';
+  if (st.city) { $('ppCity').value = st.city; if (st.houses && st.houses.length) renderHouses(st.houses, st.city, 'saved'); }
+  if (L && L.budgetSummary) {
+    var bs = L.budgetSummary();
+    if (bs.lines) $('ppLearnNote').textContent = 'the platform calibrates itself per category — ' + bs.lines + ' real figures learned so far.';
+  }
+  renderRows();
+  window.CPropsApp = { render: renderRows, findHouses: findHouses, state: st };
+})();
+</script>
+</body>
+</html>
