@@ -172,7 +172,7 @@
   function renderBin() {
     $('edBinList').innerHTML = bin.map(function (b) {
       return '<div class="ed-binitem' + (b.missing ? ' missing' : '') + '" draggable="true" data-bin="' + b.id + '" title="Double-click to add to the timeline">' +
-        (b.thumb ? '<img src="' + b.thumb + '" alt="">' : '<span class="ed-thumbph">' + (b.kind === 'audio' ? '🎵' : '🎬') + '</span>') +
+        (b.thumb ? '<img src="' + esc(b.thumb) + '" alt="">' : '<span class="ed-thumbph">' + (b.kind === 'audio' ? '🎵' : '🎬') + '</span>') +
         '<div class="ed-binmeta"><b>' + esc(b.name) + '</b><span>' + (b.missing ? 're-import needed' : (b.dur ? b.dur.toFixed(1) + 's' : '…')) + (b.origin === 'studio' ? ' · studio' : '') + '</span></div></div>';
     }).join('');
     $('edBinHint').style.display = bin.length ? 'none' : 'block';

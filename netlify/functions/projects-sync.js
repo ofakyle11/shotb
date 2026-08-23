@@ -71,16 +71,27 @@ async function blob(method, key, body) {
   return { ok: res.ok, status: res.status, text };
 }
 
+/* Returns {productions, trusted}. `trusted` is false when the catalog could
+   not be read (transport error, unparseable body) as opposed to genuinely
+   being empty. Writers MUST refuse to persist an untrusted index: doing so
+   would replace the catalog of every owner's productions with whatever one
+   request happened to know about. A 404 is a real empty catalog and trusted. */
 async function readIndex() {
   const r = await blob('GET', INDEX_KEY);
-  if (!r.ok) return { productions: {} };
+  if (!r.ok) {
+    if (r.status === 404) return { productions: {}, trusted: true };
+    return { productions: {}, trusted: false };
+  }
   try {
     const j = JSON.parse(r.text);
-    return j && j.productions ? j : { productions: {} };
-  } catch (e) { return { productions: {} }; }
+    if (j && j.productions) return { productions: j.productions, trusted: true };
+    return { productions: {}, trusted: true };
+  } catch (e) { return { productions: {}, trusted: false }; }
 }
 async function writeIndex(idx) {
-  await blob('PUT', INDEX_KEY, JSON.stringify(idx));
+  if (idx && idx.trusted === false) return false;   // never overwrite a catalog we failed to read
+  await blob('PUT', INDEX_KEY, JSON.stringify({ productions: idx.productions }));
+  return true;
 }
 
 function cleanName(name) {
@@ -88,6 +99,8 @@ function cleanName(name) {
     .replace(/[\u0000-\u001f\u007f]/g, '')   // control chars never belong in a title
     .trim().slice(0, 80);
   if (!n || n === INDEX_KEY) return null;
+  if (/^(p:|prev:|_)/.test(n)) return null;  // never let a title impersonate a reserved key
+  if (n === '__proto__' || n === 'constructor' || n === 'prototype') return null;
   return n;
 }
 
@@ -104,6 +117,16 @@ exports.handler = async (event) => {
   const q = event.queryStringParameters || {};
   let body = {};
   if (event.httpMethod === 'POST') {
+    /* SameSite=Lax already keeps the cookie off cross-site POSTs; this is the
+       belt to that suspenders. A same-origin request either sends our own
+       Origin or (some clients) none at all — anything else is not ours. */
+    const origin = headers.origin || headers.Origin || '';
+    if (origin) {
+      let host = '';
+      try { host = new URL(origin).host; } catch (e) { host = 'invalid'; }
+      const self = headers.host || headers.Host || '';
+      if (host !== self) return respond(403, { error: 'Cross-site request refused' });
+    }
     try { body = JSON.parse(event.body || '{}'); }
     catch (e) { return respond(400, { error: 'Invalid JSON body' }); }
   }
@@ -112,6 +135,7 @@ exports.handler = async (event) => {
   try {
     if (op === 'list') {
       const idx = await readIndex();
+      if (!idx.trusted) return respond(502, { error: 'Could not read the studio cloud catalog — try again' });
       const productions = Object.keys(idx.productions).sort().map((n) => {
         const p = idx.productions[n] || {};
         return { name: n, savedAt: p.savedAt || '', savedBy: p.savedBy || '', bytes: p.bytes || 0 };
@@ -147,10 +171,18 @@ exports.handler = async (event) => {
         return respond(413, { error: 'Production too large for the cloud (4 MB limit) — export a file instead' });
       }
       const savedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      /* Keep the copy we are about to replace. Owners share this namespace,
+         so an overwrite — accidental or hostile — must be recoverable. */
+      const prior = await blob('GET', 'p:' + name);
+      if (prior.ok && prior.text) await blob('PUT', 'prev:' + name, prior.text);
       const w = await blob('PUT', 'p:' + name,
         JSON.stringify({ savedAt, savedBy: owner, archive: payload }));
       if (!w.ok) return respond(502, { error: 'Cloud store rejected the save (' + w.status + ')' });
       const idx = await readIndex();
+      if (!idx.trusted) {
+        return respond(200, { ok: true, savedAt, savedBy: owner,
+          warning: 'Saved, but the catalog could not be updated — it will re-list on the next successful save.' });
+      }
       idx.productions[name] = { savedAt, savedBy: owner, bytes: payload.length };
       await writeIndex(idx);
       return respond(200, { ok: true, savedAt, savedBy: owner });
@@ -159,11 +191,35 @@ exports.handler = async (event) => {
     if (op === 'delete') {
       const name = cleanName(body.name);
       if (!name) return respond(400, { error: 'name required' });
+      /* Soft delete: the bytes move aside rather than evaporating, so a
+         wrong click (or a hostile session) does not destroy a production. */
+      const cur = await blob('GET', 'p:' + name);
+      if (cur.ok && cur.text) await blob('PUT', 'prev:' + name, cur.text);
       await blob('DELETE', 'p:' + name);
       const idx = await readIndex();
-      delete idx.productions[name];
-      await writeIndex(idx);
-      return respond(200, { ok: true });
+      if (idx.trusted) {
+        delete idx.productions[name];
+        await writeIndex(idx);
+      }
+      return respond(200, { ok: true, recoverable: cur.ok });
+    }
+
+    if (op === 'restore') {
+      const name = cleanName(body.name);
+      if (!name) return respond(400, { error: 'name required' });
+      const prev = await blob('GET', 'prev:' + name);
+      if (!prev.ok || !prev.text) return respond(404, { error: 'No previous copy of "' + name + '" is on file' });
+      const w = await blob('PUT', 'p:' + name, prev.text);
+      if (!w.ok) return respond(502, { error: 'Cloud store rejected the restore (' + w.status + ')' });
+      let meta = {};
+      try { meta = JSON.parse(prev.text) || {}; } catch (e) { /* keep defaults */ }
+      const idx = await readIndex();
+      if (idx.trusted) {
+        idx.productions[name] = { savedAt: meta.savedAt || '', savedBy: meta.savedBy || '',
+          bytes: (meta.archive || '').length };
+        await writeIndex(idx);
+      }
+      return respond(200, { ok: true, savedAt: meta.savedAt || '', savedBy: meta.savedBy || '' });
     }
 
     return respond(400, { error: 'Unknown op' });

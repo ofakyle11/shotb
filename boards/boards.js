@@ -43,7 +43,7 @@
     function opts(list, cur) { return list.map(function (o) { return '<option' + (o === cur ? ' selected' : '') + '>' + o + '</option>'; }).join(''); }
     return '<div class="bd-shot" data-shot="' + sh.id + '">' +
       '<div class="bd-frame">' +
-      (sh.img ? '<img src="' + sh.img + '" alt="">' : '<div class="bd-ph">No frame yet — grab one from a rendered clip, upload, or generate</div>') +
+      (sh.img ? '<img src="' + esc(sh.img) + '" alt="">' : '<div class="bd-ph">No frame yet — grab one from a rendered clip, upload, or generate</div>') +
       '<div class="bd-framebtns">' +
       '<button data-act="grab" title="Frame from a rendered Studio clip">📷 Clip</button>' +
       '<button data-act="upload" title="Upload an image">⬆</button>' +

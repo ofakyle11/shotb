@@ -204,6 +204,7 @@
           (p.savedBy ? ' by ' + esc(String(p.savedBy).toUpperCase()) : '') + '</span>' +
           '<span class="pv-spacer"></span>' +
           '<button class="tb-btn gold" data-cpull="' + esc(p.name) + '">⤓ Open here</button>' +
+          '<button class="tb-btn" data-crestore="' + esc(p.name) + '" title="Put back the copy this production replaced">↺ Undo</button>' +
           '<button class="tb-btn" data-cdel="' + esc(p.name) + '">✕</button></div>';
       }).join('') :
       '<p class="pv-note">Nothing in the studio cloud yet — Save to cloud shares the current production with every owner.</p>';
@@ -223,7 +224,18 @@
       .then(function () { btn.disabled = false; });
   });
   $('pvCloud').addEventListener('click', function (e) {
-    var pull = e.target.getAttribute('data-cpull'), del = e.target.getAttribute('data-cdel');
+    var pull = e.target.getAttribute('data-cpull'), del = e.target.getAttribute('data-cdel'),
+        undo = e.target.getAttribute('data-crestore');
+    if (undo) {
+      if (!confirm('Put back the previous copy of "' + undo + '"? The version now in the cloud is replaced by the one before it.')) return;
+      cloudCall('', { op: 'restore', name: undo })
+        .then(function (j) {
+          renderCloud();
+          toast('Restored "' + undo + '"' + (j && j.savedBy ? ' — the copy saved by ' + String(j.savedBy).toUpperCase() : ''));
+        })
+        .catch(function (e2) { toast(e2.message); });
+      return;
+    }
     if (pull) {
       cloudCall('?op=pull&name=' + encodeURIComponent(pull)).then(function (j) {
         var arch = V.parseArchive(j.archive);
@@ -241,7 +253,7 @@
       }).catch(function (e2) { toast(e2.message); });
     }
     if (del) {
-      if (!confirm('Remove "' + del + '" from the studio cloud for ALL owners? Copies on people\'s machines are untouched.')) return;
+      if (!confirm('Remove "' + del + '" from the studio cloud for ALL owners? A copy is kept so ↺ Undo can put it back; copies on people\'s machines are untouched.')) return;
       cloudCall('', { op: 'delete', name: del })
         .then(function () { renderCloud(); toast('Removed from the cloud'); })
         .catch(function (e2) { toast(e2.message); });

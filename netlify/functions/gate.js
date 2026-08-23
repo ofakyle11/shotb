@@ -114,7 +114,7 @@ exports.handler = async (event) => {
   if (/^\/app(\.html)?$/.test(path)) {
     headersOut['Content-Security-Policy'] = headersOut['Content-Security-Policy']
       .replace("script-src 'self'", "script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com")
-      .replace("connect-src 'self'", "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com");
+      .replace("connect-src 'self'", "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com");
   }
 
   // _headers rules never apply to function responses, so the cross-origin

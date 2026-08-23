@@ -1,10 +1,11 @@
 /* CINAMATE service worker — installable app shell.
  * Strategy: network-first for every same-origin GET, falling back to the
- * device cache so pages you have opened keep opening offline. Auth stays
- * server-side: the worker never bypasses the gate — it only caches what the
- * gate already served to this signed-in device, privately, on-device.
+ * device cache. Only the PUBLIC shell is ever cached: responses marked
+ * no-store or private — which is everything the gate serves — are passed
+ * through and never written to disk, so the application cannot be replayed
+ * from Cache Storage after sign-out or without a cookie.
  * Never caches POSTs, functions, or cross-origin requests. */
-var VERSION = 'cin-v1';
+var VERSION = 'cin-v2';   // v2: gated responses are no longer cached — v1 caches are purged on activate
 var SHELL = [
   '/', '/login.html',
   '/css/theme.css', '/js/cinamate-auth.js', '/js/effects.js',
@@ -40,8 +41,16 @@ self.addEventListener('fetch', function (e) {
   e.respondWith(
     fetch(req).then(function (res) {
       if (res && res.ok && (res.type === 'basic' || res.type === 'default')) {
-        var copy = res.clone();
-        caches.open(VERSION).then(function (c) { c.put(req, copy); });
+        /* Never write gated bytes to disk. The gate marks everything it
+           serves "private, no-store"; honouring that keeps the application
+           out of on-device Cache Storage, where it would otherwise survive
+           sign-out and be replayable with no cookie. Only the public shell
+           is cached, which is all the offline start-up needs. */
+        var cc = res.headers.get('Cache-Control') || '';
+        if (!/no-store|private/i.test(cc)) {
+          var copy = res.clone();
+          caches.open(VERSION).then(function (c) { c.put(req, copy); });
+        }
       }
       return res;
     }).catch(function () {
