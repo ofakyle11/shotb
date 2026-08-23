@@ -1,5 +1,13 @@
+# ══════════════════════════════════════════════════════════════════════
+# DO NOT publish the repository root. The application is served ONLY from
+# inside the gate function to signed-in owners; publishing "." would put
+# every module on the public CDN with no sign-in in front of it. If a git
+# build is ever connected to a site, it publishes a placeholder instead of
+# the studio — fail closed. Real releases go out via
+#   node scripts/deploy_cinamate.mjs cinamate-studio
+# ══════════════════════════════════════════════════════════════════════
 [build]
-  publish = "."
+  publish = "netlify-git-guard"
   functions = "netlify/functions"
 
 [functions]

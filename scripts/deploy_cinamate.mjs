@@ -29,7 +29,11 @@ const BUILD_ONLY = process.argv.includes('--build-only');
 const NO_MINIFY = process.argv.includes('--no-minify');
 const TOKEN = process.env.NETLIFY_AUTH_TOKEN;
 if (!TOKEN && !BUILD_ONLY) { console.error('NETLIFY_AUTH_TOKEN is required'); process.exit(1); }
-const SITE_NAME = process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : 'cinamate';
+// The live, gated site. This default used to be 'cinamate', which is a
+// DIFFERENT and ungated Netlify site — an argument-less run published the
+// whole application there with no login in front of it. Never point this at
+// a host that is not running the gate function.
+const SITE_NAME = process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : 'cinamate-studio';
 const API = 'https://api.netlify.com/api/v1';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -52,6 +56,7 @@ async function api(path, opts = {}) {
 
 /* ── 1. assemble the full site ─────────────────────────────────────── */
 const EXCLUDE = new Set(['.git', 'local-backend', 'private', 'scripts', 'netlify', 'docs',
+  'netlify-git-guard', // placeholder published only if a git build is ever wired up
   'agents', // server-function imports only — three files are broken placeholders, never page-loaded
   'node_modules', 'package.json', 'package-lock.json',
   'local-server.py', 'netlify.toml', '.netlifyignore', '.firebaserc', '.gitignore',
