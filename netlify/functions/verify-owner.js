@@ -3,14 +3,15 @@
 // Passwords live in Netlify env vars, not in page source.
 // Issues HMAC-signed 12-hour tokens.
 //
-// ENV VARS REQUIRED (the ONLY three active logins):
+// ENV VARS REQUIRED (the ONLY four active logins):
 //   OWNER_PW_MZ465      (256-bit random password for mz465)
 //   OWNER_PW_KZ465      (256-bit random password for kz465)
 //   OWNER_PW_HZ465      (256-bit random password for hz465)
+//   OWNER_PW_RZ465      (password for rz465)
 //   OWNER_TOKEN_SECRET  (random 48+ char string)
 // Remove any old OWNER_PW_* vars (kyle/scott/steve era) from Netlify env —
 // stale vars can still mint tokens, but verify-token rejects any name that
-// does not resolve to mz465/kz465/hz465, so the allowlist holds either way.
+// does not resolve to mz465/kz465/hz465/rz465, so the allowlist holds either way.
 //
 // Helper script: Cinamate/get-owner-token.ps1  (run it, it prompts for short + pw securely,
 // calls this endpoint, copies the resulting owner:xxx token to clipboard, and prints usage examples).
@@ -78,9 +79,9 @@ exports.handler = async (event) => {
   const { name, password } = body;
   if (!name || !password) return respond(400, { error: "name and password required" });
 
-  // Only mz465, kz465 and hz465 are valid owner names.
+  // Only mz465, kz465, hz465 and rz465 are valid owner names.
   const nameLower = String(name).toLowerCase();
-  if (nameLower !== 'mz465' && nameLower !== 'kz465' && nameLower !== 'hz465') {
+  if (nameLower !== 'mz465' && nameLower !== 'kz465' && nameLower !== 'hz465' && nameLower !== 'rz465') {
     return respond(401, { error: "Invalid name or password" });
   }
   const envVar = `OWNER_PW_${nameLower.toUpperCase()}`;

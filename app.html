@@ -1172,16 +1172,17 @@ window.safeSignIn = safeSignIn;
         appId: "1:515766987392:web:ac3644d952c69d11c7d465",
         measurementId: "G-R2BT95E9DE"
       },
-      // The ONLY three active owner logins: mz465, kz465 and hz465.
+      // The ONLY four active owner logins: mz465, kz465, hz465 and rz465.
       // If the real emails for the shorts are on different domains, update this + OWNER_NAME_TO_EMAIL map in the two verify-token.js.
       // Only these get isOwner/unlimited (after real login). No bypasses.
       OWNER_EMAILS: [
-        "mz465@shotbreak.io", "kz465@shotbreak.io", "hz465@shotbreak.io"
+        "mz465@shotbreak.io", "kz465@shotbreak.io", "hz465@shotbreak.io", "rz465@shotbreak.io"
       ],
       OWNER_META: {
         mz465: { name: "MZ465", color: "#38bdf8" },
         kz465: { name: "KZ465", color: "#818cf8" },
-        hz465: { name: "HZ465", color: "#7FA8CC" }
+        hz465: { name: "HZ465", color: "#7FA8CC" },
+        rz465: { name: "RZ465", color: "#C9A86C" }
       },
       localOnly: IS_LOCAL_HOST,
       localGeneration: IS_LOCAL_HOST ? {
@@ -1283,7 +1284,8 @@ window.safeSignIn = safeSignIn;
   window.SHORT_TO_FULL_EMAIL = {
     'mz465': 'mz465@shotbreak.io',
     'kz465': 'kz465@shotbreak.io',
-    'hz465': 'hz465@shotbreak.io'
+    'hz465': 'hz465@shotbreak.io',
+    'rz465': 'rz465@shotbreak.io'
   };
 
   // ===================== AUTH STATE (safe) =====================
@@ -1437,7 +1439,8 @@ const OWNER_EMAILS = window.OWNER_EMAILS;
 const OWNER_META = (window.SHOTBREAK_CONFIG && window.SHOTBREAK_CONFIG.OWNER_META) || {
   mz465: { name: "MZ465", color: "#38bdf8" },
   kz465: { name: "KZ465", color: "#818cf8" },
-  hz465: { name: "HZ465", color: "#7FA8CC" }
+  hz465: { name: "HZ465", color: "#7FA8CC" },
+  rz465: { name: "RZ465", color: "#C9A86C" }
 };
 window.OWNER_META = OWNER_META;
 
@@ -1873,6 +1876,7 @@ async function loadUser(fbUser){
     if (emailLc.includes('mz465')) shortKey = 'mz465';
     else if (emailLc.includes('kz465')) shortKey = 'kz465';
     else if (emailLc.includes('hz465')) shortKey = 'hz465';
+    else if (emailLc.includes('rz465')) shortKey = 'rz465';
   }
   const ownerMeta = isOwner
     ? (OWNER_META[shortKey] || { name: fbUser.displayName || 'Owner', color: '#5B8DB8' })

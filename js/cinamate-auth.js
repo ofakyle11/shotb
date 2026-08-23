@@ -13,11 +13,12 @@
   const HASH_PREFIX = 'CINAMATE::';
 
   // Allowlist of SHA-256 hex digests of (HASH_PREFIX + normalizedCode).
-  // NEVER store plaintext codes in the repo. Exactly three entries.
+  // NEVER store plaintext codes in the repo. Exactly four entries.
   const ALLOWLIST = [
     '371c42647afaf34328cb5956e7b1565cde1b3952a8b0388aefd50047ac6e6815',
     '9df6322a7d4467fdbfbb0c44722a0858b0230aacd7493d161a44ebd1ce3f8319',
-    '9b7f089e7ebdbf0e6b163bc86becf1bababa0e4697a948ad083f884e1bdcea9b'
+    '9b7f089e7ebdbf0e6b163bc86becf1bababa0e4697a948ad083f884e1bdcea9b',
+    '1dd4d9479580482badeb948b5386e19f42a603f84e6fe40e1c28e17007b61d7d'
   ];
 
   /* -----------------------------------------------------------------------

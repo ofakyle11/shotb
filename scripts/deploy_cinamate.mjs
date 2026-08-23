@@ -6,7 +6,7 @@
  *   NETLIFY_AUTH_TOKEN=nfp_xxx node scripts/deploy_cinamate.mjs [site-name]
  *
  * Optional env (set once; existing values are left alone unless provided):
- *   OWNER_PW_MZ465 / OWNER_PW_KZ465 / OWNER_PW_HZ465  owner login passwords
+ *   OWNER_PW_MZ465 / OWNER_PW_KZ465 / OWNER_PW_HZ465 / OWNER_PW_RZ465  owner login passwords
  *   OWNER_TOKEN_SECRET               HMAC secret (auto-generated if absent)
  *
  * Branding lives in the repo itself (2026-08 sweep) — the only deploy-time
@@ -105,6 +105,7 @@ const wanted = {
   OWNER_PW_MZ465: process.env.OWNER_PW_MZ465,
   OWNER_PW_KZ465: process.env.OWNER_PW_KZ465,
   OWNER_PW_HZ465: process.env.OWNER_PW_HZ465,
+  OWNER_PW_RZ465: process.env.OWNER_PW_RZ465,
   OWNER_TOKEN_SECRET: process.env.OWNER_TOKEN_SECRET,
 };
 if (accountId) {

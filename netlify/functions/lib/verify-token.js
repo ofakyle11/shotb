@@ -8,13 +8,14 @@
 // Only authorized owners get isOwner via real login or proper token.
 //
 // ENV: FIREBASE_API_KEY (for lookup), OWNER_TOKEN_SECRET + OWNER_PW_* (for owner tokens)
-// Current active owner identifiers: mz465, kz465 and hz465 ONLY.
-// Shorts for /verify-owner: mz465, kz465, hz465 (POST {name: "mz465", password: "..."})
-// Passwords live in Netlify env: OWNER_PW_MZ465, OWNER_PW_KZ465, OWNER_PW_HZ465 (256-bit random).
+// Current active owner identifiers: mz465, kz465, hz465 and rz465 ONLY.
+// Shorts for /verify-owner: mz465, kz465, hz465, rz465 (POST {name: "mz465", password: "..."})
+// Passwords live in Netlify env: OWNER_PW_MZ465, OWNER_PW_KZ465, OWNER_PW_HZ465, OWNER_PW_RZ465.
 const OWNER_EMAILS = [
   'mz465@shotbreak.io',
   'kz465@shotbreak.io',
-  'hz465@shotbreak.io'
+  'hz465@shotbreak.io',
+  'rz465@shotbreak.io'
 ];
 
 // Map from verify-owner short name (lowercased) to the full email identity used for isOwner check + user object.
@@ -22,7 +23,8 @@ const OWNER_EMAILS = [
 const OWNER_NAME_TO_EMAIL = {
   'mz465': 'mz465@shotbreak.io',
   'kz465': 'kz465@shotbreak.io',
-  'hz465': 'hz465@shotbreak.io'
+  'hz465': 'hz465@shotbreak.io',
+  'rz465': 'rz465@shotbreak.io'
 };
 
 exports.verify = async function (authHeader) {
