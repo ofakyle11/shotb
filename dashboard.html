@@ -1483,7 +1483,7 @@ select.prod-field__input {
     <span class="statusbar__sep" aria-hidden="true">//</span>
     <span class="statusbar__seg statusbar__cluster">
       <i class="statusbar__dot" aria-hidden="true"></i>
-      <span id="sb-cluster">HELIOS-9&nbsp;NOMINAL</span>
+      <span id="sb-cluster">WORKSPACE&nbsp;READY</span>
     </span>
     <span class="statusbar__seg statusbar__render" id="sb-render" hidden></span>
     <time class="statusbar__clock" id="sb-clock">····-··-·· ··:··:·· UTC</time>
@@ -1503,13 +1503,13 @@ select.prod-field__input {
     <div class="prod__heading">
       <p class="eyebrow">SYS&nbsp;//&nbsp;PRODUCER&nbsp;SUITE</p>
       <h1 class="prod__title" id="prod-title">Producer Suite</h1>
-      <p class="prod__sub" id="prod-portfolio-line">PORTFOLIO&nbsp;//&nbsp;6&nbsp;ACTIVE&nbsp;PRODUCTIONS</p>
+      <p class="prod__sub" id="prod-portfolio-line">PORTFOLIO&nbsp;//&nbsp;&mdash;</p>
     </div>
     <div class="prod__header-meta">
       <span class="chip chip--ok prod__live-chip">
         <span class="chip__dot" aria-hidden="true"></span>LIVE
       </span>
-      <span class="prod__feed-stamp" id="prod-feed-stamp" aria-hidden="true">TELEMETRY&nbsp;FEED&nbsp;·&nbsp;1.2s</span>
+      <span class="prod__feed-stamp" id="prod-feed-stamp" aria-hidden="true">LIVE&nbsp;FROM&nbsp;THIS&nbsp;BROWSER</span>
     </div>
   </header>
 
@@ -1522,8 +1522,8 @@ select.prod-field__input {
     <!-- ACTIVE PRODUCTIONS -->
     <article class="panel prod-tile prod-tile--cyan" data-reveal>
       <p class="prod-tile__label">Active Productions</p>
-      <p class="prod-tile__value" id="prod-stat-productions" data-numeric>6</p>
-      <p class="prod-tile__delta" id="prod-delta-productions">+1 this week</p>
+      <p class="prod-tile__value" id="prod-stat-productions" data-numeric>&mdash;</p>
+      <p class="prod-tile__delta" id="prod-delta-productions">&nbsp;</p>
       <svg class="prod-tile__spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true">
         <defs>
           <linearGradient id="prod-spark-cyan" x1="0" y1="0" x2="0" y2="1">
@@ -1532,18 +1532,18 @@ select.prod-field__input {
           </linearGradient>
         </defs>
         <polygon class="prod-tile__spark-fill" fill="url(#prod-spark-cyan)"
-                 points="0,40 0,30 12,31 24,27 36,28 48,24 60,25 72,20 84,21 96,16 108,14 120,12 120,40"/>
+                 points="0,40 0,39 120,39 120,40"/>
         <polyline class="prod-tile__spark-line" fill="none" stroke="#5B8DB8" stroke-width="1.5"
                   stroke-linecap="round" stroke-linejoin="round"
-                  points="0,30 12,31 24,27 36,28 48,24 60,25 72,20 84,21 96,16 108,14 120,12"/>
+                  points="0,39 120,39"/>
       </svg>
     </article>
 
     <!-- RENDER HOURS -->
     <article class="panel prod-tile prod-tile--violet" data-reveal style="--reveal-delay: 80ms">
       <p class="prod-tile__label">Render Hours</p>
-      <p class="prod-tile__value" id="prod-stat-hours" data-numeric>12,847</p>
-      <p class="prod-tile__delta prod-tile__delta--up" id="prod-delta-hours">&#9650;&nbsp;6.2% vs last cycle</p>
+      <p class="prod-tile__value" id="prod-stat-hours" data-numeric>0</p>
+      <p class="prod-tile__delta" id="prod-delta-hours">&nbsp;</p>
       <svg class="prod-tile__spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true">
         <defs>
           <linearGradient id="prod-spark-violet" x1="0" y1="0" x2="0" y2="1">
@@ -1552,18 +1552,18 @@ select.prod-field__input {
           </linearGradient>
         </defs>
         <polygon class="prod-tile__spark-fill" fill="url(#prod-spark-violet)"
-                 points="0,40 0,33 12,30 24,31 36,26 48,27 60,22 72,23 84,18 96,19 108,13 120,11 120,40"/>
+                 points="0,40 0,39 120,39 120,40"/>
         <polyline class="prod-tile__spark-line" fill="none" stroke="#8BA3B8" stroke-width="1.5"
                   stroke-linecap="round" stroke-linejoin="round"
-                  points="0,33 12,30 24,31 36,26 48,27 60,22 72,23 84,18 96,19 108,13 120,11"/>
+                  points="0,39 120,39"/>
       </svg>
     </article>
 
     <!-- FRAMES GENERATED — live ticking -->
     <article class="panel prod-tile prod-tile--magenta" data-reveal style="--reveal-delay: 160ms">
       <p class="prod-tile__label">Frames Generated</p>
-      <p class="prod-tile__value" id="prod-stat-frames" data-numeric>48.20M</p>
-      <p class="prod-tile__delta" id="prod-delta-frames">+214,388 today</p>
+      <p class="prod-tile__value" id="prod-stat-frames" data-numeric>0</p>
+      <p class="prod-tile__delta" id="prod-delta-frames">&nbsp;</p>
       <svg class="prod-tile__spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true">
         <defs>
           <linearGradient id="prod-spark-magenta" x1="0" y1="0" x2="0" y2="1">
@@ -1572,20 +1572,20 @@ select.prod-field__input {
           </linearGradient>
         </defs>
         <polygon class="prod-tile__spark-fill" id="prod-spark-frames-fill" fill="url(#prod-spark-magenta)"
-                 points="0,40 0,32 12,29 24,30 36,25 48,26 60,21 72,22 84,17 96,15 108,12 120,10 120,40"/>
+                 points="0,40 0,39 120,39 120,40"/>
         <polyline class="prod-tile__spark-line" id="prod-spark-frames-line" fill="none" stroke="#C9A86C"
                   stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                  points="0,32 12,29 24,30 36,25 48,26 60,21 72,22 84,17 96,15 108,12 120,10"/>
+                  points="0,39 120,39"/>
       </svg>
     </article>
 
     <!-- BUDGET UTILIZATION — holo progress bar instead of sparkline -->
     <article class="panel prod-tile prod-tile--holo" data-reveal style="--reveal-delay: 240ms">
       <p class="prod-tile__label">Budget Utilization</p>
-      <p class="prod-tile__value" id="prod-stat-budget" data-numeric>63%</p>
-      <p class="prod-tile__delta" id="prod-delta-budget">Q3 allocation · founder tier</p>
-      <div class="prod-tile__bar" role="img" aria-label="Budget utilization 63 percent">
-        <div class="prod-tile__bar-fill" id="prod-budget-fill" style="width: 63%"></div>
+      <p class="prod-tile__value" id="prod-stat-budget" data-numeric>&mdash;</p>
+      <p class="prod-tile__delta" id="prod-delta-budget">&nbsp;</p>
+      <div class="prod-tile__bar" role="img" aria-label="Budget utilization">
+        <div class="prod-tile__bar-fill" id="prod-budget-fill" style="width: 0%"></div>
       </div>
     </article>
 
@@ -1602,7 +1602,7 @@ select.prod-field__input {
     <section class="panel prod-projects fx-scanlines" data-reveal aria-labelledby="prod-projects-title">
       <header class="panel__header prod-projects__header">
         <h2 class="prod-panel-title" id="prod-projects-title">PRODUCTIONS</h2>
-        <span class="prod-panel-meta" id="prod-projects-meta">6&nbsp;TITLES&nbsp;·&nbsp;2&nbsp;GENERATING</span>
+        <span class="prod-panel-meta" id="prod-projects-meta">&mdash;</span>
       </header>
 
       <div class="prod-projects__scroll">
@@ -1617,119 +1617,12 @@ select.prod-field__input {
             </tr>
           </thead>
           <tbody id="prod-table-body">
-
-            <tr class="prod-row" data-project="last-signal">
-              <td data-label="TITLE"><span class="prod-row__title">The Last Signal</span></td>
-              <td data-label="STAGE">
-                <span class="prod-badge prod-badge--grading" data-role="badge">GRADING</span>
-              </td>
-              <td data-label="PROGRESS">
-                <div class="prod-progress">
-                  <div class="prod-progress__track">
-                    <div class="prod-progress__fill" data-role="fill" style="width: 88%"></div>
-                  </div>
-                  <span class="prod-progress__pct" data-role="pct">88%</span>
-                </div>
-              </td>
-              <td data-label="RUNTIME" class="prod-row__runtime">96 MIN</td>
-              <td data-label="UPDATED"><span class="prod-row__updated" data-role="updated">2m ago</span></td>
-            </tr>
-
-            <tr class="prod-row" data-project="meridian-drift">
-              <td data-label="TITLE"><span class="prod-row__title">Meridian Drift</span></td>
-              <td data-label="STAGE">
-                <span class="prod-badge prod-badge--generating" data-role="badge">
-                  <i class="prod-badge__dot" aria-hidden="true"></i>GENERATING
-                </span>
-              </td>
-              <td data-label="PROGRESS">
-                <div class="prod-progress">
-                  <div class="prod-progress__track">
-                    <div class="prod-progress__fill" data-role="fill" style="width: 47%"></div>
-                  </div>
-                  <span class="prod-progress__pct" data-role="pct">47%</span>
-                </div>
-              </td>
-              <td data-label="RUNTIME" class="prod-row__runtime">121 MIN</td>
-              <td data-label="UPDATED"><span class="prod-row__updated prod-row__updated--live" data-role="updated">live</span></td>
-            </tr>
-
-            <tr class="prod-row" data-project="saltwater-empire">
-              <td data-label="TITLE"><span class="prod-row__title">Saltwater Empire</span></td>
-              <td data-label="STAGE">
-                <span class="prod-badge prod-badge--storyboard" data-role="badge">STORYBOARD</span>
-              </td>
-              <td data-label="PROGRESS">
-                <div class="prod-progress">
-                  <div class="prod-progress__track">
-                    <div class="prod-progress__fill" data-role="fill" style="width: 22%"></div>
-                  </div>
-                  <span class="prod-progress__pct" data-role="pct">22%</span>
-                </div>
-              </td>
-              <td data-label="RUNTIME" class="prod-row__runtime">104 MIN</td>
-              <td data-label="UPDATED"><span class="prod-row__updated" data-role="updated">1h ago</span></td>
-            </tr>
-
-            <tr class="prod-row" data-project="quiet-machine">
-              <td data-label="TITLE"><span class="prod-row__title">A Quiet Machine</span></td>
-              <td data-label="STAGE">
-                <span class="prod-badge prod-badge--generating" data-role="badge">
-                  <i class="prod-badge__dot" aria-hidden="true"></i>GENERATING
-                </span>
-              </td>
-              <td data-label="PROGRESS">
-                <div class="prod-progress">
-                  <div class="prod-progress__track">
-                    <div class="prod-progress__fill" data-role="fill" style="width: 71%"></div>
-                  </div>
-                  <span class="prod-progress__pct" data-role="pct">71%</span>
-                </div>
-              </td>
-              <td data-label="RUNTIME" class="prod-row__runtime">89 MIN</td>
-              <td data-label="UPDATED"><span class="prod-row__updated prod-row__updated--live" data-role="updated">live</span></td>
-            </tr>
-
-            <tr class="prod-row" data-project="vermillion-sky">
-              <td data-label="TITLE"><span class="prod-row__title">Vermillion Sky</span></td>
-              <td data-label="STAGE">
-                <span class="prod-badge prod-badge--mastered" data-role="badge">MASTERED</span>
-              </td>
-              <td data-label="PROGRESS">
-                <div class="prod-progress">
-                  <div class="prod-progress__track">
-                    <div class="prod-progress__fill" data-role="fill" style="width: 100%"></div>
-                  </div>
-                  <span class="prod-progress__pct" data-role="pct">100%</span>
-                </div>
-              </td>
-              <td data-label="RUNTIME" class="prod-row__runtime">112 MIN</td>
-              <td data-label="UPDATED"><span class="prod-row__updated" data-role="updated">3d ago</span></td>
-            </tr>
-
-            <tr class="prod-row" data-project="hollow-orbit">
-              <td data-label="TITLE"><span class="prod-row__title">Hollow Orbit</span></td>
-              <td data-label="STAGE">
-                <span class="prod-badge prod-badge--script" data-role="badge">SCRIPT</span>
-              </td>
-              <td data-label="PROGRESS">
-                <div class="prod-progress">
-                  <div class="prod-progress__track">
-                    <div class="prod-progress__fill" data-role="fill" style="width: 8%"></div>
-                  </div>
-                  <span class="prod-progress__pct" data-role="pct">8%</span>
-                </div>
-              </td>
-              <td data-label="RUNTIME" class="prod-row__runtime">&mdash;</td>
-              <td data-label="UPDATED"><span class="prod-row__updated" data-role="updated">5h ago</span></td>
-            </tr>
-
           </tbody>
         </table>
       </div>
 
       <footer class="prod-projects__footer" id="prod-projects-footer" aria-hidden="true">
-        PIPELINE&nbsp;THROUGHPUT&nbsp;·&nbsp;2,304&nbsp;FRAMES/S&nbsp;&middot;&nbsp;AVG&nbsp;SCENE&nbsp;SOLVE&nbsp;3.1s&nbsp;&middot;&nbsp;DAILIES&nbsp;AUTO-EXPORT&nbsp;ON
+        &nbsp;
       </footer>
     </section>
 
@@ -1810,63 +1703,17 @@ select.prod-field__input {
       <!-- RENDER QUEUE -->
       <section class="panel prod-queue" data-reveal style="--reveal-delay: 120ms" aria-labelledby="prod-queue-title">
         <header class="panel__header prod-queue__header">
-          <h2 class="prod-panel-title" id="prod-queue-title">RENDER&nbsp;QUEUE&nbsp;//&nbsp;HELIOS&#8209;9</h2>
+          <h2 class="prod-panel-title" id="prod-queue-title">RENDER&nbsp;QUEUE&nbsp;//&nbsp;YOUR&nbsp;MACHINE</h2>
           <span class="chip chip--cyan prod-queue__chip">
-            <span class="chip__dot" aria-hidden="true"></span>4096&nbsp;NODES
+            <span class="chip__dot" aria-hidden="true"></span>LOCAL
           </span>
         </header>
 
         <ol class="prod-queue__list" id="prod-queue-list" aria-live="off">
-          <!-- Static seed rows; frag-producer.js re-renders from
-               persisted state the moment it initializes. -->
-          <li class="prod-job">
-            <div class="prod-job__head">
-              <span class="prod-job__id">JOB-7841</span>
-              <span class="prod-job__pct">64%</span>
-            </div>
-            <p class="prod-job__target">Meridian Drift &mdash; SC 12&ndash;18</p>
-            <div class="prod-progress__track prod-job__track">
-              <div class="prod-progress__fill prod-job__fill" style="width: 64%"></div>
-            </div>
-            <p class="prod-job__meta">ETA 00:03:41 &middot; 812 NODES &middot; 2.4 TFLOP-HRS</p>
-          </li>
-          <li class="prod-job">
-            <div class="prod-job__head">
-              <span class="prod-job__id">JOB-7842</span>
-              <span class="prod-job__pct">31%</span>
-            </div>
-            <p class="prod-job__target">A Quiet Machine &mdash; SC 44</p>
-            <div class="prod-progress__track prod-job__track">
-              <div class="prod-progress__fill prod-job__fill" style="width: 31%"></div>
-            </div>
-            <p class="prod-job__meta">ETA 00:07:12 &middot; 640 NODES &middot; 1.8 TFLOP-HRS</p>
-          </li>
-          <li class="prod-job">
-            <div class="prod-job__head">
-              <span class="prod-job__id">JOB-7844</span>
-              <span class="prod-job__pct">12%</span>
-            </div>
-            <p class="prod-job__target">The Last Signal &mdash; GRADE PASS 2</p>
-            <div class="prod-progress__track prod-job__track">
-              <div class="prod-progress__fill prod-job__fill" style="width: 12%"></div>
-            </div>
-            <p class="prod-job__meta">ETA 00:11:03 &middot; 448 NODES &middot; 0.9 TFLOP-HRS</p>
-          </li>
-          <li class="prod-job">
-            <div class="prod-job__head">
-              <span class="prod-job__id">JOB-7845</span>
-              <span class="prod-job__pct">2%</span>
-            </div>
-            <p class="prod-job__target">Saltwater Empire &mdash; PREVIZ BATCH</p>
-            <div class="prod-progress__track prod-job__track">
-              <div class="prod-progress__fill prod-job__fill" style="width: 2%"></div>
-            </div>
-            <p class="prod-job__meta">ETA 00:14:56 &middot; 256 NODES &middot; 0.4 TFLOP-HRS</p>
-          </li>
-        </ol>
+          </ol>
 
         <footer class="prod-queue__telemetry" id="prod-queue-telemetry">
-          GPU&nbsp;91%&nbsp;&middot;&nbsp;VRAM&nbsp;78%&nbsp;&middot;&nbsp;TEMP&nbsp;64&deg;C&nbsp;&middot;&nbsp;QUEUE&nbsp;4
+          QUEUE&nbsp;IDLE
         </footer>
       </section>
 
@@ -1874,27 +1721,11 @@ select.prod-field__input {
       <section class="panel prod-activity" data-reveal style="--reveal-delay: 200ms" aria-labelledby="prod-activity-title">
         <header class="panel__header prod-activity__header">
           <h2 class="prod-panel-title" id="prod-activity-title">ACTIVITY</h2>
-          <span class="prod-panel-meta" id="prod-activity-meta">LAST&nbsp;8&nbsp;EVENTS</span>
+          <span class="prod-panel-meta" id="prod-activity-meta">LIVE&nbsp;STATE</span>
         </header>
 
         <ol class="prod-activity__list" id="prod-activity-list" role="log" aria-live="polite" aria-relevant="additions">
-          <li class="prod-event prod-event--ok">
-            <span class="prod-event__time">18:41 UTC</span>
-            <span class="prod-event__text">Scene 42 mastered &mdash; <em>The Last Signal</em></span>
-          </li>
-          <li class="prod-event prod-event--violet">
-            <span class="prod-event__time">18:27 UTC</span>
-            <span class="prod-event__text">Voice model trained &mdash; cast &ldquo;IRIS&rdquo;</span>
-          </li>
-          <li class="prod-event prod-event--magenta">
-            <span class="prod-event__time">17:58 UTC</span>
-            <span class="prod-event__text">Color pipeline locked &mdash; <em>Vermillion Sky</em></span>
-          </li>
-          <li class="prod-event prod-event--cyan">
-            <span class="prod-event__time">17:12 UTC</span>
-            <span class="prod-event__text">Storyboard pass 3 approved &mdash; <em>Saltwater Empire</em></span>
-          </li>
-        </ol>
+          </ol>
       </section>
 
     </aside>
@@ -1908,6 +1739,7 @@ select.prod-field__input {
 <!-- Auth FIRST; the guard runs before any content script executes. -->
 <script src="js/cinamate-auth.js"></script>
 <script src="js/budget-engine.js"></script>
+<script src="js/learn.js"></script>
 <script>
   /* Session gate — unauthorized visitors are redirected to index.html
      by requireSession() before any dashboard logic runs. The flag halts
@@ -1971,22 +1803,16 @@ select.prod-field__input {
   tickClock();
   window.setInterval(tickClock, 1000);
 
-  /* ---- GPU cluster status — NOMINAL-weighted, 20–45s cadence ---- */
+  /* ---- Workspace status — real: names the configured render bridge ---- */
   var clusterEl = byId('sb-cluster');
-  var CLUSTER_STATES = [
-    'HELIOS-9 NOMINAL',
-    'HELIOS-9 NOMINAL',
-    'HELIOS-9 NOMINAL',
-    'HELIOS-9 SCALING +64 NODES',
-    'HELIOS-9 THERMAL HEADROOM 82%'
-  ];
-  (function cycleCluster() {
-    window.setTimeout(function () {
-      if (clusterEl && !document.hidden) {
-        clusterEl.textContent = CLUSTER_STATES[Math.floor(Math.random() * CLUSTER_STATES.length)];
-      }
-      cycleCluster();
-    }, 20000 + Math.random() * 25000);
+  (function () {
+    if (!clusterEl) { return; }
+    var txt = 'WORKSPACE READY';
+    try {
+      var gpu = JSON.parse(window.localStorage.getItem('SB_LocalGPU_v1') || 'null');
+      if (gpu && gpu.url) { txt = 'BRIDGE ' + String(gpu.url).replace(/^https?:\/\//, '').toUpperCase(); }
+    } catch (err) { /* no-op */ }
+    clusterEl.textContent = txt;
   })();
 
   /* ---- View switching — one view since the simulated Create view
@@ -2204,563 +2030,252 @@ select.prod-field__input {
   }
 
   /* --------------------------------------------------------------
-     1 · ACTIVITY FEED
-     Declared first so the projects/queue simulations can push
-     events into it. Entries: { time, cls, text, title|null }.
+     1 · LIVE PROJECT DATA
+     Every box below reads the real module stores this browser has
+     saved (Studio, Writer, Producer, Editor, Boards, Props, Sets,
+     Projects vault). Nothing is simulated: boxes stay blank until
+     work exists, then they show exactly what the team has put in.
+     Refreshes every 30s and whenever the tab regains focus.
      -------------------------------------------------------------- */
 
-  var feedList = $('#prod-activity-list');
-  var MAX_EVENTS = 8;
-
-  var seedActivity = [
-    { time: '18:41 UTC', cls: 'ok',      text: 'Scene 42 mastered — ',        title: 'The Last Signal' },
-    { time: '18:27 UTC', cls: 'violet',  text: 'Voice model trained — cast “IRIS”', title: null },
-    { time: '17:58 UTC', cls: 'magenta', text: 'Color pipeline locked — ',    title: 'Vermillion Sky' },
-    { time: '17:12 UTC', cls: 'cyan',    text: 'Storyboard pass 3 approved — ', title: 'Saltwater Empire' }
-  ];
-
-  var activityState = readStore(KEYS.activity, null);
-  if (!activityState || !activityState.entries || !activityState.entries.length) {
-    activityState = { entries: seedActivity.slice() };
-  }
-
-  function buildEventNode(entry, entering) {
-    var li = document.createElement('li');
-    li.className = 'prod-event prod-event--' + (entry.cls || 'cyan') +
-      (entering ? ' is-entering' : '');
-
-    var time = document.createElement('span');
-    time.className = 'prod-event__time';
-    time.textContent = entry.time || utcStamp();
-
-    var text = document.createElement('span');
-    text.className = 'prod-event__text';
-    text.appendChild(document.createTextNode(entry.text || ''));
-    if (entry.title) {
-      var em = document.createElement('em');
-      em.textContent = entry.title;
-      text.appendChild(em);
-    }
-
-    li.appendChild(time);
-    li.appendChild(text);
-    return li;
-  }
-
-  function renderActivity() {
-    if (!feedList) { return; }
-    while (feedList.firstChild) { feedList.removeChild(feedList.firstChild); }
-    var i;
-    for (i = 0; i < activityState.entries.length; i++) {
-      feedList.appendChild(buildEventNode(activityState.entries[i], false));
-    }
-  }
-
-  function pushEvent(cls, text, title) {
-    var entry = { time: utcStamp(), cls: cls, text: text, title: title || null };
-    activityState.entries.unshift(entry);
-    if (activityState.entries.length > MAX_EVENTS) {
-      activityState.entries.length = MAX_EVENTS;
-    }
-    writeStore(KEYS.activity, activityState);
-
-    if (!feedList) { return; }
-    var node = buildEventNode(entry, !reducedMotion);
-    feedList.insertBefore(node, feedList.firstChild || null);
-    while (feedList.children.length > MAX_EVENTS) {
-      feedList.removeChild(feedList.lastChild);
-    }
-    later(function () { node.classList.remove('is-entering'); }, 400);
-  }
-
-  /* Ambient event generator — every 25–60s. */
-  var CAST_NAMES = ['IRIS', 'MARA', 'KOVACS', 'ELDRIN', 'SABLE', 'JUNO', 'VANCE'];
-  var FILM_TITLES = [
-    'The Last Signal', 'Meridian Drift', 'Saltwater Empire',
-    'A Quiet Machine', 'Vermillion Sky', 'Hollow Orbit'
-  ];
-
-  var EVENT_TEMPLATES = [
-    function () { return { cls: 'ok',      text: 'Scene ' + randInt(3, 96) + ' mastered — ', title: pick(FILM_TITLES) }; },
-    function () { return { cls: 'violet',  text: 'Voice model trained — cast “' + pick(CAST_NAMES) + '”', title: null }; },
-    function () { return { cls: 'cyan',    text: 'Neural actor calibrated — identity lock ' + rand(94, 99.6).toFixed(1) + '% — ', title: pick(FILM_TITLES) }; },
-    function () { return { cls: 'magenta', text: 'Grade node updated — LUT ΔE ' + rand(0.4, 1.9).toFixed(1) + ' — ', title: pick(FILM_TITLES) }; },
-    function () { return { cls: 'cyan',    text: 'Dailies exported — ' + randInt(8, 40) + ' shots — ', title: pick(FILM_TITLES) }; },
-    function () { return { cls: 'violet',  text: 'Storyboard pass ' + randInt(2, 6) + ' approved — ', title: pick(FILM_TITLES) }; },
-    function () { return { cls: 'ok',      text: 'Camera solve locked — dolly, ' + pick([24, 35, 50, 85]) + 'mm — ', title: pick(FILM_TITLES) }; }
-  ];
-
-  function scheduleAmbientEvent() {
-    later(function () {
-      if (!document.hidden) {
-        var e = pick(EVENT_TEMPLATES)();
-        pushEvent(e.cls, e.text, e.title);
-      }
-      scheduleAmbientEvent();
-    }, randInt(25000, 60000));
-  }
-
-  /* --------------------------------------------------------------
-     2 · STAT TILES
-     -------------------------------------------------------------- */
-
-  var els = {
-    frames: $('#prod-stat-frames'),
-    framesDelta: $('#prod-delta-frames'),
-    hours: $('#prod-stat-hours'),
-    budget: $('#prod-stat-budget'),
-    budgetFill: $('#prod-budget-fill'),
-    sparkLine: $('#prod-spark-frames-line'),
-    sparkFill: $('#prod-spark-frames-fill'),
-    productions: $('#prod-stat-productions')
-  };
-
-  var statsState = readStore(KEYS.stats, null);
-  if (!statsState || typeof statsState.frames !== 'number') {
-    statsState = {
-      frames: 48200000,
-      framesToday: 214388,
-      hours: 12847,
-      budget: 63,
-      productions: 6,
-      spark: [30, 31, 27, 28, 24, 25, 20, 21, 16, 15, 12, 10], /* y-coords, lower = higher */
-      lastTick: Date.now()
-    };
-  }
-
-  function renderStats(changed) {
-    if (els.frames) { els.frames.textContent = formatMillions(statsState.frames); }
-    if (els.framesDelta) { els.framesDelta.textContent = '+' + formatGrouped(statsState.framesToday) + ' today'; }
-    if (els.hours) { els.hours.textContent = formatGrouped(statsState.hours); }
-    if (els.budget) { els.budget.textContent = Math.round(statsState.budget) + '%'; }
-    if (els.budgetFill) {
-      /* estimates can exceed 100% — the bar saturates, the number does not */
-      els.budgetFill.style.width = Math.min(100, Math.round(statsState.budget)) + '%';
-    }
-    if (els.productions) { els.productions.textContent = String(statsState.productions); }
-    if (changed) { flash(changed); }
-  }
-
-  function redrawSpark() {
-    if (!els.sparkLine || !statsState.spark || statsState.spark.length < 2) { return; }
-    var vals = statsState.spark;
-    var n = vals.length;
-    var pts = [];
-    var i;
-    for (i = 0; i < n; i++) {
-      var x = (120 / (n - 1)) * i;
-      pts.push(x.toFixed(1) + ',' + vals[i].toFixed(1));
-    }
-    var line = pts.join(' ');
+  function readLocal(key) {
     try {
-      els.sparkLine.setAttribute('points', line);
-      if (els.sparkFill) {
-        els.sparkFill.setAttribute('points', '0,40 ' + line + ' 120,40');
+      var v = JSON.parse(window.localStorage.getItem(key) || 'null');
+      return v && typeof v === 'object' ? v : null;
+    } catch (err) { return null; }
+  }
+  function parseRaw(raw) {
+    try {
+      var v = JSON.parse(raw);
+      return v && typeof v === 'object' ? v : null;
+    } catch (err) { return null; }
+  }
+  function escHtml(x) {
+    return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function setText(sel, txt) {
+    var el = $(sel);
+    if (el) { el.textContent = txt; }
+  }
+
+  /* Reduce one project's stores to dashboard stats. `get` reads either
+     live localStorage or a stashed vault slot. */
+  function projectStats(get) {
+    var tl = get('SB_Timeline_v1') || {};
+    var clips = Array.isArray(tl.clips) ? tl.clips : [];
+    var rendered = 0, generating = 0, durSec = 0, queue = [];
+    var i, c;
+    for (i = 0; i < clips.length; i++) {
+      c = clips[i];
+      if (!c) { continue; }
+      if (c.videoUrl) {
+        rendered++;
+        durSec += (+c.dur || (c.params && +c.params.duration) || +c.duration || 8);
       }
+      if (c.status === 'generating' || c.status === 'queued') {
+        generating++;
+        queue.push({ label: c.label || c.heading || ('Shot ' + (i + 1)),
+                     status: c.status, scene: c.sceneIdx });
+      }
+    }
+    var wr = get('SB_Writer_v1') || {};
+    var wrScenes = Array.isArray(wr.scenes) ? wr.scenes.length : 0;
+    var sheet = get('SB_BudgetSheet_v1') || {};
+    var sheetTotal = 0;
+    (Array.isArray(sheet.categories) ? sheet.categories : []).forEach(function (cat) {
+      ((cat && cat.items) || []).forEach(function (it) { sheetTotal += (+it.est || 0); });
+    });
+    var boards = get('SB_Boards_v1') || {};
+    var boardN = 0;
+    try { boardN = (boards.scenes || boards.items || boards.shots || []).length; } catch (err) { /* no-op */ }
+    var cut = get('SB_Cut_v1') || {};
+    var cutClips = 0;
+    try {
+      if (Array.isArray(cut.tracks)) {
+        cut.tracks.forEach(function (t) { cutClips += ((t && (t.clips || t.items)) || []).length; });
+      }
+      if (!cutClips && Array.isArray(cut.clips)) { cutClips = cut.clips.length; }
     } catch (err) { /* no-op */ }
+    var props = get('SB_Props_v1') || {};
+    var propsN = Array.isArray(props.items) ? props.items.length : 0;
+    var setsDoc = get('SB_SetDesign_v1') || {};
+    var setsN = Array.isArray(setsDoc.plans) ? setsDoc.plans.length : 0;
+    var crew = get('SB_Crew_v1');
+    var crewN = Array.isArray(crew) ? crew.length
+      : (crew && Array.isArray(crew.rows) ? crew.rows.length : 0);
+    var script = String(tl.scriptText || '');
+    var hasScript = script.trim().length > 200 || wrScenes > 0;
+
+    var pct = 0;
+    if (hasScript) { pct += 15; }
+    if (boardN) { pct += 10; }
+    if (sheetTotal > 0) { pct += 15; }
+    if (clips.length) { pct += Math.round(30 * Math.min(1, rendered / Math.max(1, clips.length))); }
+    if (cutClips) { pct += 15; }
+    if (cut.lastExport) { pct += 15; }
+
+    var stage = 'EMPTY', badge = 'script';
+    if (cut.lastExport) { stage = 'MASTERED'; badge = 'mastered'; }
+    else if (cutClips) { stage = 'CUTTING'; badge = 'grading'; }
+    else if (generating) { stage = 'GENERATING'; badge = 'generating'; }
+    else if (rendered) { stage = 'RENDERED'; badge = 'grading'; }
+    else if (boardN) { stage = 'STORYBOARD'; badge = 'storyboard'; }
+    else if (hasScript) { stage = 'SCRIPT'; badge = 'script'; }
+
+    var empty = !hasScript && !clips.length && !sheetTotal && !cutClips &&
+                !boardN && !propsN && !setsN && !crewN;
+    return { clips: clips.length, rendered: rendered, generating: generating,
+             durSec: durSec, queue: queue, wrScenes: wrScenes,
+             sheetTotal: Math.round(sheetTotal), boardN: boardN,
+             cutClips: cutClips, exported: !!cut.lastExport,
+             propsN: propsN, setsN: setsN, crewN: crewN,
+             hasScript: hasScript, pct: Math.min(100, pct),
+             stage: stage, badge: badge, empty: empty };
   }
 
-  /* FRAMES GENERATED — +40–600 every 2–5s (delta clamped by wall clock). */
-  function scheduleFramesTick() {
-    later(function () {
-      var now = Date.now();
-      var elapsed = Math.min(now - (statsState.lastTick || now), 8000);
-      statsState.lastTick = now;
-      if (!document.hidden && elapsed > 0) {
-        var add = randInt(40, 600);
-        statsState.frames += add;
-        statsState.framesToday += add;
-        writeStore(KEYS.stats, statsState);
-        renderStats(els.frames);
-        if (els.framesDelta) { flash(els.framesDelta); }
-      }
-      scheduleFramesTick();
-    }, randInt(2000, 5000));
-  }
+  function renderLive() {
+    var meta = readLocal('CIN_Projects_v1') || {};
+    var tlLive = readLocal('SB_Timeline_v1') || {};
+    var projects = [{ name: meta.active || tlLive.title || 'Untitled Film',
+                      live: true, savedAt: '', stats: projectStats(readLocal) }];
+    var slots = meta.slots || {};
+    Object.keys(slots).sort().forEach(function (n) {
+      if (n === meta.active) { return; }
+      var stores = (slots[n] && slots[n].stores) || {};
+      projects.push({ name: n, live: false,
+        savedAt: (slots[n] && slots[n].savedAt) || '',
+        stats: projectStats(function (k) { return parseRaw(stores[k]); }) });
+    });
+    var withData = [];
+    var totDur = 0, totRendered = 0, totGenerating = 0;
+    projects.forEach(function (p) {
+      if (!p.stats.empty) { withData.push(p); }
+      totDur += p.stats.durSec;
+      totRendered += p.stats.rendered;
+      totGenerating += p.stats.generating;
+    });
+    var live = projects[0].stats;
 
-  /* RENDER HOURS — ~+1 every 30s. */
-  function scheduleHoursTick() {
-    later(function () {
-      if (!document.hidden) {
-        statsState.hours += 1;
-        writeStore(KEYS.stats, statsState);
-        renderStats(els.hours);
-      }
-      scheduleHoursTick();
-    }, randInt(26000, 36000));
-  }
-
-  /* BUDGET — glacial creep, capped well below alarm territory. */
-  function scheduleBudgetTick() {
-    later(function () {
-      if (!document.hidden && !estimateActive &&
-          statsState.budget < 78 && Math.random() < 0.5) {
-        statsState.budget += 1;
-        writeStore(KEYS.stats, statsState);
-        renderStats(els.budget);
-      }
-      scheduleBudgetTick();
-    }, randInt(75000, 120000));
-  }
-
-  /* Frames sparkline — shift in a new point every ~18s. */
-  function scheduleSparkTick() {
-    later(function () {
-      if (!document.hidden && statsState.spark && statsState.spark.length) {
-        var last = statsState.spark[statsState.spark.length - 1];
-        var next = Math.max(4, Math.min(36, last + rand(-4, 2.4))); /* biased upward (lower y) */
-        statsState.spark.shift();
-        statsState.spark.push(next);
-        writeStore(KEYS.stats, statsState);
-        redrawSpark();
-      }
-      scheduleSparkTick();
-    }, randInt(14000, 22000));
-  }
-
-  /* --------------------------------------------------------------
-     3 · PRODUCTIONS TABLE
-     -------------------------------------------------------------- */
-
-  var STAGES = {
-    SCRIPT:     { label: 'SCRIPT',     mod: 'script',     dot: false },
-    STORYBOARD: { label: 'STORYBOARD', mod: 'storyboard', dot: false },
-    GENERATING: { label: 'GENERATING', mod: 'generating', dot: true  },
-    GRADING:    { label: 'GRADING',    mod: 'grading',    dot: false },
-    MASTERED:   { label: 'MASTERED',   mod: 'mastered',   dot: false }
-  };
-
-  var seedProjects = [
-    { key: 'last-signal',      title: 'The Last Signal',  stage: 'GRADING',    pct: 88,  updated: '2m ago' },
-    { key: 'meridian-drift',   title: 'Meridian Drift',   stage: 'GENERATING', pct: 47,  updated: 'live' },
-    { key: 'saltwater-empire', title: 'Saltwater Empire', stage: 'STORYBOARD', pct: 22,  updated: '1h ago' },
-    { key: 'quiet-machine',    title: 'A Quiet Machine',  stage: 'GENERATING', pct: 71,  updated: 'live' },
-    { key: 'vermillion-sky',   title: 'Vermillion Sky',   stage: 'MASTERED',   pct: 100, updated: '3d ago' },
-    { key: 'hollow-orbit',     title: 'Hollow Orbit',     stage: 'SCRIPT',     pct: 8,   updated: '5h ago' }
-  ];
-
-  var projectsState = readStore(KEYS.projects, null);
-  if (!projectsState || !projectsState.list || !projectsState.list.length) {
-    projectsState = { list: seedProjects.slice() };
-  }
-
-  function projectRow(key) {
-    return $('[data-project="' + key + '"]');
-  }
-
-  function renderProject(p, flipped) {
-    var row = projectRow(p.key);
-    if (!row) { return; }
-
-    var stage = STAGES[p.stage] || STAGES.SCRIPT;
-
-    /* badge */
-    var badge = row.querySelector('[data-role="badge"]');
-    if (badge) {
-      badge.className = 'prod-badge prod-badge--' + stage.mod;
-      while (badge.firstChild) { badge.removeChild(badge.firstChild); }
-      if (stage.dot) {
-        var dot = document.createElement('i');
-        dot.className = 'prod-badge__dot';
-        dot.setAttribute('aria-hidden', 'true');
-        badge.appendChild(dot);
-      }
-      badge.appendChild(document.createTextNode(stage.label));
-      if (flipped) { flash(badge); }
+    /* stat tiles */
+    setText('#prod-stat-productions', withData.length ? String(withData.length) : '—');
+    setText('#prod-delta-productions', withData.length
+      ? 'saved in this browser'
+      : 'blank until work starts — try the Writer');
+    var hours = totDur / 3600;
+    setText('#prod-stat-hours', totDur ? (hours >= 10 ? hours.toFixed(0) : hours.toFixed(2)) : '0');
+    setText('#prod-delta-hours', totRendered
+      ? totRendered + ' finished clip' + (totRendered === 1 ? '' : 's')
+      : 'no renders yet');
+    var frames = Math.round(totDur * 24);
+    setText('#prod-stat-frames', frames
+      ? (frames >= 1e6 ? formatMillions(frames) : formatGrouped(frames)) : '0');
+    setText('#prod-delta-frames', totGenerating
+      ? totGenerating + ' generating now'
+      : (frames ? 'at 24 fps' : 'no renders yet'));
+    if (!estimateActive) {
+      setText('#prod-stat-budget', live.sheetTotal ? '$' + formatGrouped(live.sheetTotal) : '—');
+      setText('#prod-delta-budget', live.sheetTotal
+        ? 'top-sheet estimate — active production'
+        : 'no budget top-sheet yet');
+      var fillEl = $('#prod-budget-fill');
+      if (fillEl && !live.sheetTotal) { fillEl.style.width = '0%'; }
     }
 
-    /* progress fill + percentage */
-    var fill = row.querySelector('[data-role="fill"]');
-    if (fill) {
-      fill.className = 'prod-progress__fill prod-progress__fill--' + stage.mod;
-      fill.style.width = Math.min(100, p.pct).toFixed(1) + '%';
+    /* header + productions table */
+    setText('#prod-portfolio-line', 'PORTFOLIO // ' + (withData.length
+      ? withData.length + ' PRODUCTION' + (withData.length === 1 ? '' : 'S') : 'EMPTY'));
+    setText('#prod-projects-meta', withData.length
+      ? withData.length + ' TITLE' + (withData.length === 1 ? '' : 'S') + ' · ' + totGenerating + ' GENERATING'
+      : '—');
+    var body = $('#prod-table-body');
+    if (body) {
+      body.innerHTML = withData.length ? withData.map(function (p) {
+        var st = p.stats;
+        return '<tr class="prod-row">' +
+          '<td data-label="TITLE"><span class="prod-row__title">' + escHtml(p.name) + '</span></td>' +
+          '<td data-label="STAGE"><span class="prod-badge prod-badge--' + st.badge + '">' +
+            (st.stage === 'GENERATING' ? '<i class="prod-badge__dot" aria-hidden="true"></i>' : '') +
+            st.stage + '</span></td>' +
+          '<td data-label="PROGRESS"><div class="prod-progress"><div class="prod-progress__track">' +
+            '<div class="prod-progress__fill" style="width: ' + st.pct + '%"></div></div>' +
+            '<span class="prod-progress__pct">' + st.pct + '%</span></div></td>' +
+          '<td data-label="RUNTIME" class="prod-row__runtime">' +
+            (st.durSec ? Math.max(1, Math.round(st.durSec / 60)) + ' MIN' : '&mdash;') + '</td>' +
+          '<td data-label="UPDATED"><span class="prod-row__updated' +
+            (p.live ? ' prod-row__updated--live' : '') + '">' +
+            (p.live ? 'live' : escHtml(String(p.savedAt).slice(0, 16))) + '</span></td></tr>';
+      }).join('') :
+      '<tr><td colspan="5" class="prod-row__runtime" style="padding:18px 12px">' +
+        'Nothing in production yet — this board fills in by itself the moment a script, ' +
+        'board, budget or render exists in any module.</td></tr>';
     }
-    var pctEl = row.querySelector('[data-role="pct"]');
-    if (pctEl) { pctEl.textContent = Math.floor(Math.min(100, p.pct)) + '%'; }
-
-    /* updated cell */
-    var upd = row.querySelector('[data-role="updated"]');
-    if (upd) {
-      upd.textContent = p.updated;
-      upd.className = 'prod-row__updated' +
-        (p.updated === 'live' ? ' prod-row__updated--live' : '');
+    var foot = $('#prod-projects-footer');
+    if (foot) {
+      var rs = null;
+      try { rs = window.CLearn && window.CLearn.renderStats ? window.CLearn.renderStats() : null; }
+      catch (err) { /* no-op */ }
+      foot.textContent = rs && rs.n
+        ? 'MEASURED ON THIS MACHINE · ≈' + rs.wallPerClip + 'S/CLIP OVER ' + rs.n +
+          ' RENDERS · TREND ' + String(rs.trend).toUpperCase()
+        : 'THROUGHPUT APPEARS HERE ONCE THIS MACHINE HAS RENDERED';
     }
-  }
 
-  function renderAllProjects() {
-    var i;
-    for (i = 0; i < projectsState.list.length; i++) {
-      renderProject(projectsState.list[i], false);
+    /* render queue — the active production's clips actually in flight */
+    var ql = $('#prod-queue-list');
+    if (ql) {
+      ql.innerHTML = live.queue.length ? live.queue.map(function (job, idx) {
+        return '<li class="prod-job"><div class="prod-job__head">' +
+          '<span class="prod-job__id">CLIP-' + (idx + 1) + '</span>' +
+          '<span class="prod-job__pct">' + escHtml(String(job.status).toUpperCase()) + '</span></div>' +
+          '<p class="prod-job__target">' + escHtml(String(job.label).slice(0, 60)) + '</p>' +
+          '<div class="prod-progress__track prod-job__track">' +
+            '<div class="prod-progress__fill prod-job__fill" style="width: 0%"></div></div>' +
+          '<p class="prod-job__meta">' +
+            (job.scene != null ? 'SCENE ' + (Number(job.scene) + 1) + ' · ' : '') +
+            'LIVE STATUS IN THE STUDIO TAB</p></li>';
+      }).join('') :
+      '<li class="prod-job"><p class="prod-job__target">Queue idle — renders you start in the ' +
+        'Studio line up here.</p></li>';
     }
-    updatePortfolioMeta();
-  }
-
-  function updatePortfolioMeta() {
-    var generating = 0;
-    var i;
-    for (i = 0; i < projectsState.list.length; i++) {
-      if (projectsState.list[i].stage === 'GENERATING') { generating++; }
+    var tele = $('#prod-queue-telemetry');
+    if (tele) {
+      tele.textContent = live.queue.length ? 'QUEUE ' + live.queue.length : 'QUEUE IDLE';
     }
-    var meta = $('#prod-projects-meta');
-    if (meta) {
-      meta.textContent = projectsState.list.length + ' TITLES · ' + generating + ' GENERATING';
+
+    /* activity — live state of every module, tagged by department */
+    var entries = [];
+    if (live.wrScenes || live.hasScript) {
+      entries.push({ tag: 'WRITER', cls: 'cyan', text: live.wrScenes
+        ? 'Screenplay in hand — ' + live.wrScenes + ' scene beats'
+        : 'Screenplay loaded in the Studio' });
     }
-    var line = $('#prod-portfolio-line');
-    if (line) {
-      line.textContent = 'PORTFOLIO // ' + projectsState.list.length + ' ACTIVE PRODUCTIONS';
+    if (live.boardN) { entries.push({ tag: 'BOARDS', cls: 'cyan', text: live.boardN + ' storyboard scenes' }); }
+    if (live.clips) {
+      entries.push({ tag: 'STUDIO', cls: 'violet', text: live.rendered + ' of ' + live.clips +
+        ' clips rendered' + (live.generating ? ' · ' + live.generating + ' generating' : '') });
     }
-  }
-
-  /* GENERATING rows advance +0.1–0.4% every 4–8s (per-project chains). */
-  function scheduleProjectTick(p) {
-    later(function () {
-      if (p.stage === 'GENERATING' && !document.hidden) {
-        p.pct = Math.min(100, p.pct + rand(0.1, 0.4));
-
-        if (p.pct >= 100) {
-          /* hold the full bar for a beat, then flip to GRADING */
-          renderProject(p, false);
-          later(function () {
-            p.stage = 'GRADING';
-            p.pct = rand(3, 8);
-            p.updated = 'just now';
-            writeStore(KEYS.projects, projectsState);
-            renderProject(p, true);
-            updatePortfolioMeta();
-            pushEvent('magenta', 'Generation complete — grading begins — ', p.title);
-          }, 1800);
-        } else {
-          writeStore(KEYS.projects, projectsState);
-          renderProject(p, false);
-        }
-      }
-      scheduleProjectTick(p);
-    }, randInt(4000, 8000));
-  }
-
-  /* Pipeline footer — quiet plausible churn every ~9s. */
-  function schedulePipelineFooter() {
-    later(function () {
-      var footer = $('#prod-projects-footer');
-      if (footer && !document.hidden) {
-        footer.textContent =
-          'PIPELINE THROUGHPUT · ' + formatGrouped(randInt(1900, 2600)) + ' FRAMES/S · ' +
-          'AVG SCENE SOLVE ' + rand(2.4, 4.2).toFixed(1) + 's · ' +
-          'DAILIES AUTO-EXPORT ON';
-      }
-      schedulePipelineFooter();
-    }, randInt(8000, 12000));
-  }
-
-  /* --------------------------------------------------------------
-     4 · RENDER QUEUE — the assignment's core live loop
-     Percentages tick upward on a 1.2s setInterval; state persists
-     to sessionStorage so refresh resumes mid-render.
-     -------------------------------------------------------------- */
-
-  var queueList = $('#prod-queue-list');
-  var telemetryEl = $('#prod-queue-telemetry');
-
-  var JOB_SUFFIXES = [
-    function () { var a = randInt(1, 80); return 'SC ' + a + '–' + (a + randInt(2, 9)); },
-    function () { return 'SC ' + randInt(1, 96); },
-    function () { return 'GRADE PASS ' + randInt(1, 4); },
-    function () { return 'PREVIZ BATCH'; },
-    function () { return 'CROWD SIM PASS'; },
-    function () { return 'AUDIO STEM MIX'; },
-    function () { return 'DAILIES EXPORT'; }
-  ];
-  var NODE_COUNTS = [256, 448, 640, 812, 1024, 2048];
-
-  var queueState = readStore(KEYS.queue, null);
-  if (!queueState || !queueState.jobs || !queueState.jobs.length) {
-    queueState = {
-      nextNum: 7846,
-      jobs: [
-        { id: 'JOB-7841', target: 'Meridian Drift — SC 12–18',       pct: 64, rate: 0.55, nodes: 812,  tflops: '2.4', done: false, doneAt: 0 },
-        { id: 'JOB-7842', target: 'A Quiet Machine — SC 44',             pct: 31, rate: 0.38, nodes: 640,  tflops: '1.8', done: false, doneAt: 0 },
-        { id: 'JOB-7844', target: 'The Last Signal — GRADE PASS 2',      pct: 12, rate: 0.27, nodes: 448,  tflops: '0.9', done: false, doneAt: 0 },
-        { id: 'JOB-7845', target: 'Saltwater Empire — PREVIZ BATCH',     pct: 2,  rate: 0.20, nodes: 256,  tflops: '0.4', done: false, doneAt: 0 }
-      ],
-      lastTick: Date.now()
-    };
-  }
-
-  function makeJob() {
-    var id = 'JOB-' + queueState.nextNum;
-    queueState.nextNum += 1;
-    return {
-      id: id,
-      target: pick(FILM_TITLES) + ' — ' + pick(JOB_SUFFIXES)(),
-      pct: 0,
-      rate: rand(0.18, 0.85),           /* percent per second */
-      nodes: pick(NODE_COUNTS),
-      tflops: rand(0.4, 4.8).toFixed(1),
-      done: false,
-      doneAt: 0
-    };
-  }
-
-  function jobMetaText(job) {
-    if (job.done) {
-      return 'MASTER SEALED · ' + job.nodes + ' NODES · ' + job.tflops + ' TFLOP-HRS';
+    if (live.sheetTotal) { entries.push({ tag: 'BUDGET', cls: 'ok', text: 'Top-sheet estimate $' + formatGrouped(live.sheetTotal) }); }
+    if (live.crewN) { entries.push({ tag: 'CREW', cls: 'ok', text: live.crewN + ' crew positions tracked' }); }
+    if (live.propsN) { entries.push({ tag: 'PROPS', cls: 'magenta', text: live.propsN + ' props on the breakdown' }); }
+    if (live.setsN) { entries.push({ tag: 'SETS', cls: 'magenta', text: live.setsN + ' set plan' + (live.setsN === 1 ? '' : 's') + ' drawn' }); }
+    if (live.cutClips) {
+      entries.push({ tag: 'EDITOR', cls: 'violet', text: live.cutClips + ' clips on the cut' +
+        (live.exported ? ' · picture exported' : '') });
     }
-    var etaSec = (100 - job.pct) / Math.max(job.rate, 0.01);
-    return 'ETA ' + formatEta(etaSec) + ' · ' + job.nodes + ' NODES · ' + job.tflops + ' TFLOP-HRS';
-  }
-
-  function buildJobNode(job, entering) {
-    var li = document.createElement('li');
-    li.className = 'prod-job' +
-      (job.done ? ' is-done' : '') +
-      (entering && !reducedMotion ? ' is-entering' : '');
-    li.setAttribute('data-job-id', job.id);
-
-    var head = document.createElement('div');
-    head.className = 'prod-job__head';
-
-    var id = document.createElement('span');
-    id.className = 'prod-job__id';
-    id.textContent = job.id;
-
-    var pct = document.createElement('span');
-    pct.className = 'prod-job__pct';
-    pct.setAttribute('data-role', 'job-pct');
-    pct.textContent = job.done ? 'DONE' : Math.floor(job.pct) + '%';
-
-    head.appendChild(id);
-    head.appendChild(pct);
-
-    var target = document.createElement('p');
-    target.className = 'prod-job__target';
-    target.textContent = job.target;
-
-    var track = document.createElement('div');
-    track.className = 'prod-progress__track prod-job__track';
-
-    var fill = document.createElement('div');
-    fill.className = 'prod-progress__fill prod-job__fill' +
-      (job.done ? '' : ' prod-progress__fill--generating');
-    fill.setAttribute('data-role', 'job-fill');
-    fill.style.width = Math.min(100, job.pct).toFixed(1) + '%';
-    track.appendChild(fill);
-
-    var meta = document.createElement('p');
-    meta.className = 'prod-job__meta';
-    meta.setAttribute('data-role', 'job-meta');
-    meta.textContent = jobMetaText(job);
-
-    li.appendChild(head);
-    li.appendChild(target);
-    li.appendChild(track);
-    li.appendChild(meta);
-    return li;
-  }
-
-  function renderQueue() {
-    if (!queueList) { return; }
-    while (queueList.firstChild) { queueList.removeChild(queueList.firstChild); }
-    var i;
-    for (i = 0; i < queueState.jobs.length; i++) {
-      queueList.appendChild(buildJobNode(queueState.jobs[i], false));
+    var feed = $('#prod-activity-list');
+    if (feed) {
+      feed.innerHTML = entries.length ? entries.slice(0, 8).map(function (e) {
+        return '<li class="prod-event prod-event--' + e.cls + '">' +
+          '<span class="prod-event__time">' + e.tag + '</span>' +
+          '<span class="prod-event__text">' + escHtml(e.text) + '</span></li>';
+      }).join('') :
+      '<li class="prod-event prod-event--cyan"><span class="prod-event__time">&mdash;</span>' +
+      '<span class="prod-event__text">Quiet — this feed fills in as the team works in the modules.</span></li>';
     }
+    setText('#prod-activity-meta', entries.length ? 'LIVE STATE' : 'WAITING');
   }
-
-  function updateJobNode(job) {
-    if (!queueList) { return; }
-    var li = queueList.querySelector('[data-job-id="' + job.id + '"]');
-    if (!li) { return; }
-    var pct = li.querySelector('[data-role="job-pct"]');
-    var fill = li.querySelector('[data-role="job-fill"]');
-    var meta = li.querySelector('[data-role="job-meta"]');
-    if (pct) { pct.textContent = job.done ? 'DONE' : Math.floor(job.pct) + '%'; }
-    if (fill) {
-      fill.style.width = Math.min(100, job.pct).toFixed(1) + '%';
-      if (job.done) {
-        fill.classList.remove('prod-progress__fill--generating');
-      }
-    }
-    if (meta) { meta.textContent = jobMetaText(job); }
-    if (job.done) { li.classList.add('is-done'); }
-  }
-
-  function retireJob(job) {
-    /* collapse the row, remove from state, append a fresh job */
-    var idx = queueState.jobs.indexOf(job);
-    if (idx !== -1) { queueState.jobs.splice(idx, 1); }
-    var fresh = makeJob();
-    queueState.jobs.push(fresh);
-    writeStore(KEYS.queue, queueState);
-
-    if (!queueList) { return; }
-    var li = queueList.querySelector('[data-job-id="' + job.id + '"]');
-    var append = function () {
-      if (queueList) { queueList.appendChild(buildJobNode(fresh, true)); }
-    };
-    if (li && !reducedMotion) {
-      li.classList.add('is-leaving');
-      later(function () {
-        if (li.parentNode) { li.parentNode.removeChild(li); }
-        append();
-      }, 220);
-    } else {
-      if (li && li.parentNode) { li.parentNode.removeChild(li); }
-      append();
-    }
-  }
-
-  /* Core 1.2s interval — the queue's heartbeat. */
-  var QUEUE_TICK_MS = 1200;
-
-  every(function () {
-    if (document.hidden) { queueState.lastTick = Date.now(); return; }
-
-    var now = Date.now();
-    /* clamp elapsed so a slept tab advances at most one generous beat */
-    var elapsedSec = Math.min((now - (queueState.lastTick || now)) / 1000, 4);
-    queueState.lastTick = now;
-    if (elapsedSec <= 0) { return; }
-
-    var i;
-    for (i = 0; i < queueState.jobs.length; i++) {
-      var job = queueState.jobs[i];
-      if (job.done) {
-        if (now - job.doneAt >= 5000 && !job.retiring) {
-          job.retiring = true;
-          retireJob(job);
-        }
-        continue;
-      }
-      job.pct += job.rate * elapsedSec * rand(0.5, 1.5);
-      if (job.pct >= 100) {
-        job.pct = 100;
-        job.done = true;
-        job.doneAt = now;
-        pushEvent('ok', 'Render complete — ' + job.id + ' — ', job.target.split(' — ')[0]);
-      }
-      updateJobNode(job);
-    }
-    writeStore(KEYS.queue, queueState);
-  }, QUEUE_TICK_MS);
-
-  /* Cluster telemetry footer — re-randomized every 5s. */
-  every(function () {
-    if (!telemetryEl || document.hidden) { return; }
-    var active = 0;
-    var i;
-    for (i = 0; i < queueState.jobs.length; i++) {
-      if (!queueState.jobs[i].done) { active++; }
-    }
-    telemetryEl.textContent =
-      'GPU ' + randInt(84, 97) + '% · ' +
-      'VRAM ' + randInt(62, 88) + '% · ' +
-      'TEMP ' + randInt(58, 71) + '°C · ' +
-      'QUEUE ' + active;
-  }, 5000);
-
-  /* --------------------------------------------------------------
-     5 · BOOT
-     -------------------------------------------------------------- */
 
   /* --------------------------------------------------------------
      5B · BUDGET ESTIMATOR
@@ -2970,9 +2485,9 @@ select.prod-field__input {
     }
 
     if (estimateActive) {
-      statsState.budget = pctRounded;
-      writeStore(KEYS.stats, statsState);
-      renderStats(els.budget);
+      setText('#prod-stat-budget', pctRounded + '%');
+      var estFill = $('#prod-budget-fill');
+      if (estFill) { estFill.style.width = Math.min(100, Math.max(0, pctRounded)) + '%'; }
       if (estEls.budgetDelta) {
         estEls.budgetDelta.textContent = 'Estimate · ' + prod.tiers.scale.label;
       }
@@ -3027,34 +2542,10 @@ select.prod-field__input {
     estRender();
   }
 
-  renderActivity();
-  renderStats(null);
-  redrawSpark();
-  renderAllProjects();
-  renderQueue();
-
-  /* persist the (possibly seeded) baseline immediately so a refresh
-     resumes from identical state even before the first tick */
-  writeStore(KEYS.stats, statsState);
-  writeStore(KEYS.projects, projectsState);
-  writeStore(KEYS.queue, queueState);
-  writeStore(KEYS.activity, activityState);
-
   initEstimator();
-
-  scheduleFramesTick();
-  scheduleHoursTick();
-  scheduleBudgetTick();
-  scheduleSparkTick();
-  schedulePipelineFooter();
-  scheduleAmbientEvent();
-
-  (function () {
-    var i;
-    for (i = 0; i < projectsState.list.length; i++) {
-      scheduleProjectTick(projectsState.list[i]);
-    }
-  })();
+  renderLive();
+  every(renderLive, 30000);
+  window.addEventListener('focus', renderLive);
 
   /* Reveal fallback — if the host page never calls
      CinamateFX.reveal(), make sure nothing stays hidden. */
