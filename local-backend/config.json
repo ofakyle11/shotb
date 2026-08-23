@@ -15,14 +15,16 @@
     "grok-imagine": "quality_i2v.api.json",
     "seedance-2.0-turbo": "svd_xt.api.json",
     "sora-2": "quality_i2v.api.json",
-    "veo-3.1": "quality_i2v.api.json"
+    "veo-3.1": "quality_i2v.api.json",
+    "local-comfy": "wan_i2v.api.json"
   },
   "model_image_workflows": {
     "flux-xai": "txt2img.api.json",
     "wan-2.7": "txt2img.api.json",
     "nano-banana": "txt2img.api.json",
     "nano-banana-pro": "txt2img.api.json",
-    "gpt-image-2": "txt2img.api.json"
+    "gpt-image-2": "txt2img.api.json",
+    "local-comfy": "txt2img.api.json"
   },
   "export": {
     "container": "mp4",

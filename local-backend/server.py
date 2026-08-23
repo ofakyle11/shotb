@@ -122,7 +122,12 @@ def cors_headers(handler: BaseHTTPRequestHandler) -> None:
     origin = handler.headers.get("Origin", "*")
     handler.send_header("Access-Control-Allow-Origin", origin or "*")
     handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-    handler.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    handler.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+    # Chrome treats https://…  ->  http://127.0.0.1 as a public->private request and
+    # sends a Private Network Access preflight. Without this header the browser
+    # blocks the call before it ever reaches us, and the Studio reports the bridge
+    # as unreachable even though it is running.
+    handler.send_header("Access-Control-Allow-Private-Network", "true")
     handler.send_header("Access-Control-Max-Age", "86400")
 
 
@@ -665,6 +670,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     "max_wait_sec": CONFIG.get("max_wait_sec", 1800),
                     "poll_interval_sec": CONFIG.get("poll_interval_sec", 2),
                     "gpu": gpu_status(),
+                    "ffmpeg": bool(shutil.which("ffmpeg")),
                     "api": api_status(),
                     "prefer_api": CONFIG.get("prefer_api", False),
                     "modes": {
