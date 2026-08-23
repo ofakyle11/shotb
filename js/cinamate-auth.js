@@ -152,8 +152,26 @@
     );
   }
 
-  // requireSession(): parsed session object, or redirect to index.html
-  // and return null when absent/malformed.
+  // cookieOperator(): owner short from an unexpired cin_owner cookie set by
+  // /login.html, or null. The server gate already validated the signature to
+  // deliver this page at all — the client only reads name + expiry for UI.
+  function cookieOperator() {
+    try {
+      const m = /(?:^|;\s*)cin_owner=([^;]+)/.exec(document.cookie || '');
+      if (!m) return null;
+      const parts = decodeURIComponent(m[1]).split(':');
+      if (parts.length !== 4 || parts[0] !== 'owner') return null;
+      const exp = parseInt(parts[2], 10);
+      if (!exp || Date.now() > exp) return null;
+      return String(parts[1]).toUpperCase();
+    } catch (err) {
+      return null;
+    }
+  }
+
+  // requireSession(): parsed session object, or redirect to the sign-in page
+  // and return null when absent/malformed. A valid owner cookie counts as a
+  // session and seeds one (e.g. a fresh tab straight to the dashboard).
   function requireSession() {
     try {
       const raw = sessionStorage.getItem(SESSION_KEY);
@@ -164,7 +182,14 @@
       }
       return session;
     } catch (err) {
-      window.location.replace('index.html');
+      const fromCookie = cookieOperator();
+      if (fromCookie) {
+        const session = { operator: fromCookie, t: Date.now() };
+        try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch (e2) { /* no-op */ }
+        return session;
+      }
+      window.location.replace('login.html?to=' +
+        encodeURIComponent(window.location.pathname || '/dashboard.html'));
       return null;
     }
   }
@@ -173,10 +198,10 @@
   function operator() {
     try {
       const raw = sessionStorage.getItem(SESSION_KEY);
-      if (!raw) return null;
+      if (!raw) return cookieOperator();
       const session = JSON.parse(raw);
       if (!session || typeof session.operator !== 'string' || session.operator === '') {
-        return null;
+        return cookieOperator();
       }
       return session.operator;
     } catch (err) {
@@ -184,11 +209,14 @@
     }
   }
 
-  // signOut(): clear session, return to the gate.
+  // signOut(): clear session + owner cookie, return to the front page.
   function signOut() {
     try {
       sessionStorage.removeItem(SESSION_KEY);
     } catch (err) { /* storage unavailable — still redirect */ }
+    try {
+      document.cookie = 'cin_owner=; Path=/; Max-Age=0; Secure; SameSite=Lax';
+    } catch (err) { /* no-op */ }
     window.location.replace('index.html');
   }
 

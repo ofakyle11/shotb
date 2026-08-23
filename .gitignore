@@ -1,25 +1,24 @@
+
+!.env.example
+!local-backend/images/.gitkeep
+!local-backend/output/.gitkeep
+# Internal AI tooling (not part of the site)
+# OS / editor
+# Private ops docs (credentials live in Netlify env only)
 # Secrets and local ops (never publish)
-my-owner-pws.txt
-TEST_OWNER_LOGINS.local.txt
 *.latest-backup
+*.log
+.DS_Store
 .env
 .env.*
-!.env.example
-local-backend/.env
-local-backend/output/*
-!local-backend/output/.gitkeep
-local-backend/images/*
-!local-backend/images/.gitkeep
-local-backend/uploads/
-local-backend/__pycache__/
-
-# Internal AI tooling (not part of the site)
 .grok/
-
-# Private ops docs (credentials live in Netlify env only)
-docs/private/
-
-# OS / editor
-.DS_Store
+TEST_OWNER_LOGINS.local.txt
 Thumbs.db
-*.log
+docs/private/
+local-backend/.env
+local-backend/__pycache__/
+local-backend/images/*
+local-backend/output/*
+local-backend/uploads/
+my-owner-pws.txt
+node_modules
