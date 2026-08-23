@@ -105,8 +105,10 @@ exports.handler = async (event) => {
     // _headers never applies to function responses, so the gated app carries
     // its own policy. 'unsafe-inline' is required while pages ship inline
     // script; everything else is locked to our own origin plus the two
-    // research APIs and the local bridge.
-    'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; media-src 'self' blob: data:; connect-src 'self' blob: data: https://api.themoviedb.org https://query.wikidata.org http://127.0.0.1:* http://localhost:*"
+    // research APIs and the generation bridge on the operator's own machine —
+    // which the page must be able to call AND to load rendered frames and
+    // clips from, hence localhost in img-src and media-src as well.
+    'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: http://127.0.0.1:* http://localhost:*; media-src 'self' blob: data: http://127.0.0.1:* http://localhost:*; connect-src 'self' blob: data: https://api.themoviedb.org https://query.wikidata.org http://127.0.0.1:* http://localhost:*"
   };
   // Legacy /app.html predates the gate and is built on Firebase, so it needs
   // its vendor origins allowed. Scoped to that one path — every current module
