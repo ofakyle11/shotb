@@ -29,7 +29,7 @@
   /* ── scene rail ─────────────────────────────────────────────────── */
   function renderScenes() {
     $('bdSceneList').innerHTML = project.scenes.map(function (s) {
-      return '<div class="bd-scene' + (s.id === curScene ? ' on' : '') + '" data-sc="' + s.id + '">' +
+      return '<div class="bd-scene' + (s.id === curScene ? ' on' : '') + '" data-sc="' + esc(s.id) + '">' +
         '<b>' + esc(s.slug) + '</b><span>' + (s.shots || []).length + ' shots · ' +
         (s.shots || []).filter(function (x) { return x.img; }).length + ' framed</span></div>';
     }).join('') || '<p class="bd-dim">Seed from the script, or add scenes by hand.</p>';
@@ -41,7 +41,7 @@
   /* ── shot cards ─────────────────────────────────────────────────── */
   function shotCard(sh, i) {
     function opts(list, cur) { return list.map(function (o) { return '<option' + (o === cur ? ' selected' : '') + '>' + o + '</option>'; }).join(''); }
-    return '<div class="bd-shot" data-shot="' + sh.id + '">' +
+    return '<div class="bd-shot" data-shot="' + esc(sh.id) + '">' +
       '<div class="bd-frame">' +
       (sh.img ? '<img src="' + esc(sh.img) + '" alt="">' : '<div class="bd-ph">No frame yet — grab one from a rendered clip, upload, or generate</div>') +
       '<div class="bd-framebtns">' +

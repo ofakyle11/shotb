@@ -34,13 +34,55 @@
     return out;
   }
 
-  function writeStores(store, stores) {
+  /* ── incoming-archive sanitiser ───────────────────────────────────
+     A production can arrive from another owner (studio cloud) or from a
+     file someone was sent. Modules interpolate identifier-shaped fields —
+     record ids, account codes, image and video URLs — straight into HTML
+     attributes, so a hostile value in one of those would run as script in
+     the reader's session. Prose fields (script text, notes, descriptions)
+     are left exactly as written: they are rendered as text, and mangling
+     them would corrupt real work.                                      */
+  var UNSAFE_FIELD = /^(id|uid|key|acct|account|num|no|code|slug|ref|src|url|img|image|thumb|photo|plate|poster|frame|href|link|status|type|kind|unit|tier|scope)$/i;
+  var URLISH_FIELD = /^(src|url|img|image|thumb|photo|plate|poster|frame|href|link|refurl|plateurl)$/i;
+  function cleanField(name, v) {
+    if (typeof v !== 'string') return v;
+    if (URLISH_FIELD.test(name)) {
+      // Only shapes the app itself produces; anything else becomes empty.
+      return /^(https?:\/\/|blob:|data:image\/(png|jpe?g|webp|gif);base64,|data:video\/(mp4|webm);base64,|\/)/i.test(v)
+        && !/["'<>]/.test(v) ? v : '';
+    }
+    return v.replace(/[<>"']/g, '');
+  }
+  function scrub(node, key) {
+    if (node === null || typeof node !== 'object') return cleanField(key || '', node);
+    if (Object.prototype.toString.call(node) === '[object Array]') {
+      for (var i = 0; i < node.length; i++) node[i] = scrub(node[i], key);
+      return node;
+    }
+    Object.keys(node).forEach(function (k) {
+      if (k === '__proto__' || k === 'constructor' || k === 'prototype') { delete node[k]; return; }
+      node[k] = (typeof node[k] === 'object' && node[k] !== null)
+        ? scrub(node[k], k)
+        : (UNSAFE_FIELD.test(k) ? cleanField(k, node[k]) : node[k]);
+    });
+    return node;
+  }
+  function sanitizeStoreValue(raw) {
+    var parsed;
+    try { parsed = JSON.parse(raw); } catch (e) { return raw; }  // not JSON — stored as-is
+    if (parsed === null || typeof parsed !== 'object') return raw;
+    try { return JSON.stringify(scrub(parsed, '')); } catch (e) { return raw; }
+  }
+
+  function writeStores(store, stores, opts) {
     // clear existing project keys first so stale modules don't survive
     allKeys(store).forEach(function (k) { store.removeItem(k); });
+    var foreign = !opts || opts.trusted !== true;   // default: treat as untrusted
     var n = 0;
     Object.keys(stores || {}).forEach(function (k) {
       if (!KEY_RE.test(k)) return; // never restore non-project keys
-      store.setItem(k, String(stores[k]));
+      var v = String(stores[k]);
+      store.setItem(k, foreign ? sanitizeStoreValue(v) : v);
       n++;
     });
     return n;
@@ -94,7 +136,7 @@
     if (name === m.active) return m;
     m.slots[m.active] = { savedAt: when || '', stores: snapshot(store) };
     var target = m.slots[name];
-    writeStores(store, target ? target.stores : {});
+    writeStores(store, target ? target.stores : {}, { trusted: true });  // your own slot — never mangle it
     m.active = name;
     if (!m.slots[name]) m.slots[name] = { savedAt: when || '', stores: {} };
     saveMeta(store, m);
@@ -105,7 +147,7 @@
   function newProject(store, name, when) {
     var m = meta(store);
     m.slots[m.active] = { savedAt: when || '', stores: snapshot(store) };
-    writeStores(store, {});
+    writeStores(store, {}, { trusted: true });
     m.active = name;
     m.slots[name] = { savedAt: when || '', stores: {} };
     saveMeta(store, m);
