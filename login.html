@@ -46,12 +46,17 @@ button:disabled{opacity:.5;cursor:wait}
   'use strict';
   var f = document.getElementById('f'), err = document.getElementById('err'), go = document.getElementById('go');
   function dest() {
+    var HOME = '/dashboard.html';
     try {
-      var to = new URLSearchParams(location.search).get('to') || '/dashboard.html';
-      /* same-site paths only — never an off-site redirect */
-      if (to.charAt(0) !== '/' || to.charAt(1) === '/') return '/dashboard.html';
-      return to;
-    } catch (e) { return '/dashboard.html'; }
+      var to = new URLSearchParams(location.search).get('to') || HOME;
+      /* Same-site paths only. Character checks alone are not enough: browsers
+         normalise backslashes to slashes, so "/\evil.com" would read as a
+         protocol-relative URL. Resolve it and require our own origin. */
+      if (to.charAt(0) !== '/' || /[\\\r\n\t]/.test(to)) return HOME;
+      var u = new URL(to, location.origin);
+      if (u.origin !== location.origin) return HOME;
+      return u.pathname + u.search + u.hash;
+    } catch (e) { return HOME; }
   }
   f.addEventListener('submit', function (ev) {
     ev.preventDefault();

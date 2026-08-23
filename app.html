@@ -310,7 +310,7 @@ window.safeSignIn = safeSignIn;
       <span class="user-pill-name" id="uNm">Kyle</span>
       <div class="user-menu" id="uMenu">
         <a onclick="showMode('media');mhEnsureUnifiedStudio()">Edit Studio</a>
-        <a onclick="window.open('https://billing.stripe.com/p/login/8x2eVebPLcQ707J0Pt1ck00','_blank');document.getElementById('uMenu').classList.remove('open')">Manage Subscription</a>
+        <a onclick="window.open('','_blank');document.getElementById('uMenu').classList.remove('open')">Manage Subscription</a>
         <a class="red" onclick="doLogout()">Log Out</a>
       </div>
     </div>
@@ -375,7 +375,7 @@ window.safeSignIn = safeSignIn;
     </div>
   </div>
   <div id="upgradeBox" style="display:none" class="locked-msg">
-    <p>Upgrade to Creator ($14.99/mo) to unlock unlimited projects, reverse mode, character studio, and all exports.</p>
+    <p>Upgrade to Creator to unlock unlimited projects, reverse mode, character studio, and all exports.</p>
     <button class="b b-gold" onclick="subscribeToPlan('creator')">Upgrade Now</button>
   </div>
 </div>
@@ -1920,10 +1920,10 @@ async function loadUser(fbUser){
 // Without this, the webhook would receive a payment event with no way to
 // map it back to a CINAMATE account.
 const STRIPE_LINKS={
-  creator:    'https://buy.stripe.com/6oUaEYf1X7vNf2D8hV1ck02',
-  studio:     'https://buy.stripe.com/cNi9AU4nj9DV1bNbu71ck03',
-  production: 'https://buy.stripe.com/6oU7sM4nj9DV8Ef41F1ck04',
-  enterprise: 'https://buy.stripe.com/4gM8wQcTPeYf8Ef9lZ1ck08'
+  creator:    '',
+  studio:     '',
+  production: '',
+  enterprise: ''
 };
 function subscribeToPlan(plan){
   const link=STRIPE_LINKS[plan];
@@ -5891,7 +5891,7 @@ async function mhCharGenerate(idx){
   if(c.locked)return;
   if(!c.description.trim()){alert('Write a description first.');return}
   if(!curUser){alert('Not logged in.');return}
-  if(curUser.tier==='free'&&!curUser.isOwner){alert('Image generation requires Creator ($14.99/mo) or above.');return}
+  if(curUser.tier==='free'&&!curUser.isOwner){alert('Image generation requires Creator or above.');return}
   const modelEl=document.getElementById('mhCharModel_'+idx);
   const model=(modelEl&&modelEl.value)?modelEl.value:'flux-xai';
   const btn=document.getElementById('mhCharGenBtn_'+idx);
@@ -5939,7 +5939,7 @@ function mhRenderGenerate(){
   const genBtn=document.getElementById('mhGenerateBtn');
   if(!tierOK){
     const list=document.getElementById('mhShotQueue');
-    list.innerHTML='<div style="padding:24px;background:var(--surface2);border:1px solid var(--gold-border);border-radius:10px;text-align:center"><div style="font-size:32px;margin-bottom:8px">🔒</div><div style="font-weight:700;color:var(--gold);margin-bottom:6px">Studio Plan Required</div><div style="color:var(--dim);font-size:13px;margin-bottom:14px">Video generation needs Studio ($29.99/mo) or above. Your script, backgrounds, and characters are already locked in — they\'ll be here when you upgrade.</div><button class="b b-gold" onclick="subscribeToPlan(\'studio\')">Upgrade to Studio</button></div>';
+    list.innerHTML='<div style="padding:24px;background:var(--surface2);border:1px solid var(--gold-border);border-radius:10px;text-align:center"><div style="font-size:32px;margin-bottom:8px">🔒</div><div style="font-weight:700;color:var(--gold);margin-bottom:6px">Studio Plan Required</div><div style="color:var(--dim);font-size:13px;margin-bottom:14px">Video generation needs Studio or above. Your script, backgrounds, and characters are already locked in — they\'ll be here when you upgrade.</div><button class="b b-gold" onclick="subscribeToPlan(\'studio\')">Upgrade to Studio</button></div>';
     document.getElementById('mhCostEstimate').textContent='';
     genBtn.disabled=true;genBtn.textContent='🔒 Studio+ Required';
     return;
@@ -6013,7 +6013,7 @@ async function mhGenerateShot(si,shi){
   try{
     const p=projectLoad();if(!p||!p.scenes[si]||!p.scenes[si].shots[shi])return;
     if(!curUser && !isLocalOnly()){alert('Not logged in.');return}
-    if(!hasStudioAccess()){alert('Video generation requires Studio ($29.99/mo) or above.');return}
+    if(!hasStudioAccess()){alert('Video generation requires Studio or above.');return}
     const model=document.getElementById('mhVidModel').value;
     const scene=p.scenes[si], shot=p.scenes[si].shots[shi];
     const bibleCharacters=mhGetBibleCharacters();
@@ -6047,7 +6047,7 @@ async function mhGenerateShot(si,shi){
 async function mhGenerateScene(si){
   const p=projectLoad();if(!p||!p.scenes[si])return;
   if(!curUser){alert('Not logged in.');return}
-  if(!hasStudioAccess()){alert('Video generation requires Studio ($29.99/mo) or above.');return}
+  if(!hasStudioAccess()){alert('Video generation requires Studio or above.');return}
   const model=document.getElementById('mhVidModel').value;
   const scene=p.scenes[si];
   const shots=scene.shots||[];
@@ -6263,7 +6263,7 @@ let _mhGenState={running:false,jobs:[]};
 async function mhStartGeneration(){
   const p=projectLoad();if(!p){alert('No project loaded.');return}
   if(!curUser && !isLocalOnly()){alert('Please log in first.');return}
-  if(!hasStudioAccess()){alert('Video generation requires Studio ($29.99/mo) or above.');return}
+  if(!hasStudioAccess()){alert('Video generation requires Studio or above.');return}
   if(_mhGenState.running){alert('Already running.');return}
   const model = (document.getElementById('videoModelSelect') ? document.getElementById('videoModelSelect').value : document.getElementById('mhVidModel').value);
   const stitchMode=document.getElementById('mhStitchMode').value;
