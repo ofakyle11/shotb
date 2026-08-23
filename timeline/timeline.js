@@ -123,7 +123,7 @@ function initAuth(){
       if(r.ok){const d=await r.json();if(d&&d.token){setOwnerSession(d.name,d.token,d.expires);return}}
     }catch(e){}
     // 2. Firebase email/password fallback
-    if(!auth){err.textContent='Invalid login (and Firebase unavailable on this page)';err.style.display='block';return}
+    if(!auth){err.textContent='That login did not match. Use your owner short and password.';err.style.display='block';return}
     try{await auth.signInWithEmailAndPassword(emailRaw.includes('@')?emailRaw:short+'@shotbreak.io',pw)}
     catch(e){err.textContent='Invalid username or password';err.style.display='block'}
   };

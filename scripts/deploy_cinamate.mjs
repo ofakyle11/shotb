@@ -106,7 +106,11 @@ async function minifyJs(code, label) {
 if (terser) {
   let files = 0, inline = 0;
   for (const p of walk(site)) {
-    if (p.endsWith('.js')) {
+    const relPath = relative(site, p).replace(/\\/g, '/');
+    // Third-party libraries under static/ ship as their vendors published them:
+    // they are already minified, and re-mangling a 1 MB worker risks breaking it.
+    const isVendor = relPath.startsWith('static/');
+    if (p.endsWith('.js') && !isVendor) {
       writeFileSync(p, await minifyJs(readFileSync(p, 'utf8'), relative(site, p)));
       files++;
     } else if (p.endsWith('.html')) {
