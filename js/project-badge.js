@@ -96,9 +96,10 @@
     var keys = [];
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
-      /* SB_LocalGPU_v1 holds this machine's bridge address and API key.
-         The studio cloud is shared by every owner, so it must never go up. */
-      if (/^SB_[A-Za-z0-9]+_v\d+$/.test(k) && !/^SB_LocalGPU_v\d+$/i.test(k)) keys.push(k);
+      /* SB_LocalGPU_v1 holds this machine's bridge address and API key;
+         SB_TMDB_v1 holds a personal API key. The studio cloud is shared by
+         every owner, so neither may ever go up. */
+      if (/^SB_[A-Za-z0-9]+_v\d+$/.test(k) && !/^SB_(LocalGPU|TMDB)_v\d+$/i.test(k)) keys.push(k);
     }
     keys.sort();
     var out = {};
@@ -117,6 +118,14 @@
       : state === 'warn' ? 'rgba(201,168,108,.7)' : 'rgba(139,163,184,.28)';
     if (title) b.title = title;
   }
+  /* What the cloud held the last time this tab looked. Used to notice that
+     someone else has saved since, which the previous version could not do:
+     it only consulted the guard before its FIRST push and trusted itself
+     unconditionally thereafter, so a tab left open all day would quietly
+     overwrite every colleague who saved in the meantime. */
+  var lastSeenSavedAt = null;
+  var lastSeenVer = null;
+
   function autoSync(viaBeacon) {
     var me = cookieOwner();
     if (!me) return;
@@ -128,35 +137,79 @@
     var archive = JSON.stringify({ format: 'cinamate/1', name: name,
       savedAt: 'auto', stores: JSON.parse(stores) });
     if (archive.length > 3800000) return;            // near the cloud cap — manual push territory
-    var body = JSON.stringify({ op: 'push', name: name, archive: archive });
-    if (viaBeacon && navigator.sendBeacon && lastSafe) {
-      navigator.sendBeacon('/.netlify/functions/projects-sync', body);
-      lastPushedHash = h;
+    /* Declaring the version we believe we are replacing lets the server refuse
+       a push from a tab whose picture of the cloud is out of date, instead of
+       burying whatever arrived in the meantime. */
+    function pushBody() {
+      var b = { op: 'push', name: name, archive: archive };
+      if (lastSeenVer !== null) b.ifVer = lastSeenVer;
+      return JSON.stringify(b);
+    }
+    var body = pushBody();
+
+    /* A beacon cannot read a response, so it can never check anything. It is
+       only safe when a check performed moments ago is still good — meaning we
+       have pushed this production before and nobody has saved over it since.
+       Otherwise the page is closing and the right thing is to skip: the work
+       is still on this device, and losing a colleague's day is worse than
+       losing four minutes of autosave. */
+    if (viaBeacon) {
+      if (navigator.sendBeacon && lastSafe && lastPushedHash !== null) {
+        navigator.sendBeacon('/.netlify/functions/projects-sync', body);
+        lastPushedHash = h;
+      }
       return;
     }
-    /* safety check first: never clobber another owner's newer save */
+
+    /* Every push re-checks — not just the first. */
     fetch('/.netlify/functions/projects-sync?op=list', { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         if (!j) { lastSafe = false; return; }
         var mine = (j.productions || []).filter(function (p) { return p.name === name; })[0];
-        if (mine && mine.savedBy && mine.savedBy !== me && lastPushedHash === null) {
+        var savedBy = mine && mine.savedBy;
+        var savedAt = mine && mine.savedAt;
+        lastSeenVer = mine && typeof mine.ver === 'number' ? mine.ver : null;
+        body = pushBody();
+
+        /* Hold back if the cloud copy belongs to someone else and we have not
+           already taken ownership of it, OR if it moved under us since we last
+           looked — that second case is a colleague saving while this tab sat
+           open, which the old guard was blind to. */
+        var foreignAndUntouched = savedBy && savedBy !== me && lastPushedHash === null;
+        var movedSinceWeLooked = lastSeenSavedAt !== null && savedAt && savedAt !== lastSeenSavedAt &&
+                                 savedBy && savedBy !== me;
+        if (foreignAndUntouched || movedSinceWeLooked) {
           lastSafe = false;
-          markBadge('warn', 'Cloud copy of "' + name + '" was saved by ' + mine.savedBy.toUpperCase() +
+          lastSeenSavedAt = savedAt || lastSeenSavedAt;
+          markBadge('warn', 'Cloud copy of "' + name + '" was saved by ' +
+            String(savedBy).toUpperCase() + (savedAt ? ' at ' + savedAt : '') +
             ' — open Projects to pull it or push over it deliberately. Auto-sync is holding back.');
           return;
         }
+
         lastSafe = true;
         return fetch('/.netlify/functions/projects-sync', {
           method: 'POST', credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' }, body: body
         }).then(function (r2) {
-          if (r2.ok) {
+          if (r2.status === 409) {
+            lastSafe = false;
+            lastSeenVer = null;             // re-read the cloud on the next pass
+            markBadge('warn', '"' + name + '" changed in the studio cloud while this tab was open — ' +
+              'open Projects to pull it before saving over it. Auto-sync is holding back.');
+            return null;
+          }
+          return r2.ok ? r2.json().catch(function () { return {}; }) : null;
+        })
+          .then(function (saved) {
+            if (!saved) return;
             lastPushedHash = h;
+            lastSeenSavedAt = saved.savedAt || lastSeenSavedAt;
+            if (typeof saved.ver === 'number') lastSeenVer = saved.ver;
             markBadge('ok', 'Active project — auto-saved to the studio cloud ' +
               new Date().toTimeString().slice(0, 5) + '. Click to manage.');
-          }
-        });
+          });
       })
       .catch(function () { /* offline — next tick retries */ });
   }

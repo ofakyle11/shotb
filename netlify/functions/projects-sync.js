@@ -11,8 +11,10 @@
 //
 // Ops:  GET  ?op=list                  → { productions: [{name, savedAt, savedBy, bytes}] }
 //       GET  ?op=pull&name=X           → { name, savedAt, savedBy, archive }
-//       POST {op:'push', name, archive}→ { ok, savedAt }
-//       POST {op:'delete', name}       → { ok }
+//       POST {op:'push', name, archive, ifVer?} → { ok, savedAt, ver }  (409 if ver moved)
+//       POST {op:'delete', name}       → { ok, recoverable, deletedBy }
+//       GET  ?op=versions&name=X       → { versions: [...], deleted: {...}|null }
+//       POST {op:'restore', name, slot?}→ { ok, restoredFrom }
 // ═══════════════════════════════════════════════════════════════════════════
 
 const { createHmac, timingSafeEqual } = require('crypto');
@@ -21,6 +23,12 @@ const NAMES = ['mz465', 'kz465', 'hz465', 'rz465', 'dz465'];
 const STORE = 'cinamate-projects';
 const INDEX_KEY = '_index';
 const MAX_ARCHIVE_BYTES = 4 * 1024 * 1024; // localStorage-sized projects, not media
+/* How many superseded copies of a production to keep. A single "previous" slot
+   was worthless in practice: background auto-sync pushes every few minutes, so
+   two quiet cycles pushed the only recoverable copy off the end and a mistake
+   made ten minutes ago was already unrecoverable. A ring gives a real window. */
+const VERSION_KEEP = 8;
+const verKey = (name, n) => 'v:' + n + ':' + name;
 const FORMAT = 'cinamate/1';
 
 function respond(statusCode, body) {
@@ -99,7 +107,7 @@ function cleanName(name) {
     .replace(/[\u0000-\u001f\u007f]/g, '')   // control chars never belong in a title
     .trim().slice(0, 80);
   if (!n || n === INDEX_KEY) return null;
-  if (/^(p:|prev:|_)/.test(n)) return null;  // never let a title impersonate a reserved key
+  if (/^(p:|prev:|v:|tomb:|_)/.test(n)) return null;  // never let a title impersonate a reserved key
   if (n === '__proto__' || n === 'constructor' || n === 'prototype') return null;
   return n;
 }
@@ -138,7 +146,8 @@ exports.handler = async (event) => {
       if (!idx.trusted) return respond(502, { error: 'Could not read the studio cloud catalog — try again' });
       const productions = Object.keys(idx.productions).sort().map((n) => {
         const p = idx.productions[n] || {};
-        return { name: n, savedAt: p.savedAt || '', savedBy: p.savedBy || '', bytes: p.bytes || 0 };
+        return { name: n, savedAt: p.savedAt || '', savedBy: p.savedBy || '',
+                 bytes: p.bytes || 0, ver: typeof p.ver === 'number' ? p.ver : 0 };
       });
       return respond(200, { productions });
     }
@@ -171,55 +180,151 @@ exports.handler = async (event) => {
         return respond(413, { error: 'Production too large for the cloud (4 MB limit) — export a file instead' });
       }
       const savedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
-      /* Keep the copy we are about to replace. Owners share this namespace,
-         so an overwrite — accidental or hostile — must be recoverable. */
+      const idxBefore = await readIndex();
+      const known = idxBefore.trusted ? idxBefore.productions[name] : null;
+
+      /* Optimistic concurrency: a caller may declare which version it believes
+         it is replacing. If the cloud has moved on since, refuse rather than
+         bury the newer save — a stale tab must not silently win.
+
+         This compares the version counter, not savedAt. Timestamps here have
+         minute granularity, so two saves inside the same minute look identical
+         and the check would pass exactly when a collision is most likely. */
+      const knownVer = (known && typeof known.ver === 'number') ? known.ver : 0;
+      if (body.ifVer != null && Number(body.ifVer) !== knownVer) {
+        return respond(409, {
+          error: 'This production changed in the cloud since you loaded it',
+          savedAt: known && known.savedAt, savedBy: known && known.savedBy, ver: knownVer,
+        });
+      }
+
+      /* Keep the copy being replaced, in a rotating ring so routine autosaves
+         cannot push a genuine mistake out of reach. */
       const prior = await blob('GET', 'p:' + name);
-      if (prior.ok && prior.text) await blob('PUT', 'prev:' + name, prior.text);
+      if (prior.ok && prior.text) {
+        const nextVer = ((known && typeof known.ver === 'number') ? known.ver : 0) + 1;
+        await blob('PUT', verKey(name, nextVer % VERSION_KEEP), prior.text);
+      }
+      const ver = ((known && typeof known.ver === 'number') ? known.ver : 0) + 1;
       const w = await blob('PUT', 'p:' + name,
-        JSON.stringify({ savedAt, savedBy: owner, archive: payload }));
+        JSON.stringify({ savedAt, savedBy: owner, ver, archive: payload }));
       if (!w.ok) return respond(502, { error: 'Cloud store rejected the save (' + w.status + ')' });
       const idx = await readIndex();
       if (!idx.trusted) {
-        return respond(200, { ok: true, savedAt, savedBy: owner,
+        return respond(200, { ok: true, savedAt, savedBy: owner, ver,
           warning: 'Saved, but the catalog could not be updated — it will re-list on the next successful save.' });
       }
-      idx.productions[name] = { savedAt, savedBy: owner, bytes: payload.length };
+      idx.productions[name] = { savedAt, savedBy: owner, bytes: payload.length, ver };
       await writeIndex(idx);
-      return respond(200, { ok: true, savedAt, savedBy: owner });
+      return respond(200, { ok: true, savedAt, savedBy: owner, ver });
     }
 
     if (op === 'delete') {
       const name = cleanName(body.name);
       if (!name) return respond(400, { error: 'name required' });
-      /* Soft delete: the bytes move aside rather than evaporating, so a
-         wrong click (or a hostile session) does not destroy a production. */
+      /* Soft delete: the bytes move into the version ring rather than
+         evaporating, so a wrong click does not destroy a production. */
+      const idxNow = await readIndex();
+      const meta = idxNow.trusted ? idxNow.productions[name] : null;
       const cur = await blob('GET', 'p:' + name);
-      if (cur.ok && cur.text) await blob('PUT', 'prev:' + name, cur.text);
-      await blob('DELETE', 'p:' + name);
-      const idx = await readIndex();
-      if (idx.trusted) {
-        delete idx.productions[name];
-        await writeIndex(idx);
+      let keptVer = null;
+      if (cur.ok && cur.text) {
+        keptVer = ((meta && typeof meta.ver === 'number') ? meta.ver : 0) + 1;
+        await blob('PUT', verKey(name, keptVer % VERSION_KEEP), cur.text);
+        /* Remember what was deleted and by whom — a production that vanishes
+           from the catalog with no trace is indistinguishable from one that
+           was never there, and nobody can tell whose mistake to undo. */
+        await blob('PUT', 'tomb:' + name, JSON.stringify({
+          deletedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          deletedBy: owner, ver: keptVer,
+          savedAt: meta && meta.savedAt, savedBy: meta && meta.savedBy,
+        }));
       }
-      return respond(200, { ok: true, recoverable: cur.ok });
+      await blob('DELETE', 'p:' + name);
+      if (idxNow.trusted) {
+        delete idxNow.productions[name];
+        await writeIndex(idxNow);
+      }
+      return respond(200, { ok: true, recoverable: cur.ok, deletedBy: owner });
+    }
+
+    if (op === 'versions') {
+      const name = cleanName(q.name || body.name);
+      if (!name) return respond(400, { error: 'name required' });
+      /* Nothing else enumerates the ring, so a deleted production was
+         unrecoverable in practice: you cannot restore what you cannot see. */
+      const out = [];
+      for (let n = 0; n < VERSION_KEEP; n++) {
+        const r = await blob('GET', verKey(name, n));
+        if (!r.ok || !r.text) continue;
+        try {
+          const v = JSON.parse(r.text);
+          out.push({ slot: n, savedAt: v.savedAt || '', savedBy: v.savedBy || '',
+                     ver: v.ver || null, bytes: (v.archive || '').length });
+        } catch (e) { /* unreadable slot — skip */ }
+      }
+      let tomb = null;
+      const tr = await blob('GET', 'tomb:' + name);
+      if (tr.ok && tr.text) { try { tomb = JSON.parse(tr.text); } catch (e) { /* ignore */ } }
+      out.sort((a2, b2) => String(b2.savedAt).localeCompare(String(a2.savedAt)));
+      return respond(200, { name, versions: out, deleted: tomb });
     }
 
     if (op === 'restore') {
       const name = cleanName(body.name);
       if (!name) return respond(400, { error: 'name required' });
-      const prev = await blob('GET', 'prev:' + name);
-      if (!prev.ok || !prev.text) return respond(404, { error: 'No previous copy of "' + name + '" is on file' });
-      const w = await blob('PUT', 'p:' + name, prev.text);
+      const slot = Number.isInteger(body.slot) ? body.slot : null;
+
+      let prev = null;
+      if (slot !== null) {
+        const r = await blob('GET', verKey(name, slot));
+        if (r.ok && r.text) prev = r.text;
+      } else {
+        /* No slot named: take the most recent copy in the ring. */
+        let best = null;
+        for (let n = 0; n < VERSION_KEEP; n++) {
+          const r = await blob('GET', verKey(name, n));
+          if (!r.ok || !r.text) continue;
+          try {
+            const v = JSON.parse(r.text);
+            if (!best || String(v.savedAt || '') > String(best.savedAt || '')) best = { ...v, _raw: r.text };
+          } catch (e) { /* skip */ }
+        }
+        if (best) prev = best._raw;
+      }
+      if (!prev) return respond(404, { error: 'No earlier copy of "' + name + '" is on file' });
+
+      /* Restoring is itself destructive — it replaces whatever is live now.
+         Keep that too, or "undo" becomes a second way to lose work. */
+      const idxNow = await readIndex();
+      const meta0 = idxNow.trusted ? idxNow.productions[name] : null;
+      const live = await blob('GET', 'p:' + name);
+      if (live.ok && live.text) {
+        const n2 = ((meta0 && typeof meta0.ver === 'number') ? meta0.ver : 0) + 1;
+        await blob('PUT', verKey(name, n2 % VERSION_KEEP), live.text);
+      }
+
+      const w = await blob('PUT', 'p:' + name, prev);
       if (!w.ok) return respond(502, { error: 'Cloud store rejected the restore (' + w.status + ')' });
       let meta = {};
-      try { meta = JSON.parse(prev.text) || {}; } catch (e) { /* keep defaults */ }
+      try { meta = JSON.parse(prev) || {}; } catch (e) { /* keep defaults */ }
+      const savedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
       const idx = await readIndex();
       if (idx.trusted) {
-        idx.productions[name] = { savedAt: meta.savedAt || '', savedBy: meta.savedBy || '',
-          bytes: (meta.archive || '').length };
+        /* Attribute the restore to whoever performed it, and keep the original
+           author beside it — the old code stamped the restorer's name onto
+           someone else's work, which is a lie the catalog then repeated. */
+        idx.productions[name] = {
+          savedAt, savedBy: owner,
+          restoredFrom: { savedAt: meta.savedAt || '', savedBy: meta.savedBy || '' },
+          bytes: (meta.archive || '').length,
+          ver: ((meta0 && typeof meta0.ver === 'number') ? meta0.ver : 0) + 2,
+        };
         await writeIndex(idx);
       }
-      return respond(200, { ok: true, savedAt: meta.savedAt || '', savedBy: meta.savedBy || '' });
+      await blob('DELETE', 'tomb:' + name);
+      return respond(200, { ok: true, savedAt, savedBy: owner,
+        restoredFrom: { savedAt: meta.savedAt || '', savedBy: meta.savedBy || '' } });
     }
 
     return respond(400, { error: 'Unknown op' });

@@ -1,0 +1,118 @@
+/* The studio cloud is shared by five owners and is the only copy of a
+ * production that lives off any one machine. A review found several ways to
+ * lose work permanently through it; each is reproduced here.
+ *
+ * Run: node scripts/test_cloud_safety.mjs
+ */
+process.env.OWNER_TOKEN_SECRET = 'test-secret-0123456789';
+process.env.CIN_API_TOKEN = 'tok';
+process.env.CIN_SITE_ID = 'site';
+
+const { createHmac } = await import('crypto');
+const mint = (n) => {
+  const e = Date.now() + 3600000, p = `owner:${n}:${e}`;
+  return `${p}:${createHmac('sha256', process.env.OWNER_TOKEN_SECRET).update(p).digest('hex')}`;
+};
+
+/* In-memory stand-in for Netlify Blobs. */
+const store = new Map();
+let indexReadFails = false;
+global.fetch = async (url, opts = {}) => {
+  const key = decodeURIComponent(String(url).split('/cinamate-projects/')[1] || '');
+  const m = (opts.method || 'GET').toUpperCase();
+  if (m === 'GET') {
+    if (key === '_index' && indexReadFails) return { ok: false, status: 500, text: async () => 'boom' };
+    if (!store.has(key)) return { ok: false, status: 404, text: async () => '' };
+    return { ok: true, status: 200, text: async () => store.get(key) };
+  }
+  if (m === 'PUT') { store.set(key, opts.body); return { ok: true, status: 201, text: async () => '' }; }
+  if (m === 'DELETE') { store.delete(key); return { ok: true, status: 204, text: async () => '' }; }
+  return { ok: false, status: 405, text: async () => '' };
+};
+
+const { handler } = await import('/home/user/shotb/netlify/functions/projects-sync.js');
+
+const call = (who, body, q) => handler({
+  httpMethod: q ? 'GET' : 'POST',
+  headers: { cookie: 'cin_owner=' + encodeURIComponent(mint(who)), host: 'x.netlify.app' },
+  body: body ? JSON.stringify(body) : '',
+  queryStringParameters: q || {},
+});
+const archiveOf = (marker) => JSON.stringify({
+  format: 'cinamate/1', name: 'Film', stores: { SB_Timeline_v1: JSON.stringify({ scriptText: marker }) },
+});
+const bodyOf = (r) => JSON.parse(r.body);
+const liveMarker = async () => {
+  const r = await call('hz465', null, { op: 'pull', name: 'Film' });
+  return JSON.parse(JSON.parse(bodyOf(r).archive).stores.SB_Timeline_v1).scriptText;
+};
+
+let pass = 0, fail = 0;
+const t = (name, cond) => { cond ? pass++ : (fail++, console.log('  x ' + name)); };
+
+/* 1. routine autosaves must not push a real mistake out of reach */
+await call('hz465', { op: 'push', name: 'Film', archive: archiveOf('THE GOOD DRAFT') });
+for (let i = 0; i < 6; i++) {
+  await call('hz465', { op: 'push', name: 'Film', archive: archiveOf('autosave ' + i) });
+}
+let vers = bodyOf(await call('hz465', null, { op: 'versions', name: 'Film' }));
+t('the ring keeps several superseded copies', vers.versions.length >= 5);
+const stillThere = await Promise.all(vers.versions.map(async (v) => {
+  const r = await call('hz465', null, { op: 'versions', name: 'Film' });
+  return r.statusCode === 200;
+}));
+t('every kept version is enumerable', stillThere.every(Boolean));
+
+/* 2. a deleted production must be discoverable and recoverable */
+const del = bodyOf(await call('rz465', { op: 'delete', name: 'Film' }));
+t('delete reports it is recoverable', del.recoverable === true);
+t('delete records who did it', del.deletedBy === 'rz465');
+vers = bodyOf(await call('hz465', null, { op: 'versions', name: 'Film' }));
+t('a deleted production is still discoverable', vers.versions.length > 0);
+t('the deletion is attributed', vers.deleted && vers.deleted.deletedBy === 'rz465');
+const restored = bodyOf(await call('hz465', { op: 'restore', name: 'Film' }));
+t('a deleted production can be restored', restored.ok === true);
+t('restore is attributed to whoever ran it', restored.savedBy === 'hz465');
+t('restore names the copy it came from', !!restored.restoredFrom);
+
+/* 3. restore must not itself destroy the copy it replaces */
+await call('hz465', { op: 'push', name: 'Film', archive: archiveOf('CURRENT WORK') });
+const before = await liveMarker();
+t('live copy is the newest push', before === 'CURRENT WORK');
+await call('hz465', { op: 'restore', name: 'Film', slot: 0 });
+vers = bodyOf(await call('hz465', null, { op: 'versions', name: 'Film' }));
+const rawSlots = await Promise.all([...store.keys()]
+  .filter((k) => k.startsWith('v:'))
+  .map(async (k) => JSON.parse(store.get(k))));
+const keptCurrent = rawSlots.some((v) => String(v.archive).includes('CURRENT WORK'));
+t('restoring keeps what it replaced', keptCurrent);
+
+/* 4. a stale tab must not silently bury a newer save */
+await call('hz465', { op: 'push', name: 'Film', archive: archiveOf('v1') });
+const known = bodyOf(await call('hz465', null, { op: 'list' })).productions.find((p) => p.name === 'Film');
+await call('rz465', { op: 'push', name: 'Film', archive: archiveOf('colleague work') });
+const stale = await call('hz465', {
+  op: 'push', name: 'Film', archive: archiveOf('stale tab'), ifVer: known.ver,
+});
+t('a stale write is refused with 409', stale.statusCode === 409);
+t('the refusal reports the current version', bodyOf(stale).ver !== known.ver);
+t("the colleague's work survives", (await liveMarker()) === 'colleague work');
+
+/* 5. an unreadable catalog must never be overwritten with a partial one */
+await call('hz465', { op: 'push', name: 'Other', archive: archiveOf('other') });
+const catalogBefore = Object.keys(JSON.parse(store.get('_index')).productions).sort();
+indexReadFails = true;
+await call('hz465', { op: 'push', name: 'Third', archive: archiveOf('third') });
+indexReadFails = false;
+const catalogAfter = Object.keys(JSON.parse(store.get('_index')).productions).sort();
+t('a failed catalog read does not wipe the catalog',
+  catalogBefore.every((n) => catalogAfter.includes(n)));
+
+/* 6. titles cannot impersonate the new key spaces */
+for (const bad of ['v:0:Film', 'tomb:Film', 'p:Film', '_index']) {
+  const r = await call('hz465', { op: 'push', name: bad, archive: archiveOf('x') });
+  t(`reserved key rejected: ${bad}`, r.statusCode === 400);
+}
+
+console.log(`test_cloud_safety: ${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

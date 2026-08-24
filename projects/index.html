@@ -204,7 +204,7 @@
           (p.savedBy ? ' by ' + esc(String(p.savedBy).toUpperCase()) : '') + '</span>' +
           '<span class="pv-spacer"></span>' +
           '<button class="tb-btn gold" data-cpull="' + esc(p.name) + '">⤓ Open here</button>' +
-          '<button class="tb-btn" data-crestore="' + esc(p.name) + '" title="Put back the copy this production replaced">↺ Undo</button>' +
+          '<button class="tb-btn" data-chist="' + esc(p.name) + '" title="Earlier saved copies of this production">🕘 History</button>' +
           '<button class="tb-btn" data-cdel="' + esc(p.name) + '">✕</button></div>';
       }).join('') :
       '<p class="pv-note">Nothing in the studio cloud yet — Save to cloud shares the current production with every owner.</p>';
@@ -225,15 +225,35 @@
   });
   $('pvCloud').addEventListener('click', function (e) {
     var pull = e.target.getAttribute('data-cpull'), del = e.target.getAttribute('data-cdel'),
-        undo = e.target.getAttribute('data-crestore');
+        undo = e.target.getAttribute('data-chist');
     if (undo) {
-      if (!confirm('Put back the previous copy of "' + undo + '"? The version now in the cloud is replaced by the one before it.')) return;
-      cloudCall('', { op: 'restore', name: undo })
-        .then(function (j) {
-          renderCloud();
-          toast('Restored "' + undo + '"' + (j && j.savedBy ? ' — the copy saved by ' + String(j.savedBy).toUpperCase() : ''));
-        })
-        .catch(function (e2) { toast(e2.message); });
+      /* Show what can actually be recovered rather than restoring blind. An
+         "undo" that does not say what it is about to bring back is just a
+         second way to lose the current work. */
+      cloudCall('?op=versions&name=' + encodeURIComponent(undo)).then(function (j) {
+        var vs = (j && j.versions) || [];
+        if (!vs.length) { toast('No earlier copies of "' + undo + '" are on file'); return; }
+        var lines = vs.map(function (v, i) {
+          return '  ' + (i + 1) + ') saved ' + (v.savedAt || 'unknown time') +
+                 (v.savedBy ? ' by ' + String(v.savedBy).toUpperCase() : '') +
+                 ' · ' + kb(v.bytes || 0);
+        }).join('\n');
+        var gone = j.deleted
+          ? '\nDeleted ' + j.deleted.deletedAt + ' by ' + String(j.deleted.deletedBy || '').toUpperCase() + '.\n'
+          : '';
+        var pick = prompt('Earlier copies of "' + undo + '":\n' + gone + '\n' + lines +
+          '\n\nType a number to put that copy back. The version live now is kept too.');
+        if (!pick) return;
+        var n = parseInt(pick, 10);
+        if (!(n >= 1 && n <= vs.length)) { toast('Nothing restored'); return; }
+        cloudCall('', { op: 'restore', name: undo, slot: vs[n - 1].slot })
+          .then(function (r) {
+            renderCloud();
+            toast('Restored the copy saved ' + (r.restoredFrom && r.restoredFrom.savedAt || '') +
+                  (r.restoredFrom && r.restoredFrom.savedBy ? ' by ' + String(r.restoredFrom.savedBy).toUpperCase() : ''));
+          })
+          .catch(function (e2) { toast(e2.message); });
+      }).catch(function (e2) { toast(e2.message); });
       return;
     }
     if (pull) {
@@ -253,7 +273,7 @@
       }).catch(function (e2) { toast(e2.message); });
     }
     if (del) {
-      if (!confirm('Remove "' + del + '" from the studio cloud for ALL owners? A copy is kept so ↺ Undo can put it back; copies on people\'s machines are untouched.')) return;
+      if (!confirm('Remove "' + del + '" from the studio cloud for ALL owners? Earlier copies are kept — 🕘 History can put it back — and copies on people\'s machines are untouched.')) return;
       cloudCall('', { op: 'delete', name: del })
         .then(function () { renderCloud(); toast('Removed from the cloud'); })
         .catch(function (e2) { toast(e2.message); });
