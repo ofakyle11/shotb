@@ -80,38 +80,66 @@
     if (BAD_SCHEME.test(v)) return '';
     return v.replace(/[<>"']/g, '');
   }
-  function scrub(node, key) {
+  /* Nesting deep enough to exhaust the call stack is not a production, it is a
+     way to make the sanitiser throw. Anything past this depth is dropped. */
+  var MAX_DEPTH = 100;
+
+  function scrub(node, key, depth) {
+    depth = depth || 0;
+    if (depth > MAX_DEPTH) return null;                 // discard, never pass through
     if (node === null || typeof node !== 'object') return cleanField(key || '', node);
     if (Object.prototype.toString.call(node) === '[object Array]') {
-      for (var i = 0; i < node.length; i++) node[i] = scrub(node[i], key);
+      for (var i = 0; i < node.length; i++) node[i] = scrub(node[i], key, depth + 1);
       return node;
     }
     Object.keys(node).forEach(function (k) {
       if (k === '__proto__' || k === 'constructor' || k === 'prototype') { delete node[k]; return; }
       node[k] = (typeof node[k] === 'object' && node[k] !== null)
-        ? scrub(node[k], k)
+        ? scrub(node[k], k, depth + 1)
         : cleanField(k, node[k]);                       // every scalar, not a chosen few
     });
     return node;
   }
+
+  /* Returns the sanitised text, or throws. It must never hand back the input.
+     This previously caught its own failure and returned the ORIGINAL string,
+     so anything that made the sanitiser throw — deep nesting was enough —
+     travelled through completely unsanitised. A safety check that fails open
+     is worse than none, because it is trusted. */
   function sanitizeStoreValue(raw) {
     var parsed;
-    try { parsed = JSON.parse(raw); } catch (e) { return raw; }  // not JSON — stored as-is
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      /* Plain text has no structure to abuse and is stored as-is. But a value
+         that LOOKS like JSON and still refuses to parse is not ordinary data —
+         nesting deep enough to defeat the parser is the usual reason — and
+         handing it back unexamined is exactly the fail-open path this function
+         exists to avoid. */
+      if (/^\s*[[{]/.test(String(raw))) {
+        throw new Error('A stored value in that archive could not be read safely');
+      }
+      return raw;
+    }
     if (parsed === null || typeof parsed !== 'object') return raw;
-    try { return JSON.stringify(scrub(parsed, '')); } catch (e) { return raw; }
+    return JSON.stringify(scrub(parsed, '', 0));
   }
 
   function writeStores(store, stores, opts) {
-    // clear existing project keys first so stale modules don't survive
-    allKeys(store).forEach(function (k) { store.removeItem(k); });
     var foreign = !opts || opts.trusted !== true;   // default: treat as untrusted
-    var n = 0;
-    Object.keys(stores || {}).forEach(function (k) {
-      if (!isPortable(k)) return; // never restore foreign or machine-local keys
+    /* Sanitise everything BEFORE touching storage. Doing it key-by-key while
+       writing meant a failure part-way left the workspace already cleared and
+       only half rewritten — the sanitiser turning into a shredder. */
+    var ready = {};
+    var names = Object.keys(stores || {}).filter(isPortable);
+    for (var i = 0; i < names.length; i++) {
+      var k = names[i];
       var v = String(stores[k]);
-      store.setItem(k, foreign ? sanitizeStoreValue(v) : v);
-      n++;
-    });
+      ready[k] = foreign ? sanitizeStoreValue(v) : v;   // throws → nothing has changed yet
+    }
+    allKeys(store).forEach(function (key) { store.removeItem(key); });
+    var n = 0;
+    Object.keys(ready).forEach(function (key) { store.setItem(key, ready[key]); n++; });
     return n;
   }
 
@@ -241,7 +269,10 @@
      so any page importing a file can reuse the exact rules the vault applies,
      instead of inventing a weaker second copy. */
   function scrubImported(obj) {
-    try { return scrub(obj, ''); } catch (e) { return obj; }
+    /* Deliberately not wrapped in a try/catch that returns the input. A caller
+       that cannot sanitise must refuse the data, not pass the original through
+       believing it was cleaned. */
+    return scrub(obj, '', 0);
   }
 
   root.CVault = {

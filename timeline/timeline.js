@@ -1830,8 +1830,10 @@ function loadProject(){
        CVault owns those rules; using its scrubber keeps one definition of what
        is safe rather than a weaker second copy that drifts. */
     let d=JSON.parse(await f.text());
-    if(window.CVault&&typeof CVault.scrubImported==='function')d=CVault.scrubImported(d);
-    else{toast('Import blocked — the safety layer did not load. Reload and retry.');return}
+    if(window.CVault&&typeof CVault.scrubImported==='function'){
+      try{d=CVault.scrubImported(d)}
+      catch(err){toast('That file could not be read safely and was not imported');return}
+    } else {toast('Import blocked — the safety layer did not load. Reload and retry.');return}
     state.clips=d.clips||[];state.characters=SBCharacters.normalize(d.characters||{});state.locationBible=d.locationBible||[];
     state.global=Object.assign(state.global,d.global||{});
     state.assembly=Object.assign(state.assembly,d.assembly||{});state.projectName=d.projectName||'Imported';

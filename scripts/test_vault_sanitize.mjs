@@ -180,5 +180,48 @@ t('bridge key stays out of the project slot',
   JSON.stringify(V.meta(s).slots).indexOf('SECRET-BRIDGE-KEY') === -1);
 t('bridge config stays on the machine', !!s.getItem('SB_LocalGPU_v1'));
 
+/* ── the sanitiser must fail CLOSED ──────────────────────────────────────
+   Deep nesting used to make it throw, and it answered by returning the input
+   unchanged — a payload could ride straight through the thing meant to stop
+   it. Depth is now bounded, and nothing hands back unsanitised input.     */
+function nest(depth, payload) {
+  let o = { evil: payload };
+  for (let i = 0; i < depth; i++) o = { child: o };
+  return o;
+}
+/* Built as text so the FIXTURE cannot blow the stack before the code under
+   test gets a chance to. */
+function nestedJson(depth, payload) {
+  return '{"child":'.repeat(depth) + JSON.stringify({ evil: payload }) + '}'.repeat(depth);
+}
+
+s = mem();
+s.setItem('SB_Timeline_v1', JSON.stringify({ scriptText: 'SAFE ORIGINAL' }));
+const deep = nestedJson(20000, BREAKOUT);
+let out = null, blew = false;
+try { V.restore(s, { format: 'cinamate/1', stores: { SB_Deep_v1: deep } }); }
+catch (e) { blew = true; }
+out = s.getItem('SB_Deep_v1');
+t('a deeply nested archive never yields the raw payload',
+  blew || !String(out).includes('onerror='));
+t('the workspace is not shredded when sanitising fails',
+  blew ? JSON.parse(s.getItem('SB_Timeline_v1')).scriptText === 'SAFE ORIGINAL' : true);
+
+// a normally-nested production still goes through untouched in shape
+s = mem();
+V.restore(s, { format: 'cinamate/1', stores: { SB_Deep_v1: JSON.stringify(nest(20, BREAKOUT)) } });
+let walk = JSON.parse(s.getItem('SB_Deep_v1'));
+for (let i = 0; i < 20; i++) walk = walk.child;
+t('ordinary nesting is preserved and scrubbed', !/["'<>]/.test(walk.evil));
+
+// scrubImported must throw rather than return the original
+const overDepth = V.scrubImported(nest(400, BREAKOUT));
+let deepWalk = overDepth, hops = 0;
+while (deepWalk && deepWalk.child) { deepWalk = deepWalk.child; hops++; if (hops > 500) break; }
+t('nesting past the limit is dropped, not passed through',
+  deepWalk === null || !JSON.stringify(overDepth).includes('onerror='));
+const shallow = V.scrubImported({ a: { b: { id: BREAKOUT } } });
+t('scrubImported still cleans ordinary objects', !/["'<>]/.test(shallow.a.b.id));
+
 console.log('test_vault_sanitize: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
