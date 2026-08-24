@@ -83,13 +83,13 @@
   }
 
   /* ── SVG rendering ────────────────────────────────────────────────────── */
-  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
   function itemSVG(it, ppf, selected) {
     var s = STENCILS[it.type] || STENCILS.custom;
     var w = it.w * ppf, h = it.h * ppf, cx = it.x * ppf, cy = it.y * ppf;
     var stroke = selected ? '#C9A86C' : '#8BA3B8';
-    var g = '<g data-id="' + it.id + '" transform="translate(' + cx + ' ' + cy + ') rotate(' + (it.rot || 0) + ')" style="cursor:move">';
+    var g = '<g data-id="' + esc(it.id) + '" transform="translate(' + cx + ' ' + cy + ') rotate(' + esc(it.rot || 0) + ')" style="cursor:move">';
     if (s.kind === 'camera') {
       var fov = fovDeg(it.lens), half = fov / 2 * Math.PI / 180, len = 12 * ppf;
       g += '<path d="M0 0 L' + (Math.sin(-half) * len) + ' ' + (-Math.cos(-half) * len) +
@@ -127,7 +127,7 @@
     ppf = ppf || 8;
     opts = opts || {};
     var W = plan.w * ppf, H = plan.h * ppf;
-    var out = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" data-plan="' + plan.id + '">';
+    var out = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" data-plan="' + esc(plan.id) + '">';
     out += '<rect width="' + W + '" height="' + H + '" fill="#0A1628"/>';
     for (var gx = 0; gx <= plan.w; gx++) {
       out += '<line x1="' + gx * ppf + '" y1="0" x2="' + gx * ppf + '" y2="' + H + '" stroke="' + (gx % 5 ? 'rgba(139,163,184,.07)' : 'rgba(139,163,184,.16)') + '"/>';
@@ -139,9 +139,9 @@
     /* scale bar: 5 ft */
     var bx = ppf, by = H - ppf;
     out += '<g font-family="monospace" font-size="' + (ppf * 0.9) + '" fill="#8BA3B8">' +
-      '<line x1="' + bx + '" y1="' + by + '" x2="' + (bx + 5 * ppf) + '" y2="' + by + '" stroke="#C9A86C" stroke-width="2"/>' +
+      '<line x1="' + esc(bx) + '" y1="' + by + '" x2="' + (bx + 5 * ppf) + '" y2="' + by + '" stroke="#C9A86C" stroke-width="2"/>' +
       '<text x="' + (bx + 5 * ppf + 4) + '" y="' + (by + 3) + '">5 ft</text>' +
-      '<text x="' + bx + '" y="' + (ppf * 1.4) + '">' + esc(plan.name) + ' — ' + plan.w + '′ × ' + plan.h + '′</text></g>';
+      '<text x="' + esc(bx) + '" y="' + (ppf * 1.4) + '">' + esc(plan.name) + ' — ' + esc(plan.w) + '′ × ' + esc(plan.h) + '′</text></g>';
     return out + '</svg>';
   }
 

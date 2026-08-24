@@ -151,13 +151,13 @@
       return '<tr' + (r.critical ? ' class="po-crit"' : '') + ' data-id="' + esc(r.id) + '">' +
         '<td class="po-name">' + esc(r.name) + '</td>' +
         '<td><input data-days="' + esc(r.id) + '" type="number" min="1" max="200" style="width:56px" value="' + r.days + '"></td>' +
-        '<td class="po-date">' + fmtNice(r.start) + '</td>' +
-        '<td class="po-date">' + fmtNice(r.end) + '</td>' +
+        '<td class="po-date">' + esc(fmtNice(r.start)) + '</td>' +
+        '<td class="po-date">' + esc(fmtNice(r.end)) + '</td>' +
         '<td class="po-dep">' + (r.blockedBy.length ? r.blockedBy.map(function (b) { return esc(names[b] || b); }).join(' + ') : '—') + '</td></tr>';
     }).join('');
     $('poBanner').innerHTML = s.error ? '<span>Dependency cycle — check the milestone graph</span>' :
-      '<span>Critical path <b>' + s.criticalPath + ' working days</b></span>' +
-      (s.start ? '<span>Post runs <b>' + fmtNice(s.start) + '</b> → <b>' + fmtNice(s.end) + '</b></span>'
+      '<span>Critical path <b>' + esc(s.criticalPath) + ' working days</b></span>' +
+      (s.start ? '<span>Post runs <b>' + esc(fmtNice(s.start)) + '</b> → <b>' + esc(fmtNice(s.end)) + '</b></span>'
                : '<span class="po-dep" style="align-self:center">pick a date above to place it on the calendar</span>') +
       '<span class="po-dep" style="align-self:center">' + s.path.map(function (id) { return esc(names[id] || id); }).join(' → ') + '</span>';
     renderReady(s);

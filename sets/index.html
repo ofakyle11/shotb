@@ -112,9 +112,9 @@
 
   function renderPlans() {
     $('sdPlans').innerHTML = doc.plans.map(function (p) {
-      return '<div class="sd-plan' + (p.id === plan().id ? ' on' : '') + '" data-plan="' + p.id + '"><b>' + esc(p.name) + '</b>' +
+      return '<div class="sd-plan' + (p.id === plan().id ? ' on' : '') + '" data-plan="' + esc(p.id) + '"><b>' + esc(p.name) + '</b>' +
         '<span class="sd-dim">' + p.items.length + '</span>' +
-        (doc.plans.length > 1 ? '<button class="tb-btn" data-delplan="' + p.id + '">✕</button>' : '') + '</div>';
+        (doc.plans.length > 1 ? '<button class="tb-btn" data-delplan="' + esc(p.id) + '">✕</button>' : '') + '</div>';
     }).join('');
     var p = plan();
     $('sdPlanName').value = p.name; $('sdPlanW').value = p.w; $('sdPlanH').value = p.h; $('sdPlanScenes').value = p.scenes || '';
@@ -131,12 +131,12 @@
     $('sdSel').innerHTML =
       '<p class="sd-dim" style="margin-bottom:8px"><b style="color:var(--text)">' + esc(st.label || it.type) + '</b></p>' +
       '<div class="sd-field"><span>Label</span><input data-f="label" value="' + esc(it.label) + '"></div>' +
-      '<div class="sd-field"><span>X ft</span><input data-f="x" type="number" step="0.5" value="' + it.x + '"></div>' +
-      '<div class="sd-field"><span>Y ft</span><input data-f="y" type="number" step="0.5" value="' + it.y + '"></div>' +
-      '<div class="sd-field"><span>W ft</span><input data-f="w" type="number" step="0.5" min="0.4" value="' + it.w + '"></div>' +
-      '<div class="sd-field"><span>D ft</span><input data-f="h" type="number" step="0.5" min="0.4" value="' + it.h + '"></div>' +
-      '<div class="sd-field"><span>Rotate°</span><input data-f="rot" type="number" step="5" value="' + (it.rot || 0) + '"></div>' +
-      (st.kind === 'camera' ? '<div class="sd-field"><span>Lens mm</span><input data-f="lens" type="number" min="8" max="300" value="' + (it.lens || 35) + '"></div>' +
+      '<div class="sd-field"><span>X ft</span><input data-f="x" type="number" step="0.5" value="' + esc(it.x) + '"></div>' +
+      '<div class="sd-field"><span>Y ft</span><input data-f="y" type="number" step="0.5" value="' + esc(it.y) + '"></div>' +
+      '<div class="sd-field"><span>W ft</span><input data-f="w" type="number" step="0.5" min="0.4" value="' + esc(it.w) + '"></div>' +
+      '<div class="sd-field"><span>D ft</span><input data-f="h" type="number" step="0.5" min="0.4" value="' + esc(it.h) + '"></div>' +
+      '<div class="sd-field"><span>Rotate°</span><input data-f="rot" type="number" step="5" value="' + esc(it.rot || 0) + '"></div>' +
+      (st.kind === 'camera' ? '<div class="sd-field"><span>Lens mm</span><input data-f="lens" type="number" min="8" max="300" value="' + esc(it.lens || 35) + '"></div>' +
         '<p class="sd-dim">FOV ' + S.fovDeg(it.lens) + '°</p>' : '') +
       '<button class="tb-btn" id="sdDel" style="width:100%;margin-top:6px">🗑 Remove piece</button>';
   }
@@ -144,7 +144,7 @@
 
   /* palette */
   $('sdPal').innerHTML = Object.keys(S.STENCILS).map(function (k) {
-    return '<button data-add="' + k + '">' + esc(S.STENCILS[k].label) + '</button>';
+    return '<button data-add="' + esc(k) + '">' + esc(S.STENCILS[k].label) + '</button>';
   }).join('');
   $('sdPal').addEventListener('click', function (e) {
     var k = e.target.getAttribute('data-add'); if (!k) return;
