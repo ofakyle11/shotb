@@ -25,6 +25,7 @@ const SUITES = [
   ['deploy exclusions',   'node',    ['scripts/test_deploy_exclusions.mjs']],
   ['service worker cache','node',    ['scripts/test_sw_cache.mjs']],
   ['bridge safe fetch',   'python3', ['local-backend/test_safe_fetch.py']],
+  ['bridge ref paths',    'python3', ['local-backend/test_ref_paths.py']],
   ['comfy wait',          'python3', ['scripts/test_comfy_wait.py']],
 ];
 

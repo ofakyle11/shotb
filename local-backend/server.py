@@ -199,6 +199,41 @@ def json_response(handler: BaseHTTPRequestHandler, status: int, body: Any) -> No
         pass  # client closed before response finished (browser timeout/navigate away)
 
 
+def _local_media_path(ref_url: str) -> Path | None:
+    """Map one of our own /images/ or /output/ URLs to the file behind it.
+
+    Returns None when the URL is not ours — which is the signal to treat it as
+    a genuine outbound fetch. The path rules are deliberately narrow: a known
+    directory, exactly one segment, and no traversal, so "our own host" can
+    never be turned into "read any file on this disk".
+    """
+    try:
+        parsed = urlparse(ref_url)
+    except ValueError:
+        return None
+    if parsed.scheme not in ("http", "https"):
+        return None
+    if not _local_bridge_host(parsed.hostname or ""):
+        return None
+    path = parsed.path or ""
+    for prefix, directory in (("/images/", IMAGES_DIR), ("/output/", OUTPUT_DIR),
+                              ("/media/", OUTPUT_DIR), ("/uploads/", UPLOADS_DIR)):
+        if path.startswith(prefix):
+            name = path[len(prefix):]
+            if not name or "/" in name or "\\" in name or ".." in name:
+                return None
+            candidate = directory / name
+            # Resolve and confirm it really is inside the directory we meant —
+            # a symlink planted in images/ would otherwise still escape.
+            try:
+                if candidate.resolve().parent != directory.resolve():
+                    return None
+            except OSError:
+                return None
+            return candidate
+    return None
+
+
 def save_ref_image(url_or_data: str, job_id: str) -> Path | None:
     if not url_or_data:
         return None
@@ -217,6 +252,21 @@ def save_ref_image(url_or_data: str, job_id: str) -> Path | None:
         except Exception:
             return None
     if url_or_data.startswith("http"):
+        # A reference this bridge minted itself. handle_generate_picture and
+        # handle_upload_image hand back http://127.0.0.1:<port>/images/<id>,
+        # and normal character-consistency work sends those straight back
+        # here. They are read OFF DISK — never fetched over a socket, so the
+        # loopback filter below cannot be talked into fetching anything else
+        # by dressing it up as one of ours. Same path restriction as
+        # resolve_ref_for_cloud: a known directory, one path segment, no "..".
+        local = _local_media_path(url_or_data)
+        if local is not None:
+            if not local.exists():
+                return None
+            path = UPLOADS_DIR / f"{job_id}_ref{local.suffix or '.jpg'}"
+            shutil.copyfile(local, path)
+            return path
+
         # Was: urlopen(url_or_data) with no checks at all, then an unbounded
         # read written to disk and republished at /images/. Any page in the
         # operator's browser could aim that at 127.0.0.1:8188, at the LAN, or
