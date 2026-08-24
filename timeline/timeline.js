@@ -82,12 +82,56 @@ window.saveLocalGpu=function(){
   try{localStorage.setItem(LOCAL_GPU_KEY,JSON.stringify({url:u&&u.value.trim()||'http://127.0.0.1:3456',key:k&&k.value.trim()||''}))}catch(e){}
   toast('Local GPU settings saved (this browser only)');
 };
-async function checkLocalGpu(){
+/* ── local bridge status ──────────────────────────────────────────────
+   The bridge runs on the operator's own machine and may be started after
+   this page is open, stopped mid-session, or never started at all. A single
+   check at load was misleading: it reported "unreachable" once and then went
+   quiet, so the only way to recover was a reload. The pill below reflects the
+   live state, keeps probing while it is down, and stops nagging once online. */
+var bridgeState='unknown', bridgePollMs=5000, bridgeTimer=null;
+function setBridgePill(state, detail){
+  bridgeState=state;
+  const el=$('bridgePill');
+  if(!el)return;
+  const face={online:['● GPU bridge','#9BCB9B','Rendering happens on this machine.'],
+              offline:['○ GPU bridge','#E08A8A','Not reachable — start it on this machine, this pill turns green on its own.'],
+              checking:['◌ GPU bridge','#C9A86C','Checking…']}[state]||['○ GPU bridge','#8BA3B8',''];
+  el.textContent=face[0];
+  el.style.color=face[1];
+  el.style.borderColor=face[1]+'66';
+  el.title=(detail||face[2])+' ('+localGpuCfg().url+')';
+}
+async function probeBridge(){
   const c=localGpuCfg();
   try{
     const r=await fetch(c.url+'/health',{headers:c.key?{'X-API-Key':c.key}:{}});
-    toast(r.ok?'Local GPU bridge online ('+c.url+')':'Local bridge answered '+r.status+' — check the Film Kit key');
-  }catch(e){toast('Local bridge unreachable — is it running at '+c.url+'? (CORS must be enabled on the bridge)')}
+    if(!r.ok){setBridgePill('offline','Bridge answered '+r.status+' — check the bridge key');return false}
+    let info=null; try{info=await r.json()}catch(e){}
+    let detail='Bridge online.';
+    if(info){
+      const gpu=info.gpu&&info.gpu.device&&info.gpu.device!=='none'?info.gpu.device:null;
+      if(gpu)detail='Bridge online — '+gpu+'.';
+      if(info.ffmpeg===false)detail+=' ffmpeg is MISSING, renders cannot be written.';
+    }
+    setBridgePill('online',detail);
+    return true;
+  }catch(e){ setBridgePill('offline'); return false }
+}
+/* Poll while offline so starting the bridge later just works; back off once up. */
+function watchBridge(){
+  if(bridgeTimer)clearInterval(bridgeTimer);
+  bridgeTimer=setInterval(async()=>{
+    const up=await probeBridge();
+    const want=up?15000:5000;                 // healthy: still notice a stop within ~15s
+    if(want!==bridgePollMs){bridgePollMs=want;watchBridge()}
+  },bridgePollMs);
+}
+async function checkLocalGpu(){
+  setBridgePill('checking');
+  const c=localGpuCfg();
+  const up=await probeBridge();
+  toast(up?'Local GPU bridge online ('+c.url+')'
+          :'Local bridge unreachable at '+c.url+' — start it on this machine; this page will notice on its own.');
 }
 document.addEventListener('DOMContentLoaded',()=>{
   const c=localGpuCfg();
@@ -95,6 +139,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   if($('gLocalKey'))$('gLocalKey').value=c.key;
   const gm=$('gModel');
   if(gm)gm.addEventListener('change',()=>{if(isLocalModel(gm.value))checkLocalGpu()});
+  const pill=$('bridgePill');
+  if(pill)pill.addEventListener('click',checkLocalGpu);
+  setBridgePill('checking');
+  probeBridge();
+  watchBridge();
 });
 
 async function getToken(){const ot=ownerToken();if(ot)return ot;if(!auth||!auth.currentUser)throw new Error('Not signed in');return auth.currentUser.getIdToken()}
