@@ -1391,16 +1391,18 @@ window.safeSignIn = safeSignIn;
           body: JSON.stringify({ name: verifyName, password: pw })
         });
         var vdata = await vresp.json().catch(function () { return {}; });
-        if (vresp.ok && vdata && vdata.token) {
+        if (vresp.ok && vdata && vdata.success === true) {
           var token = vdata.token;
           var exp = vdata.expires || (Date.now() + 12 * 60 * 60 * 1000);
           var ownerName = vdata.name || verifyName;
           try {
-            localStorage.setItem('SB_OWNER_TOKEN', token);
+            /* Never stored. The session is the HttpOnly cin_owner cookie the
+               response already set; a copy here is readable by any injected
+               script and replayable from anywhere. */
             localStorage.setItem('SB_OWNER_NAME', ownerName);
             localStorage.setItem('SB_OWNER_EXPIRES', String(exp));
           } catch (e) {}
-          window.SB_OWNER_TOKEN = token;
+          window.SB_OWNER_TOKEN = null;   // no client-held owner token
           window.SB_OWNER_NAME = ownerName;
           window.SB_OWNER_EXPIRES = exp;
           var ownerMeta = (window.OWNER_META && window.OWNER_META[verifyName]) || { name: ownerName, color: '#5B8DB8' };
@@ -1746,17 +1748,18 @@ async function customerLogin(){
           body: JSON.stringify({ name: verifyName, password: pw })
         });
         const vdata = await vresp.json().catch(() => ({}));
-        if (vresp.ok && vdata && vdata.token) {
+        if (vresp.ok && vdata && vdata.success === true) {
           // Owner pw accepted — mint and store the real 4-part HMAC token
-          const token = vdata.token;
-          const exp = vdata.expires || (Date.now() + 12 * 60 * 60 * 1000);
+                    const exp = vdata.expires || (Date.now() + 12 * 60 * 60 * 1000);
           const nm = vdata.name || verifyName;
           try {
-            localStorage.setItem('SB_OWNER_TOKEN', token);
+            /* Never stored. The session is the HttpOnly cin_owner cookie the
+               response already set; a copy here is readable by any injected
+               script and replayable from anywhere. */
             localStorage.setItem('SB_OWNER_NAME', nm);
             localStorage.setItem('SB_OWNER_EXPIRES', String(exp));
           } catch (e) {}
-          window.SB_OWNER_TOKEN = token;
+          window.SB_OWNER_TOKEN = null;   // no client-held owner token
           window.SB_OWNER_NAME = nm;
           window.SB_OWNER_EXPIRES = exp;
 

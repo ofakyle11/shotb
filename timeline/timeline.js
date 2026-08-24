@@ -57,10 +57,29 @@ function ensureClip(c){
 /* Owner-token session (from /verify-owner, name + OWNER_PW_* env password).
  * Works on static deploys with no Firebase user provisioned. */
 const OT_KEY='SB_OWNER_TOKEN',ON_KEY='SB_OWNER_NAME',OE_KEY='SB_OWNER_EXPIRES';
-function ownerToken(){try{const tk=localStorage.getItem(OT_KEY),exp=parseInt(localStorage.getItem(OE_KEY)||'0',10);if(tk&&exp>Date.now()&&tk.split(':').length===4&&tk.startsWith('owner:'))return tk}catch(e){}return null}
-function setOwnerSession(name,token,expires){
-  try{localStorage.setItem(OT_KEY,token);localStorage.setItem(ON_KEY,name);localStorage.setItem(OE_KEY,String(expires))}catch(e){}
-  window.SB_OWNER_TOKEN=token;
+/* The session is the HttpOnly cin_owner cookie and nothing else.
+ *
+ * This file used to keep its own copy of the signed token in localStorage and
+ * trust it on the way back in, validating only that it had four colon-separated
+ * parts and that a SEPARATE, equally writable key said it had not expired.
+ * Anything able to write localStorage on this origin could therefore hand
+ * itself an owner UI; and any browser that signed in before the cookie change
+ * still held a real, live 12-hour token. Removing the write elsewhere was not
+ * enough — this page never loaded the file that does the purging.
+ *
+ * So: purge on load, here, and never write it again. */
+try{localStorage.removeItem(OT_KEY);localStorage.removeItem(ON_KEY);localStorage.removeItem(OE_KEY)}catch(e){}
+function ownerName(){
+  try{
+    const m=/(?:^|;\s*)cin_who=([^;]+)/.exec(document.cookie||'');
+    if(!m)return null;
+    const n=decodeURIComponent(m[1]).trim().toLowerCase();
+    return /^[a-z]{2}\d{3}$/.test(n)?n:null;
+  }catch(e){return null}
+}
+function setOwnerSession(name){
+  /* Identity for the UI only. The cookie is what the server checks, and this
+     page cannot read it — which is the point. */
   curUser={name:name,email:name+'@shotbreak.io',isOwner:true,uid:'owner_'+name};
   $('loginOverlay').classList.add('hidden');$('userMeta').textContent=name;
 }
@@ -146,19 +165,25 @@ document.addEventListener('DOMContentLoaded',()=>{
   watchBridge();
 });
 
-async function getToken(){const ot=ownerToken();if(ot)return ot;if(!auth||!auth.currentUser)throw new Error('Not signed in');return auth.currentUser.getIdToken()}
-async function hdrs(){return{'Content-Type':'application/json','Authorization':'Bearer '+(await getToken())}}
+/* Owner calls authenticate by cookie — same-origin fetches send it on their
+   own — so a missing Firebase user is the normal case, not an error. */
+async function getToken(){if(!auth||!auth.currentUser)return null;return auth.currentUser.getIdToken()}
+async function hdrs(){
+  const h={'Content-Type':'application/json'};
+  try{const t=await getToken();if(t)h['Authorization']='Bearer '+t}catch(e){}
+  return h;
+}
 
 function initAuth(){
-  const existing=ownerToken();
-  if(!existing)$('userMeta').textContent='Local session';
-  if(existing)setOwnerSession(localStorage.getItem(ON_KEY)||'owner',existing,parseInt(localStorage.getItem(OE_KEY)||'0',10));
+  const who=ownerName();
+  if(who)setOwnerSession(who);
+  else $('userMeta').textContent='Local session';
   if(window.firebase&&window.SHOTBREAK_CONFIG){
     if(!firebase.apps.length)firebase.initializeApp(window.SHOTBREAK_CONFIG.firebase);
     auth=firebase.auth();
     auth.onAuthStateChanged(u=>{
       if(u){const e=(u.email||'').toLowerCase();curUser={name:u.displayName||e.split('@')[0],email:e,isOwner:OWNER_EMAILS.has(e),uid:u.uid};$('loginOverlay').classList.add('hidden');$('userMeta').textContent=curUser.name}
-      else if(!ownerToken()){curUser=null;$('userMeta').textContent='Local session'}
+      else if(!ownerName()){curUser=null;$('userMeta').textContent='Local session'}
     });
   }
   $('loginBtn').onclick=async()=>{
@@ -169,7 +194,10 @@ function initAuth(){
     // 1. Owner-short login (mz465 / kz465 / hz465 + OWNER_PW_* value) via /verify-owner
     try{
       const r=await fetch('/.netlify/functions/verify-owner',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:short,password:pw})});
-      if(r.ok){const d=await r.json();if(d&&d.token){setOwnerSession(d.name,d.token,d.expires);return}}
+      /* Success is the server's flag. It used to be the presence of `token` in
+         the body — the token is deliberately no longer there, so that test was
+         always false and this sign-in silently stopped working. */
+      if(r.ok){const d=await r.json();if(d&&d.success===true){setOwnerSession(d.name||short);return}}
     }catch(e){}
     // 2. Firebase email/password fallback
     if(!auth){err.textContent='That login did not match. Use your owner short and password.';err.style.display='block';return}

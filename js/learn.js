@@ -172,9 +172,15 @@
     return o;
   }
 
+  /* Returns the cleaned value. cleanCached builds new objects and does not
+     mutate, so a caller that kept using its own reference — as the props
+     lookup did, rendering and then persisting j.houses into SB_Props_v1 —
+     stored the raw third-party reply even though the cache held a clean
+     one. Cleaning a copy nobody uses is not cleaning. */
   function cachePut(k, v, ttl, now) {
+    var cleaned = cleanCached(v, 0);
     try {
-      state.cache[k] = { t: now || Date.now(), ttl: ttl || WEEK, v: cleanCached(v, 0) };
+      state.cache[k] = { t: now || Date.now(), ttl: ttl || WEEK, v: cleaned };
       var keys = Object.keys(state.cache);
       if (keys.length > 60) {
         keys.sort(function (a, b) { return state.cache[a].t - state.cache[b].t; });
@@ -182,6 +188,7 @@
       }
       save();
     } catch (e) {}
+    return cleaned;
   }
 
   function summary() {
@@ -198,7 +205,7 @@
     KEY: KEY,
     learnBudget: learnBudget, calibration: calibration, budgetSummary: budgetSummary,
     recordRender: recordRender, renderStats: renderStats, genSecPerClip: genSecPerClip,
-    cacheGet: cacheGet, cachePut: cachePut,
+    cacheGet: cacheGet, cachePut: cachePut, cleanCached: cleanCached,
     summary: summary, reset: reset,
     _state: function () { return state; }
   };

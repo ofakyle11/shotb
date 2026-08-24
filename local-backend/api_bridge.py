@@ -375,8 +375,18 @@ def cache_remote_image(url: str, dest: Path) -> Path:
 
 
 def _cache_remote_video(url: str, request_id: str, cache_dir: Path) -> str:
-    safe_id = request_id.replace("/", "_").replace("..", "")
+    # request_id comes straight off the POST body. The old sanitiser replaced
+    # "/" and ".." and left "\\" alone, so on Windows a request_id of
+    # r"\\Windows\\Temp\\pwn" wrote C:\\Windows\\Temp\\pwn.mp4 — a root-relative
+    # path replaces the base. An allow-list of characters has no such gaps.
+    import re as _re
+    safe_id = _re.sub(r"[^A-Za-z0-9_-]", "_", str(request_id))[:64] or "job"
     dest = cache_dir / f"{safe_id}.mp4"
+    try:
+        if dest.resolve().parent != cache_dir.resolve():
+            raise ApiBridgeError("refusing to write outside the cache directory")
+    except (OSError, ValueError) as exc:
+        raise ApiBridgeError("bad cache destination") from exc
     if dest.exists() and dest.stat().st_size > 1000:
         return f"/output/{dest.name}"
     try:

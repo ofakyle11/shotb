@@ -84,7 +84,8 @@
 
   async function getAuthToken() {
     if (typeof window.getToken === 'function') return window.getToken();
-    if (window.SB_OWNER_TOKEN) return window.SB_OWNER_TOKEN;
+    /* No client-held owner token any more — the session is an HttpOnly
+       cookie that same-origin requests send automatically. */
     if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
       return firebase.auth().currentUser.getIdToken();
     }

@@ -29,6 +29,14 @@
      position, they are removed first and the scheme is tested against what is
      left. Tab, newline and NUL between the letters of "javascript" is the
      classic bypass of a naive /^javascript:/ check. */
+  /* A browser treats a backslash as a slash while parsing a special-scheme
+     URL, so "/\evil.tld/x" resolves to https://evil.tld/x exactly as
+     "//evil.tld/x" does. The (?!/) guard in OK_SHAPE only ever saw the
+     forward slash, so the one form was blocked and the other sailed past.
+     No URL this app emits contains a backslash, so refuse them outright
+     rather than trying to enumerate where they are harmful. */
+  function hasBackslash(v) { return String(v).indexOf('\\') !== -1; }
+
   function bare(v) {
     return v.replace(/[\u0000-\u0020\u007f-\u00a0\u1680\u2000-\u200f\u2028-\u202f\u205f-\u2064\u3000\ufeff]/g, '');
   }
@@ -65,6 +73,7 @@
     if (value === null || value === undefined) return '';
     var v = String(value).trim();
     if (!v) return '';
+    if (hasBackslash(v)) return '';
     var stripped = bare(v);
     if (!stripped) return '';
     if (BAD_SCHEME.test(stripped)) {
@@ -76,6 +85,15 @@
        an attribute-breakout attempt; neither is a URL we want to emit. */
     if (/["'<>`]/.test(v)) return '';
     if (!OK_SHAPE.test(stripped)) return '';
+    /* The authority is not parsed by the shape test above, so
+       "https://cinamate-studio.netlify.app@evil.tld/" reads as our host and
+       resolves to theirs. Credentials in a URL have no legitimate use here. */
+    if (/^https?:/i.test(stripped)) {
+      try {
+        var u = new URL(stripped);
+        if (u.username || u.password) return '';
+      } catch (e) { return ''; }
+    }
     return esc(v);
   }
 

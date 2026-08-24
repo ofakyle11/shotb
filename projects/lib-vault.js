@@ -106,9 +106,24 @@
          The key is cleaned rather than dropped so the entry itself survives
          with a harmless name; a collision keeps whichever arrived first. */
       var safeKey = k.replace(/[<>"']/g, '');
+      /* The CLEANED key has to face the same deny-list as the raw one.
+         Stripping markup characters can manufacture a dangerous name:
+         "__pro<to__" is not on the list above, and removing the "<" turns it
+         into "__proto__" — assigning to which runs the setter and changes the
+         object's prototype. Checking only the raw key meant this sanitiser
+         built the exact thing the deny-list exists to prevent. */
+      if (safeKey === '__proto__' || safeKey === 'constructor' || safeKey === 'prototype') {
+        delete node[k];
+        return;
+      }
       if (safeKey !== k) {
         delete node[k];
-        if (safeKey && !Object.prototype.hasOwnProperty.call(node, safeKey)) node[safeKey] = val;
+        if (safeKey && !Object.prototype.hasOwnProperty.call(node, safeKey)) {
+          /* defineProperty, not assignment: assignment would invoke an
+             inherited setter, which is half of what we are guarding against. */
+          Object.defineProperty(node, safeKey,
+            { value: val, writable: true, enumerable: true, configurable: true });
+        }
       } else {
         node[k] = val;
       }

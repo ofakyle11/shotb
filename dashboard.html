@@ -2288,7 +2288,7 @@ select.prod-field__input {
           '<td data-label="TITLE"><span class="prod-row__title">' + escHtml(p.name) + '</span></td>' +
           '<td data-label="STAGE"><span class="prod-badge prod-badge--' + escHtml(st.badge) + '">' +
             (st.stage === 'GENERATING' ? '<i class="prod-badge__dot" aria-hidden="true"></i>' : '') +
-            esc(st.stage) + '</span></td>' +
+            escHtml(st.stage) + '</span></td>' +
           '<td data-label="PROGRESS"><div class="prod-progress"><div class="prod-progress__track">' +
             '<div class="prod-progress__fill" style="width: ' + escHtml(st.pct) + '%"></div></div>' +
             '<span class="prod-progress__pct">' + escHtml(st.pct) + '%</span></div></td>' +
@@ -2456,7 +2456,7 @@ select.prod-field__input {
 
     opts = '';
     for (i = 0; i < B.INCENTIVES.length; i++) {
-      opts += '<option value="' + esc(B.INCENTIVES[i].id) + '">' + esc(B.INCENTIVES[i].label) + '</option>';
+      opts += '<option value="' + escHtml(B.INCENTIVES[i].id) + '">' + escHtml(B.INCENTIVES[i].label) + '</option>';
     }
     html += '<div class="prod-field">' +
               '<label class="prod-field__label" for="est-t-incentive">Incentive</label>' +

@@ -119,5 +119,58 @@ for stray in server.UPLOADS_DIR.glob("testjob5_ref.*"):
     stray.unlink(missing_ok=True)
 probe.unlink(missing_ok=True)
 
+# ── Windows path semantics ───────────────────────────────────────────────
+# This bridge runs on the operator's Windows workstation. pathlib follows the
+# host's rules, so a name the old ".." / "/" filter allowed could still leave
+# the directory entirely: a root-relative path replaces the base, a UNC path
+# makes the machine authenticate to someone else's SMB server, and a drive
+# letter hops volume. None of those contain ".." or a forward slash.
+from pathlib import PureWindowsPath  # noqa: E402
+
+_win_base = PureWindowsPath(r"C:\cinamate\local-backend\output")
+for label, name, expected_escape in [
+    ("a root-relative path", r"\Windows\win.ini",
+     r"C:\Windows\win.ini"),
+    ("a UNC path", r"\\attacker.example\share\x",
+     r"\\attacker.example\share\x"),
+    ("a drive-relative path", "D:secret.txt", "D:secret.txt"),
+]:
+    # First: prove the escape is real on Windows, so this test keeps meaning
+    # something if anyone ever loosens the filter.
+    check(f"{label} really does escape on Windows",
+          str(_win_base / name) == expected_escape, str(_win_base / name))
+    # Then: prove safe_media_path refuses it.
+    check(f"safe_media_path refuses {label}",
+          server.safe_media_path(server.OUTPUT_DIR, name) is None, name)
+
+for label, name in [
+    ("a backslash separator", r"sub\x.mp4"),
+    ("a reserved device name", "CON"),
+    ("a reserved device with an extension", "con.mp4"),
+    ("a serial device", "COM1"),
+    ("an alternate data stream", "x.mp4:hidden"),
+    ("an embedded NUL", "x\x00.mp4"),
+    ("an over-long name", "a" * 300),
+    ("an empty name", ""),
+    ("a parent reference", "../config.json"),
+]:
+    check(f"safe_media_path refuses {label}",
+          server.safe_media_path(server.OUTPUT_DIR, name) is None, repr(name))
+
+check("safe_media_path still allows an ordinary file",
+      server.safe_media_path(server.OUTPUT_DIR, "job_123.mp4") is not None)
+
+# ── the GET handlers must authorise, not just POST ───────────────────────
+import inspect  # noqa: E402
+_get_src = inspect.getsource(server.BridgeHandler.do_GET)
+check("do_GET checks the bridge key", "check_api_key" in _get_src)
+check("do_GET still lets media through without a header",
+      "/images/" in _get_src and "/output/" in _get_src)
+_post_src = inspect.getsource(server.BridgeHandler.do_POST)
+check("do_POST refuses a foreign Origin before dispatching",
+      "allowed_origins()" in _post_src and _post_src.index("allowed_origins()") < _post_src.index('action = body.get'))
+check("do_POST requires application/json",
+      "application/json" in _post_src)
+
 print(f"test_ref_paths: {PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)

@@ -81,6 +81,28 @@ for (const path of PAGES) {
     status = res ? res.status() : 0;
     await page.waitForTimeout(700);           // let deferred scripts run
     bodyLen = await page.evaluate(() => document.body ? document.body.innerText.trim().length : 0);
+
+    /* Loading a page is not the same as running it. dashboard.html shipped
+       with a call to esc() — a helper that page does not define — and this
+       smoke test passed it, because with no session the page redirects to
+       sign-in and the renderer that throws never runs. So: check that every
+       function the page's own markup references actually exists, which is the
+       class of mistake an escaping sweep produces. */
+    const missing = await page.evaluate(() => {
+      const src = Array.from(document.scripts)
+        .filter((s) => !s.src).map((s) => s.textContent).join('\n');
+      const called = new Set();
+      for (const m of src.matchAll(/\b(esc|escHtml|escAttr|escT|escH|jsq|csvSafe|CinUrl)\s*[.(]/g)) {
+        called.add(m[1]);
+      }
+      const absent = [];
+      for (const name of called) {
+        const declared = new RegExp('(function\\s+' + name + '\\s*\\(|(var|let|const)\\s+' + name + '\\s*=)').test(src);
+        if (!declared && typeof window[name] === 'undefined') absent.push(name);
+      }
+      return absent;
+    });
+    for (const m of missing) errors.push('calls ' + m + '() which is not defined on this page');
     title = await page.title();
   } catch (e) {
     errors.push('navigation: ' + String(e.message).slice(0, 160));

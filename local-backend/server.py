@@ -89,16 +89,10 @@ def resolve_ref_for_cloud(ref_url: str | None, base_url: str) -> str | None:
         return ref_url
     parsed = urlparse(ref_url)
     if parsed.scheme in ("http", "https") and _local_bridge_host(parsed.hostname or ""):
-        path = parsed.path or ""
-        local_path: Path | None = None
-        if path.startswith("/images/"):
-            name = path.split("/images/", 1)[-1]
-            if ".." not in name and "/" not in name:
-                local_path = IMAGES_DIR / name
-        elif path.startswith("/output/"):
-            name = path.split("/output/", 1)[-1]
-            if ".." not in name and "/" not in name:
-                local_path = OUTPUT_DIR / name
+        # Same containment rule as every other request-built path. This branch
+        # kept its own ".." / "/" test, which is exactly the check that missed
+        # backslashes, drive letters and device names on Windows.
+        local_path = _local_media_path(ref_url)
         if local_path and local_path.exists():
             raw = local_path.read_bytes()
             mime = mimetypes.guess_type(local_path.name)[0] or "image/jpeg"
@@ -182,7 +176,10 @@ def cors_headers(handler: BaseHTTPRequestHandler) -> None:
     handler.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, Range")
     handler.send_header("Access-Control-Expose-Headers", "Accept-Ranges, Content-Range, Content-Length")
     # Under the studio's COEP, a media response from another origin needs this.
-    handler.send_header("Cross-Origin-Resource-Policy", "cross-origin")
+    # Sent only to origins on the list: unconditionally it re-opened the bridge
+    # as an embeddable subresource to exactly the sites the allow-list refuses.
+    if origin and origin in allowed_origins():
+        handler.send_header("Cross-Origin-Resource-Policy", "cross-origin")
     handler.send_header("Access-Control-Max-Age", "86400")
 
 
@@ -199,13 +196,57 @@ def json_response(handler: BaseHTTPRequestHandler, status: int, body: Any) -> No
         pass  # client closed before response finished (browser timeout/navigate away)
 
 
+# Reserved DOS device names. On Windows these resolve to devices rather than
+# files at ANY directory depth and with any extension, so "CON", "con.mp4" and
+# "output/COM1" all open a device. Path.exists() returns True for them and a
+# read blocks the thread indefinitely.
+_WIN_DEVICES = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+
+
+def safe_media_path(directory: Path, name: str) -> Path | None:
+    """Resolve `name` inside `directory`, or None if it tries to leave.
+
+    The GET handlers used to check only for ".." and "/". That is not enough on
+    the platform this actually runs on: pathlib follows Windows semantics, so
+    OUTPUT_DIR / r"\\Windows\\win.ini" is C:\\Windows\\win.ini — a root-relative
+    path replaces the base entirely — and OUTPUT_DIR / r"\\\\host\\share\\x" becomes a
+    UNC path, which makes the operator's machine authenticate to an attacker's
+    SMB server and hand over an NTLM hash. "D:secret.txt" hops drive. None of
+    those contain ".." or a forward slash.
+
+    So: no separators of either kind, no drive letters, no device names, and
+    then the decisive check — the resolved parent must BE the directory we
+    meant. That last line is what makes this robust rather than a longer
+    blocklist.
+    """
+    if not name or len(name) > 200:
+        return None
+    if "/" in name or "\\" in name or ".." in name or "\x00" in name:
+        return None
+    if ":" in name:                      # drive letters and alternate data streams
+        return None
+    stem = name.split(".")[0].upper().rstrip(" .")
+    if stem in _WIN_DEVICES:
+        return None
+    candidate = directory / name
+    try:
+        if candidate.resolve().parent != directory.resolve():
+            return None
+    except (OSError, ValueError):        # ValueError: embedded NUL byte
+        return None
+    return candidate
+
+
 def _local_media_path(ref_url: str) -> Path | None:
     """Map one of our own /images/ or /output/ URLs to the file behind it.
 
-    Returns None when the URL is not ours — which is the signal to treat it as
-    a genuine outbound fetch. The path rules are deliberately narrow: a known
-    directory, exactly one segment, and no traversal, so "our own host" can
-    never be turned into "read any file on this disk".
+    Returns None when the URL is not ours — the signal to treat it as a genuine
+    outbound fetch. Containment is delegated to safe_media_path so this path and
+    the GET handlers can never drift apart again.
     """
     try:
         parsed = urlparse(ref_url)
@@ -219,18 +260,7 @@ def _local_media_path(ref_url: str) -> Path | None:
     for prefix, directory in (("/images/", IMAGES_DIR), ("/output/", OUTPUT_DIR),
                               ("/media/", OUTPUT_DIR), ("/uploads/", UPLOADS_DIR)):
         if path.startswith(prefix):
-            name = path[len(prefix):]
-            if not name or "/" in name or "\\" in name or ".." in name:
-                return None
-            candidate = directory / name
-            # Resolve and confirm it really is inside the directory we meant —
-            # a symlink planted in images/ would otherwise still escape.
-            try:
-                if candidate.resolve().parent != directory.resolve():
-                    return None
-            except OSError:
-                return None
-            return candidate
+            return safe_media_path(directory, path[len(prefix):])
     return None
 
 
@@ -805,6 +835,15 @@ class BridgeHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:
+        # /health describes this machine — ComfyUI address, workflow filenames,
+        # GPU string, which provider keys exist. It was readable by anything
+        # that could reach the port, because the key was only ever checked on
+        # POST. Media stays open: an <img> or <video> cannot send a header, and
+        # those ids are random and loopback-only.
+        if not urlparse(self.path).path.startswith(("/images/", "/output/", "/media/", "/uploads/")):
+            if not check_api_key(self):
+                json_response(self, 401, {"error": "Bridge key required"})
+                return
         parsed = urlparse(self.path)
         if parsed.path == "/health":
             comfy_online = comfy_reachable()
@@ -834,18 +873,18 @@ class BridgeHandler(BaseHTTPRequestHandler):
             )
             return
         if parsed.path.startswith("/output/"):
-            name = parsed.path.split("/output/", 1)[-1]
-            if ".." in name or "/" in name:
+            target = safe_media_path(OUTPUT_DIR, parsed.path.split("/output/", 1)[-1])
+            if target is None:
                 self.send_error(400)
                 return
-            serve_static_file(self, OUTPUT_DIR / name, "video/mp4")
+            serve_static_file(self, target, "video/mp4")
             return
         if parsed.path.startswith("/images/"):
-            name = parsed.path.split("/images/", 1)[-1]
-            if ".." in name or "/" in name:
+            target = safe_media_path(IMAGES_DIR, parsed.path.split("/images/", 1)[-1])
+            if target is None:
                 self.send_error(400)
                 return
-            serve_static_file(self, IMAGES_DIR / name, "image/png")
+            serve_static_file(self, target, "image/png")
             return
         self.send_error(404)
 
@@ -853,6 +892,20 @@ class BridgeHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path not in ("/generate-video", "/"):
             self.send_error(404)
+            return
+        # CORS response headers never stop a request from EXECUTING — they only
+        # withhold the reply. A cross-origin POST with Content-Type: text/plain
+        # is a "simple" request that skips preflight entirely, and Firefox and
+        # Safari implement no Private Network Access check, so without this the
+        # action below still ran for any site the operator happened to visit.
+        # The refusal has to happen here, before the dispatch.
+        origin = (self.headers.get("Origin") or "").strip().rstrip("/")
+        if origin and origin not in allowed_origins():
+            json_response(self, 403, {"error": "Cross-site request refused"})
+            return
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype and ctype != "application/json":
+            json_response(self, 415, {"error": "Send application/json"})
             return
         if not check_api_key(self):
             json_response(self, 401, {"error": "Bridge key required — set it in the Studio's Bridge key field"})
