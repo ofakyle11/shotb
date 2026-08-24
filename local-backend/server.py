@@ -122,7 +122,10 @@ def cors_headers(handler: BaseHTTPRequestHandler) -> None:
     origin = handler.headers.get("Origin", "*")
     handler.send_header("Access-Control-Allow-Origin", origin or "*")
     handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-    handler.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+    handler.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, Range")
+    handler.send_header("Access-Control-Expose-Headers", "Accept-Ranges, Content-Range, Content-Length")
+    # Under the studio's COEP, a media response from another origin needs this.
+    handler.send_header("Cross-Origin-Resource-Policy", "cross-origin")
     # Chrome treats https://…  ->  http://127.0.0.1 as a public->private request and
     # sends a Private Network Access preflight. Without this header the browser
     # blocks the call before it ever reaches us, and the Studio reports the bridge
@@ -630,18 +633,56 @@ def handle_result(request_id: str, base_url: str) -> dict[str, Any]:
     }
 
 
+def _parse_range(header: str, size: int):
+    """Return (start, end) for a single `bytes=` range, or None."""
+    if not header or not header.strip().lower().startswith("bytes="):
+        return None
+    spec = header.split("=", 1)[1].strip()
+    if "," in spec:            # multi-range: not worth supporting, send the whole file
+        return None
+    start_s, _, end_s = spec.partition("-")
+    try:
+        if not start_s:                       # suffix range: last N bytes
+            length = int(end_s)
+            if length <= 0:
+                return None
+            start, end = max(0, size - length), size - 1
+        else:
+            start = int(start_s)
+            end = int(end_s) if end_s else size - 1
+    except ValueError:
+        return None
+    if start > end or start >= size:
+        return None
+    return start, min(end, size - 1)
+
+
 def serve_static_file(handler: BaseHTTPRequestHandler, file_path: Path, default_mime: str) -> None:
     if not file_path.exists():
         handler.send_error(404)
         return
     data = file_path.read_bytes()
+    size = len(data)
     mime = mimetypes.guess_type(file_path.name)[0] or default_mime
-    handler.send_response(200)
-    cors_headers(handler)
+    # A <video> element seeks with byte ranges. Answering 200-with-everything
+    # makes the scrubber unusable on anything but the smallest clips, so honour
+    # Range and reply 206 when asked.
+    rng = _parse_range(handler.headers.get("Range", ""), size)
+    if rng:
+        start, end = rng
+        body = data[start : end + 1]
+        handler.send_response(206)
+        cors_headers(handler)
+        handler.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+    else:
+        body = data
+        handler.send_response(200)
+        cors_headers(handler)
     handler.send_header("Content-Type", mime)
-    handler.send_header("Content-Length", str(len(data)))
+    handler.send_header("Accept-Ranges", "bytes")
+    handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
-    handler.wfile.write(data)
+    handler.wfile.write(body)
 
 
 class BridgeHandler(BaseHTTPRequestHandler):

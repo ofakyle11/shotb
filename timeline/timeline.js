@@ -1676,7 +1676,12 @@ async function extractVideoEndFrame(videoUrl){
     v.muted=true;
     v.playsInline=true;
     v.preload='auto';
-    if(src.startsWith('https://'))v.crossOrigin='anonymous';
+    /* Ask for CORS on anything not our own origin — a clip rendered on the
+       operator's machine arrives over http://127.0.0.1, and without this the
+       canvas is tainted and the end-frame grab silently returns nothing. This
+       element is throwaway, so if a bridge omits the header we are no worse
+       off than before. */
+    try{const u=new URL(src,location.href);if(u.origin!==location.origin)v.crossOrigin='anonymous'}catch(_){}
     let settled=false;
     const finish=(val)=>{if(settled)return;settled=true;resolve(val||null)};
     const grab=()=>{
