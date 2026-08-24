@@ -149,9 +149,45 @@ class ComfyUIClient:
         while time.time() < deadline:
             history = self.get_history(prompt_id)
             entry = history.get(prompt_id) if isinstance(history, dict) else None
-            if entry and entry.get("outputs"):
+            if entry:
                 files = self.extract_output_files(entry)
                 if files:
                     return files
+                # ComfyUI reports a terminal state of its own. Trust it: once the
+                # run is finished, waiting longer cannot produce files that are
+                # not there. Without this the loop slept out the full timeout
+                # while the render actually sat completed on disk, and the job
+                # stayed queued for half an hour with nothing to show for it.
+                status = entry.get("status") or {}
+                status_str = str(status.get("status_str") or "")
+                finished = bool(status.get("completed")) or status_str in ("success", "error")
+                if finished:
+                    if status_str == "error":
+                        raise ComfyUIError(
+                            f"ComfyUI reported an error for prompt {prompt_id}: "
+                            f"{self._status_detail(status)}"
+                        )
+                    seen = sorted({
+                        key
+                        for node_out in (entry.get("outputs") or {}).values()
+                        for key in node_out.keys()
+                    })
+                    raise ComfyUIError(
+                        f"ComfyUI finished prompt {prompt_id} but produced no file this "
+                        f"bridge could read. Output keys seen: {seen or 'none'}. "
+                        "The render may exist in ComfyUI's output folder — check there."
+                    )
             time.sleep(poll_interval)
         raise ComfyUIError(f"Timed out waiting for ComfyUI prompt {prompt_id}")
+
+    @staticmethod
+    def _status_detail(status: dict[str, Any]) -> str:
+        """Pull the human-readable reason out of a ComfyUI status block."""
+        bits: list[str] = []
+        for msg in status.get("messages") or []:
+            if isinstance(msg, (list, tuple)) and len(msg) >= 2 and isinstance(msg[1], dict):
+                for field in ("exception_message", "exception_type", "node_type"):
+                    val = msg[1].get(field)
+                    if val:
+                        bits.append(str(val))
+        return "; ".join(dict.fromkeys(bits)) or "no detail supplied"
