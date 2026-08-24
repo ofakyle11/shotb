@@ -145,5 +145,37 @@ for (const bad of ['v:0:Film', 'tomb:Film', 'p:Film', '_index']) {
   t('the live production is untouched by a refused push', (await liveMarker()) === before);
 }
 
+/* 9. a title must survive being turned into a storage key */
+{
+  /* An 80th character that is half an emoji leaves a lone surrogate, and
+     encodeURIComponent throws on one — which turned every cloud operation for
+     that production into a 502 and killed its auto-backup silently. */
+  const longEmoji = 'A'.repeat(79) + '\u{1F3AC}';
+  const r = await call('hz465', { op: 'push', name: longEmoji, archive: archiveOf('emoji title') });
+  t('a title cut mid-emoji is still usable', r.statusCode === 200, r.statusCode + ' ' + r.body);
+  const names = bodyOf(await call('hz465', null, { op: 'list' })).productions.map((p) => p.name);
+  t('every stored title can be encoded',
+    names.every((n) => { try { encodeURIComponent(n); return true; } catch (e) { return false; } }),
+    JSON.stringify(names));
+
+  /* Two rows that render identically are unusable in a namespace where every
+     owner's delete acts on everyone's copy. */
+  await call('hz465', { op: 'push', name: 'Feature', archive: archiveOf('one') });
+  const zw = await call('hz465', { op: 'push', name: 'Feat\u200bure', archive: archiveOf('two') });
+  t('a zero-width character does not create a twin row', zw.statusCode === 200);
+  const after = bodyOf(await call('hz465', null, { op: 'list' })).productions.map((p) => p.name);
+  t('the invisible character was stripped rather than stored',
+    after.filter((n) => n.replace(/\u200b/g, '') === 'Feature').length === 1,
+    JSON.stringify(after.filter((n) => /Feat/.test(n))));
+  t('no stored title contains an invisible character',
+    after.every((n) => !/[\u200b-\u200f\u2060-\u2064\ufeff]/.test(n)));
+
+  /* A title that is nothing but invisible characters is not a title. */
+  const blank = await call('hz465', { op: 'push', name: '\u200b\u200b\ufeff', archive: archiveOf('x') });
+  t('a title of only invisible characters is refused', blank.statusCode === 400);
+  const nbsp = await call('hz465', { op: 'push', name: '\u00a0', archive: archiveOf('x') });
+  t('a title of only a non-breaking space is refused', nbsp.statusCode === 400);
+}
+
 console.log(`test_cloud_safety: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

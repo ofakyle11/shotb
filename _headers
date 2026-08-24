@@ -55,16 +55,21 @@
 /static/ffmpeg/*.js
   Content-Type: application/javascript; charset=utf-8
   Cross-Origin-Resource-Policy: cross-origin
-  Cache-Control: public, max-age=31536000, immutable
+  # A week, and not "immutable". These files are executed as worker source at
+  # an URL with no version in it, so a browser told to keep them immutable for
+  # a year would keep a bad copy for a year — a single bad deploy would be
+  # unrecallable for the people who had already loaded it. A week still means
+  # one download and cheap 304s after that.
+  Cache-Control: public, max-age=604800
 
 /static/ffmpeg/*.wasm
   Content-Type: application/wasm
   Cross-Origin-Resource-Policy: cross-origin
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=604800
 
 /static/ffmpeg/*
   Cross-Origin-Resource-Policy: cross-origin
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=604800
 
 /index.html
   Cache-Control: public, max-age=3600

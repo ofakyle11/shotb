@@ -69,11 +69,13 @@ function verifyOwnerToken(token) {
   const parts = token.split(":");
   if (parts.length !== 4 || parts[0] !== "owner") return null;
   const [, name, expiresStr, providedHmac] = parts;
+  // Signed over the literal field, not a reparsed integer — see gate.js.
+  if (!/^\d+$/.test(expiresStr)) return null;
   const expires = parseInt(expiresStr, 10);
   if (!expires || Date.now() > expires) return null;
   const secret = process.env.OWNER_TOKEN_SECRET;
   if (!secret) return null;
-  const payload = `owner:${name}:${expires}`;
+  const payload = `owner:${name}:${expiresStr}`;
   const expectedHmac = crypto.createHmac("sha256", secret).update(payload).digest("hex");
   if (!safeEqual(providedHmac, expectedHmac)) return null;
   return { name, expires };
@@ -187,6 +189,19 @@ exports.handler = async (event) => {
   // precisely when someone is trying to end it. Handled before the throttle,
   // and it costs no attempt budget.
   if (body.op === "logout") {
+    /* Same-origin only. Signing out needs no credential, so without this any
+       page the owner visited could POST here and end their session — which in
+       this app also stops the studio-cloud auto-backup, quietly, mid-shoot.
+       A same-origin request sends our own Origin or (some clients) none. */
+    const lo = event.headers || {};
+    const loOrigin = lo.origin || lo.Origin || "";
+    if (loOrigin) {
+      let loHost = "";
+      try { loHost = new URL(loOrigin).host; } catch (e) { loHost = "invalid"; }
+      if (loHost !== (lo.host || lo.Host || "")) {
+        return respond(403, { error: "Cross-site request refused" });
+      }
+    }
     return respond(200, { ok: true }, [
       "cin_owner=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax",
       "cin_who=; Path=/; Max-Age=0; Secure; SameSite=Lax",

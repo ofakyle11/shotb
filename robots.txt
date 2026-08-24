@@ -1,4 +1,15 @@
 User-agent: *
-Allow: /
+Allow: /$
+Allow: /assets/
+Allow: /css/
 Disallow: /.netlify/
-Sitemap: https://capable-froyo-218eed.netlify.app/sitemap.xml
+Disallow: /login.html
+# Everything else on this host is served from behind the sign-in gate and
+# answers a crawler with a redirect; there is nothing there to index.
+Disallow: /app
+Disallow: /app.html
+
+# The sitemap named capable-froyo-218eed.netlify.app — an old auto-generated
+# Netlify hostname that is not this site. A sitemap on a different host than
+# the robots.txt that points at it is ignored.
+Sitemap: https://cinamate-studio.netlify.app/sitemap.xml

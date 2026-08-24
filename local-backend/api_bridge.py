@@ -30,17 +30,14 @@ def api_status() -> dict[str, Any]:
         "xai": gk,
         "wavespeed": wk,
         "ready": gk or wk,
-        "xai_masked": _mask(get_key("XAI_API_KEY", "GROK_API_KEY")),
-        "wavespeed_masked": _mask(get_key("WAVESPEED_API_KEY")),
     }
 
 
-def _mask(val: str | None) -> str | None:
-    if not val:
-        return None
-    if len(val) <= 8:
-        return "***"
-    return val[:4] + "..." + val[-4:]
+# _mask used to put the first and last four characters of each API key into
+# /health, which any page in the operator's browser could read. Four known
+# characters at each end is a real head start on a stolen or guessed key, and
+# it bought nothing: "is a key configured" is what the operator needs to see,
+# and the booleans above already say it.
 
 
 def _http_json(

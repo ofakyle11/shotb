@@ -1,13 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Public pages only. This used to advertise /app.html and /timeline/, which
+     are inside the gate: crawlers got a 302 to the sign-in page, and the
+     sitemap became a published inventory of where the application lives. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://cinamate-studio.netlify.app/app.html</loc>
+    <loc>https://cinamate-studio.netlify.app/</loc>
     <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://cinamate-studio.netlify.app/timeline/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.85</priority>
+    <priority>1.0</priority>
   </url>
 </urlset>

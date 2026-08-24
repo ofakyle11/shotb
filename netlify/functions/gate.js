@@ -41,10 +41,15 @@ function tokenOwner(token, secret) {
   if (parts.length !== 4 || parts[0] !== 'owner') return null;
   const name = String(parts[1]).toLowerCase();
   if (NAMES.indexOf(name) < 0) return null;
+  /* The signature must cover the LITERAL expires field, not a reparsed
+     integer. parseInt('1700000000abc') is 1700000000, so verifying over the
+     number made one signature valid for unlimited distinct cookie strings —
+     the token stopped being a unique value and became a family of them. */
+  if (!/^\d+$/.test(parts[2])) return null;
   const expires = parseInt(parts[2], 10);
   if (!expires || Date.now() > expires) return null;
   const expect = createHmac('sha256', secret)
-    .update('owner:' + parts[1] + ':' + expires).digest('hex');
+    .update('owner:' + parts[1] + ':' + parts[2]).digest('hex');
   return safeEqual(parts[3], expect) ? name : null;
 }
 

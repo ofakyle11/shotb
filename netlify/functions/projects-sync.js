@@ -54,10 +54,12 @@ function tokenOwner(token, secret) {
   if (parts.length !== 4 || parts[0] !== 'owner') return null;
   const name = String(parts[1]).toLowerCase();
   if (NAMES.indexOf(name) < 0) return null;
+  // Signed over the literal field, not a reparsed integer — see gate.js.
+  if (!/^\d+$/.test(parts[2])) return null;
   const expires = parseInt(parts[2], 10);
   if (!expires || Date.now() > expires) return null;
   const expect = createHmac('sha256', secret)
-    .update('owner:' + parts[1] + ':' + expires).digest('hex');
+    .update('owner:' + parts[1] + ':' + parts[2]).digest('hex');
   return safeEqual(parts[3], expect) ? name : null;
 }
 
@@ -108,12 +110,30 @@ async function writeIndex(idx) {
 }
 
 function cleanName(name) {
-  const n = String(name || '')
+  let n = String(name || '')
     .replace(/[\u0000-\u001f\u007f]/g, '')   // control chars never belong in a title
-    .trim().slice(0, 80);
+    /* Invisible characters. Two productions whose titles differ only by a
+       zero-width space render identically in the Projects list, and in a
+       namespace where every owner's delete and restore act on everyone's
+       copy, "which of these two identical rows did I just delete" is not a
+       question anybody should have to answer. */
+    .replace(/[\u200b-\u200f\u2028-\u202e\u2060-\u2064\ufeff]/g, '')
+    .replace(/\u00a0/g, ' ')                    // a non-breaking space reads as a space
+    .trim().slice(0, 80)
+    /* slice() counts UTF-16 units, so an 80th character that is half of an
+       emoji leaves a lone surrogate behind. encodeURIComponent THROWS on one,
+       and the blob key is built with it — so every cloud operation for that
+       production becomes a 502, its auto-backup dies, and the message blames
+       the network. */
+    .replace(/[\ud800-\udbff](?![\udc00-\udfff])/g, '')
+    .replace(/(^|[^\ud800-\udbff])([\udc00-\udfff])/g, '$1')
+    .trim();
   if (!n || n === INDEX_KEY) return null;
   if (/^(p:|prev:|v:|tomb:|_)/.test(n)) return null;  // never let a title impersonate a reserved key
   if (n === '__proto__' || n === 'constructor' || n === 'prototype') return null;
+  /* Proof rather than assumption: if it cannot be encoded it cannot be a blob
+     key, and finding that out here beats finding it out at the fetch. */
+  try { encodeURIComponent(n); } catch (e) { return null; }
   return n;
 }
 

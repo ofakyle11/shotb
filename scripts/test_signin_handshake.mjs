@@ -18,6 +18,10 @@ import { readFileSync } from 'fs';
    business in a file that gets committed and pushed. */
 process.env.OWNER_TOKEN_SECRET = 'test-secret-0123456789';
 process.env.OWNER_PW_HZ465 = 'test-only-password-not-a-real-one';
+/* projects-sync refuses everything with a 500 when these are absent, which
+   would make the token checks below pass for the wrong reason. */
+process.env.CIN_API_TOKEN = 'nfp_test';
+process.env.CIN_SITE_ID = 'site-test';
 
 const { handler } = await import('/home/user/shotb/netlify/functions/verify-owner.js');
 
@@ -102,6 +106,51 @@ const signIn = (name, password) => handler({
     !/setItem\(\s*OWNER_TOKEN_KEY|setItem\(\s*['"]SB_OWNER_TOKEN/.test(auth));
   t('js/auth.js still purges a token left by an earlier sign-in',
     /removeItem\(\s*OWNER_TOKEN_KEY/.test(auth));
+}
+
+/* ── the signature must pin ONE token string, not a family of them ── */
+{
+  const { createHmac } = await import('crypto');
+  const secret = process.env.OWNER_TOKEN_SECRET;
+  const expires = Date.now() + 3600000;
+  const payload = `owner:hz465:${expires}`;
+  const sig = createHmac('sha256', secret).update(payload).digest('hex');
+
+  /* Every consumer of the cookie must agree, so all three are checked. */
+  const gate = await import('/home/user/shotb/netlify/functions/gate.js');
+  const vo = await import('/home/user/shotb/netlify/functions/verify-owner.js');
+  const sync = await import('/home/user/shotb/netlify/functions/projects-sync.js');
+
+  /* The catalog read must not touch the network; an empty store is enough to
+     tell an accepted token from a rejected one. */
+  const realFetch = global.fetch;
+  global.fetch = async () => ({ ok: false, status: 404, text: async () => '' });
+
+  const accepts = async (token) => {
+    const r = await sync.handler({
+      httpMethod: 'GET',
+      headers: { cookie: 'cin_owner=' + encodeURIComponent(token), host: 'x.netlify.app' },
+      queryStringParameters: { op: 'list' },
+    });
+    return r.statusCode !== 401;
+  };
+
+  t('the genuine token is accepted', await accepts(`${payload}:${sig}`));
+
+  /* parseInt('1700000000abc') === 1700000000. Verifying over the reparsed
+     number made all of these valid under the same signature. */
+  for (const suffix of ['abc', ' ', '.9', 'e0', '\n', '000']) {
+    const forged = `owner:hz465:${expires}${suffix}:${sig}`;
+    t(`a mutated expires field is refused: ${JSON.stringify(String(expires) + suffix)}`,
+      !(await accepts(forged)));
+  }
+  t('a leading-plus expires field is refused', !(await accepts(`owner:hz465:+${expires}:${sig}`)));
+  t('a whitespace-padded expires field is refused', !(await accepts(`owner:hz465: ${expires}:${sig}`)));
+  t('verifyOwnerToken agrees', vo.verifyOwnerToken(`owner:hz465:${expires}abc:${sig}`) === null);
+  t('verifyOwnerToken still accepts the genuine one',
+    (vo.verifyOwnerToken(`${payload}:${sig}`) || {}).name === 'hz465');
+  t('the gate module still loads', typeof gate.handler === 'function');
+  global.fetch = realFetch;
 }
 
 console.log(`test_signin_handshake: ${pass} passed, ${fail} failed`);
