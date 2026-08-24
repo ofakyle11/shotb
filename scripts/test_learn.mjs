@@ -97,4 +97,55 @@ L.reset();
 
 L.reset();
 if (failed) { console.error('\nLearn checks FAILED'); process.exit(1); }
+
+/* The research cache holds replies from TMDB and Wikidata for a week and
+   lives outside the SB_* namespace the vault sanitiser covers — deliberately,
+   so learning survives project switches. That makes this the only place the
+   cleaning can happen. */
+{
+  const hostile = {
+    name: '<img src=x onerror=alert(1)>',
+    nested: { bio: 'a"b<script>alert(1)</script>' },
+    list: ['<b>x</b>', "it's fine"],
+    '<key>': 'v',
+  };
+  L.cachePut('tmdb:hostile', hostile);
+  const back = L.cacheGet('tmdb:hostile');
+  const bad = [];
+  (function walk(n, path) {
+    if (typeof n === 'string') { if (/[<>"']/.test(n)) bad.push(path + ' = ' + n); return; }
+    if (n && typeof n === 'object') {
+      for (const k of Object.keys(n)) {
+        if (/[<>"']/.test(k)) bad.push('KEY ' + path + '.' + k);
+        walk(n[k], path + '.' + k);
+      }
+    }
+  })(back, '');
+  ok(bad.length === 0, 'cache: a third-party reply is neutralised on the way in' +
+    (bad.length ? ' — ' + bad.join('; ') : ''));
+  ok(back && back.name === 'img src=x onerror=alert(1)' && back.list.length === 2,
+    'cache: the reply is still usable after cleaning');
+  ok(back && !Object.prototype.hasOwnProperty.call(back, '<key>') &&
+     Object.prototype.hasOwnProperty.call(back, 'key'),
+    'cache: a hostile object key is cleaned, not kept');
+
+  L.cachePut('proto', JSON.parse('{"__proto__":{"polluted":1}}'));
+  ok({}.polluted === undefined, 'cache: a __proto__ key does not pollute Object.prototype');
+
+  let deep = {}, cur = deep;
+  for (let i = 0; i < 300; i++) { cur.child = {}; cur = cur.child; }
+  let threw = false;
+  try { L.cachePut('deep', deep); } catch (e) { threw = true; }
+  ok(!threw, 'cache: a deeply nested reply is bounded, not thrown on');
+}
+
+/* This used to print the success line unconditionally and never call
+   process.exit, so the suite reported "All learn checks passed" and exited 0
+   even with failures on the screen — a green light nobody could rely on, and
+   the runner could not tell the difference. */
+if (failed) {
+  console.error('\nlearn checks FAILED — see the FAIL lines above.');
+  process.exit(1);
+}
 console.log('\nAll learn checks passed.');
+process.exit(0);

@@ -133,9 +133,40 @@
     if (now - e.t > (e.ttl || WEEK)) { delete state.cache[k]; save(); return null; }
     return e.v;
   }
+  /* What goes in here is a reply from someone else's server — TMDB, Wikidata —
+     kept for a week and rendered by whatever asked for it. The vault
+     sanitiser never sees any of it: it covers the SB_* namespace, and this
+     store sits outside that namespace on purpose so learning survives project
+     switches. That is the right design for learning and the wrong one for
+     trust, so the cleaning happens here instead, on the way in.
+
+     Everything is neutralised by default. Nothing cached here is markup —
+     these are names, dates, ids and short blurbs rendered as text — so
+     removing the characters that end an attribute or open a tag costs
+     nothing and does not depend on every consumer remembering to escape. */
+  var CACHE_MAX_DEPTH = 40;
+  function cleanCached(node, depth) {
+    depth = depth || 0;
+    if (depth > CACHE_MAX_DEPTH) return null;
+    if (node === null || node === undefined) return node;
+    if (typeof node === 'string') return node.replace(/[<>"']/g, '');
+    if (typeof node !== 'object') return node;
+    if (Object.prototype.toString.call(node) === '[object Array]') {
+      var out = [];
+      for (var i = 0; i < node.length; i++) out.push(cleanCached(node[i], depth + 1));
+      return out;
+    }
+    var o = {};
+    Object.keys(node).forEach(function (key) {
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') return;
+      o[key.replace(/[<>"']/g, '')] = cleanCached(node[key], depth + 1);
+    });
+    return o;
+  }
+
   function cachePut(k, v, ttl, now) {
     try {
-      state.cache[k] = { t: now || Date.now(), ttl: ttl || WEEK, v: v };
+      state.cache[k] = { t: now || Date.now(), ttl: ttl || WEEK, v: cleanCached(v, 0) };
       var keys = Object.keys(state.cache);
       if (keys.length > 60) {
         keys.sort(function (a, b) { return state.cache[a].t - state.cache[b].t; });
