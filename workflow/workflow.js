@@ -226,7 +226,7 @@
     $('wfBarFill').style.width = a.overallPct + '%';
     $('wfNext').innerHTML = a.nextUp
       ? 'Next up: <b>' + esc(a.nextUp.title) + '</b> — ' + esc(a.nextUp.hint) +
-        ' <a class="tb-btn gold" href="' + esc(a.nextUp.href) + '">' + esc(a.nextUp.action) + ' →</a>'
+        ' <a class="tb-btn gold" href="' + CinUrl.safe(a.nextUp.href) + '">' + esc(a.nextUp.action) + ' →</a>'
       : 'Pipeline complete — every stage is done. 🎬';
 
     $('wfStages').innerHTML = a.stages.map(function (st, i) {
@@ -242,7 +242,7 @@
           return '<span class="wf-chip ' + (d.ok ? 'good' : '') + '">' + (d.ok ? '✓ ' : '') + esc(d.label) + '</span>';
         }).join('') + '</div>' : '') +
         '<p class="wf-hint">' + esc(st.hint) + '</p>' +
-        '<a class="tb-btn' + (st.status === 'active' ? ' gold' : '') + '" href="' + esc(st.href) + '">' + esc(st.action) + '</a>' +
+        '<a class="tb-btn' + (st.status === 'active' ? ' gold' : '') + '" href="' + CinUrl.safe(st.href) + '">' + esc(st.action) + '</a>' +
         '</div>';
     }).join('');
 

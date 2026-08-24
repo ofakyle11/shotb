@@ -128,7 +128,7 @@ window.SBTimelineEditor = (function () {
       }
       el.innerHTML = state.bin.map((b) => {
         const thumb = b.src
-          ? '<video class="thumb" src="' + esc(b.src) + '" muted preload="metadata"></video>'
+          ? '<video class="thumb" src="' + CinUrl.safe(b.src) + '" muted preload="metadata"></video>'
           : '<div class="thumb"></div>';
         return '<div class="bin-item" data-id="' + esc(b.id) + '" draggable="true">' +
           thumb +
@@ -189,7 +189,7 @@ window.SBTimelineEditor = (function () {
         div.style.width = w + 'px';
         div.dataset.id = tl.id;
         div.innerHTML =
-          (b.src ? '<video class="clip-thumb" src="' + esc(b.src) + '" muted preload="metadata"></video>' : '') +
+          (b.src ? '<video class="clip-thumb" src="' + CinUrl.safe(b.src) + '" muted preload="metadata"></video>' : '') +
           '<div class="clip-name">' + esc(b.name) + '</div>' +
           '<div class="clip-dur">' + dur.toFixed(1) + 's</div>';
         div.addEventListener('click', (e) => {

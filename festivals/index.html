@@ -51,6 +51,7 @@
 .fs-spacer{flex:1}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
+  <script src="/js/safe-url.js"></script>
 </head>
 <body>
 <div class="app">
@@ -144,7 +145,7 @@
         '<div class="fs-cards">' + list.map(function (f) {
           return '<div class="fs-card' + (inPlay ? '' : ' off') + '">' +
             '<b>' + esc(f.name) + '</b><span class="fs-city">' + esc(f.city) + '</span> ' +
-            '<a class="fs-link" target="_blank" rel="noopener" href="' + esc(F.searchLink(f.name)) + '">verify dates ↗</a>' +
+            '<a class="fs-link" target="_blank" rel="noopener" href="' + CinUrl.safe(F.searchLink(f.name)) + '">verify dates ↗</a>' +
             '<p>' + esc(f.seasonWindow) + '</p>' +
             '<p>' + esc(f.premiereNote) + '</p>' +
             '<p class="fs-fee">' + esc(f.feeHint) + ' — verify before relying on it</p>' +
@@ -220,7 +221,7 @@
         '<td><input data-f="focus" value="' + esc(b.focus) + '"></td>' +
         '<td><input data-f="lastContact" type="date" value="' + esc(b.lastContact) + '"></td>' +
         '<td><input data-f="notes" value="' + esc(b.notes) + '" placeholder="notes"></td>' +
-        '<td><a class="fs-link" target="_blank" rel="noopener" href="' + esc(F.buyerSearchLink(b)) + '">look up ↗</a></td>' +
+        '<td><a class="fs-link" target="_blank" rel="noopener" href="' + CinUrl.safe(F.buyerSearchLink(b)) + '">look up ↗</a></td>' +
         '<td><button class="tb-btn" data-del="' + esc(b.id) + '">✕</button></td></tr>';
     }).join('') || '<tr><td colspan="8" class="fs-note">No buyers yet — log every acquisitions contact you meet on the circuit.</td></tr>';
     var stale = F.staleBuyers(st.buyers, todayISO(), 30);

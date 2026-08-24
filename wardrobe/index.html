@@ -174,8 +174,8 @@
   /* ── 1 · characters & looks ── */
   function renderChars() {
     $('wdChars').innerHTML = st.chars.length ? st.chars.map(function (c) {
-      return '<button class="wd-chip" data-char="' + esc(c.name) + '" title="Add a look for ' + esc(c.name) + ' — appears in ' + c.scenes.length + ' scene(s)">' +
-        esc(c.name) + ' · ' + c.scenes.length + ' sc</button>';
+      return '<button class="wd-chip" data-char="' + esc(c.name) + '" title="Add a look for ' + esc(c.name) + ' — appears in ' + (Number(c.scenes && c.scenes.length) || 0) + ' scene(s)">' +
+        esc(c.name) + ' · ' + (Number(c.scenes && c.scenes.length) || 0) + ' sc</button>';
     }).join('') : '<span class="wd-note">No characters yet — seed from the script, or just add a look and type a name.</span>';
   }
   function pieceRows(l) {

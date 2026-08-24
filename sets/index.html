@@ -113,7 +113,7 @@
   function renderPlans() {
     $('sdPlans').innerHTML = doc.plans.map(function (p) {
       return '<div class="sd-plan' + (p.id === plan().id ? ' on' : '') + '" data-plan="' + esc(p.id) + '"><b>' + esc(p.name) + '</b>' +
-        '<span class="sd-dim">' + p.items.length + '</span>' +
+        '<span class="sd-dim">' + (Number(p.items && p.items.length) || 0) + '</span>' +
         (doc.plans.length > 1 ? '<button class="tb-btn" data-delplan="' + esc(p.id) + '">✕</button>' : '') + '</div>';
     }).join('');
     var p = plan();

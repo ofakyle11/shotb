@@ -210,7 +210,7 @@ window.SBLocations = (function () {
     return '<div class="loc-grid">' + locs.map(function (loc) {
       const sel = selectedKey === loc.key ? ' selected' : '';
       const thumb = loc.plateUrl
-        ? '<img src="' + esc(loc.plateUrl) + '" alt="">'
+        ? '<img src="' + CinUrl.safe(loc.plateUrl) + '" alt="">'
         : '<span class="ph">📍</span>';
       const lock = loc.locked ? '<span class="lock-badge">🔒 Locked</span>' : '';
       const clips = (loc.clipIndices || []).length;
@@ -236,7 +236,7 @@ window.SBLocations = (function () {
       '<div class="field"><label>Scene heading / description</label><textarea data-k="description">' + esc(loc.description || '') + '</textarea></div>' +
       '<div class="field"><label>Consistency phrase (injected into prompt when locked)</label><input data-k="consistencyPhrase" value="' + esc(loc.consistencyPhrase || '') + '" placeholder="e.g. rain-slick neon alley, same brick walls"></div>' +
       '<div class="field"><label><span>Lock location</span><span class="toggle' + (loc.locked ? ' on' : '') + '" data-k="locked"></span></label></div>' +
-      (loc.plateUrl ? '<div class="ref-preview"><img src="' + esc(loc.plateUrl) + '" alt="plate"></div>' : '<div class="empty-hint" style="margin:6px 0">No reference plate yet — upload one for image-to-video matching.</div>') +
+      (loc.plateUrl ? '<div class="ref-preview"><img src="' + CinUrl.safe(loc.plateUrl) + '" alt="plate"></div>' : '<div class="empty-hint" style="margin:6px 0">No reference plate yet — upload one for image-to-video matching.</div>') +
       '<button type="button" class="tb-btn gold" id="btnUploadLocPlate">Upload location plate</button>' +
       (loc.plateUrl ? '<button type="button" class="tb-btn" id="btnClearLocPlate">Remove plate</button>' : '') +
       '</div>';

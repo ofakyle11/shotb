@@ -45,6 +45,7 @@
 .pp-learn{font-family:var(--mono);font-size:10px;color:var(--dim)}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
+  <script src="/js/safe-url.js"></script>
 </head>
 <body>
 <div class="app">
@@ -186,9 +187,9 @@
         '<b>' + esc(h.name) + '</b>' +
         '<span class="pp-tag">' + (h.source === 'directory' ? 'directory' : 'map listing') + '</span>' +
         (phone ? '<a class="pp-phone" href="tel:' + esc(String(phone).replace(/[^+\d]/g, '')) + '">' + esc(phone) + '</a>'
-               : '<a class="pp-phone" target="_blank" rel="noopener" href="' + esc(P.searchLink(h, city)) + '">find number ↗</a>') +
+               : '<a class="pp-phone" target="_blank" rel="noopener" href="' + CinUrl.safe(P.searchLink(h, city)) + '">find number ↗</a>') +
         '<button class="tb-btn" data-edit="' + esc(h.name) + '" title="Enter or correct the phone number">✎</button>' +
-        (h.website ? '<a class="tb-btn" target="_blank" rel="noopener" href="' + esc(h.website) + '">site ↗</a>' : '') +
+        (h.website ? '<a class="tb-btn" target="_blank" rel="noopener" href="' + CinUrl.safe(h.website) + '">site ↗</a>' : '') +
         '<span class="pp-spacer"></span>' +
         '<button class="tb-btn gold" data-rfq="' + esc(h.name) + '">Request quote</button>' +
         '<span class="pp-spec">' + esc(h.spec || '') + (h.address ? ' — ' + esc(h.address) : '') + '</span>' +

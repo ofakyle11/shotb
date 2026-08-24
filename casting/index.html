@@ -44,6 +44,7 @@
 .co-scenes{font-family:var(--mono);font-size:10px;color:var(--dim)}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
+  <script src="/js/safe-url.js"></script>
 </head>
 <body>
 <div class="app">
@@ -225,7 +226,7 @@
         '<td><input class="co-wide" data-f="name" value="' + esc(c.name) + '"></td>' +
         '<td><input class="co-wide" data-f="contact" value="' + esc(c.contact) + '" placeholder="agent / email"></td>' +
         '<td><input data-f="selfTape" value="' + esc(c.selfTape) + '" placeholder="tape url">' +
-          (/^https?:\/\//i.test(c.selfTape || '') ? ' <a class="tb-btn" target="_blank" rel="noopener" href="' + esc(c.selfTape) + '">▶</a>' : '') + '</td>' +
+          (/^https?:\/\//i.test(c.selfTape || '') ? ' <a class="tb-btn" target="_blank" rel="noopener" href="' + CinUrl.safe(c.selfTape) + '">▶</a>' : '') + '</td>' +
         '<td><select data-f="status">' + C.STATUSES.map(function (s) {
           return '<option' + (s === c.status ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></td>' +
         '<td><input data-f="holdFrom" type="date" value="' + esc(c.holdFrom) + '"></td>' +

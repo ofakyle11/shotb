@@ -1123,7 +1123,7 @@ function renderTimeline(){
   $('timeRuler').innerHTML=ticks.join('');
   $('clipRow').innerHTML=state.clips.map(c=>{
     const st=c.status==='approved'?'approved':c.status==='done'?'done':c.status==='generating'?'gen':'';
-    const th=c.videoUrl?'<video src="'+esc(c.videoUrl)+'" muted loop playsinline></video>':'<span class="ph">🎬</span>';
+    const th=c.videoUrl?'<video src="'+CinUrl.safe(c.videoUrl)+'" muted loop playsinline></video>':'<span class="ph">🎬</span>';
     return '<div class="clip-card'+(c.id===state.selectedId?' active':'')+(c.status==='approved'?' approved':'')+'" data-id="'+esc(String(c.id))+'" draggable="true"><div class="clip-status '+st+'"></div><div class="clip-num">Clip '+esc(String(c.num).padStart(2,'0'))+'</div><div class="clip-thumb">'+th+'</div><div class="clip-label">'+esc(c.label)+'</div><div class="clip-dur">~'+esc(String(c.durationSec))+'s</div></div>';
   }).join('');
   $('clipRow').querySelectorAll('.clip-card').forEach(el=>{

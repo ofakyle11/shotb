@@ -23,7 +23,10 @@ const SKIP_DIR = new Set(['.git', 'node_modules', 'static', 'assets', 'private',
   'local-backend', 'netlify-git-guard', 'docs', 'agents']);
 
 /* Calls that already produce safe output. */
-const SAFE_CALL = /^(esc|escAttr|escape|encodeURIComponent|escapeHtml|htmlEsc|csvSafe|String\(\s*\+|Number|parseInt|parseFloat)\b/;
+/* Calls that already produce safe output. CinUrl.safe is the URL-context
+   check — HTML escaping is not enough inside an href or src, since it does
+   nothing to a javascript: scheme. escT/escH are per-module escapers. */
+const SAFE_CALL = /^[\s(]*(CinUrl\.safe|esc|escT|escH|escHtml|escAttr|escape|encodeURIComponent|escapeHtml|htmlEsc|csvSafe|String\(\s*\+|Number|parseInt|parseFloat)\b/;
 /* Expressions that cannot carry markup: numbers, arithmetic, .length, indexes,
    .toFixed(), template counters, and boolean-picked literal strings. */
 const NUMERIC = /^[\s()]*[-+]?(\d[\d_.eE+-]*|[A-Za-z_$][\w$.]*\s*\.\s*(length|size)|[A-Za-z_$][\w$.]*\s*\.\s*to(Fixed|Precision)\s*\([^)]*\))[\s()]*$/;

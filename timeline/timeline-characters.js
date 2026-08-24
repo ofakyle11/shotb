@@ -387,7 +387,7 @@ window.SBCharacters = (function () {
     if (!names.length) return '<div class="empty-hint">Characters come from the same script parse as your timeline clips. Re-import your script, or click <strong>+ Add Character</strong>.</div>';
     return '<div class="char-grid">' + names.map(n => {
       const c = chars[n];
-      const thumb = c.refUrl ? '<img src="' + esc(c.refUrl) + '" alt="">' : '<span class="ph">👤</span>';
+      const thumb = c.refUrl ? '<img src="' + CinUrl.safe(c.refUrl) + '" alt="">' : '<span class="ph">👤</span>';
       const lock = c.faceLock ? '<span class="lock-badge">🔒 Face lock</span>' : '';
       const sel = selected === n ? ' selected' : '';
       const preview = (c.description || '').trim().slice(0, 42);
@@ -417,7 +417,7 @@ window.SBCharacters = (function () {
       '<div class="field"><label><span>Face lock (I2V)</span><span class="toggle' + (c.faceLock ? ' on' : '') + '" data-k="faceLock"></span></label></div>' +
       '<div class="field"><label><span>Lip-sync enable</span><span class="toggle' + (c.lipSync ? ' on' : '') + '" data-k="lipSync"></span></label></div>' +
       '<div class="field"><label>Lock method</label><select data-k="lockMethod"><option value="ip-adapter"' + (c.lockMethod === 'ip-adapter' ? ' selected' : '') + '>IP-Adapter</option><option value="lora"' + (c.lockMethod === 'lora' ? ' selected' : '') + '>LoRA</option></select></div>' +
-      (c.refUrl ? '<div class="ref-preview"><img src="' + esc(c.refUrl) + '" alt="ref"></div>' : '') +
+      (c.refUrl ? '<div class="ref-preview"><img src="' + CinUrl.safe(c.refUrl) + '" alt="ref"></div>' : '') +
       '<button type="button" class="tb-btn gold" id="btnUploadRef">Upload reference image</button>' +
       (c.refUrl ? '<button type="button" class="tb-btn" id="btnClearRef">Remove reference</button>' : '') +
       '<button type="button" class="tb-btn char-delete-btn" id="btnDeleteChar">Delete character</button>' +

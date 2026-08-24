@@ -32,6 +32,7 @@
 .sf-card b{font-family:var(--display);font-size:14px}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
+  <script src="/js/safe-url.js"></script>
 </head>
 <body>
 <div class="app">
@@ -174,8 +175,8 @@
         '<span class="sf-note">' + esc(entry ? entry.program : 'paid duty / film program') + (entry ? ' · ' + esc(entry.city) : '') + '</span>' +
         '<span style="flex:1"></span>' +
         (entry && entry.url
-          ? '<a class="tb-btn gold" target="_blank" rel="noopener" href="' + esc(entry.url) + '">Request officers ↗</a>'
-          : '<a class="tb-btn gold" target="_blank" rel="noopener" href="' + esc(S.policeSearchLink(entry, city)) + '">Find the request page ↗</a>') +
+          ? '<a class="tb-btn gold" target="_blank" rel="noopener" href="' + CinUrl.safe(entry.url) + '">Request officers ↗</a>'
+          : '<a class="tb-btn gold" target="_blank" rel="noopener" href="' + CinUrl.safe(S.policeSearchLink(entry, city)) + '">Find the request page ↗</a>') +
         '</div>';
     }
     if (reasons.length) {
@@ -236,7 +237,7 @@
       known.map(function (w) { return esc(w.name) + ' (' + esc(w.hub.split(',')[0]) + ')'; }).join(' · ') +
       (known.length ? ' · ' : '') +
       '<a style="color:var(--gold)" target="_blank" rel="noopener" href="' +
-      esc(S.wranglerSearchLink(city || 'your shoot city')) + '">find coordinators near the shoot ↗</a>';
+      CinUrl.safe(S.wranglerSearchLink(city || 'your shoot city')) + '">find coordinators near the shoot ↗</a>';
     if (analysis) {
       var found = S.animalsInScript((readLS('SB_Timeline_v1') || {}).scriptText || '');
       $('anDetect').innerHTML = found.length

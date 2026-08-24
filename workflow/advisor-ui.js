@@ -56,7 +56,7 @@
     });
     h += '<div class="wf-adv-acts">' + acts.map(function (x) {
       var s = SEV[x.sev] || SEV.low;
-      return '<a class="wf-adv-act" href="' + esc(x.href) + '">' +
+      return '<a class="wf-adv-act" href="' + CinUrl.safe(x.href) + '">' +
         '<span class="wf-adv-sev" style="background:' + s[0] + '22;color:' + s[0] + '">' + s[1] + '</span>' +
         '<span>' + esc(x.text) + '</span><b>' + esc(x.label) + ' →</b></a>';
     }).join('') + '</div>';
@@ -95,7 +95,7 @@
     if (window.CLearn) {
       var L = CLearn.summary();
       h += '<p class="wf-adv-foot wf-dim" style="font-size:10px;color:var(--dim)">Self-learning: ' +
-        (L.budgetLines ? L.budgetLines + ' budget actuals learned (avg correction ×' + L.avgMult + ')' : 'no budget actuals learned yet — fill the Actual column as invoices land') +
+        (L.budgetLines ? esc(L.budgetLines) + ' budget actuals learned (avg correction ×' + esc(L.avgMult) + ')' : 'no budget actuals learned yet — fill the Actual column as invoices land') +
         ' · ' + (L.renders ? L.renders + ' renders timed — your machine averages ' + L.wallPerClip + 's/clip (' + L.trend + ')' : 'render speed not measured yet') +
         (L.cached ? ' · ' + L.cached + ' research lookups cached' : '') + '</p>';
     }
