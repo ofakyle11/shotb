@@ -30,6 +30,11 @@ const MAX_ARCHIVE_BYTES = 4 * 1024 * 1024; // localStorage-sized projects, not m
 const VERSION_KEEP = 8;
 const verKey = (name, n) => 'v:' + n + ':' + name;
 const FORMAT = 'cinamate/1';
+/* Records that belong to one machine, never to a production — the bridge
+   address and its API key, and a personal TMDB key. Mirrors LOCAL_ONLY in
+   projects/lib-vault.js; both sides check, because either alone is one
+   client bug away from publishing a credential to all five owners. */
+const LOCAL_ONLY = /^SB_(LocalGPU|TMDB)_v\d+$/i;
 
 function respond(statusCode, body) {
   return { statusCode, headers: {
@@ -173,7 +178,21 @@ exports.handler = async (event) => {
         return respond(400, { error: 'Not a Cinamate project archive' });
       }
       for (const k of Object.keys(parsed.stores)) {
-        if (!/^SB_[A-Za-z0-9]+_v\d+$/.test(k)) delete parsed.stores[k]; // never store foreign keys
+        if (!/^SB_[A-Za-z0-9]+_v\d+$/.test(k)) { delete parsed.stores[k]; continue; } // never store foreign keys
+        /* Machine-local records, not production data. SB_LocalGPU holds this
+           workstation's bridge address and its API key; SB_TMDB holds a
+           personal API key. The client already leaves them out of a snapshot,
+           but the client is not the security boundary — anything that can
+           reach this endpoint can name its own stores, and this blob store is
+           read by all five owners. Refused here as well. */
+        if (LOCAL_ONLY.test(k)) delete parsed.stores[k];
+      }
+      /* An archive with nothing in it is not a save, it is an erase: the
+         reader's vault clears the workspace before writing what arrived. A
+         push that filtered down to zero stores means the caller sent junk, so
+         say so rather than storing an empty production over a real one. */
+      if (!Object.keys(parsed.stores).length) {
+        return respond(400, { error: 'That archive contains no production data — refusing to save an empty project over "' + name + '"' });
       }
       const payload = JSON.stringify(parsed);
       if (payload.length > MAX_ARCHIVE_BYTES) {

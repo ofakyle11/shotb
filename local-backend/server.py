@@ -14,8 +14,10 @@ from pathlib import Path as _Path
 sys.path.insert(0, str(_Path(__file__).resolve().parent))
 
 import base64
+import hmac
 import json
 import mimetypes
+import os
 import shutil
 import threading
 import time
@@ -117,6 +119,29 @@ def _is_external_job(request_id: str) -> bool:
         if request_id in EXTERNAL_JOBS:
             return True
     return is_api_job(request_id)
+
+
+def bridge_api_key() -> str:
+    """The shared secret this bridge expects, or "" if the operator set none.
+
+    The Studio has always had a "Bridge key" field and has always sent the
+    value as X-API-Key; the server simply never looked at it. Checking it
+    closes the last local path: origin rules only bind browsers, so any other
+    program on this machine could drive the bridge by sending no Origin at
+    all. Opt-in, so an existing install keeps working — but the startup banner
+    says plainly when it is off.
+    """
+    return str(CONFIG.get("api_key") or os.environ.get("CINAMATE_API_KEY") or "").strip()
+
+
+def check_api_key(handler: BaseHTTPRequestHandler) -> bool:
+    expected = bridge_api_key()
+    if not expected:
+        return True
+    got = (handler.headers.get("X-API-Key") or "").strip()
+    # Constant-time: a byte-by-byte comparison tells a local caller how much
+    # of a guess was right.
+    return hmac.compare_digest(got, expected)
 
 
 def allowed_origins() -> set[str]:
@@ -779,6 +804,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
         if parsed.path not in ("/generate-video", "/"):
             self.send_error(404)
             return
+        if not check_api_key(self):
+            json_response(self, 401, {"error": "Bridge key required — set it in the Studio's Bridge key field"})
+            return
         length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(length) if length else b"{}"
         try:
@@ -852,6 +880,13 @@ def main() -> None:
         print(f"  Cloud API      -> XAI={api.get('xai')} WaveSpeed={api.get('wavespeed')} (prefer_api={CONFIG.get('prefer_api', False)})")
     else:
         print("  Cloud API      -> no keys (copy .env.example to .env)")
+    if bridge_api_key():
+        print("  Bridge key     -> ON (put the same value in the Studio's Bridge key field)")
+    else:
+        print("  Bridge key     -> OFF. Any program on this computer can drive the bridge.")
+        print("                    To lock it: add \"api_key\": \"pick-a-long-random-string\"")
+        print("                    to local-backend/config.json, restart, and paste the same")
+        print("                    value into the Studio's Bridge key field.")
     server.serve_forever()
 
 

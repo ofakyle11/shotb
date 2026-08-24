@@ -114,5 +114,36 @@ for (const bad of ['v:0:Film', 'tomb:Film', 'p:Film', '_index']) {
   t(`reserved key rejected: ${bad}`, r.statusCode === 400);
 }
 
+/* 7. the shared store must never accept a machine's own credentials */
+{
+  const withKeys = JSON.stringify({
+    format: 'cinamate/1', name: 'Keys',
+    stores: {
+      SB_Timeline_v1: JSON.stringify({ scriptText: 'real work' }),
+      SB_LocalGPU_v1: JSON.stringify({ url: 'http://127.0.0.1:3456', apiKey: 'SECRET-BRIDGE-KEY' }),
+      SB_TMDB_v1: JSON.stringify({ key: 'SECRET-TMDB-KEY' }),
+      NotAnSbKey: 'x',
+    },
+  });
+  await call('hz465', { op: 'push', name: 'Keys', archive: withKeys });
+  const stored = store.get('p:Keys') || '';
+  t('the bridge API key never reaches the shared store', !stored.includes('SECRET-BRIDGE-KEY'));
+  t('a personal TMDB key never reaches the shared store', !stored.includes('SECRET-TMDB-KEY'));
+  t('a foreign store key is dropped', !stored.includes('NotAnSbKey'));
+  t('the real production data is still saved', stored.includes('real work'));
+}
+
+/* 8. an empty archive is an erase, not a save */
+{
+  const before = await liveMarker();
+  const empty = await call('hz465', { op: 'push', name: 'Film', archive:
+    JSON.stringify({ format: 'cinamate/1', name: 'Film', stores: {} }) });
+  t('an archive with no stores is refused', empty.statusCode === 400);
+  const onlyForeign = await call('hz465', { op: 'push', name: 'Film', archive:
+    JSON.stringify({ format: 'cinamate/1', name: 'Film', stores: { evil: '1', SB_TMDB_v1: '{}' } }) });
+  t('an archive that filters down to nothing is refused', onlyForeign.statusCode === 400);
+  t('the live production is untouched by a refused push', (await liveMarker()) === before);
+}
+
 console.log(`test_cloud_safety: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

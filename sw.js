@@ -5,13 +5,40 @@
  * through and never written to disk, so the application cannot be replayed
  * from Cache Storage after sign-out or without a cookie.
  * Never caches POSTs, functions, or cross-origin requests. */
-var VERSION = 'cin-v2';   // v2: gated responses are no longer cached — v1 caches are purged on activate
+var VERSION = 'cin-v3';   // v3: cacheable paths are an allow-list, not a header check
 var SHELL = [
   '/', '/login.html',
   '/css/theme.css', '/js/cinamate-auth.js', '/js/effects.js',
   '/assets/logo.svg', '/assets/logo-mark.svg', '/assets/favicon.svg',
   '/assets/icon-512.png', '/manifest.webmanifest'
 ];
+
+/* Exactly the files the deploy leaves on the public CDN. Everything else on
+   this origin comes out of the gate function and must never touch disk.
+ *
+ * This is deliberately a second, independent check. The header test below
+ * asks the RESPONSE whether it may be cached, which is correct right up until
+ * some future gate path forgets to set "private, no-store" — and then gated
+ * application bytes land in Cache Storage, where they outlive sign-out and
+ * replay with no cookie at all. A path list cannot be forgotten by a header:
+ * a new gated route is simply not on it. Both must agree before anything is
+ * written. Keep this in step with PUBLIC_FILES/PUBLIC_PREFIXES in
+ * scripts/deploy_cinamate.mjs. */
+var PUBLIC_EXACT = {
+  '/': 1, '/index.html': 1, '/login.html': 1, '/404.html': 1,
+  '/css/theme.css': 1, '/js/cinamate-auth.js': 1, '/js/effects.js': 1,
+  '/manifest.webmanifest': 1, '/sw.js': 1, '/robots.txt': 1, '/sitemap.xml': 1,
+  '/favicon.ico': 1, '/apple-touch-icon.png': 1
+};
+var PUBLIC_PREFIX = ['/assets/', '/static/'];
+
+function isPublicPath(pathname) {
+  if (PUBLIC_EXACT[pathname]) return true;
+  for (var i = 0; i < PUBLIC_PREFIX.length; i++) {
+    if (pathname.indexOf(PUBLIC_PREFIX[i]) === 0) return true;
+  }
+  return false;
+}
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
@@ -47,7 +74,7 @@ self.addEventListener('fetch', function (e) {
            sign-out and be replayable with no cookie. Only the public shell
            is cached, which is all the offline start-up needs. */
         var cc = res.headers.get('Cache-Control') || '';
-        if (!/no-store|private/i.test(cc)) {
+        if (isPublicPath(url.pathname) && !/no-store|private/i.test(cc)) {
           var copy = res.clone();
           caches.open(VERSION).then(function (c) { c.put(req, copy); });
         }
