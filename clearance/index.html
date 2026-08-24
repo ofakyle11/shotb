@@ -93,14 +93,14 @@ select.cl-status{background:var(--surface2);border:1px solid var(--border);color
       : '';
     $('clBanner').innerHTML = !st.findings.length ? '' : sum.eoReady
       ? '<div class="cl-banner cl-ready">CLEAR — every finding addressed. Package the report with your E&amp;O application.</div>'
-      : '<div class="cl-banner cl-open">' + sum.open + ' finding' + (sum.open === 1 ? '' : 's') + ' still open — E&amp;O underwriters will ask about every one.</div>';
+      : '<div class="cl-banner cl-open">' + esc(sum.open) + ' finding' + (sum.open === 1 ? '' : 's') + ' still open — E&amp;O underwriters will ask about every one.</div>';
     $('clRows').innerHTML = st.findings.map(function (f) {
       return '<div class="cl-find">' +
-        '<span class="cl-risk cl-' + f.risk + '">' + f.risk + '</span>' +
-        '<b>SC ' + f.scene + '</b> · ' + esc(f.cat.toUpperCase()) + ' — <b>' + esc(f.term) + '</b>' +
+        '<span class="cl-risk cl-' + esc(f.risk) + '">' + esc(f.risk) + '</span>' +
+        '<b>SC ' + esc(f.scene) + '</b> · ' + esc(f.cat.toUpperCase()) + ' — <b>' + esc(f.term) + '</b>' +
         '<span class="cl-ex">' + esc(f.excerpt) + '</span>' +
         '<span class="cl-note">' + esc(f.action) + '</span> ' +
-        '<select class="cl-status" data-fid="' + f.id + '">' +
+        '<select class="cl-status" data-fid="' + esc(f.id) + '">' +
           ['pending', 'cleared', 'rewritten', 'accepted risk'].map(function (s2) {
             return '<option' + (s2 === f.status ? ' selected' : '') + '>' + s2 + '</option>'; }).join('') +
         '</select></div>';

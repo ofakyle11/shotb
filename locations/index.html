@@ -218,7 +218,7 @@
     if (!found.length) return toast('No sluglines found — load a screenplay in the Studio or Writer first');
     $('skSuggest').innerHTML = '<div class="sk-card">' + found.map(function (f, i) {
       return '<div class="sk-sug"><b>' + esc(f.name) + '</b><span class="sk-scn">scenes ' + f.scenes.join(', ') + '</span>' +
-        '<span class="sk-spacer"></span><button class="tb-btn" data-sug="' + i + '">+ Add to book</button></div>';
+        '<span class="sk-spacer"></span><button class="tb-btn" data-sug="' + esc(i) + '">+ Add to book</button></div>';
     }).join('') + '<p class="sk-note">Read from the working screenplay in this browser.</p></div>';
     $('skSuggest').setAttribute('data-json', JSON.stringify(found));
     toast(found.length + ' script locations found');
@@ -352,7 +352,7 @@
       '<span>AM golden from <b>' + esc(g.goldenAmStart) + '</b></span>' +
       '<span>PM golden from <b>' + esc(g.goldenPmStart) + '</b></span>' +
       '<span>Sunset <b>' + esc(g.sunset) + '</b></span>' +
-      '<span>Day length <b>' + g.dayLength + 'h</b></span>' +
+      '<span>Day length <b>' + esc(g.dayLength) + 'h</b></span>' +
       '<span class="sk-note" style="align-self:center">' + esc(g.note) + '</span></div>';
   }
   $('skSun').addEventListener('click', function () { st.lat = $('skLat').value; st.date = $('skDate').value; save(); renderSun(); });

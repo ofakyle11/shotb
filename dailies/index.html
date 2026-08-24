@@ -283,8 +283,8 @@
   function renderCoverage() {
     var cr = D.circleRate(st.takes);
     $('dlRate').innerHTML =
-      '<span>Takes <b>' + cr.overall.total + '</b></span>' +
-      '<span>Circled <b>' + cr.overall.circled + '</b> (' + cr.overall.pct + '%)</span>' +
+      '<span>Takes <b>' + esc(cr.overall.total) + '</b></span>' +
+      '<span>Circled <b>' + esc(cr.overall.circled) + '</b> (' + esc(cr.overall.pct) + '%)</span>' +
       cr.byDay.map(function (d) { return '<span>' + esc(d.day) + ' <b>' + d.circled + '/' + d.total + '</b></span>'; }).join('');
     var script = scriptText();
     if (script.trim().length < 40) {
@@ -293,9 +293,9 @@
     }
     var cov = D.coverageByScene(st.takes, script);
     $('dlGaps').innerHTML =
-      '<p class="dl-note">' + cov.covered + ' of ' + cov.total + ' script scenes have at least one take. Not yet covered:</p>' +
+      '<p class="dl-note">' + esc(cov.covered) + ' of ' + esc(cov.total) + ' script scenes have at least one take. Not yet covered:</p>' +
       (cov.gaps.map(function (g) {
-        return '<div class="dl-gap"><span class="dl-n">' + g.n + '</span><span>' + esc(g.slug) + '</span></div>';
+        return '<div class="dl-gap"><span class="dl-n">' + esc(g.n) + '</span><span>' + esc(g.slug) + '</span></div>';
       }).join('') || '<p class="dl-note">Nothing — every script scene has coverage. Check the circle rate before calling it a wrap.</p>');
   }
   function renderPicks() {

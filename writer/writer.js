@@ -104,7 +104,7 @@
     }
     $('wrSceneMeta').textContent = state.scenes.length + ' scenes';
     wrap.innerHTML = state.scenes.map(function (s, i) {
-      return '<div class="wr-card" data-i="' + i + '">' +
+      return '<div class="wr-card" data-i="' + esc(i) + '">' +
         '<div class="wr-card-top">' +
         '<span class="wr-card-n">' + (i + 1) + '</span>' +
         '<input class="wr-card-slug" data-f="slug" value="' + esc(s.slug) + '" title="Scene heading (slugline)">' +
@@ -121,9 +121,9 @@
   function renderStats() {
     var st = TWriter.stats(parsedShape());
     $('wrStats').innerHTML = state.scenes.length ?
-      '<b>' + st.scenes + '</b> scenes · <b>' + st.words + '</b> words<br>' +
-      '≈ <b>' + st.estScreenplayPages + '</b> screenplay pages · ≈ <b>' + st.estRuntimeMin + '</b> min<br>' +
-      (st.characters.length ? 'Cast: ' + st.characters.slice(0, 8).join(', ') : '') : '';
+      '<b>' + esc(st.scenes) + '</b> scenes · <b>' + esc(st.words) + '</b> words<br>' +
+      '≈ <b>' + esc(st.estScreenplayPages) + '</b> screenplay pages · ≈ <b>' + esc(st.estRuntimeMin) + '</b> min<br>' +
+      (st.characters.length ? 'Cast: ' + esc(st.characters.slice(0, 8).join(', ')) : '') : '';
   }
 
   function renderAll() {

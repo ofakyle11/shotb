@@ -113,7 +113,7 @@
       var s = m.slots[n];
       var siz = V.inventory(s.stores || {});
       return '<div class="pv-slot"><b>' + esc(n) + '</b>' +
-        '<span class="pv-meta">' + siz.count + ' modules · ' + kb(siz.bytes) + (s.savedAt ? ' · saved ' + esc(s.savedAt) : '') + '</span>' +
+        '<span class="pv-meta">' + esc(siz.count) + ' modules · ' + kb(siz.bytes) + (s.savedAt ? ' · saved ' + esc(s.savedAt) : '') + '</span>' +
         '<span class="pv-spacer"></span>' +
         '<button class="tb-btn gold" data-open="' + esc(n) + '">Open</button>' +
         '<button class="tb-btn" data-del="' + esc(n) + '">✕</button></div>';

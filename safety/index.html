@@ -139,7 +139,7 @@
     analysis = S.analyze(script);
     $('sfMeta').textContent = analysis.flagged.length + ' of ' + analysis.scenes + ' scenes carry hazards · risk score ' + analysis.riskScore;
     $('sfScenes').innerHTML = analysis.flagged.map(function (sc) {
-      return '<div class="sf-scene"><b>SC ' + sc.scene + '</b> — ' + esc(sc.slug) + '<br>' +
+      return '<div class="sf-scene"><b>SC ' + esc(sc.scene) + '</b> — ' + esc(sc.slug) + '<br>' +
         sc.hazards.map(function (h) {
           return '<span class="sf-h sf-h' + (h.sev === 2 ? '2c' : h.sev) + '" title="' + esc(h.personnel) + '">' + esc(h.label) + '</span>';
         }).join('') + '</div>';
@@ -220,7 +220,7 @@
 
   /* ── animal department ── */
   $('anSpecies').innerHTML = S.ANIMAL_SPECIES.map(function (sp) {
-    return '<option value="' + sp.id + '">' + esc(sp.label) + '</option>';
+    return '<option value="' + esc(sp.id) + '">' + esc(sp.label) + '</option>';
   }).join('');
   function renderAnimals() {
     var e = S.animalEstimate({ species: $('anSpecies').value, days: $('anDays').value,

@@ -141,7 +141,7 @@
     var opts = [];
     for (var d = 0; d <= maxDay; d++) {
       var m = (board.dayMeta || {})[d] || {};
-      opts.push('<option value="' + d + '">Day ' + (d + 1) + (m.date ? ' — ' + esc(m.date) : '') + '</option>');
+      opts.push('<option value="' + esc(d) + '">Day ' + (d + 1) + (m.date ? ' — ' + esc(m.date) : '') + '</option>');
     }
     sel.innerHTML = opts.join('');
     var g = todayGuess();
