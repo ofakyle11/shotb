@@ -116,11 +116,14 @@ exports.handler = async (event) => {
     'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: http://127.0.0.1:* http://localhost:*; media-src 'self' blob: data: http://127.0.0.1:* http://localhost:*; connect-src 'self' blob: data: https://api.themoviedb.org https://query.wikidata.org http://127.0.0.1:* http://localhost:*"
   };
   // Legacy /app.html predates the gate and is built on Firebase, so it needs
-  // its vendor origins allowed. Scoped to that one path — every current module
-  // keeps the strict self-only policy above.
+  // that one vendor origin allowed. Scoped to this path — every current module
+  // keeps the strict self-only policy above. cdnjs used to be here too, for
+  // JSZip; the page now loads the identical file from our own origin, so the
+  // whole host is gone rather than merely constrained. The gstatic scripts
+  // that remain are pinned with SRI in app.html.
   if (/^\/app(\.html)?$/.test(path)) {
     headersOut['Content-Security-Policy'] = headersOut['Content-Security-Policy']
-      .replace("script-src 'self'", "script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com")
+      .replace("script-src 'self'", "script-src 'self' https://www.gstatic.com")
       .replace("connect-src 'self'", "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com");
   }
 

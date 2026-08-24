@@ -23,11 +23,23 @@
 <meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
+<!-- JSZip 3.10.1, served from our own origin. It used to come from cdnjs
+     with no integrity attribute, so whatever that host returned ran with
+     full access to this page. The identical file is already vendored under
+     static/vendor and already used by /timeline/ and /writer/. -->
+<script src="/static/vendor/jszip.min.js"></script>
+<!-- Pinned by hash. Without integrity, whatever gstatic returned ran
+     inside the authenticated app with no check at all; crossorigin is
+     required for the browser to verify it. Re-hash these if the
+     Firebase version is ever bumped, or the page stops loading. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"
+        integrity="sha384-sEVIly94UBRLKWdkYoPpSG7GD/e79YHMrxVyZaOk712Ga7+EAw6w1EFi+xBzBdd+" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"
+        integrity="sha384-EkqK+ezBWJuvO3hfrSx2iVqr3YQbhmnzn8kPhOpBZ+0GMVU5oGSgptwIu8D84HjE" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"
+        integrity="sha384-M481iNZJtbpypKgvlvZ+78Giq0BsewFLk5r2k+MOcGXlwKCc27DQRZ+WCV/zpmpC" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"
+        integrity="sha384-bcb5fVo6wdrK9heHGB8o3Z9sFsrm2TKU7dpuM6I/X3oC+ZfcldhcgHF/xAXIcUeF" crossorigin="anonymous"></script>
 <script src="js/config.js?v=20260617"></script>
 <script src="js/auth.js?v=20260617"></script>
 <script src="js/model-config.js?v=20260624k"></script>
@@ -2098,7 +2110,7 @@ const upZ=$('upZone'),fIn=$('fileIn'),sIn=$('sIn'),goB=$('goBtn');
 upZ.addEventListener('dragover',e=>{e.preventDefault();upZ.classList.add('drag')});upZ.addEventListener('dragleave',()=>upZ.classList.remove('drag'));
 upZ.addEventListener('drop',e=>{e.preventDefault();upZ.classList.remove('drag');if(e.dataTransfer.files.length)hFile(e.dataTransfer.files[0])});
 fIn.addEventListener('change',e=>{if(e.target.files.length)hFile(e.target.files[0])});
-async function hFile(f){const ext=f.name.split('.').pop().toLowerCase();let t='';try{if(ext==='docx')t=await rDocx(f);else if(ext==='txt'||ext==='fountain')t=await f.text();else if(ext==='fdx')t=await rFdx(f);else if(ext==='pdf'&&window.SBParser&&typeof window.SBParser.readFile==='function'){if(!window.pdfjsLib){const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';document.head.appendChild(s);await new Promise((res,rej)=>{s.onload=res;s.onerror=()=>rej(new Error('PDF library failed to load'))})}t=await window.SBParser.readFile(f)}else{alert('Use .docx .txt .fountain .fdx or .pdf');return}}catch(e){alert('Error: '+e.message);return}if(window.SBParser&&window.SBParser.normalizeScriptText)t=window.SBParser.normalizeScriptText(t);sIn.value=t;uFN=f.name;upZ.style.display='none';$('fInf').style.display='block';$('fInf').innerHTML='<div class="up-file"><span style="font-size:20px">📄</span><div><div style="font-family:var(--mono);font-size:13px;color:var(--gold);font-weight:600">'+esc(f.name)+'</div><div style="font-size:11px;color:var(--dim)">'+(f.size/1024).toFixed(1)+'KB</div></div><span style="margin-left:auto;cursor:pointer;color:var(--dim);font-size:16px" onclick="clrF()">✕</span></div>';uLC()}
+async function hFile(f){const ext=f.name.split('.').pop().toLowerCase();let t='';try{if(ext==='docx')t=await rDocx(f);else if(ext==='txt'||ext==='fountain')t=await f.text();else if(ext==='fdx')t=await rFdx(f);else if(ext==='pdf'&&window.SBParser&&typeof window.SBParser.readFile==='function'){if(!window.pdfjsLib){const s=document.createElement('script');s.src='/static/vendor/pdf.min.js';document.head.appendChild(s);await new Promise((res,rej)=>{s.onload=res;s.onerror=()=>rej(new Error('PDF library failed to load'))})}t=await window.SBParser.readFile(f)}else{alert('Use .docx .txt .fountain .fdx or .pdf');return}}catch(e){alert('Error: '+e.message);return}if(window.SBParser&&window.SBParser.normalizeScriptText)t=window.SBParser.normalizeScriptText(t);sIn.value=t;uFN=f.name;upZ.style.display='none';$('fInf').style.display='block';$('fInf').innerHTML='<div class="up-file"><span style="font-size:20px">📄</span><div><div style="font-family:var(--mono);font-size:13px;color:var(--gold);font-weight:600">'+esc(f.name)+'</div><div style="font-size:11px;color:var(--dim)">'+(f.size/1024).toFixed(1)+'KB</div></div><span style="margin-left:auto;cursor:pointer;color:var(--dim);font-size:16px" onclick="clrF()">✕</span></div>';uLC()}
 async function rDocx(f){const ab=await f.arrayBuffer(),z=await JSZip.loadAsync(ab),x=await z.file('word/document.xml').async('string'),p=new DOMParser,d=p.parseFromString(x,'application/xml'),ns='http://schemas.openxmlformats.org/wordprocessingml/2006/main',ps=d.getElementsByTagNameNS(ns,'p'),ls=[];for(let i=0;i<ps.length;i++){const ts=ps[i].getElementsByTagNameNS(ns,'t');let l='';for(let j=0;j<ts.length;j++)l+=ts[j].textContent;ls.push(l)}return ls.join('\n')}
 async function rFdx(f){const t=await f.text(),p=new DOMParser,d=p.parseFromString(t,'application/xml'),ps=d.getElementsByTagName('Paragraph'),ls=[];for(let i=0;i<ps.length;i++){const tp=ps[i].getAttribute('Type')||'',ts=ps[i].getElementsByTagName('Text');let c='';for(let j=0;j<ts.length;j++)c+=ts[j].textContent;if(['Scene Heading','Action','Character','Dialogue','Parenthetical','Transition'].includes(tp)){ls.push(c);if(tp==='Scene Heading'||tp==='Transition')ls.push('')}}return ls.join('\n')}
 function clrF(){upZ.style.display='';$('fInf').style.display='none';fIn.value='';uFN='';sIn.value='';uLC()}
@@ -2817,8 +2829,13 @@ V._loadFFmpeg=async function(progressCb){
   // is now visible to us with a real error message.
   // ═══════════════════════════════════════════════════════════════════════
 
-  const CORE_URL="https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js";
-  const WASM_URL="https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm";
+  // Our own copy, the same one /timeline/ and js/ffmpeg-wasm.js already use.
+  // These used to point at unpkg.com, which no CSP on this site allows, so
+  // the stitcher could never have worked inside the gate — the fetch was
+  // blocked before it left the page. Serving it from our origin fixes the
+  // feature and removes the last third-party script host.
+  const CORE_URL="/static/ffmpeg/ffmpeg-core.js";
+  const WASM_URL="/static/ffmpeg/ffmpeg-core.wasm";
 
   if(progressCb)progressCb("Fetching ffmpeg-core (~30MB on first load, cached after)...");
 
