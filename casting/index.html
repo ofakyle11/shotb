@@ -150,15 +150,15 @@
   function renderStrip() {
     var s = C.boardSummary(st.roles);
     $('coStrip').innerHTML =
-      '<span>Roles <b>' + s.roles + '</b></span>' +
-      '<span>Cast <b>' + s.rolesCast + '</b></span>' +
-      C.STATUSES.map(function (k) { return '<span>' + esc(k) + ' <b>' + s[k] + '</b></span>'; }).join('');
+      '<span>Roles <b>' + esc(s.roles) + '</b></span>' +
+      '<span>Cast <b>' + esc(s.rolesCast) + '</b></span>' +
+      C.STATUSES.map(function (k) { return '<span>' + esc(k) + ' <b>' + esc(s[k]) + '</b></span>'; }).join('');
   }
   function roleStatusTag(r) {
     var booked = (r.candidates || []).filter(function (c) { return c.status === 'booked'; })[0];
     if (booked) return '<span class="co-tag booked">booked · ' + esc(booked.name) + '</span>';
     var offers = (r.candidates || []).filter(function (c) { return c.status === 'offer' || c.status === 'hold'; }).length;
-    if (offers) return '<span class="co-tag">' + offers + ' in play</span>';
+    if (offers) return '<span class="co-tag">' + esc(offers) + ' in play</span>';
     return '<span class="co-tag">open</span>';
   }
   function renderRoles() {

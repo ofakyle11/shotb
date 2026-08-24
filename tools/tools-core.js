@@ -22,9 +22,11 @@
   var _uid = 0;
   function uid() { return 't' + (++_uid) + '_' + Math.random().toString(36).slice(2, 8); }
 
+  /* Escapes all five markup-significant characters — the apostrophe matters
+     because a value dropped into a single-quoted attribute can break out. */
   function esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
   function fmtMoney(n) {
     n = Math.round(Number(n) || 0);
@@ -111,13 +113,13 @@
         var v = r[f.id] == null ? '' : r[f.id];
         h += '<td>';
         if (f.type === 'select') {
-          h += '<select class="uc-sel tk-in" data-f="' + f.id + '">' + (f.options || []).map(function (o) {
+          h += '<select class="uc-sel tk-in" data-f="' + esc(f.id) + '">' + (f.options || []).map(function (o) {
             return '<option' + (String(v) === o ? ' selected' : '') + '>' + esc(o) + '</option>';
           }).join('') + '</select>';
         } else if (f.type === 'textarea') {
-          h += '<input class="tk-in" data-f="' + f.id + '" value="' + esc(v) + '">';
+          h += '<input class="tk-in" data-f="' + esc(f.id) + '" value="' + esc(v) + '">';
         } else {
-          h += '<input class="tk-in" data-f="' + f.id + '" type="' + (f.type === 'date' ? 'date' : 'text') + '" value="' + esc(v) + '">';
+          h += '<input class="tk-in" data-f="' + esc(f.id) + '" type="' + (f.type === 'date' ? 'date' : 'text') + '" value="' + esc(v) + '">';
         }
         if (f.type === 'date' && s.expiryField === f.id) {
           var d = daysUntil(v);

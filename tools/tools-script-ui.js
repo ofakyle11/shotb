@@ -33,11 +33,11 @@
       ds.forEach(function (d, i) {
         h += '<tr><td><span class="tk-revchip" style="background:' + S.revHex(d.color) + '"></span></td>' +
           '<td><b>' + esc(d.color) + '</b> draft</td><td>' + esc(d.saved) + '</td>' +
-          '<td class="bud-r">' + d.lines + '</td>' +
-          '<td>' + (i > 0 ? '<button class="tb-btn" data-cmp="' + i + '">vs ' + esc(ds[i - 1].color) + '</button> ' : '') +
+          '<td class="bud-r">' + escAttr(d.lines) + '</td>' +
+          '<td>' + (i > 0 ? '<button class="tb-btn" data-cmp="' + escAttr(i) + '">vs ' + esc(ds[i - 1].color) + '</button> ' : '') +
           (i < ds.length - 1 ? '' : (i > 0 ? '' : '')) +
-          '<button class="tb-btn" data-cur="' + i + '">vs current</button></td>' +
-          '<td><button class="tb-btn tk-del" data-del="' + i + '">✕</button></td></tr>';
+          '<button class="tb-btn" data-cur="' + escAttr(i) + '">vs current</button></td>' +
+          '<td><button class="tb-btn tk-del" data-del="' + escAttr(i) + '">✕</button></td></tr>';
       });
       h += '</tbody></table></div><div id="rvDiff"></div>';
       el.innerHTML = h;
@@ -77,11 +77,11 @@
       var st = S.diffStats(ops);
       var h = '<div class="tk-summary" style="margin-top:12px"><span class="tk-revchip" style="background:' + S.revHex(a.color) + '"></span>' + esc(a.color) +
         ' → <span class="tk-revchip" style="background:' + S.revHex(b.color) + '"></span>' + esc(b.color) +
-        ' — <b>' + st.added + '</b> added · <b>' + st.deleted + '</b> removed' +
+        ' — <b>' + escAttr(st.added) + '</b> added · <b>' + escAttr(st.deleted) + '</b> removed' +
         (st.changed === 0 ? ' · <span class="tk-chip good">IDENTICAL</span>' : '') + '</div>';
       h += '<div class="tk-difwrap">' + ops.map(function (o) {
         if (o.type === 'same') return '<div class="ln">' + esc(o.line || ' ') + '</div>';
-        return '<div class="ln ' + o.type + '">' + esc(o.line || ' ') + '</div>';
+        return '<div class="ln ' + escAttr(o.type) + '">' + esc(o.line || ' ') + '</div>';
       }).join('') + '</div>';
       C.$('rvDiff').innerHTML = h;
     }
@@ -147,7 +147,7 @@
       var h = '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th style="width:130px">In</th><th style="width:130px">Out</th><th>Text</th><th></th></tr></thead><tbody>';
       if (!cues.length) h += '<tr><td colspan="4" class="tk-empty">No cues yet — load a file or add one.</td></tr>';
       cues.forEach(function (c, i) {
-        h += '<tr data-i="' + i + '"><td><input class="tk-in" data-f="start" value="' + S.msToTc(c.start) + '"></td>' +
+        h += '<tr data-i="' + escAttr(i) + '"><td><input class="tk-in" data-f="start" value="' + S.msToTc(c.start) + '"></td>' +
           '<td><input class="tk-in" data-f="end" value="' + S.msToTc(c.end) + '"></td>' +
           '<td><input class="tk-in" data-f="text" value="' + esc(c.text.replace(/\n/g, ' | ')) + '"></td>' +
           '<td><button class="tb-btn tk-del">✕</button></td></tr>';

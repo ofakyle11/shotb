@@ -3,6 +3,13 @@
  */
 (function (root) {
   'use strict';
+  /* Attribute-safe escaping for any value interpolated into markup.
+     C.esc leaves the apostrophe raw, so use this one for values. */
+  function escAttr(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
   var C = root.TCore, M = root.TMoney, esc = C.esc, fm = C.fmtMoney, num = C.num;
   root.TTabs = root.TTabs || {};
 
@@ -46,16 +53,16 @@
       });
       var out = C.$('tcOut');
       if (res.error) { out.innerHTML = '<div class="tk-result">⚠ ' + esc(res.error) + '</div>'; return null; }
-      var h = '<div class="tk-result"><div>Elapsed <b>' + res.elapsed + 'h</b> · worked <b>' + res.worked + 'h</b></div>';
+      var h = '<div class="tk-result"><div>Elapsed <b>' + escAttr(res.elapsed) + 'h</b> · worked <b>' + escAttr(res.worked) + 'h</b></div>';
       h += '<table class="bud-table" style="margin-top:8px"><tbody>';
       res.lines.forEach(function (l) {
-        if (l.hours || l.pay) h += '<tr><td>' + esc(l.label) + '</td><td class="bud-r">' + (l.hours ? l.hours + 'h' : '') + '</td><td class="bud-r">' + fm(l.pay) + '</td></tr>';
+        if (l.hours || l.pay) h += '<tr><td>' + esc(l.label) + '</td><td class="bud-r">' + (l.hours ? escAttr(l.hours) + 'h' : '') + '</td><td class="bud-r">' + escAttr(fm(l.pay)) + '</td></tr>';
       });
       res.penaltyLines.forEach(function (l) {
         h += '<tr><td style="color:var(--red)">' + esc(l.label) + '</td><td></td><td class="bud-r" style="color:var(--red)">' + fm(l.pay) + '</td></tr>';
       });
       h += '<tr><td>Fringes (' + Math.round(res.fringePct * 100) + '%)</td><td></td><td class="bud-r">' + fm(res.fringes) + '</td></tr>';
-      h += '</tbody></table><div class="big" style="margin-top:8px">' + fm(res.total) + '</div></div>';
+      h += '</tbody></table><div class="big" style="margin-top:8px">' + escAttr(fm(res.total)) + '</div></div>';
       out.innerHTML = h;
       return res;
     }
@@ -135,12 +142,12 @@
       var hc = M.hotCost(postings.rows.map(function (r) { return { acct: r.acct, kind: r.kind, amount: num(r.amount) }; }), budgetByAcct());
       var h = '<div class="bud-tablewrap" style="margin-top:10px"><table class="bud-table"><thead><tr><th>Acct</th><th class="bud-r">Actual</th><th class="bud-r">Committed (PO)</th><th class="bud-r">Total</th><th class="bud-r">Budget</th><th class="bud-r">Variance</th><th class="bud-r">Used</th></tr></thead><tbody>';
       hc.rows.forEach(function (r) {
-        h += '<tr><td>' + esc(r.acct) + '</td><td class="bud-r">' + fm(r.actual) + '</td><td class="bud-r">' + fm(r.committed) + '</td><td class="bud-r"><b>' + fm(r.total) + '</b></td><td class="bud-r">' + fm(r.budget) + '</td>' +
+        h += '<tr><td>' + esc(r.acct) + '</td><td class="bud-r">' + escAttr(fm(r.actual)) + '</td><td class="bud-r">' + escAttr(fm(r.committed)) + '</td><td class="bud-r"><b>' + escAttr(fm(r.total)) + '</b></td><td class="bud-r">' + escAttr(fm(r.budget)) + '</td>' +
           '<td class="bud-r" style="color:var(--' + (r.variance >= 0 ? 'green' : 'red') + ')">' + (r.variance >= 0 ? '' : '−') + fm(Math.abs(r.variance)) + '</td>' +
           '<td class="bud-r">' + (r.pctUsed == null ? '—' : r.pctUsed + '%') + (r.pctUsed > 100 ? ' <span class="tk-chip bad">OVER</span>' : r.pctUsed > 85 ? ' <span class="tk-chip warn">HOT</span>' : '') + '</td></tr>';
       });
       var t = hc.totals;
-      h += '<tr><td><b>TOTAL</b></td><td class="bud-r"><b>' + fm(t.actual) + '</b></td><td class="bud-r"><b>' + fm(t.committed) + '</b></td><td class="bud-r"><b>' + fm(t.total) + '</b></td><td class="bud-r"><b>' + fm(t.budget) + '</b></td>' +
+      h += '<tr><td><b>TOTAL</b></td><td class="bud-r"><b>' + escAttr(fm(t.actual)) + '</b></td><td class="bud-r"><b>' + escAttr(fm(t.committed)) + '</b></td><td class="bud-r"><b>' + escAttr(fm(t.total)) + '</b></td><td class="bud-r"><b>' + escAttr(fm(t.budget)) + '</b></td>' +
         '<td class="bud-r"><b style="color:var(--' + (t.variance >= 0 ? 'green' : 'red') + ')">' + (t.variance >= 0 ? '' : '−') + fm(Math.abs(t.variance)) + '</b></td><td></td></tr>';
       h += '</tbody></table></div>';
       C.$('hcReport').innerHTML = h;
@@ -192,7 +199,7 @@
         h += '<tr><td>' + esc(s.step) + '</td><td class="bud-r">' + fm(s.due) + '</td><td class="bud-r"' + (short ? ' style="color:var(--red)"' : '') + '>' + fm(s.paid) + (short ? ' ⚠' : '') + '</td></tr>';
       });
       h += '</tbody></table></div>';
-      h += '<div class="tk-result">Post-recoupment pool <b>' + fm(wf.pool) + '</b> · producer/talent net <span class="big">' + fm(wf.producerNet) + '</span>' +
+      h += '<div class="tk-result">Post-recoupment pool <b>' + escAttr(fm(wf.pool)) + '</b> · producer/talent net <span class="big">' + escAttr(fm(wf.producerNet)) + '</span>' +
         (wf.breakeven ? ' <span class="tk-chip good">ALL CLASSES WHOLE</span>' : ' <span class="tk-chip bad">SHORTFALL</span>') + '</div>';
       C.$('fwOut').innerHTML = h;
     };

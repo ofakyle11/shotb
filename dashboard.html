@@ -2286,12 +2286,12 @@ select.prod-field__input {
         var st = p.stats;
         return '<tr class="prod-row">' +
           '<td data-label="TITLE"><span class="prod-row__title">' + escHtml(p.name) + '</span></td>' +
-          '<td data-label="STAGE"><span class="prod-badge prod-badge--' + st.badge + '">' +
+          '<td data-label="STAGE"><span class="prod-badge prod-badge--' + escHtml(st.badge) + '">' +
             (st.stage === 'GENERATING' ? '<i class="prod-badge__dot" aria-hidden="true"></i>' : '') +
             st.stage + '</span></td>' +
           '<td data-label="PROGRESS"><div class="prod-progress"><div class="prod-progress__track">' +
-            '<div class="prod-progress__fill" style="width: ' + st.pct + '%"></div></div>' +
-            '<span class="prod-progress__pct">' + st.pct + '%</span></div></td>' +
+            '<div class="prod-progress__fill" style="width: ' + escHtml(st.pct) + '%"></div></div>' +
+            '<span class="prod-progress__pct">' + escHtml(st.pct) + '%</span></div></td>' +
           '<td data-label="RUNTIME" class="prod-row__runtime">' +
             (st.durSec ? Math.max(1, Math.round(st.durSec / 60)) + ' MIN' : '&mdash;') + '</td>' +
           '<td data-label="UPDATED"><span class="prod-row__updated' +
@@ -2359,8 +2359,8 @@ select.prod-field__input {
     var feed = $('#prod-activity-list');
     if (feed) {
       feed.innerHTML = entries.length ? entries.slice(0, 8).map(function (e) {
-        return '<li class="prod-event prod-event--' + e.cls + '">' +
-          '<span class="prod-event__time">' + e.tag + '</span>' +
+        return '<li class="prod-event prod-event--' + escHtml(e.cls) + '">' +
+          '<span class="prod-event__time">' + escHtml(e.tag) + '</span>' +
           '<span class="prod-event__text">' + escHtml(e.text) + '</span></li>';
       }).join('') :
       '<li class="prod-event prod-event--cyan"><span class="prod-event__time">&mdash;</span>' +
@@ -2446,11 +2446,11 @@ select.prod-field__input {
       /* VFX supports an auto tier the engine infers from the script. */
       if (f.key === 'vfx') { opts += '<option value="auto">Auto (from script)</option>'; }
       for (j = 0; j < list.length; j++) {
-        opts += '<option value="' + list[j].id + '">' + list[j].label + '</option>';
+        opts += '<option value="' + escHtml(list[j].id) + '">' + escHtml(list[j].label) + '</option>';
       }
       html += '<div class="prod-field">' +
-                '<label class="prod-field__label" for="est-t-' + f.key + '">' + f.label + '</label>' +
-                '<select class="prod-field__input" id="est-t-' + f.key + '" data-tier="' + f.key + '">' +
+                '<label class="prod-field__label" for="est-t-' + escHtml(f.key) + '">' + escHtml(f.label) + '</label>' +
+                '<select class="prod-field__input" id="est-t-' + escHtml(f.key) + '" data-tier="' + escHtml(f.key) + '">' +
                 opts + '</select></div>';
     }
 
@@ -2541,7 +2541,7 @@ select.prod-field__input {
       for (i = 0; i < names.length; i++) {
         var g = prod.groupTotals[names[i]];
         if (!g) { continue; }
-        rows += '<tr><td>' + names[i] + '</td>' +
+        rows += '<tr><td>' + escHtml(names[i]) + '</td>' +
                 '<td>' + B.fmtMoney(g[0]) + '</td>' +
                 '<td>' + B.fmtMoney((g[0] + g[1]) / 2) + '</td>' +
                 '<td>' + B.fmtMoney(g[1]) + '</td></tr>';

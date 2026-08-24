@@ -185,7 +185,7 @@
   var prefs = { budget: 5e6, genre: 'auto', starTier: 'rising', franchise: false, window: 'fall', rating: 'R', strategy: 'indie' };
 
   function $(id) { return document.getElementById(id); }
-  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
   function fm(n) { return SBBudget.fmtMoney(Math.abs(n)); }
   function fmSigned(n) { return (n < 0 ? '−' : '') + fm(n); }
   function num(v) { var n = parseFloat(String(v).replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0; }
@@ -214,22 +214,22 @@
     h += '<div class="bud-section"><h4>Documentary revenue — a license stack, not box office</h4>';
     h += '<div class="bud-assume">Festival outcome: <select class="uc-sel" id="slDocHeat">';
     root.SBDoc.DOC_SALES.heat.forEach(function (t) {
-      h += '<option value="' + t.id + '"' + (t.id === (prefs.docHeat || 'solid') ? ' selected' : '') + '>' + esc(t.label) + '</option>';
+      h += '<option value="' + esc(t.id) + '"' + (t.id === (prefs.docHeat || 'solid') ? ' selected' : '') + '>' + esc(t.label) + '</option>';
     });
-    h += '</select> · budget ' + fm(prefs.budget) + '</div>';
+    h += '</select> · budget ' + esc(fm(prefs.budget)) + '</div>';
     h += '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th>Revenue path</th><th class="bud-r">Low</th><th class="bud-r">High</th></tr></thead><tbody>';
     Object.keys(ds.paths).forEach(function (k) {
-      h += '<tr><td>' + esc(k) + '</td><td class="bud-r">' + fm(ds.paths[k][0]) + '</td><td class="bud-r">' + fm(ds.paths[k][1]) + '</td></tr>';
+      h += '<tr><td>' + esc(k) + '</td><td class="bud-r">' + esc(fm(ds.paths[k][0])) + '</td><td class="bud-r">' + esc(fm(ds.paths[k][1])) + '</td></tr>';
     });
-    h += '<tr><td><b>Total gross</b></td><td class="bud-r"><b>' + fm(ds.gross[0]) + '</b></td><td class="bud-r"><b>' + fm(ds.gross[1]) + '</b></td></tr>';
-    h += '<tr><td>Net after 15% agent + expenses</td><td class="bud-r"' + (ds.recoupsAtLow ? ' style="color:var(--green)"' : '') + '>' + fm(ds.net[0]) + '</td><td class="bud-r"' + (ds.recoupsAtHigh ? ' style="color:var(--green)"' : ' style="color:var(--red)"') + '>' + fm(ds.net[1]) + '</td></tr>';
+    h += '<tr><td><b>Total gross</b></td><td class="bud-r"><b>' + esc(fm(ds.gross[0])) + '</b></td><td class="bud-r"><b>' + esc(fm(ds.gross[1])) + '</b></td></tr>';
+    h += '<tr><td>Net after 15% agent + expenses</td><td class="bud-r"' + (ds.recoupsAtLow ? ' style="color:var(--green)"' : '') + '>' + esc(fm(ds.net[0])) + '</td><td class="bud-r"' + (ds.recoupsAtHigh ? ' style="color:var(--green)"' : ' style="color:var(--red)"') + '>' + esc(fm(ds.net[1])) + '</td></tr>';
     h += '</tbody></table></div>';
     h += '<p class="bud-note">Post-2022 reality (sourced): streamer all-rights buys are rare events — Sundance 2023 saw <b>zero</b> streamer doc acquisitions; celebrity/IP titles still clear $10M+. PBS strands license features at ~$30–60k ($150k ceiling), Storyville buys UK-only, educational runs $5–50k lifetime at ~50% splits. The honest priors: only <b>' + Math.round(ds.profitRate * 100) + '%</b> of independent docs reach profit and <b>' + Math.round(ds.zeroRevenueRate * 100) + '%</b> report no revenue at all (CMSI field study). Doc <b>series</b> commissions run cost-plus ' + Math.round(ds.seriesCostPlus[0] * 100) + '–' + Math.round(ds.seriesCostPlus[1] * 100) + '% — sell the series, not the film, when the material supports it.</p></div>';
 
     h += '<div class="bud-section"><h4>Funding offsets — the other half of doc finance</h4>';
     h += '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th>Program</th><th class="bud-r">Typical award</th><th>Note</th></tr></thead><tbody>';
     ds.grants.forEach(function (g) {
-      h += '<tr><td>' + esc(g.label) + '</td><td class="bud-r"><b>' + (g.range[0] === g.range[1] ? fm(g.range[0]) : fm(g.range[0]) + ' – ' + fm(g.range[1])) + '</b></td><td>' + esc(g.note || '') + '</td></tr>';
+      h += '<tr><td>' + esc(g.label) + '</td><td class="bud-r"><b>' + (g.range[0] === g.range[1] ? esc(fm(g.range[0])) : esc(fm(g.range[0])) + ' – ' + esc(fm(g.range[1]))) + '</b></td><td>' + esc(g.note || '') + '</td></tr>';
     });
     h += '</tbody></table></div>';
     h += '<p class="bud-note">Docs recoup from a stack of small checks plus grants — model the film as license stack + funding offsets, not as a box-office bet.</p></div>';
@@ -251,7 +251,7 @@
     h += '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th>Outcome</th><th>Multiple of budget</th><th style="text-align:right">Worldwide gross</th></tr></thead><tbody>';
     [['p10', 'P10 — bad night'], ['p25', 'P25 — soft'], ['p50', 'P50 — median'], ['p75', 'P75 — works'], ['p90', 'P90 — breakout']].forEach(function (row) {
       var g = fc.gross[row[0]];
-      h += '<tr' + (row[0] === 'p50' ? ' class="bud-cur"' : '') + '><td>' + row[1] + '</td><td>' + (g / fc.budget).toFixed(2) + '×</td><td class="bud-r"><b>' + fm(g) + '</b></td></tr>';
+      h += '<tr' + (row[0] === 'p50' ? ' class="bud-cur"' : '') + '><td>' + esc(row[1]) + '</td><td>' + (g / fc.budget).toFixed(2) + '×</td><td class="bud-r"><b>' + esc(fm(g)) + '</b></td></tr>';
     });
     h += '</tbody></table></div>';
     h += '<p class="bud-note">Calibrated on 3,708 released features (bracket ' + esc(fc.bracket) + '), adjusted ×' + fc.adjust.toFixed(2) + ' for ' + esc(genre) + (prefs.genre === 'auto' ? ' (auto-detected)' : '') + (prefs.franchise ? ', franchise/IP' : '') + ', ' + esc(prefs.starTier) + ' lead, ' + esc(prefs.window) + ' release, ' + esc(prefs.rating) + '. And the honest caveat: ~' + Math.round(FAILURE_RATE * 100) + '% of budgeted films never see meaningful release revenue at all.</p></div>';
@@ -261,23 +261,23 @@
     h += '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th>Waterfall step</th><th class="bud-r">P25</th><th class="bud-r">P50</th><th class="bud-r">P75</th></tr></thead><tbody>';
     var wfs = ['p25', 'p50', 'p75'].map(function (k) { return waterfall(fc.gross[k], fc.budget, { strategy: prefs.strategy, genre: genre }); });
     [
-      ['Worldwide gross', function (w) { return fm(w.gross); }],
-      ['Theatrical rentals (~43%)', function (w) { return fm(w.rentals); }],
-      ['+ Home / streaming / TV', function (w) { return fm(w.ancillary); }],
-      ['= Lifetime revenue', function (w) { return '<b>' + fm(w.lifetime) + '</b>'; }],
-      ['− Distribution fee', function (w) { return '−' + fm(w.distFee); }],
-      ['− P&A recoupment', function (w) { return '−' + fm(w.pa); }],
-      ['− Sales agent', function (w) { return w.agent ? '−' + fm(w.agent) : '—'; }],
-      ['− Production budget', function (w) { return '−' + fm(w.budget); }],
-      ['− Financing premium (120% recoup)', function (w) { return '−' + fm(w.financeCost); }]
+      ['Worldwide gross', function (w) { return esc(fm(w.gross)); }],
+      ['Theatrical rentals (~43%)', function (w) { return esc(fm(w.rentals)); }],
+      ['+ Home / streaming / TV', function (w) { return esc(fm(w.ancillary)); }],
+      ['= Lifetime revenue', function (w) { return '<b>' + esc(fm(w.lifetime)) + '</b>'; }],
+      ['− Distribution fee', function (w) { return '−' + esc(fm(w.distFee)); }],
+      ['− P&A recoupment', function (w) { return '−' + esc(fm(w.pa)); }],
+      ['− Sales agent', function (w) { return w.agent ? '−' + esc(fm(w.agent)) : '—'; }],
+      ['− Production budget', function (w) { return '−' + esc(fm(w.budget)); }],
+      ['− Financing premium (120% recoup)', function (w) { return '−' + esc(fm(w.financeCost)); }]
     ].forEach(function (r) {
-      h += '<tr><td>' + r[0] + '</td>' + wfs.map(function (w) { return '<td class="bud-r">' + r[1](w) + '</td>'; }).join('') + '</tr>';
+      h += '<tr><td>' + esc(r[0]) + '</td>' + wfs.map(function (w) { return '<td class="bud-r">' + r[1](w) + '</td>'; }).join('') + '</tr>';
     });
     h += '<tr><td><b>NET (investors + producer pool)</b></td>' + wfs.map(function (w) {
-      return '<td class="bud-r"><b style="color:var(--' + (w.net >= 0 ? 'green' : 'red') + ')">' + fmSigned(w.net) + '</b></td>';
+      return '<td class="bud-r"><b style="color:var(--' + (w.net >= 0 ? 'green' : 'red') + ')">' + esc(fmSigned(w.net)) + '</b></td>';
     }).join('') + '</tr>';
     h += '</tbody></table></div>';
-    h += '<p class="bud-note">Breakeven worldwide gross ≈ <b>' + fm(wfs[1].breakevenGross) + '</b> (' + (wfs[1].breakevenGross / fc.budget).toFixed(1) + '× budget — the classic "2–2.5×" rule, derived here from the actual splits). Theatrical is ~' + Math.round(wfs[1].theta * 100) + '% of lifetime revenue for this genre/strategy; net pool typically splits ~50/50 investors vs producer/talent after recoupment.</p></div>';
+    h += '<p class="bud-note">Breakeven worldwide gross ≈ <b>' + esc(fm(wfs[1].breakevenGross)) + '</b> (' + (wfs[1].breakevenGross / fc.budget).toFixed(1) + '× budget — the classic "2–2.5×" rule, derived here from the actual splits). Theatrical is ~' + Math.round(wfs[1].theta * 100) + '% of lifetime revenue for this genre/strategy; net pool typically splits ~50/50 investors vs producer/talent after recoupment.</p></div>';
 
     /* indie pre-sales + buyouts */
     var ps = presales(fc.budget, prefs.starTier);
@@ -285,12 +285,12 @@
     h += '<div class="bud-section"><h4>Independent path — territory pre-sales & streaming buyout</h4>';
     h += '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th>Territory</th><th class="bud-r">Take (low)</th><th class="bud-r">Ask (high)</th></tr></thead><tbody>';
     ps.rows.forEach(function (r) {
-      h += '<tr><td>' + esc(r.label) + '</td><td class="bud-r">' + fm(r.low) + '</td><td class="bud-r">' + fm(r.high) + '</td></tr>';
+      h += '<tr><td>' + esc(r.label) + '</td><td class="bud-r">' + esc(fm(r.low)) + '</td><td class="bud-r">' + esc(fm(r.high)) + '</td></tr>';
     });
-    h += '<tr><td><b>Total MGs (' + Math.round(ps.pctLow * 100) + '–' + Math.round(ps.pctHigh * 100) + '% of budget)</b></td><td class="bud-r"><b>' + fm(ps.totalLow) + '</b></td><td class="bud-r"><b>' + fm(ps.totalHigh) + '</b></td></tr>';
-    h += '<tr><td>Net after 15% commission + expenses</td><td class="bud-r">' + fm(ps.netLow) + '</td><td class="bud-r">' + fm(ps.netHigh) + '</td></tr>';
+    h += '<tr><td><b>Total MGs (' + Math.round(ps.pctLow * 100) + '–' + Math.round(ps.pctHigh * 100) + '% of budget)</b></td><td class="bud-r"><b>' + esc(fm(ps.totalLow)) + '</b></td><td class="bud-r"><b>' + esc(fm(ps.totalHigh)) + '</b></td></tr>';
+    h += '<tr><td>Net after 15% commission + expenses</td><td class="bud-r">' + esc(fm(ps.netLow)) + '</td><td class="bud-r">' + esc(fm(ps.netHigh)) + '</td></tr>';
     h += '</tbody></table></div>';
-    h += '<p class="bud-note">Sales-agent style take/ask sheet scaled ×' + ps.castFactor.toFixed(2) + ' for a ' + esc(prefs.starTier) + ' lead — banks lend 70–90% against signed pre-sale contracts. Producers famously overestimate these by ~2×; these are the sober numbers. <b>Streaming buyout comps:</b> typical festival sale ' + fm(bo.typical[0]) + '–' + fm(bo.typical[1]) + '; breakout genre title ' + fm(bo.breakout[0]) + '–' + fm(bo.breakout[1]) + '. ' + esc(bo.note) + '.</p></div>';
+    h += '<p class="bud-note">Sales-agent style take/ask sheet scaled ×' + ps.castFactor.toFixed(2) + ' for a ' + esc(prefs.starTier) + ' lead — banks lend 70–90% against signed pre-sale contracts. Producers famously overestimate these by ~2×; these are the sober numbers. <b>Streaming buyout comps:</b> typical festival sale ' + esc(fm(bo.typical[0])) + '–' + esc(fm(bo.typical[1])) + '; breakout genre title ' + esc(fm(bo.breakout[0])) + '–' + esc(fm(bo.breakout[1])) + '. ' + esc(bo.note) + '.</p></div>';
 
     el.innerHTML = h;
   }

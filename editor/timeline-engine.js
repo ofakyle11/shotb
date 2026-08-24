@@ -5,7 +5,9 @@ window.SBTimelineEditor = (function () {
   const PX_PER_SEC = 48;
 
   function esc(s) {
-    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
   }
   function uid() { return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
@@ -162,14 +164,14 @@ window.SBTimelineEditor = (function () {
       const total = Math.max(totalDuration(), 8);
       const width = total * PX_PER_SEC * z;
       lane.style.minWidth = width + 'px';
-      ruler.innerHTML = '<div class="ruler-inner" style="width:' + width + 'px;position:relative;height:100%"></div>';
+      ruler.innerHTML = '<div class="ruler-inner" style="width:' + esc(width) + 'px;position:relative;height:100%"></div>';
       const inner = ruler.querySelector('.ruler-inner');
       const step = z >= 2 ? 1 : 2;
       let ticks = '';
       for (let t = 0; t <= total; t += step) {
         const x = t * PX_PER_SEC * z;
-        ticks += '<div class="ruler-tick" style="left:' + x + 'px"></div>' +
-          '<div class="ruler-label" style="left:' + x + 'px">' + formatTc(t) + '</div>';
+        ticks += '<div class="ruler-tick" style="left:' + esc(x) + 'px"></div>' +
+          '<div class="ruler-label" style="left:' + esc(x) + 'px">' + esc(formatTc(t)) + '</div>';
       }
       inner.innerHTML = ticks;
 
@@ -230,11 +232,11 @@ window.SBTimelineEditor = (function () {
       el.innerHTML =
         '<div class="field"><label>Name</label><input value="' + esc(b && b.name) + '" readonly></div>' +
         '<div class="field-row">' +
-        '<div class="field"><label>Trim in</label><input type="number" step="0.1" min="0" id="' + prefix + 'inTrim" value="' + (tl.trimIn || 0) + '"></div>' +
-        '<div class="field"><label>Trim out</label><input type="number" step="0.1" id="' + prefix + 'outTrim" value="' + (tl.trimOut != null ? tl.trimOut : '') + '"></div>' +
+        '<div class="field"><label>Trim in</label><input type="number" step="0.1" min="0" id="' + esc(prefix) + 'inTrim" value="' + esc(tl.trimIn || 0) + '"></div>' +
+        '<div class="field"><label>Trim out</label><input type="number" step="0.1" id="' + esc(prefix) + 'outTrim" value="' + esc(tl.trimOut != null ? tl.trimOut : '') + '"></div>' +
         '</div>' +
-        '<div class="field"><label>Transition</label><select id="' + prefix + 'transSel">' +
-        ['cut', 'dissolve', 'fade'].map((t) => '<option value="' + t + '"' + (tl.transition === t ? ' selected' : '') + '>' + t + '</option>').join('') +
+        '<div class="field"><label>Transition</label><select id="' + esc(prefix) + 'transSel">' +
+        ['cut', 'dissolve', 'fade'].map((t) => '<option value="' + esc(t) + '"' + (tl.transition === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') +
         '</select></div>';
 
       document.getElementById(prefix + 'inTrim').onchange = (e) => {

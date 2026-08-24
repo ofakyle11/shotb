@@ -171,7 +171,7 @@
   /* ── bin render ─────────────────────────────────────────────────── */
   function renderBin() {
     $('edBinList').innerHTML = bin.map(function (b) {
-      return '<div class="ed-binitem' + (b.missing ? ' missing' : '') + '" draggable="true" data-bin="' + b.id + '" title="Double-click to add to the timeline">' +
+      return '<div class="ed-binitem' + (b.missing ? ' missing' : '') + '" draggable="true" data-bin="' + esc(b.id) + '" title="Double-click to add to the timeline">' +
         (b.thumb ? '<img src="' + esc(b.thumb) + '" alt="">' : '<span class="ed-thumbph">' + (b.kind === 'audio' ? '🎵' : '🎬') + '</span>') +
         '<div class="ed-binmeta"><b>' + esc(b.name) + '</b><span>' + (b.missing ? 're-import needed' : (b.dur ? b.dur.toFixed(1) + 's' : '…')) + (b.origin === 'studio' ? ' · studio' : '') + '</span></div></div>';
     }).join('');
@@ -205,14 +205,13 @@
     for (var s = 0; s * zoom < w; s += step) h += '<span class="tick" style="left:' + (s * zoom) + 'px">' + (s % (step * 2) === 0 ? C.tc(s, project.fps).slice(3, 8) : '') + '</span>';
     // Screening Room notes land here as review markers — click one to jump.
     (project.markers || []).forEach(function (m, i) {
-      var txt = String(m.text || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
-      h += '<span class="tick" data-mark="' + (+m.sec || 0) + '" title="' + txt + '" style="left:' + ((+m.sec || 0) * zoom) + 'px;border-left:2px solid #C9A86C;height:100%;cursor:pointer">▾</span>';
+      h += '<span class="tick" data-mark="' + (+m.sec || 0) + '" title="' + esc(m.text || '') + '" style="left:' + ((+m.sec || 0) * zoom) + 'px;border-left:2px solid #C9A86C;height:100%;cursor:pointer">▾</span>';
     });
     el.innerHTML = h;
   }
 
   function clipEl(cls, id, left, width, inner, track) {
-    return '<div class="ed-clip ' + cls + (sel && sel.id === id ? ' sel' : '') + '" draggable="true" data-id="' + id + '" data-tr="' + track + '" style="left:' + left + 'px;width:' + Math.max(14, width) + 'px">' +
+    return '<div class="ed-clip ' + cls + (sel && sel.id === id ? ' sel' : '') + '" draggable="true" data-id="' + esc(id) + '" data-tr="' + track + '" style="left:' + left + 'px;width:' + Math.max(14, width) + 'px">' +
       '<div class="ed-handle l" data-h="l"></div>' + inner + '<div class="ed-handle r" data-h="r"></div></div>';
   }
 
@@ -225,15 +224,15 @@
       var trans = c.trans && c.trans.type !== 'cut' && c.trans.dur > 0;
       return clipEl('', c.id, st[i] * zoom, C.effDur(c) * zoom,
         (trans ? '<div class="ed-trans"></div>' : '') +
-        '<b>' + esc(c.label || 'Clip') + '</b><span class="ed-clipmeta">' + C.effDur(c).toFixed(1) + 's' + ((c.speed || 1) !== 1 ? ' · ' + c.speed + 'x' : '') + '</span>' +
-        '<canvas class="ed-wave" data-wave="' + c.srcId + '"></canvas>', 'video');
+        '<b>' + esc(c.label || 'Clip') + '</b><span class="ed-clipmeta">' + C.effDur(c).toFixed(1) + 's' + ((c.speed || 1) !== 1 ? ' · ' + esc(c.speed) + 'x' : '') + '</span>' +
+        '<canvas class="ed-wave" data-wave="' + esc(c.srcId) + '"></canvas>', 'video');
     }).join('');
     $('edTrackTitles').innerHTML = project.titles.map(function (ti) {
       return clipEl('ed-title-clip', ti.id, ti.start * zoom, ti.dur * zoom, '<b>T</b> ' + esc(ti.text.slice(0, 22)), 'titles');
     }).join('');
     $('edTrackAudio').innerHTML = project.audio.map(function (a) {
       return clipEl('ed-audio-clip', a.id, a.start * zoom, C.effDur(a) * zoom,
-        '<b>♪ ' + esc(a.label.slice(0, 20)) + '</b><canvas class="ed-wave" data-wave="' + a.srcId + '"></canvas>', 'audio');
+        '<b>♪ ' + esc(a.label.slice(0, 20)) + '</b><canvas class="ed-wave" data-wave="' + esc(a.srcId) + '"></canvas>', 'audio');
     }).join('');
     $('edPlayhead').style.left = (34 + t * zoom) + 'px';
     $('edDur').textContent = '/ ' + C.tc(C.duration(project), project.fps);
@@ -435,19 +434,19 @@
       el.innerHTML =
         '<label>Clip <input data-f="label" value="' + esc(it.label) + '"></label>' +
         '<label>In (s) <input data-f="in" type="number" step="0.1" value="' + it.in.toFixed(2) + '"></label>' +
-        '<label>Out (s) <input data-f="out" type="number" step="0.1" value="' + it.out.toFixed(2) + '" max="' + (b.dur || '') + '"></label>' +
+        '<label>Out (s) <input data-f="out" type="number" step="0.1" value="' + it.out.toFixed(2) + '" max="' + esc(b.dur || '') + '"></label>' +
         '<label>Speed <select data-f="speed">' + [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 4].map(function (s) {
-          return '<option value="' + s + '"' + ((it.speed || 1) === s ? ' selected' : '') + '>' + s + 'x</option>';
+          return '<option value="' + esc(s) + '"' + ((it.speed || 1) === s ? ' selected' : '') + '>' + esc(s) + 'x</option>';
         }).join('') + '</select></label>' +
         '<label>Transition in <select data-f="transType">' + ['cut', 'crossfade', 'fadeblack'].map(function (ty) {
           return '<option' + ((it.trans && it.trans.type) === ty ? ' selected' : '') + '>' + ty + '</option>';
         }).join('') + '</select></label>' +
-        '<label>Transition length <input data-f="transDur" type="number" step="0.1" min="0" max="3" value="' + ((it.trans && it.trans.dur) || 0) + '"></label>' +
+        '<label>Transition length <input data-f="transDur" type="number" step="0.1" min="0" max="3" value="' + esc((it.trans && it.trans.dur) || 0) + '"></label>' +
         '<h3 style="margin-top:10px">Color</h3>' +
-        '<label>Exposure <input data-f="colEx" type="range" min="0.5" max="1.6" step="0.02" value="' + ((it.color && it.color.ex) || 1) + '"></label>' +
-        '<label>Contrast <input data-f="colCt" type="range" min="0.6" max="1.6" step="0.02" value="' + ((it.color && it.color.ct) || 1) + '"></label>' +
-        '<label>Saturation <input data-f="colSat" type="range" min="0" max="2" step="0.05" value="' + ((it.color && it.color.sat) || 1) + '"></label>' +
-        '<label>Warmth <input data-f="colTw" type="range" min="-1" max="1" step="0.05" value="' + ((it.color && it.color.tw) || 0) + '"></label>' +
+        '<label>Exposure <input data-f="colEx" type="range" min="0.5" max="1.6" step="0.02" value="' + esc((it.color && it.color.ex) || 1) + '"></label>' +
+        '<label>Contrast <input data-f="colCt" type="range" min="0.6" max="1.6" step="0.02" value="' + esc((it.color && it.color.ct) || 1) + '"></label>' +
+        '<label>Saturation <input data-f="colSat" type="range" min="0" max="2" step="0.05" value="' + esc((it.color && it.color.sat) || 1) + '"></label>' +
+        '<label>Warmth <input data-f="colTw" type="range" min="-1" max="1" step="0.05" value="' + esc((it.color && it.color.tw) || 0) + '"></label>' +
         '<div style="display:flex;gap:6px;margin:4px 0 8px">' +
           '<button class="tb-btn" id="edAutoColor" title="Balance exposure and contrast from this frame">✨ Auto</button>' +
           '<button class="tb-btn" id="edResetColor">Reset</button></div>' +
@@ -459,7 +458,7 @@
         '<label>Start (s) <input data-f="start" type="number" step="0.1" value="' + it.start.toFixed(1) + '"></label>' +
         '<label>Length (s) <input data-f="dur" type="number" step="0.1" min="0.5" value="' + it.dur.toFixed(1) + '"></label>' +
         '<label>Position <select data-f="pos"><option' + (it.pos === 'center' ? ' selected' : '') + '>center</option><option' + (it.pos === 'lower' ? ' selected' : '') + '>lower</option></select></label>' +
-        '<label>Size <input data-f="size" type="number" min="20" max="160" value="' + (it.size || 64) + '"></label>' +
+        '<label>Size <input data-f="size" type="number" min="20" max="160" value="' + esc(it.size || 64) + '"></label>' +
         '<button class="tb-btn" id="edDelSel">✕ Remove title</button>';
     } else {
       el.innerHTML =
@@ -467,7 +466,7 @@
         '<label>Start (s) <input data-f="start" type="number" step="0.1" value="' + it.start.toFixed(1) + '"></label>' +
         '<label>In (s) <input data-f="in" type="number" step="0.1" value="' + it.in.toFixed(1) + '"></label>' +
         '<label>Out (s) <input data-f="out" type="number" step="0.1" value="' + it.out.toFixed(1) + '"></label>' +
-        '<label>Volume <input data-f="gain" type="range" min="0" max="1" step="0.05" value="' + (it.gain == null ? 1 : it.gain) + '"></label>' +
+        '<label>Volume <input data-f="gain" type="range" min="0" max="1" step="0.05" value="' + esc(it.gain == null ? 1 : it.gain) + '"></label>' +
         '<button class="tb-btn" id="edDelSel">✕ Remove audio</button>';
     }
     el.querySelectorAll('[data-f]').forEach(function (inp) {

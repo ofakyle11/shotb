@@ -214,7 +214,7 @@
 
   /* ── rendering ───────────────────────────────────────────────────── */
   function $(id) { return document.getElementById(id); }
-  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
   function fm(n) { return SBBudget.fmtMoney(n); }
 
   function renderTopSheet() {
@@ -253,7 +253,7 @@
       var cf = cashflow(sheet);
       h += '<div class="bs-sub" style="margin-top:8px" title="When the money actually leaves the bank, by phase">CASH NEEDED — prep ' + fm(cf.prep) + ' · shoot ' + fm(cf.shoot) + ' · post ' + fm(cf.post) + '</div>';
       var flagged = norms(sheet).filter(function (n) { return n.flag !== 'ok'; }).length;
-      if (flagged) h += '<div class="bs-sub" style="margin-top:2px">' + flagged + ' account' + (flagged === 1 ? '' : 's') + ' outside typical bands (▲ heavy · ▽ light) — hover the marker</div>';
+      if (flagged) h += '<div class="bs-sub" style="margin-top:2px">' + esc(flagged) + ' account' + (flagged === 1 ? '' : 's') + ' outside typical bands (▲ heavy · ▽ light) — hover the marker</div>';
       if (root.CMoney) {
         try {
           var money = JSON.parse((root.localStorage && root.localStorage.getItem('SB_Money_v1')) || 'null');
@@ -292,15 +292,15 @@
     h += '<table class="bsd-table"><thead><tr><th style="min-width:180px">Line item</th><th>Amt</th><th></th><th>Units</th><th></th><th>Rate</th><th style="text-align:right">Estimated</th><th style="text-align:right">Actual</th><th style="min-width:140px">Notes</th><th></th></tr></thead><tbody>';
     cat.items.forEach(function (it) {
       var calc = num(it.amt) > 0 && num(it.units) > 0 && num(it.rate) > 0;
-      h += '<tr data-id="' + it.id + '">' +
+      h += '<tr data-id="' + esc(it.id) + '">' +
         '<td><input class="bsd-desc" data-f="desc" value="' + esc(it.desc) + '"></td>' +
         '<td style="width:56px"><input data-f="amt" value="' + esc(it.amt) + '" placeholder="–"></td><td class="bsd-x">×</td>' +
         '<td style="width:56px"><input data-f="units" value="' + esc(it.units) + '" placeholder="–"></td><td class="bsd-x">×</td>' +
         '<td style="width:76px"><input data-f="rate" value="' + esc(it.rate) + '" placeholder="–"></td>' +
         '<td style="width:96px">' + (calc
           ? '<div class="bsd-tot" title="Amt × Units × Rate">' + fm(itemEst(it)) + '</div>'
-          : '<input data-f="est" value="' + (num(it.est) || '') + '" placeholder="0">') + '</td>' +
-        '<td style="width:96px"><input data-f="actual" value="' + (num(it.actual) || '') + '" placeholder="–"></td>' +
+          : '<input data-f="est" value="' + esc(num(it.est) || '') + '" placeholder="0">') + '</td>' +
+        '<td style="width:96px"><input data-f="actual" value="' + esc(num(it.actual) || '') + '" placeholder="–"></td>' +
         '<td><input data-f="notes" value="' + esc(it.notes) + '" placeholder=""></td>' +
         '<td><button class="bsd-del" title="Delete line">✕</button></td></tr>';
     });

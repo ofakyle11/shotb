@@ -120,26 +120,26 @@
     var byId = {}; est.rows.forEach(function (r) { byId[r.id] = r; });
     $('ppRows').innerHTML = st.items.map(function (it) {
       var r = byId[it.id] || { est: 0, mode: 'rent' };
-      return '<tr data-id="' + it.id + '">' +
+      return '<tr data-id="' + esc(it.id) + '">' +
         '<td><input class="pp-name" data-f="name" value="' + esc(it.name) + '"></td>' +
         '<td><select data-f="cat">' + P.CATEGORIES.map(function (c) {
-          return '<option value="' + c.id + '"' + (c.id === it.cat ? ' selected' : '') + '>' + esc(c.label) + '</option>'; }).join('') + '</select></td>' +
-        '<td class="pp-scenes">' + (it.scenes || []).join(', ') + '</td>' +
-        '<td><input data-f="qty" type="number" min="1" style="width:48px" value="' + (it.qty || 1) + '"></td>' +
+          return '<option value="' + esc(c.id) + '"' + (c.id === it.cat ? ' selected' : '') + '>' + esc(c.label) + '</option>'; }).join('') + '</select></td>' +
+        '<td class="pp-scenes">' + esc((it.scenes || []).join(', ')) + '</td>' +
+        '<td><input data-f="qty" type="number" min="1" style="width:48px" value="' + esc(it.qty || 1) + '"></td>' +
         '<td><select data-f="mode">' + ['auto', 'rent', 'buy'].map(function (m) {
           return '<option' + (m === (it.mode || 'auto') ? ' selected' : '') + '>' + m + '</option>'; }).join('') +
-          '</select> <span class="pp-tag">' + r.mode + '</span></td>' +
+          '</select> <span class="pp-tag">' + esc(r.mode) + '</span></td>' +
         '<td><input data-f="hero" type="checkbox"' + (it.hero ? ' checked' : '') + '></td>' +
         '<td><input data-f="period" type="checkbox"' + (it.period ? ' checked' : '') + '></td>' +
-        '<td class="pp-num">$' + (r.est || 0).toLocaleString() + (r.learnedN ? ' <span class="pp-learn" title="calibrated from ' + r.learnedN + ' past quotes">·cal</span>' : '') + '</td>' +
-        '<td><input data-f="actual" type="number" min="0" style="width:80px" value="' + (it.actual || '') + '" placeholder="quote"></td>' +
-        '<td><button class="tb-btn" data-del="' + it.id + '">✕</button></td></tr>';
+        '<td class="pp-num">$' + (r.est || 0).toLocaleString() + (r.learnedN ? ' <span class="pp-learn" title="calibrated from ' + esc(r.learnedN) + ' past quotes">·cal</span>' : '') + '</td>' +
+        '<td><input data-f="actual" type="number" min="0" style="width:80px" value="' + esc(it.actual || '') + '" placeholder="quote"></td>' +
+        '<td><button class="tb-btn" data-del="' + esc(it.id) + '">✕</button></td></tr>';
     }).join('') || '<tr><td colspan="10" class="pp-note">No props yet — Rebuild from script reads the working screenplay in this browser.</td></tr>';
     $('ppTotals').innerHTML =
-      '<span>Rentals &amp; purchases <b>$' + est.subtotal.toLocaleString() + '</b></span>' +
-      (est.armorer ? '<span>Armorer <b>$' + est.armorer.toLocaleString() + '</b></span>' : '') +
-      '<span>Contingency 10% <b>$' + est.contingency.toLocaleString() + '</b></span>' +
-      '<span>Props budget <b>$' + est.total.toLocaleString() + '</b></span>';
+      '<span>Rentals &amp; purchases <b>$' + esc(est.subtotal.toLocaleString()) + '</b></span>' +
+      (est.armorer ? '<span>Armorer <b>$' + esc(est.armorer.toLocaleString()) + '</b></span>' : '') +
+      '<span>Contingency 10% <b>$' + esc(est.contingency.toLocaleString()) + '</b></span>' +
+      '<span>Props budget <b>$' + esc(est.total.toLocaleString()) + '</b></span>';
     renderRfq();
   }
   $('ppRows').addEventListener('change', function (e) {

@@ -45,11 +45,11 @@ window.SBExport = (function(){
     if(queue&&queue.running)items.push({id:'batch',num:'—',label:'Batch job',status:'running',error:''});
     if(!items.length)return '<div class="empty-hint">No clips in queue.</div>';
     return '<table class="queue-table"><tr><th>#</th><th>Clip</th><th>Status</th></tr>'+
-      items.map(it=>'<tr><td>'+it.num+'</td><td>'+esc(it.label)+'</td><td class="st-'+it.status+'">'+it.status+(it.error?' — '+esc(it.error):'')+'</td></tr>').join('')+
+      items.map(it=>'<tr><td>'+esc(String(it.num))+'</td><td>'+esc(it.label)+'</td><td class="st-'+esc(it.status)+'">'+esc(it.status)+(it.error?' — '+esc(it.error):'')+'</td></tr>').join('')+
       '</table>';
   }
 
-  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 
   let ffmpeg=null;
 

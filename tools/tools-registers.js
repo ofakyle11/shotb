@@ -39,7 +39,7 @@
       summary: function (rows) {
         var by = {};
         rows.forEach(function (r) { by[r.dept || 'Other'] = (by[r.dept || 'Other'] || 0) + 1; });
-        return '<b>' + rows.length + '</b> crew · ' + Object.keys(by).map(function (k) { return k + ' ' + by[k]; }).join(' · ');
+        return '<b>' + rows.length + '</b> crew · ' + Object.keys(by).map(function (k) { return esc(k) + ' ' + by[k]; }).join(' · ');
       }
     });
     dir.render(section(el, 'Directory'));
@@ -58,7 +58,7 @@
       summary: function (rows) {
         var confirmed = rows.filter(function (r) { return r.status === 'Confirmed'; }).length;
         var out = rows.filter(function (r) { return r.status === 'No response' || r.status === 'Bounced'; }).length;
-        return '<b>' + confirmed + '</b>/' + rows.length + ' confirmed' + (out ? ' · <span class="tk-chip bad">' + out + ' unreached</span>' : '');
+        return '<b>' + esc(confirmed) + '</b>/' + rows.length + ' confirmed' + (out ? ' · <span class="tk-chip bad">' + esc(out) + ' unreached</span>' : '');
       }
     });
     dist.render(section(el, 'Call-sheet distribution log'));
@@ -85,8 +85,8 @@
         var fees = rows.reduce(function (s, r) { return s + num(r.fee); }, 0);
         var due = rows.filter(function (r) { var d = C.daysUntil(r.deadline); return r.status === 'Planned' && d != null && d >= 0 && d <= 30; }).length;
         var accepted = rows.filter(function (r) { return r.status === 'Accepted' || r.status === 'Premiered'; }).length;
-        return '<b>' + rows.length + '</b> festivals · fees ' + fm(fees) + ' · <b>' + accepted + '</b> accepted' +
-          (due ? ' · <span class="tk-chip warn">' + due + ' deadline' + (due === 1 ? '' : 's') + ' within 30d</span>' : '');
+        return '<b>' + rows.length + '</b> festivals · fees ' + fm(fees) + ' · <b>' + esc(accepted) + '</b> accepted' +
+          (due ? ' · <span class="tk-chip warn">' + esc(due) + ' deadline' + (due === 1 ? '' : 's') + ' within 30d</span>' : '');
       }
     }).render(section(el));
     el.insertAdjacentHTML('beforeend', '<p class="tk-note">Premiere-requirement column matters: an A-list world-premiere rule means submitting there first — sequence the plan around it.</p>');
@@ -115,8 +115,8 @@
         var dead = rows.filter(function (r) { var d = C.daysUntil(r.expiry); return d != null && d < 0; }).length;
         var prem = rows.reduce(function (s, r) { return s + num(r.premium); }, 0);
         return '<b>' + rows.length + '</b> policies/certs · premiums ' + fm(prem) +
-          (soon ? ' · <span class="tk-chip warn">' + soon + ' expiring &lt;30d</span>' : '') +
-          (dead ? ' · <span class="tk-chip bad">' + dead + ' expired</span>' : '');
+          (soon ? ' · <span class="tk-chip warn">' + esc(soon) + ' expiring &lt;30d</span>' : '') +
+          (dead ? ' · <span class="tk-chip bad">' + esc(dead) + ' expired</span>' : '');
       }
     }).render(section(el));
   };
@@ -144,7 +144,7 @@
         var gaps = rows.filter(function (r) { return r.status !== 'Executed'; }).length;
         var fees = rows.reduce(function (s, r) { return s + num(r.fee); }, 0);
         return '<b>' + rows.length + '</b> agreements · fees ' + fm(fees) +
-          (gaps ? ' · <span class="tk-chip warn">' + gaps + ' not yet executed — chain gap</span>' : ' · <span class="tk-chip good">chain complete</span>');
+          (gaps ? ' · <span class="tk-chip warn">' + esc(gaps) + ' not yet executed — chain gap</span>' : ' · <span class="tk-chip good">chain complete</span>');
       }
     }).render(section(el));
   };

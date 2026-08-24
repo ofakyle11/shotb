@@ -9,6 +9,13 @@
 (function (root) {
   'use strict';
   var KEY = 'SB_ShootPlan_v1';
+  /* Escaping for any value interpolated into the markup below — all five of
+     & < > " ' so a value can never break out of an attribute or a tag. */
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
   function $(id) { return document.getElementById(id); }
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || 'null') || {}; } catch (e) { return {}; } }
   function save(p) { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch (e) {} }
@@ -57,7 +64,7 @@
       '<span class="ps-hint" style="color:var(--gold)">☀ Day planner</span>' +
       '<label class="ps-inline">Day 1 <input type="date" id="swDate" style="width:140px"></label>' +
       '<select class="uc-sel" id="swCity">' + Object.keys(CITIES).map(function (k) {
-        return '<option value="' + k + '">' + CITIES[k][0] + '</option>';
+        return '<option value="' + esc(k) + '">' + CITIES[k][0] + '</option>';
       }).join('') + '</select>' +
       '<label class="ps-inline">lat <input id="swLat" style="width:64px" placeholder="34.05"></label>' +
       '<label class="ps-inline">lon <input id="swLon" style="width:70px" placeholder="-118.24"></label>' +
@@ -136,11 +143,11 @@
       var w = wx && wx[r.date];
       var risk = w ? S.shootRisk(w) : null;
       var dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(r.date + 'T12:00:00Z').getUTCDay()];
-      h += '<tr><td><b>Day ' + r.i + '</b></td><td>' + dow + ' ' + r.date + '</td>' +
+      h += '<tr><td><b>Day ' + esc(r.i) + '</b></td><td>' + dow + ' ' + esc(r.date) + '</td>' +
         '<td>' + S.fmtLocal(t.sunrise) + '</td><td>' + S.fmtLocal(t.goldenEndAM) + '</td>' +
         '<td style="color:var(--gold)">' + S.fmtLocal(t.goldenStartPM) + '</td><td>' + S.fmtLocal(t.sunset) + '</td>' +
-        '<td>' + (S.daylightHours(t) || '—') + 'h</td>' +
-        '<td>' + (w ? S.wmoLabel(w.code) + ' · ' + w.tmin + '–' + w.tmax + '° · ' + (w.precipProb || 0) + '% rain' : '<span style="color:var(--dim)">beyond forecast</span>') + '</td>' +
+        '<td>' + esc(S.daylightHours(t) || '—') + 'h</td>' +
+        '<td>' + (w ? esc(S.wmoLabel(w.code)) + ' · ' + esc(w.tmin) + '–' + esc(w.tmax) + '° · ' + esc(w.precipProb || 0) + '% rain' : '<span style="color:var(--dim)">beyond forecast</span>') + '</td>' +
         '<td>' + (risk == null ? '—' : '<span class="tk-chip ' + (risk >= 50 ? 'bad' : risk >= 25 ? 'warn' : 'good') + '">' + risk + '</span>') + '</td></tr>';
     });
     h += '</tbody></table></div>' +

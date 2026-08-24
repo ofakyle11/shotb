@@ -5,6 +5,13 @@
  */
 (function (root) {
   'use strict';
+  /* Attribute-safe escaping for any value interpolated into markup.
+     C.esc leaves the apostrophe raw, so use this one for values. */
+  function escAttr(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
   var C = root.TCore, MD = root.TMedia, esc = C.esc, num = C.num;
   root.TTabs = root.TTabs || {};
 
@@ -18,12 +25,12 @@
       '<div class="tk-cols"><div>' +
       '<div class="tk-slate" id="slSlate"><div class="row">' +
       '<div><div class="sc" id="slScene">' + esc(sl.scene) + '</div><div class="lbl">Scene</div></div>' +
-      '<div><div class="sc" id="slTake">' + sl.take + '</div><div class="lbl">Take</div></div>' +
+      '<div><div class="sc" id="slTake">' + escAttr(sl.take) + '</div><div class="lbl">Take</div></div>' +
       '<div><div class="sc" id="slRoll">' + esc(sl.roll) + '</div><div class="lbl">Roll</div></div></div>' +
       '<div class="lbl" style="margin-top:14px">TAP TO MARK</div></div>' +
       '<div class="tk-grid" style="margin-top:10px;max-width:520px">' +
       '<div class="tk-field"><label>Scene</label><input id="slSceneIn" value="' + esc(sl.scene) + '"></div>' +
-      '<div class="tk-field"><label>Take</label><input id="slTakeIn" value="' + sl.take + '"></div>' +
+      '<div class="tk-field"><label>Take</label><input id="slTakeIn" value="' + escAttr(sl.take) + '"></div>' +
       '<div class="tk-field"><label>Roll</label><input id="slRollIn" value="' + esc(sl.roll) + '"></div></div>' +
       '</div><div id="tkLogWrap"></div></div>';
 
@@ -86,7 +93,7 @@
     var lastEntries = null, loadedManifest = null;
     async function hashFiles(files, cb) {
       var out = [], done = 0, total = files.length;
-      C.$('ofOut').innerHTML = '<div class="tk-result">Hashing 0/' + total + '…</div>';
+      C.$('ofOut').innerHTML = '<div class="tk-result">Hashing 0/' + escAttr(total) + '…</div>';
       for (var i = 0; i < files.length; i++) {
         var f = files[i];
         var buf = await f.arrayBuffer();
@@ -94,7 +101,7 @@
         var hex = Array.from(new Uint8Array(dig)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
         out.push({ path: f.webkitRelativePath || f.name, size: f.size, sha256: hex });
         done++;
-        C.$('ofOut').innerHTML = '<div class="tk-result">Hashing ' + done + '/' + total + '…</div>';
+        C.$('ofOut').innerHTML = '<div class="tk-result">Hashing ' + escAttr(done) + '/' + escAttr(total) + '…</div>';
       }
       cb(out);
     }
@@ -197,7 +204,7 @@
       ],
       summary: function (rows) {
         var open = rows.filter(function (r) { return r.status === 'Open'; }).length;
-        return '<b>' + open + '</b> open note' + (open === 1 ? '' : 's') + ' of ' + rows.length;
+        return '<b>' + escAttr(open) + '</b> open note' + (open === 1 ? '' : 's') + ' of ' + rows.length;
       }
     });
     notes.render('rvNotes');
@@ -212,7 +219,7 @@
   root.TTabs.lens = function () {
     var el = C.$('pane-lens');
     var opts = Object.keys(MD.SENSORS).map(function (k) {
-      return '<option value="' + k + '">' + esc(MD.SENSORS[k].label) + '</option>';
+      return '<option value="' + escAttr(k) + '">' + esc(MD.SENSORS[k].label) + '</option>';
     }).join('');
     el.innerHTML = '<h2>Lens & Coverage</h2>' +
       '<p class="tk-desc">Sensor + focal length → field of view and how wide the frame is at your subject. The top-down diagram shows the frustum, for blocking conversations that start with “what do we see?”</p>' +
@@ -224,8 +231,8 @@
       '<div class="tk-canvaswrap" style="max-width:640px;background:var(--surface)"><canvas id="lnCv" width="640" height="300"></canvas></div>';
     function draw() {
       var r = MD.lensCalc(C.$('lnSensor').value, num(C.$('lnFocal').value) || 35, num(C.$('lnDist').value) || 3);
-      C.$('lnOut').innerHTML = '<div class="tk-result">HFOV <span class="big">' + r.hfov + '°</span> · VFOV <b>' + r.vfov + '°</b> · full-frame equiv <b>' + r.ffEquiv + 'mm</b>' +
-        (r.widthAt ? '<br>Frame at subject: <b>' + r.widthAt + 'm wide × ' + r.heightAt + 'm tall</b>' : '') + '</div>';
+      C.$('lnOut').innerHTML = '<div class="tk-result">HFOV <span class="big">' + escAttr(r.hfov) + '°</span> · VFOV <b>' + escAttr(r.vfov) + '°</b> · full-frame equiv <b>' + escAttr(r.ffEquiv) + 'mm</b>' +
+        (r.widthAt ? '<br>Frame at subject: <b>' + escAttr(r.widthAt) + 'm wide × ' + escAttr(r.heightAt) + 'm tall</b>' : '') + '</div>';
       var cv = C.$('lnCv'), x = cv.getContext('2d');
       x.clearRect(0, 0, 640, 300);
       x.fillStyle = 'rgba(212,168,67,.10)';

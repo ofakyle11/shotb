@@ -1,7 +1,7 @@
 /* Timeline — Location bible + lock plates for visual coherence */
 window.SBLocations = (function () {
   function esc (s) {
-    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   function cleanLocName (name) {
@@ -217,7 +217,7 @@ window.SBLocations = (function () {
       return '<div class="loc-card' + sel + '" data-key="' + esc(loc.key) + '">' +
         '<div class="loc-thumb">' + thumb + '</div>' +
         '<div class="loc-name">' + esc(loc.name) + '</div>' +
-        '<div class="loc-meta">' + clips + ' clip' + (clips === 1 ? '' : 's') + '</div>' +
+        '<div class="loc-meta">' + esc(String(clips)) + ' clip' + (clips === 1 ? '' : 's') + '</div>' +
         lock +
         '</div>';
     }).join('') + '</div>';

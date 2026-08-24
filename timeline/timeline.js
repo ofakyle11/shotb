@@ -25,7 +25,7 @@ let history={past:[],future:[]}, curUser=null, auth=null, timelineEditorInst=nul
 
 function $(id){return document.getElementById(id)}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2800)}
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function formatTime(sec){return Math.floor(sec/60)+':'+String(Math.floor(sec%60)).padStart(2,'0')}
 
 function snapshot(){return JSON.stringify({clips:state.clips,characters:state.characters,locationBible:state.locationBible,global:state.global,assembly:state.assembly,projectName:state.projectName,selectedId:state.selectedId,selectedLoc:state.selectedLoc})}
@@ -1118,13 +1118,13 @@ function renderTimeline(){
   if($('flowHint'))$('flowHint').classList.toggle('hidden',has);
   if(!has){$('clipRow').innerHTML='';$('timeRuler').innerHTML='';return}
   let t=0,ticks=[];
-  state.clips.forEach(c=>{ticks.push('<span class="time-tick">'+formatTime(t)+'</span>');t+=clipDur(c)});
-  ticks.push('<span class="time-tick">'+formatTime(t)+'</span>');
+  state.clips.forEach(c=>{ticks.push('<span class="time-tick">'+esc(formatTime(t))+'</span>');t+=clipDur(c)});
+  ticks.push('<span class="time-tick">'+esc(formatTime(t))+'</span>');
   $('timeRuler').innerHTML=ticks.join('');
   $('clipRow').innerHTML=state.clips.map(c=>{
     const st=c.status==='approved'?'approved':c.status==='done'?'done':c.status==='generating'?'gen':'';
     const th=c.videoUrl?'<video src="'+esc(c.videoUrl)+'" muted loop playsinline></video>':'<span class="ph">🎬</span>';
-    return '<div class="clip-card'+(c.id===state.selectedId?' active':'')+(c.status==='approved'?' approved':'')+'" data-id="'+c.id+'" draggable="true"><div class="clip-status '+st+'"></div><div class="clip-num">Clip '+String(c.num).padStart(2,'0')+'</div><div class="clip-thumb">'+th+'</div><div class="clip-label">'+esc(c.label)+'</div><div class="clip-dur">~'+c.durationSec+'s</div></div>';
+    return '<div class="clip-card'+(c.id===state.selectedId?' active':'')+(c.status==='approved'?' approved':'')+'" data-id="'+esc(String(c.id))+'" draggable="true"><div class="clip-status '+st+'"></div><div class="clip-num">Clip '+esc(String(c.num).padStart(2,'0'))+'</div><div class="clip-thumb">'+th+'</div><div class="clip-label">'+esc(c.label)+'</div><div class="clip-dur">~'+esc(String(c.durationSec))+'s</div></div>';
   }).join('');
   $('clipRow').querySelectorAll('.clip-card').forEach(el=>{
     el.onclick=()=>{state.selectedId=el.dataset.id;renderAll()};

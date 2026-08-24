@@ -180,29 +180,29 @@
   }
   function pieceRows(l) {
     return l.pieces.map(function (p, i) {
-      return '<tr><td><input data-p="item" data-i="' + i + '" value="' + esc(p.item) + '" style="min-width:150px"></td>' +
-        '<td><select data-p="source" data-i="' + i + '">' + W.SOURCES.map(function (s) {
-          return '<option' + (s === p.source ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></td>' +
-        '<td><input data-p="cost" data-i="' + i + '" type="number" min="0" step="1" value="' + (p.cost || 0) + '" style="width:80px"></td>' +
-        '<td><button class="tb-btn" data-delpiece="' + i + '">✕</button></td></tr>';
+      return '<tr><td><input data-p="item" data-i="' + esc(i) + '" value="' + esc(p.item) + '" style="min-width:150px"></td>' +
+        '<td><select data-p="source" data-i="' + esc(i) + '">' + W.SOURCES.map(function (s) {
+          return '<option' + (s === p.source ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></td>' +
+        '<td><input data-p="cost" data-i="' + esc(i) + '" type="number" min="0" step="1" value="' + esc(p.cost || 0) + '" style="width:80px"></td>' +
+        '<td><button class="tb-btn" data-delpiece="' + esc(i) + '">✕</button></td></tr>';
     }).join('');
   }
   function renderLooks() {
     $('wdLooks').innerHTML = st.looks.map(function (l) {
       var adv = W.multiplesAdvice(l, hazards);
-      return '<div class="wd-look" data-id="' + l.id + '">' +
+      return '<div class="wd-look" data-id="' + esc(l.id) + '">' +
         '<div class="wd-look-head">' +
         '<input class="wd-char" data-f="character" value="' + esc(l.character) + '" placeholder="Character">' +
         '<input class="wd-lname" data-f="lookName" value="' + esc(l.lookName) + '" placeholder="Look name">' +
         '<input class="wd-scenes" data-f="sceneNums" value="' + esc(l.sceneNums.join(', ')) + '" placeholder="Scenes 1, 4-6">' +
         '<input class="wd-sizes" data-f="sizes" value="' + esc(l.sizes) + '" placeholder="Sizes / fittings">' +
         '<span class="wd-cost">$' + W.lookCost(l).toLocaleString() + '</span>' +
-        '<button class="tb-btn" data-dellook="' + l.id + '" title="Remove this look (and its photos)">✕</button>' +
+        '<button class="tb-btn" data-dellook="' + esc(l.id) + '" title="Remove this look (and its photos)">✕</button>' +
         '</div>' +
         '<table class="wd-table"><thead><tr><th>Piece</th><th>Source</th><th>Cost $</th><th></th></tr></thead>' +
         '<tbody>' + pieceRows(l) + '</tbody></table>' +
         '<div class="wd-bar" style="margin-top:6px;margin-bottom:0">' +
-        '<button class="tb-btn" data-addpiece="' + l.id + '">+ Piece</button>' +
+        '<button class="tb-btn" data-addpiece="' + esc(l.id) + '">+ Piece</button>' +
         '<input data-f="notes" value="' + esc(l.notes) + '" placeholder="Notes — aging, dye, doubles…" style="flex:1;min-width:180px">' +
         '</div>' +
         (adv.multiples > 1 ? '<div class="wd-warn">⚠ ' + esc(adv.note) + '</div>' : '') +
@@ -269,7 +269,7 @@
       var rows = plot.grid.map(function (row) {
         var by = {};
         row.wearing.forEach(function (w) { (by[w.character] = by[w.character] || []).push(w.lookName); });
-        return '<tr><td class="sc">' + row.scene + '</td>' + plot.characters.map(function (c) {
+        return '<tr><td class="sc">' + esc(row.scene) + '</td>' + plot.characters.map(function (c) {
           var cls = qcAt[c + '@' + row.scene] ? ' class="qc"' : '';
           return '<td' + cls + '>' + (by[c] ? esc(by[c].join(' + ')) : '·') + '</td>';
         }).join('') + '</tr>';
@@ -295,16 +295,16 @@
   function renderBudget() {
     var t = W.totalsBySource(st.looks);
     $('wdTotals').innerHTML =
-      '<span>Buy <b>$' + t.buy.toLocaleString() + '</b></span>' +
-      '<span>Rent <b>$' + t.rent.toLocaleString() + '</b></span>' +
-      '<span>Build <b>$' + t.build.toLocaleString() + '</b></span>' +
-      '<span>Cast-own <b>$' + t['cast-own'].toLocaleString() + '</b></span>' +
-      '<span>Wardrobe total <b>$' + t.total.toLocaleString() + '</b></span>';
+      '<span>Buy <b>$' + esc(t.buy.toLocaleString()) + '</b></span>' +
+      '<span>Rent <b>$' + esc(t.rent.toLocaleString()) + '</b></span>' +
+      '<span>Build <b>$' + esc(t.build.toLocaleString()) + '</b></span>' +
+      '<span>Cast-own <b>$' + esc(t['cast-own'].toLocaleString()) + '</b></span>' +
+      '<span>Wardrobe total <b>$' + esc(t.total.toLocaleString()) + '</b></span>';
     var roll = W.rollupByCharacter(st.looks);
     $('wdRollup').innerHTML = roll.length ?
       '<table class="wd-table"><thead><tr><th>Character</th><th>Looks</th><th>Cost $</th></tr></thead><tbody>' +
       roll.map(function (r) {
-        return '<tr><td>' + esc(r.character) + '</td><td>' + r.looks + '</td><td style="font-family:var(--mono)">$' + r.cost.toLocaleString() + '</td></tr>';
+        return '<tr><td>' + esc(r.character) + '</td><td>' + esc(r.looks) + '</td><td style="font-family:var(--mono)">$' + esc(r.cost.toLocaleString()) + '</td></tr>';
       }).join('') + '</tbody></table>' : '<p class="wd-note">Add pieces with costs and the rollup builds itself.</p>';
   }
   $('wdCommit').addEventListener('click', function () {
@@ -320,7 +320,7 @@
   /* ── 4 · photo continuity ── */
   function renderPhotoLooks() {
     $('wdPhotoLook').innerHTML = st.looks.map(function (l) {
-      return '<option value="' + l.id + '">' + esc((l.character || '?') + ' — ' + l.lookName) + '</option>';
+      return '<option value="' + esc(l.id) + '">' + esc((l.character || '?') + ' — ' + l.lookName) + '</option>';
     }).join('') || '<option value="">— add a look first —</option>';
   }
   function renderPhotos() {

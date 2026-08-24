@@ -139,7 +139,7 @@
       ],
       summary: function (rows) {
         var ok = rows.filter(function (r) { return r.permit === 'Issued' || r.permit === 'Not needed'; }).length;
-        return rows.length + ' locations · <b>' + ok + '</b> clear to shoot';
+        return rows.length + ' locations · <b>' + esc(ok) + '</b> clear to shoot';
       },
       blank: function () { return { name: '', scenes: '', address: '', contact: '', permit: 'Not needed', permitDate: '', notes: '' }; }
     }).render('prLocs');
@@ -148,8 +148,8 @@
       var d = $('prLocDate').value || new Date().toISOString().slice(0, 10);
       if (!isFinite(lat) || !isFinite(lon)) return T.toast('Enter lat/lon');
       var t = Sun.sunTimes(d, lat, lon);
-      $('prLocSunOut').innerHTML = 'sunrise ' + Sun.fmtLocal(t.sunrise) + ' · golden pm ' +
-        '<b style="color:var(--gold)">' + Sun.fmtLocal(t.goldenStartPM) + '</b> · sunset ' + Sun.fmtLocal(t.sunset);
+      $('prLocSunOut').innerHTML = 'sunrise ' + esc(Sun.fmtLocal(t.sunrise)) + ' · golden pm ' +
+        '<b style="color:var(--gold)">' + esc(Sun.fmtLocal(t.goldenStartPM)) + '</b> · sunset ' + esc(Sun.fmtLocal(t.sunset));
     });
   };
 
@@ -255,7 +255,7 @@
       ],
       summary: function (rows) {
         var fin = rows.filter(function (r) { return r.status === 'Final'; }).length;
-        return rows.length + ' shots · <b>' + fin + ' final</b> · ' + (rows.length - fin) + ' open';
+        return rows.length + ' shots · <b>' + esc(fin) + ' final</b> · ' + (rows.length - fin) + ' open';
       },
       blank: function () { return { shot: 'VFX' + String(101 + Math.floor(Math.random() * 890)), scene: '', desc: '', vendor: '', version: 'v1', status: 'Brief', due: '', notes: '' }; }
     }).render('prVfx');
@@ -341,7 +341,7 @@
       ],
       summary: function (rows) {
         var done = rows.filter(function (r) { return r.status === 'passed' || r.status === 'delivered' || r.status === 'n/a'; }).length;
-        return rows.length + ' deliverables · <b>' + done + '</b> cleared';
+        return rows.length + ' deliverables · <b>' + esc(done) + '</b> cleared';
       },
       blank: function () { return { group: 'Picture', item: '', status: 'todo', notes: '' }; }
     });
@@ -372,11 +372,11 @@
       });
       $('prResOut').innerHTML = '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th>Guild</th><th>Rate</th><th>Estimated residuals</th></tr></thead><tbody>' +
         r.lines.map(function (l) {
-          return '<tr><td>' + esc(l.guild) + '</td><td>' + (l.rate * 100).toFixed(1) + '%</td><td style="font-family:var(--mono)">$' + l.amount.toLocaleString('en-US') + '</td></tr>';
+          return '<tr><td>' + esc(l.guild) + '</td><td>' + (l.rate * 100).toFixed(1) + '%</td><td style="font-family:var(--mono)">$' + esc(l.amount.toLocaleString('en-US')) + '</td></tr>';
         }).join('') +
-        '<tr><td><b>Total</b></td><td></td><td style="font-family:var(--mono);color:var(--gold)"><b>$' + r.total.toLocaleString('en-US') + '</b></td></tr>' +
+        '<tr><td><b>Total</b></td><td></td><td style="font-family:var(--mono);color:var(--gold)"><b>$' + esc(r.total.toLocaleString('en-US')) + '</b></td></tr>' +
         '</tbody></table></div>' +
-        '<p class="bud-note">Royalty base $' + r.base.toLocaleString('en-US') + ' — fold this into Producer Suite → Sales as a distribution cost.</p>';
+        '<p class="bud-note">Royalty base $' + esc(r.base.toLocaleString('en-US')) + ' — fold this into Producer Suite → Sales as a distribution cost.</p>';
     });
   };
 
@@ -424,11 +424,11 @@
       lastCard = d;
       var h = '<div class="pr-ci-card">';
       h += '<div class="pr-ci-head"><b>' + esc(d.name) + '</b>' +
-        (d.popularity ? '<span class="wf-chip good">demand ' + Math.round(d.popularity) + '</span>' : '<span class="ps-hint">no TMDB key — Wikidata data only</span>') + '</div>';
+        (d.popularity ? '<span class="wf-chip good">demand ' + esc(Math.round(d.popularity)) + '</span>' : '<span class="ps-hint">no TMDB key — Wikidata data only</span>') + '</div>';
       if (d.films.length) {
         h += '<div class="pr-ci-sec">Last films</div><table class="bud-table"><tbody>' +
           d.films.slice(0, 8).map(function (f) {
-            return '<tr><td style="font-family:var(--mono);width:52px">' + (f.year || '—') + '</td><td>' + esc(f.title) + '</td><td class="ps-hint">' +
+            return '<tr><td style="font-family:var(--mono);width:52px">' + esc(f.year || '—') + '</td><td>' + esc(f.title) + '</td><td class="ps-hint">' +
               esc(f.role || (f.directors && f.directors.length ? 'dir. ' + f.directors.join(', ') : '')) +
               (f.order != null && f.order <= 2 ? ' · top-billed' : '') + '</td></tr>';
           }).join('') + '</tbody></table>';
@@ -438,8 +438,8 @@
           d.directors.slice(0, 8).map(function (x) { return '<span class="wf-chip">' + esc(x.name) + ' ×' + x.films + '</span>'; }).join('') + '</div>';
       }
       if (d.fit) {
-        h += '<div class="pr-ci-sec">Fit with ' + esc(d.dirName) + ' — <b style="color:var(--gold)">' + d.fit.score + '/100</b></div>' +
-          '<div class="pr-ci-bar"><div style="width:' + d.fit.score + '%"></div></div>' +
+        h += '<div class="pr-ci-sec">Fit with ' + esc(d.dirName) + ' — <b style="color:var(--gold)">' + esc(d.fit.score) + '/100</b></div>' +
+          '<div class="pr-ci-bar"><div style="width:' + esc(d.fit.score) + '%"></div></div>' +
           '<ul class="pr-ci-reasons">' + d.fit.reasons.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>';
       }
       h += '<div class="pr-ci-sec">Quote estimate</div>' + quoteBlock(d.quote);

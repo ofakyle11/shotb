@@ -91,14 +91,14 @@
       '<cinamatemanifest version="1.0">',
       '  <creatorinfo>',
       '    <tool>Cinamate Tools</tool>',
-      '    <created>' + (meta.created || new Date().toISOString()) + '</created>',
+      '    <created>' + xmlEsc(meta.created || new Date().toISOString()) + '</created>',
       (meta.project ? '    <project>' + xmlEsc(meta.project) + '</project>' : ''),
       '  </creatorinfo>'];
     entries.forEach(function (e) {
       lines.push('  <hash>',
         '    <path>' + xmlEsc(e.path) + '</path>',
-        '    <size>' + (e.size || 0) + '</size>',
-        '    <sha256>' + e.sha256 + '</sha256>',
+        '    <size>' + xmlEsc(e.size || 0) + '</size>',
+        '    <sha256>' + xmlEsc(e.sha256) + '</sha256>',
         '  </hash>');
     });
     lines.push('</cinamatemanifest>');
@@ -125,8 +125,11 @@
     return { ok: ok, changed: changed, missing: missing, extra: extra,
       clean: changed.length === 0 && missing.length === 0 };
   }
-  function xmlEsc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-  function xmlUnesc(s) { return String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'); }
+  /* All five markup-significant characters: quotes matter because this text
+     is also read back into markup, where a raw ' or " breaks an attribute.
+     xmlUnesc reverses exactly these, ampersand last, so paths round-trip. */
+  function xmlEsc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+  function xmlUnesc(s) { return String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&'); }
 
   root.TMedia = { parseCube: parseCube, sampleLut: sampleLut, applyLutToPixels: applyLutToPixels,
     SENSORS: SENSORS, lensCalc: lensCalc,

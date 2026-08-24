@@ -786,7 +786,8 @@
     var h = Math.floor(min / 60), m = min % 60;
     return h + 'h ' + (m ? m + 'm' : '').trim();
   }
-  function escT(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function escT(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+  function esc(s) { return escT(s); }
 
   /* ════════════════════════════════════════════════════════════════════
    *  6. AI LINE PRODUCER DIGEST
@@ -844,7 +845,7 @@
     var opts = '';
     if (autoOption) opts += '<option value="auto"' + (current === 'auto' ? ' selected' : '') + '>Auto (from script)</option>';
     list.forEach(function (t) {
-      opts += '<option value="' + t.id + '"' + (t.id === current ? ' selected' : '') + '>' + escT(t.label) + '</option>';
+      opts += '<option value="' + esc(t.id) + '"' + (t.id === current ? ' selected' : '') + '>' + escT(t.label) + '</option>';
     });
     return '<label class="bud-field"><span>' + escT(labelTxt) + '</span><select id="' + id + '" class="uc-sel bud-sel">' + opts + '</select></label>';
   }
@@ -881,15 +882,15 @@
 
     if (analysis.drivers.length) {
       html += '<div class="bud-drivers">' + analysis.drivers.map(function (d) {
-        return '<span class="bud-chip" title="weight ' + d.weight + '/10">' + escT(d.label) + ' <b>×' + d.count + '</b></span>';
+        return '<span class="bud-chip" title="weight ' + esc(d.weight) + '/10">' + escT(d.label) + ' <b>×' + esc(d.count) + '</b></span>';
       }).join('') + '</div>';
     }
 
     /* AI preview section */
     html += '<div class="bud-section"><h4>AI rough-draft preview — cost &amp; time</h4>';
-    html += '<div class="bud-assume">' + ai.clipCount + ' clips × ~' + ai.avgClipSec + 's @ ' + escT(ai.resolution) +
-      ' · <label>retakes ×<input type="number" id="budRetake" min="1" max="4" step="0.1" value="' + ai.retakeFactor + '"></label>' +
-      ' · <label>parallel <input type="number" id="budConc" min="1" max="8" step="1" value="' + ai.concurrency + '"></label>' +
+    html += '<div class="bud-assume">' + esc(ai.clipCount) + ' clips × ~' + esc(ai.avgClipSec) + 's @ ' + escT(ai.resolution) +
+      ' · <label>retakes ×<input type="number" id="budRetake" min="1" max="4" step="0.1" value="' + esc(ai.retakeFactor) + '"></label>' +
+      ' · <label>parallel <input type="number" id="budConc" min="1" max="8" step="1" value="' + esc(ai.concurrency) + '"></label>' +
       ' · ' + ai.stillsCount + ' stills (portraits/plates) ≈ ' + fmtMoney(ai.stillsUsd) + '</div>';
     html += '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th>Model</th><th>$/sec</th><th>One pass</th><th>Likely (w/ retakes)</th><th>High</th><th>Wall clock</th></tr></thead><tbody>';
     ai.rows.forEach(function (r) {
@@ -901,7 +902,7 @@
         '<td>' + fmtMins(r.wallMinutes) + '</td></tr>';
     });
     html += '</tbody></table></div>';
-    html += '<p class="bud-note">API list-price estimates — retakes multiplier covers regenerations; wall clock assumes ' + ai.concurrency + ' clips rendering in parallel plus ~' + AI_DEFAULTS.setupMinutes + ' min of parse/enrichment. Edit rates in <code>timeline-budget.js</code>.</p></div>';
+    html += '<p class="bud-note">API list-price estimates — retakes multiplier covers regenerations; wall clock assumes ' + esc(ai.concurrency) + ' clips rendering in parallel plus ~' + AI_DEFAULTS.setupMinutes + ' min of parse/enrichment. Edit rates in <code>timeline-budget.js</code>.</p></div>';
 
     /* Production section */
     html += '<div class="bud-section"><h4>Real-world production — tiered estimate</h4>';
@@ -919,7 +920,7 @@
       tierSelect('budIncent', INCENTIVES, p.incentive, 'Tax incentive jurisdiction') +
       '</div>';
 
-    html += '<div class="bud-sched">Schedule: <b>' + prod.schedule.shootDays + ' shoot days</b> · ' +
+    html += '<div class="bud-sched">Schedule: <b>' + esc(prod.schedule.shootDays) + ' shoot days</b> · ' +
       prod.schedule.prepWeeks + ' wks prep · ' + prod.schedule.postWeeks + ' wks post · ~' + prod.schedule.totalWeeks + ' weeks total' +
       (prod.tiers.vfxAuto ? ' · VFX auto-set to <b>' + escT(prod.tiers.vfx.label) + '</b> from script' : '') + '</div>';
 
@@ -945,7 +946,7 @@
     }
     if (prod.benchmark) {
       var bm = prod.benchmark;
-      html += '<div class="bud-compare">Real-film benchmark — <b>' + escT(bm.genre) + '</b>' + (prod.tiers.genreAuto ? ' (auto-detected)' : '') + ': median budget <b>' + fmtMoney(bm.med) + '</b> (typical ' + fmtMoney(bm.p25) + '–' + fmtMoney(bm.p75) + ', 2026$), median worldwide gross ' + fmtMoney(bm.medGross) + '. Your likely estimate sits at the <b>' + bm.percentile + 'th percentile</b> of released feature budgets.</div>';
+      html += '<div class="bud-compare">Real-film benchmark — <b>' + escT(bm.genre) + '</b>' + (prod.tiers.genreAuto ? ' (auto-detected)' : '') + ': median budget <b>' + fmtMoney(bm.med) + '</b> (typical ' + fmtMoney(bm.p25) + '–' + fmtMoney(bm.p75) + ', 2026$), median worldwide gross ' + fmtMoney(bm.medGross) + '. Your likely estimate sits at the <b>' + esc(bm.percentile) + 'th percentile</b> of released feature budgets.</div>';
     }
 
     var sel = ai.selectedRow;

@@ -123,28 +123,28 @@
   /* ── 1 · shot board ── */
   function renderRows() {
     $('vxRows').innerHTML = st.shots.map(function (sh) {
-      return '<tr data-id="' + sh.id + '"' + (sh.id === st.sel ? ' class="vx-selrow"' : '') + '>' +
-        '<td><span class="vx-code" data-sel="' + sh.id + '" title="Open plate checklist">' + esc(sh.code) + '</span></td>' +
+      return '<tr data-id="' + esc(sh.id) + '"' + (sh.id === st.sel ? ' class="vx-selrow"' : '') + '>' +
+        '<td><span class="vx-code" data-sel="' + esc(sh.id) + '" title="Open plate checklist">' + esc(sh.code) + '</span></td>' +
         '<td><input data-f="scene" type="number" min="0" style="width:52px" value="' + (+sh.scene || 0) + '"></td>' +
         '<td><input class="vx-desc" data-f="desc" value="' + esc(sh.desc) + '"></td>' +
         '<td><select data-f="complexity">' + V.COMPLEXITIES.map(function (c) {
           return '<option' + (c === sh.complexity ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></td>' +
         '<td><input data-f="method" value="' + esc(sh.method) + '" placeholder="comp / CG / sim"></td>' +
         '<td><input data-f="vendor" value="' + esc(sh.vendor) + '" placeholder="vendor"></td>' +
-        '<td class="vx-num"><input data-f="bid" type="number" min="0" style="width:84px" value="' + (sh.bid || '') + '" placeholder="bid"></td>' +
+        '<td class="vx-num"><input data-f="bid" type="number" min="0" style="width:84px" value="' + esc(sh.bid || '') + '" placeholder="bid"></td>' +
         '<td><select data-f="status">' + V.STATUSES.map(function (s) {
           return '<option' + (s === sh.status ? ' selected' : '') + '>' + s + '</option>'; }).join('') +
           '</select> <span class="vx-st vx-st-' + esc(sh.status) + '">' + esc(sh.status) + '</span></td>' +
-        '<td class="vx-ver">' + esc(sh.version) + ' <button class="tb-btn" data-bump="' + sh.id + '" title="Publish next version — ' + esc(V.versionName($('vxProj').value || st.project, sh)) + '">+v</button></td>' +
-        '<td><button class="tb-btn" data-del="' + sh.id + '">✕</button></td></tr>';
+        '<td class="vx-ver">' + esc(sh.version) + ' <button class="tb-btn" data-bump="' + esc(sh.id) + '" title="Publish next version — ' + esc(V.versionName($('vxProj').value || st.project, sh)) + '">+v</button></td>' +
+        '<td><button class="tb-btn" data-del="' + esc(sh.id) + '">✕</button></td></tr>';
     }).join('') || '<tr><td colspan="10" class="vx-note">No shots yet — Detect from script scans the working screenplay, or add shots by hand.</td></tr>';
     var b = V.board(st.shots);
     $('vxBoard').innerHTML =
-      '<span>Shots <b>' + b.total + '</b></span>' +
+      '<span>Shots <b>' + esc(b.total) + '</b></span>' +
       V.STATUSES.map(function (s) {
-        return b.counts[s] ? '<span><span class="vx-st vx-st-' + s + '">' + s + '</span> <b>' + b.counts[s] + '</b></span>' : '';
+        return b.counts[s] ? '<span><span class="vx-st vx-st-' + esc(s) + '">' + esc(s) + '</span> <b>' + esc(b.counts[s]) + '</b></span>' : '';
       }).join('') +
-      '<span>Awarded <b>' + money(b.totalAwarded) + '</b></span>';
+      '<span>Awarded <b>' + esc(money(b.totalAwarded)) + '</b></span>';
   }
   $('vxRows').addEventListener('change', function (e) {
     var tr = e.target.closest('tr'); if (!tr) return;
@@ -216,26 +216,26 @@
       var c = V.bidVsEst(sh);
       var verdict = c.status === 'no-bid' ? '<span class="vx-tag">no bid yet</span>'
         : c.status === 'within' ? '<span class="vx-under">within range</span>'
-        : c.status === 'above' ? '<span class="vx-over">' + money(c.delta) + ' over range</span>'
-        : '<span class="vx-under">' + money(-c.delta) + ' under range</span>';
+        : c.status === 'above' ? '<span class="vx-over">' + esc(money(c.delta)) + ' over range</span>'
+        : '<span class="vx-under">' + esc(money(-c.delta)) + ' under range</span>';
       var canCommit = c.bid > 0 && !sh.committedPo;
       return '<tr>' +
         '<td class="vx-code">' + esc(sh.code) + '</td>' +
         '<td><span class="vx-tag">' + esc(sh.complexity) + '</span></td>' +
-        '<td class="vx-num">' + money(c.est.lo) + ' – ' + money(c.est.hi) + '</td>' +
-        '<td class="vx-num">' + (c.bid ? money(c.bid) : '—') + '</td>' +
+        '<td class="vx-num">' + esc(money(c.est.lo)) + ' – ' + esc(money(c.est.hi)) + '</td>' +
+        '<td class="vx-num">' + (c.bid ? esc(money(c.bid)) : '—') + '</td>' +
         '<td>' + verdict + '</td>' +
         '<td><span class="vx-st vx-st-' + esc(sh.status) + '">' + esc(sh.status) + '</span></td>' +
         '<td>' + (sh.committedPo ? '<span class="vx-tag">PO committed</span>'
-          : canCommit ? '<button class="tb-btn gold" data-award="' + sh.id + '">Award → Money Room</button>'
+          : canCommit ? '<button class="tb-btn gold" data-award="' + esc(sh.id) + '">Award → Money Room</button>'
           : '<span class="vx-note">enter a bid to award</span>') + '</td></tr>';
     }).join('') || '<tr><td colspan="7" class="vx-note">No shots on the board yet.</td></tr>';
     var b = V.board(st.shots);
     $('vxMoneyTotals').innerHTML =
-      '<span>Planning range <b>' + money(b.estLo) + ' – ' + money(b.estHi) + '</b> <span class="vx-tag">planning estimate</span></span>' +
-      '<span>Bids in <b>' + money(b.totalBid) + '</b></span>' +
-      '<span>Awarded <b>' + money(b.totalAwarded) + '</b></span>' +
-      (b.uncommitted ? '<span class="vx-over">' + b.uncommitted + ' awarded bid(s) not yet committed</span>' : '');
+      '<span>Planning range <b>' + esc(money(b.estLo)) + ' – ' + esc(money(b.estHi)) + '</b> <span class="vx-tag">planning estimate</span></span>' +
+      '<span>Bids in <b>' + esc(money(b.totalBid)) + '</b></span>' +
+      '<span>Awarded <b>' + esc(money(b.totalAwarded)) + '</b></span>' +
+      (b.uncommitted ? '<span class="vx-over">' + esc(b.uncommitted) + ' awarded bid(s) not yet committed</span>' : '');
   }
   $('vxMoney').addEventListener('click', function (e) {
     var id = e.target.getAttribute('data-award'); if (!id) return;

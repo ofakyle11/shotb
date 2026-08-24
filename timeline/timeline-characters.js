@@ -430,7 +430,7 @@ window.SBCharacters = (function () {
     return '<div class="field"><label>' + label + '</label><input data-k="' + key + '" value="' + esc(val || '') + '"></div>';
   }
 
-  function esc (s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function esc (s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
   function getRefForClip (chars, clip) {
     const names = clip.characters || [];

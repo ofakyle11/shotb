@@ -1603,7 +1603,7 @@ async function sbRefreshLocalStatus() {
     const api = h.api || {};
     const apiTxt = api.ready ? ('API keys: XAI='+(api.xai?'yes':'no')+' · WS='+(api.wavespeed?'yes':'no')) : 'API: copy local-backend/.env.example → .env';
     const apiCol = api.ready ? 'var(--green)' : 'var(--amber)';
-    el.innerHTML = '<strong style="color:var(--gold)">Local stack</strong> · Bridge <span style="color:var(--green)">online</span> · <span style="color:'+apiCol+'">'+apiTxt+'</span> · <span style="color:'+comfyCol+'">'+comfyTxt+'</span> · <span style="color:'+gpuCol+'">'+gpuTxt+'</span> · Images: '+sbProviderBadge(imgMode)+' · Video: '+sbProviderBadge(vidMode)+' · Timeout: '+maxMin+' min · Workflows: '+esc(wf);
+    el.innerHTML = '<strong style="color:var(--gold)">Local stack</strong> · Bridge <span style="color:var(--green)">online</span> · <span style="color:'+esc(apiCol)+'">'+esc(apiTxt)+'</span> · <span style="color:'+esc(comfyCol)+'">'+esc(comfyTxt)+'</span> · <span style="color:'+esc(gpuCol)+'">'+esc(gpuTxt)+'</span> · Images: '+sbProviderBadge(imgMode)+' · Video: '+sbProviderBadge(vidMode)+' · Timeout: '+maxMin+' min · Workflows: '+esc(wf);
   } catch (e) {
     window._sbLocalHealth = null;
     el.innerHTML = '<strong style="color:var(--red)">Bridge offline</strong> — run <strong>START_LOCAL.bat</strong> or <code>py server.py</code> in <code>local-backend</code>. Image + video generation will fail until the bridge is up.';
@@ -2315,21 +2315,21 @@ const ac=CK.filter(k=>gC[k]!=='Default');if(ac.length){h+='<div class="cine-tags
 // Chars
 const ck=Object.keys(rD.characters);h+='<div class="sec-l">Characters · '+ck.length+' <button class="b b-g b-xs" onclick="aCh()">+ Add</button></div><div class="ch-g">';
 ck.forEach(n=>{
-  const safeN=ea(n).replace(/'/g,"\\'");
+  const safeN=jsq(n);
   let safeId;try{safeId=btoa(unescape(encodeURIComponent(n))).replace(/[^a-zA-Z0-9]/g,'')}catch(e){safeId=n.split('').map(c=>c.charCodeAt(0).toString(16)).join('').slice(0,32)}
   const imgUrl=rD.characterImages&&rD.characterImages[n];
   h+='<div class="ch-c">'
-    +'<div style="display:flex;justify-content:space-between"><div style="flex:1"><input type="text" class="ef cni" value="'+ea(n)+'" onblur="uCN(\''+safeN+'\',this)"/></div><span class="ch-d" onclick="dCh(\''+safeN+'\')">✕</span></div>'
+    +'<div style="display:flex;justify-content:space-between"><div style="flex:1"><input type="text" class="ef cni" value="'+esc(n)+'" onblur="uCN(\''+esc(safeN)+'\',this)"/></div><span class="ch-d" onclick="dCh(\''+esc(safeN)+'\')">✕</span></div>'
     +'<div class="ch-l">Description</div>'
-    +'<textarea class="ef" rows="2" onblur="uCD(\''+safeN+'\',this)">'+esc(rD.characters[n])+'</textarea>'
+    +'<textarea class="ef" rows="2" onblur="uCD(\''+esc(safeN)+'\',this)">'+esc(rD.characters[n])+'</textarea>'
     +'<div style="display:flex;gap:8px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">'
     +(imgUrl
-      ? '<img src="'+imgUrl+'" alt="ref" style="width:48px;height:48px;border-radius:6px;object-fit:cover;border:2px solid var(--green)"/>'
-        +'<div style="flex:1"><div style="font-size:10px;color:var(--green);font-weight:700">🔒 Reference locked</div><div style="font-size:9px;color:var(--dim)" id="chImgInd-'+safeId+'">Used in all video generations</div></div>'
-        +'<button class="b b-g b-xs" onclick="uChImg(\''+safeN+'\')" title="Replace photo">↻</button>'
-        +'<button class="b b-g b-xs" onclick="dChImg(\''+safeN+'\')" title="Remove photo">✕</button>'
-      : '<button class="b b-gold b-xs" onclick="uChImg(\''+safeN+'\')">📷 Upload Reference Photo</button>'
-        +'<span style="font-size:10px;color:var(--dim)" id="chImgInd-'+safeId+'">Optional — locks this character into video gen</span>'
+      ? '<img src="'+esc(imgUrl)+'" alt="ref" style="width:48px;height:48px;border-radius:6px;object-fit:cover;border:2px solid var(--green)"/>'
+        +'<div style="flex:1"><div style="font-size:10px;color:var(--green);font-weight:700">🔒 Reference locked</div><div style="font-size:9px;color:var(--dim)" id="chImgInd-'+esc(safeId)+'">Used in all video generations</div></div>'
+        +'<button class="b b-g b-xs" onclick="uChImg(\''+esc(safeN)+'\')" title="Replace photo">↻</button>'
+        +'<button class="b b-g b-xs" onclick="dChImg(\''+esc(safeN)+'\')" title="Remove photo">✕</button>'
+      : '<button class="b b-gold b-xs" onclick="uChImg(\''+esc(safeN)+'\')">📷 Upload Reference Photo</button>'
+        +'<span style="font-size:10px;color:var(--dim)" id="chImgInd-'+esc(safeId)+'">Optional — locks this character into video gen</span>'
     )
     +'</div>'
     +'</div>';
@@ -2353,8 +2353,13 @@ if(typeof SBVideo!=='undefined'){h+='<div class="vg-status" id="vg-st-'+(si+1)+'
 h+='</div></div>'});h+='</div>'}h+='</div>'});
 $('resArea').innerHTML=h;$('resArea').style.display='block'}
 
-function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
-function ea(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;')}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function ea(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+// Quote a value for use INSIDE a JS string literal that itself sits inside an
+// HTML attribute (onclick="f('...')"). HTML entity decoding runs before the JS
+// parser, so HTML-escaping alone does not stop a quote from closing the string
+// — the backslash escaping has to happen first, then esc() on top of it.
+function jsq(s){return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace(/\r/g,'\\r').replace(/\n/g,'\\n')}
 function ex(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
 function ftc(f,fps){fps=fps||24;return String(Math.floor(f/(fps*3600))).padStart(2,'0')+':'+String(Math.floor((f%(fps*3600))/(fps*60))).padStart(2,'0')+':'+String(Math.floor((f%(fps*60))/fps)).padStart(2,'0')+':'+String(f%fps).padStart(2,'0')}
 
@@ -2745,13 +2750,13 @@ V._updateUI=function(){
     const cls=s==="COMPLETED"?"d":s==="FAILED"?"f":s==="IN_PROGRESS"?"p":"q";
     const col=cls==="d"?"var(--green)":cls==="f"?"var(--red)":cls==="p"?"var(--amber)":"var(--muted)";
     const label=s==="COMPLETED"?"✓ Ready":s==="FAILED"?"✗ Failed":s==="IN_PROGRESS"?"⚙ Rendering...":(isLocalOnly()?"⏳ Queued — local bridge":"⏳ Queued — waiting for GPU");
-    let h='<span class="vg-dot vg-dot-'+cls+'"></span><span style="color:'+col+';font-weight:600">'+label+'</span>';
+    let h='<span class="vg-dot vg-dot-'+esc(cls)+'"></span><span style="color:'+esc(col)+';font-weight:600">'+esc(label)+'</span>';
     if(job.provider)h+=sbProviderBadge(job.provider);
     if(job.charLock)h+=' <span style="color:var(--green);font-size:9px;font-weight:700;margin-left:6px">🔒 '+esc(job.charLock)+'</span>';
-    if(job.videoUrl)h+=' <a href="'+job.videoUrl+'" download="SC'+job.scene+'_SH'+job.shot+'.mp4" style="color:var(--gold);font-size:10px;text-decoration:none;margin-left:6px">⬇ Download</a>';
+    if(job.videoUrl)h+=' <a href="'+esc(job.videoUrl)+'" download="SC'+esc(job.scene)+'_SH'+esc(job.shot)+'.mp4" style="color:var(--gold);font-size:10px;text-decoration:none;margin-left:6px">⬇ Download</a>';
     el.innerHTML=h;
     const pvEl=document.getElementById("vg-pv-"+job.scene+"-"+job.shot);
-    if(job.videoUrl&&pvEl&&!pvEl.querySelector("video")){pvEl.innerHTML='<div class="vg-preview"><video src="'+job.videoUrl+'" controls preload="metadata" style="max-width:100%;border-radius:6px;margin-top:6px"></video></div>'}
+    if(job.videoUrl&&pvEl&&!pvEl.querySelector("video")){pvEl.innerHTML='<div class="vg-preview"><video src="'+esc(job.videoUrl)+'" controls preload="metadata" style="max-width:100%;border-radius:6px;margin-top:6px"></video></div>'}
   });
 };
 
@@ -2763,7 +2768,7 @@ const clips=[...V.jobs.entries()].filter(([,j])=>j.videoUrl).sort((a,b)=>(a[1].s
 let h='<button class="vg-close" onclick="SBVideo._closeGallery()">✕</button><div class="vg-gallery"><h2>CINA<span>MATE</span> Generated Clips — '+clips.length+'</h2>';
 if(!clips.length)h+='<p style="color:var(--dim)">No clips yet. Generate some shots first.</p>';
 else{h+='<div style="margin-bottom:14px"><button class="b b-gold b-s" onclick="SBVideo._zipAll()">⬇ DOWNLOAD ALL AS ZIP</button></div><div class="vg-grid">';
-clips.forEach(([,j])=>{h+='<div class="vg-card"><video src="'+j.videoUrl+'" controls preload="metadata"></video><div class="vg-card-info"><strong>Scene '+j.scene+' — Shot '+j.shot+'</strong><br><a href="'+j.videoUrl+'" download="SC'+j.scene+'_SH'+j.shot+'.mp4" style="color:var(--gold)">Download</a></div></div>'});h+='</div>'}
+clips.forEach(([,j])=>{h+='<div class="vg-card"><video src="'+esc(j.videoUrl)+'" controls preload="metadata"></video><div class="vg-card-info"><strong>Scene '+esc(j.scene)+' — Shot '+esc(j.shot)+'</strong><br><a href="'+esc(j.videoUrl)+'" download="SC'+esc(j.scene)+'_SH'+esc(j.shot)+'.mp4" style="color:var(--gold)">Download</a></div></div>'});h+='</div>'}
 h+='</div>';ov.innerHTML=h;ov.classList.add("open")};
 V._closeGallery=function(){const ov=document.getElementById("vg-overlay");if(ov)ov.classList.remove("open")};
 
@@ -3157,7 +3162,7 @@ V._openStitch=function(){
   h+='<div style="margin-top:8px">';
   Object.keys(byScene).sort((a,b)=>a-b).forEach(sceneNum=>{
     const scene=byScene[sceneNum];
-    h+='<div style="margin-bottom:18px"><div style="font-family:var(--display);font-weight:700;color:var(--gold);font-size:13px;margin-bottom:8px">SCENE '+sceneNum+' — '+scene.length+' clip'+(scene.length===1?'':'s')+'</div>';
+    h+='<div style="margin-bottom:18px"><div style="font-family:var(--display);font-weight:700;color:var(--gold);font-size:13px;margin-bottom:8px">SCENE '+esc(sceneNum)+' — '+scene.length+' clip'+(scene.length===1?'':'s')+'</div>';
     h+='<div class="vg-grid">';
     scene.forEach(j=>{
       h+='<div class="vg-card"><video src="'+esc(j.videoUrl)+'" preload="metadata" muted></video><div class="vg-card-info"><strong>Shot '+j.shot+'</strong>'+(j.charLock?' · 🔒 '+esc(j.charLock):'')+'</div></div>';
@@ -3203,9 +3208,9 @@ V._runStitch=async function(){
       const url=URL.createObjectURL(o.blob);
       const sizeMB=(o.blob.size/(1024*1024)).toFixed(1);
       h+='<div style="background:var(--surface);border:1px solid var(--green);border-radius:var(--r);padding:12px;margin-bottom:10px">';
-      h+='<div style="font-weight:600;color:#fff;margin-bottom:6px">'+o.label+' — '+sizeMB+' MB</div>';
-      h+='<video src="'+url+'" controls style="width:100%;max-height:280px;border-radius:6px;margin-bottom:8px"></video>';
-      h+='<a href="'+url+'" download="'+o.name+'" class="b b-gold b-s">⬇ Download '+o.name+'</a>';
+      h+='<div style="font-weight:600;color:#fff;margin-bottom:6px">'+esc(o.label)+' — '+sizeMB+' MB</div>';
+      h+='<video src="'+esc(url)+'" controls style="width:100%;max-height:280px;border-radius:6px;margin-bottom:8px"></video>';
+      h+='<a href="'+esc(url)+'" download="'+esc(o.name)+'" class="b b-gold b-s">⬇ Download '+esc(o.name)+'</a>';
       h+='</div>';
     });
     out.innerHTML=h;
@@ -3260,7 +3265,7 @@ function csRenderResults(){
   csImages.forEach((img,i)=>{
     const isLocked=csLocked.some(c=>c.imageUrl===img.url);
     h+='<div class="cs-img-card'+(isLocked?' locked':'')+'" onclick="csLockImage('+i+')">';
-    h+='<img src="'+img.url+'" alt="'+esc(img.name)+'">';
+    h+='<img src="'+esc(img.url)+'" alt="'+esc(img.name)+'">';
     h+='<button class="cs-lock">'+(isLocked?'🔒 LOCKED':'🔒 Lock')+'</button>';
     h+='</div>';
   });
@@ -3296,11 +3301,11 @@ function csRenderLocked(){
   let h='';
   csLocked.forEach((c,i)=>{
     h+='<div class="cs-char-card">';
-    h+='<img src="'+c.imageUrl+'" alt="'+esc(c.name)+'">';
+    h+='<img src="'+esc(c.imageUrl)+'" alt="'+esc(c.name)+'">';
     h+='<div class="cs-char-name">'+esc(c.name)+'</div>';
     h+='<div class="cs-char-desc">'+esc((c.description||'').substring(0,80))+'</div>';
     h+='<div style="margin-top:8px;display:flex;gap:4px;justify-content:center">';
-    h+='<a href="'+c.imageUrl+'" download="'+c.name.replace(/\s/g,'_')+'.png" class="b b-g b-xs">⬇</a>';
+    h+='<a href="'+esc(c.imageUrl)+'" download="'+esc(c.name.replace(/\s/g,'_'))+'.png" class="b b-g b-xs">⬇</a>';
     h+='<button class="b b-r b-xs" onclick="csUnlock('+i+')">✕ Unlock</button>';
     h+='</div></div>';
   });
@@ -4868,7 +4873,7 @@ function mhBgRenderClipCard(p,si,k){
   else if(BG_FIELD_KEYS.some(f=>src[f]==='cst'))cls='custom';
   else if(BG_FIELD_KEYS.some(f=>src[f]==='sug'))cls='suggested';
 
-  let h='<div class="bg-clip '+cls+'" data-si="'+si+'" data-k="'+k+'">';
+  let h='<div class="bg-clip '+esc(cls)+'" data-si="'+si+'" data-k="'+k+'">';
   // ── Header: ID, inherit-from, lock toggle (script preview removed — it's editable below) ──
   h+='<div class="bg-clip-hdr">';
   h+='<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:200px">';
@@ -4957,7 +4962,7 @@ function mhBgRenderTextField(p,si,k,field,label){
   if(src==='cst'){val=sh.background[field]||'';readOnly=locked;}
   else if(src==='sug'){val=sh.background.suggested[field]||sh.background[field]||'';readOnly=locked;}
   else{val=resolved.value;readOnly=true;cssCls='inh-ro';}
-  h+='<textarea class="'+cssCls+'" '+(readOnly?'readonly':'')+' '+
+  h+='<textarea class="'+esc(cssCls)+'" '+(readOnly?'readonly':'')+' '+
      (readOnly&&!locked?'onclick="mhBgEditField('+si+','+k+',\''+field+'\')"':'')+
      ' oninput="mhBgSetField('+si+','+k+',\''+field+'\',this.value)" placeholder="'+(src==='inh'?'Click to override with custom text…':'')+'">'+esc(val)+'</textarea>';
   h+='</div>';
@@ -4995,7 +5000,7 @@ function mhBgRenderCineField(p,si,k,field,label,options){
   const selCls=(src==='cst')?'cst':(src==='sug'?'sug':'inh');
   let h='<div class="cbox">';
   h+='<div class="lbl"><span>'+esc(label)+'</span><span>'+chip+'</span></div>';
-  h+='<select class="'+selCls+'" '+(locked?'disabled':'')+' onchange="mhBgSetCineField('+si+','+k+',\''+field+'\',this.value)">';
+  h+='<select class="'+esc(selCls)+'" '+(locked?'disabled':'')+' onchange="mhBgSetCineField('+si+','+k+',\''+field+'\',this.value)">';
   h+='<option value="">'+(src==='inh'?'↑ '+esc(curVal||'(none)'):'— clear —')+'</option>';
   options.forEach(opt=>{
     h+='<option value="'+esc(opt)+'" '+(curVal===opt?'selected':'')+'>'+esc(opt)+'</option>';
@@ -5511,7 +5516,7 @@ function mhCharRenderCard(p,i){
   const locked=!!c.locked;
   const hasImg=!!c.imageUrl;
   const cls='char-card'+(locked?' locked':(hasImg?' has-image':''));
-  let h='<div class="'+cls+'" data-i="'+i+'">';
+  let h='<div class="'+esc(cls)+'" data-i="'+i+'">';
   // ── Photo column ─────────────────────────────────────────────────────
   h+='<div>';
   h+='<div class="char-photo">';
@@ -5522,7 +5527,7 @@ function mhCharRenderCard(p,i){
   h+='<select id="mhCharModel_'+i+'">';
   Object.keys(PHOTO_MODELS).forEach(mk=>{
     const pm=PHOTO_MODELS[mk];
-    h+='<option value="'+mk+'"'+(mk==='flux-xai'?' selected':'')+'>'+esc(pm.label)+'</option>';
+    h+='<option value="'+esc(mk)+'"'+(mk==='flux-xai'?' selected':'')+'>'+esc(pm.label)+'</option>';
   });
   h+='</select>';
   h+='<button class="b b-gold b-s" id="mhCharGenBtn_'+i+'" '+(locked?'disabled':'')+' onclick="mhCharGenerate('+i+')">'+(hasImg?'↻ Regenerate':'🎭 Generate')+'</button>';
@@ -5559,7 +5564,7 @@ function mhCharRenderCard(p,i){
   h+='<label>Cast role:</label>';
   h+='<select '+(locked?'disabled':'')+' onchange="mhCharSetRole('+i+',this.value)">';
   (window.SBMastery?window.SBMastery.CHAR_ROLES:['lead','supporting','background','crowd','voice_only']).forEach(function(r){
-    h+='<option value="'+r+'"'+(c.role===r?' selected':'')+'>'+r+'</option>';
+    h+='<option value="'+esc(r)+'"'+(c.role===r?' selected':'')+'>'+esc(r)+'</option>';
   });
   h+='</select>';
   h+='</div>';
@@ -5607,7 +5612,7 @@ function mhCharRenderCard(p,i){
   const wSpec=charWardrobeSpec(c);
   const wGenderLabel=((c.attributes&&c.attributes.gender||'').toLowerCase()==='female')?'Womens':'Mens';
   h+='<div class="char-section">';
-  h+='<div class="sec-lbl"><span>Wardrobe — '+wGenderLabel+' (5 slots)</span></div>';
+  h+='<div class="sec-lbl"><span>Wardrobe — '+esc(wGenderLabel)+' (5 slots)</span></div>';
   h+='<div class="char-grid">';
   Object.keys(wSpec).forEach(k=>{
     const spec=wSpec[k];
@@ -6327,10 +6332,10 @@ function mhRenderGenProgress(){
   let h='';
   for(const j of _mhGenState.jobs){
     const st={queue:['qst-q','QUEUE'],submit:['qst-p','SUBMITTING'],poll:['qst-p','GENERATING'],done:['qst-d','DONE'],fail:['qst-f','FAILED'],cancelled:['qst-f','CANCELLED']}[j.status]||['qst-f','FAILED'];
-    const modelTag = j.model ? ' <span style="font-size:9px;background:#222;padding:1px 4px;border-radius:3px">'+j.model+'</span>' : '';
+    const modelTag = j.model ? ' <span style="font-size:9px;background:#222;padding:1px 4px;border-radius:3px">'+esc(j.model)+'</span>' : '';
     const provTag = j.provider ? sbProviderBadge(j.provider) : '';
-    h+='<div class="gen-queue-item"><span class="qst '+st[0]+'">'+st[1]+'</span><span style="color:var(--gold);font-weight:700">S'+(j.sceneIdx+1)+'.'+(j.shotIdx+1)+'</span>'+modelTag+provTag+'<span style="flex:1;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(j.prompt.substring(0,80))+'</span>';
-    if(j.videoUrl)h+='<a href="'+j.videoUrl+'" target="_blank" class="b b-g b-xs">View</a>';
+    h+='<div class="gen-queue-item"><span class="qst '+esc(st[0])+'">'+esc(st[1])+'</span><span style="color:var(--gold);font-weight:700">S'+esc(j.sceneIdx+1)+'.'+esc(j.shotIdx+1)+'</span>'+modelTag+provTag+'<span style="flex:1;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(j.prompt.substring(0,80))+'</span>';
+    if(j.videoUrl)h+='<a href="'+esc(j.videoUrl)+'" target="_blank" class="b b-g b-xs">View</a>';
     if(j.error)h+='<span style="font-size:10px;color:var(--red)" title="'+esc(j.error)+'">⚠</span>';
     h+='</div>';
   }
@@ -6385,7 +6390,7 @@ function mhGeneratingClipHtml(j) {
   const eta = sbIsKlingModel(j && j.model) ? 'typically 20–45 min' : (sbIsVeoModel(j && j.model) ? 'typically 2–5 min' : 'typically 1–5 min');
   const key = (j.sceneIdx != null && j.shotIdx != null) ? (j.sceneIdx + '-' + j.shotIdx) : '';
   const cancelBtn = key
-    ? '<div style="margin-top:10px"><button class="b b-g b-s" style="font-size:11px;color:#fca5a5;border-color:rgba(239,68,68,0.45)" onclick="mhCancelShotGeneration(\'' + key + '\')">✕ Cancel generation</button></div>'
+    ? '<div style="margin-top:10px"><button class="b b-g b-s" style="font-size:11px;color:#fca5a5;border-color:rgba(239,68,68,0.45)" onclick="mhCancelShotGeneration(\'' + esc(jsq(key)) + '\')">✕ Cancel generation</button></div>'
     : '';
   return '<div style="margin-top:8px;padding:14px;background:var(--surface2);border:1px solid var(--gold-border);border-radius:8px;text-align:center">' +
     '<span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.35)">GENERATING</span>' +
@@ -6495,8 +6500,8 @@ function mhRenderShotClipPreview(key) {
     mhClipSourceBadge(j) + modelTag +
     '<div style="margin-top:6px">' + mhClipMediaHtml(j) + '</div>' +
     '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">' +
-    (isReal ? '<a href="' + j.videoUrl + '" download="cinamate_' + label + '.mp4" class="b b-g b-xs">⬇ Download</a>' : '') +
-    '<button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\'' + label + '\')">+ Editor</button>' +
+    (isReal ? '<a href="' + esc(j.videoUrl) + '" download="cinamate_' + esc(label) + '.mp4" class="b b-g b-xs">⬇ Download</a>' : '') +
+    '<button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\'' + esc(jsq(label)) + '\')">+ Editor</button>' +
     '</div></div>';
   el.style.display = 'block';
 }
@@ -6518,11 +6523,11 @@ function mhRenderGenClipsGallery() {
     h += '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden">';
     h += mhClipMediaHtml(j);
     h += '<div style="padding:10px"><div style="margin-bottom:4px">' + mhClipSourceBadge(j) + modelTag + (j.provider ? sbProviderBadge(j.provider) : '') + '</div>';
-    h += '<div style="color:var(--gold);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px">' + label + '</div>';
+    h += '<div style="color:var(--gold);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px">' + esc(label) + '</div>';
     h += '<div style="color:var(--dim);font-size:12px;line-height:1.3;max-height:48px;overflow:hidden">' + esc((j.prompt || '').substring(0, 100)) + (j.prompt && j.prompt.length > 100 ? '...' : '') + '</div>';
     h += '<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">';
-    if (isReal) h += '<a href="' + j.videoUrl + '" download="cinamate_' + label + '.mp4" class="b b-g b-xs">⬇ Download</a>';
-    h += '<button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\'' + label + '\')">+ Editor</button>';
+    if (isReal) h += '<a href="' + esc(j.videoUrl) + '" download="cinamate_' + esc(label) + '.mp4" class="b b-g b-xs">⬇ Download</a>';
+    h += '<button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\'' + esc(jsq(label)) + '\')">+ Editor</button>';
     h += '</div></div></div>';
   }
   inner.innerHTML = h;
@@ -6541,8 +6546,8 @@ function mhRenderClipsGridLegacy() {
     h += '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden">';
     h += mhClipMediaHtml(j);
     h += '<div style="padding:10px"><div style="margin-bottom:4px">' + mhClipSourceBadge(j) + '</div>';
-    h += '<div style="color:var(--gold);font-size:11px;font-weight:700">' + label + '</div>';
-    h += '<div style="margin-top:8px;display:flex;gap:4px"><a href="' + j.videoUrl + '" download="cinamate_' + label + '.mp4" class="b b-g b-xs">⬇ Download</a><button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\'' + label + '\')">+ Editor</button></div>';
+    h += '<div style="color:var(--gold);font-size:11px;font-weight:700">' + esc(label) + '</div>';
+    h += '<div style="margin-top:8px;display:flex;gap:4px"><a href="' + esc(j.videoUrl) + '" download="cinamate_' + esc(label) + '.mp4" class="b b-g b-xs">⬇ Download</a><button class="b b-gold b-xs" onclick="mhEditAddClipByLabel(\'' + esc(jsq(label)) + '\')">+ Editor</button></div>';
     h += '</div></div>';
   }
   inner.innerHTML = h;
@@ -6606,9 +6611,9 @@ function mhEditRenderLibrary(){
   let h='';
   for(const j of jobs){
     const label=j._localFile?('UP'+(j.shotIdx+1)):('S'+(j.sceneIdx+1)+'.'+(j.shotIdx+1));
-    h+='<div style="flex-shrink:0;width:180px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer" onclick="mhEditAddClip(\''+label+'\',\''+j.videoUrl+'\')" title="Click to add to timeline">';
-    h+='<video src="'+j.videoUrl+'" muted preload="metadata" style="width:100%;display:block;background:#000;aspect-ratio:16/9;object-fit:cover"></video>';
-    h+='<div style="padding:6px 8px"><div style="color:var(--gold);font-size:11px;font-weight:700">'+label+'</div><div style="color:var(--dim);font-size:10px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap">'+esc((j.prompt||'').substring(0,40))+'</div></div>';
+    h+='<div style="flex-shrink:0;width:180px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer" onclick="mhEditAddClip(\''+esc(jsq(label))+'\',\''+esc(jsq(j.videoUrl))+'\')" title="Click to add to timeline">';
+    h+='<video src="'+esc(j.videoUrl)+'" muted preload="metadata" style="width:100%;display:block;background:#000;aspect-ratio:16/9;object-fit:cover"></video>';
+    h+='<div style="padding:6px 8px"><div style="color:var(--gold);font-size:11px;font-weight:700">'+esc(label)+'</div><div style="color:var(--dim);font-size:10px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap">'+esc((j.prompt||'').substring(0,40))+'</div></div>';
     h+='</div>';
   }
   lib.innerHTML=h||'<div style="color:var(--muted);font-size:12px;padding:14px;text-align:center;width:100%">No clips yet — click <b>📁 Upload MP4s</b> below to load local files, or generate some on Step 4.</div>';
@@ -6631,7 +6636,7 @@ function mhEditRenderTimeline(){
     const approxDur=Math.max(0,6-(c.trimIn||0)-(c.trimOut||0));
     totalDur+=approxDur;
     h+='<div style="flex-shrink:0;width:140px;background:'+(sel?'var(--gold-bg)':'var(--surface)')+';border:2px solid '+(sel?'var(--gold)':'var(--border)')+';border-radius:6px;cursor:pointer;overflow:hidden;position:relative" onclick="mhEditSelect('+i+')">';
-    h+='<video src="'+c.videoUrl+'" muted preload="metadata" style="width:100%;display:block;background:#000;aspect-ratio:16/9;object-fit:cover;pointer-events:none"></video>';
+    h+='<video src="'+esc(c.videoUrl)+'" muted preload="metadata" style="width:100%;display:block;background:#000;aspect-ratio:16/9;object-fit:cover;pointer-events:none"></video>';
     h+='<div style="padding:4px 6px"><div style="color:'+(sel?'var(--gold)':'#fff')+';font-size:10px;font-weight:700">'+esc(c.label)+'</div>';
     h+='<div style="color:var(--dim);font-size:9px;font-family:var(--mono)">'+approxDur.toFixed(1)+'s</div></div>';
     if(c.fadeToNext>0&&i<_mhEditState.clips.length-1)h+='<div style="position:absolute;right:-10px;top:50%;transform:translateY(-50%);background:var(--gold);color:#000;border-radius:50%;width:20px;height:20px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;z-index:2">~</div>';
@@ -6925,7 +6930,7 @@ function mhEditExportPopOut(){
   if(!win){
     if(logEl)logEl.textContent='✗ Popup was blocked. Click the link below to open the export tab manually.';
     if(resultEl){
-      resultEl.innerHTML='<div style="margin-top:8px"><a href="'+url+'" target="_blank" rel="noopener" class="b b-gold b-s">→ Open export tab manually</a></div>'
+      resultEl.innerHTML='<div style="margin-top:8px"><a href="'+esc(url)+'" target="_blank" rel="noopener" class="b b-gold b-s">→ Open export tab manually</a></div>'
         +'<div style="font-size:11px;color:var(--muted);margin-top:8px">Or allow popups for this site in your browser settings, then click Export MP4 again.</div>';
     }
     return;
@@ -6936,7 +6941,7 @@ function mhEditExportPopOut(){
     resultEl.innerHTML='<div style="margin-top:6px;padding:10px;background:var(--surface);border:1px solid var(--gold-border);border-radius:6px">'
       +'<div style="font-size:12px;color:var(--gold);font-weight:700;margin-bottom:4px">🪟 Export tab opened</div>'
       +'<div style="font-size:11px;color:var(--muted);margin-bottom:8px">FFmpeg can\'t run inside this embedded pane — cross-origin-isolated iframe limits in Chromium block the worker. The export runs in a top-level tab where it works reliably.</div>'
-      +'<a href="'+url+'" target="_blank" rel="noopener" class="b b-g b-xs">→ Reopen export tab</a>'
+      +'<a href="'+esc(url)+'" target="_blank" rel="noopener" class="b b-g b-xs">→ Reopen export tab</a>'
       +'</div>';
   }
 }
@@ -7054,8 +7059,8 @@ async function mhEditExportInline(){
     log('Export complete — '+(blob.size/1024/1024).toFixed(1)+'MB');
     resultEl.innerHTML='<div style="margin-top:10px;padding:12px;background:var(--surface);border:1px solid var(--gold-border);border-radius:8px">'
       +'<div style="font-weight:700;color:var(--gold);margin-bottom:8px">🎬 Export Ready</div>'
-      +'<video src="'+url+'" controls style="width:100%;max-width:720px;border-radius:6px;background:#000"></video>'
-      +'<div style="margin-top:10px"><a href="'+url+'" download="cinamate_edit_'+Date.now()+'.mp4" class="b b-gold">⬇ Download MP4</a></div>'
+      +'<video src="'+esc(url)+'" controls style="width:100%;max-width:720px;border-radius:6px;background:#000"></video>'
+      +'<div style="margin-top:10px"><a href="'+esc(url)+'" download="cinamate_edit_'+Date.now()+'.mp4" class="b b-gold">⬇ Download MP4</a></div>'
       +'</div>';
 
     // Clean up ffmpeg FS
@@ -7128,7 +7133,7 @@ async function mhStitchRun(mode){
       const data=await ff.readFile('out.mp4');
       const blob=new Blob([data.buffer],{type:'video/mp4'});
       const url=URL.createObjectURL(blob);
-      resultEl.innerHTML+='<div style="margin-top:12px;padding:12px;background:var(--surface);border-radius:8px"><div style="font-weight:700;color:var(--gold);margin-bottom:6px">🎬 '+label+' — '+g.length+' clips stitched</div><video src="'+url+'" controls style="width:100%;max-width:720px;border-radius:6px"></video><div style="margin-top:8px"><a href="'+url+'" download="cinamate_'+label.replace(/\s/g,'_')+'.mp4" class="b b-gold b-s">⬇ Download</a></div></div>';
+      resultEl.innerHTML+='<div style="margin-top:12px;padding:12px;background:var(--surface);border-radius:8px"><div style="font-weight:700;color:var(--gold);margin-bottom:6px">🎬 '+esc(label)+' — '+g.length+' clips stitched</div><video src="'+esc(url)+'" controls style="width:100%;max-width:720px;border-radius:6px"></video><div style="margin-top:8px"><a href="'+esc(url)+'" download="cinamate_'+esc(label.replace(/\s/g,'_'))+'.mp4" class="b b-gold b-s">⬇ Download</a></div></div>';
       // Clean up ffmpeg FS
       for(const f of fileList)await ff.deleteFile(f).catch(()=>{});
       await ff.deleteFile('list.txt').catch(()=>{});
@@ -7567,7 +7572,7 @@ async function mhDoFinalGenerate() {
     const [si, shi] = key.split('-').map(Number);
     const label = `S${si + 1}.${shi + 1}`;
     mhSetBatchGenStatus(
-      `<div style="color:var(--gold);font-weight:700">Shot ${i + 1} of ${keys.length}: ${label}</div>` +
+      `<div style="color:var(--gold);font-weight:700">Shot ${i + 1} of ${keys.length}: ${esc(label)}</div>` +
       `<div style="color:var(--dim);margin-top:4px">Grok enrich → submit → wait for completion → next shot</div>` +
       (done ? `<div style="color:#86efac;font-size:11px;margin-top:6px">${done} completed</div>` : '')
     );

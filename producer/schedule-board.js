@@ -198,16 +198,16 @@
 
   /* ── rendering ───────────────────────────────────────────────────── */
   function $(id) { return document.getElementById(id); }
-  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
   function stripHtml(sc) {
     ensureScene(sc);
     var badges = TAG_KEYS.filter(function (k) { return sc.tags[k]; })
       .map(function (k) { return '<span class="ps-tagchip">' + TAG_LABEL[k] + '</span>'; }).join('');
-    if (sc.extras > 0) badges += '<span class="ps-tagchip">BG×' + sc.extras + '</span>';
-    return '<div class="ps-strip ' + sc.dn + '" draggable="true" data-id="' + sc.id + '" title="Double-click to edit breakdown · ' + esc(sc.cast.join(', ')) + '">' +
-      '<b>' + sc.num + '</b> · ' + esc(sc.heading.length > 46 ? sc.heading.slice(0, 45) + '…' : sc.heading) +
-      '<div class="ps-strip-meta">' + formatEighths(sc.eighths) + ' pg' + (sc.cast.length ? ' · ' + esc(sc.cast.slice(0, 3).join(', ')) + (sc.cast.length > 3 ? ' +' + (sc.cast.length - 3) : '') : '') + ' ' + badges + '</div></div>';
+    if (sc.extras > 0) badges += '<span class="ps-tagchip">BG×' + esc(sc.extras) + '</span>';
+    return '<div class="ps-strip ' + esc(sc.dn) + '" draggable="true" data-id="' + esc(sc.id) + '" title="Double-click to edit breakdown · ' + esc(sc.cast.join(', ')) + '">' +
+      '<b>' + esc(sc.num) + '</b> · ' + esc(sc.heading.length > 46 ? sc.heading.slice(0, 45) + '…' : sc.heading) +
+      '<div class="ps-strip-meta">' + esc(formatEighths(sc.eighths)) + ' pg' + (sc.cast.length ? ' · ' + esc(sc.cast.slice(0, 3).join(', ')) + (sc.cast.length > 3 ? ' +' + (sc.cast.length - 3) : '') : '') + ' ' + badges + '</div></div>';
   }
 
   function render() {
@@ -229,7 +229,7 @@
       h += '<div class="ps-day"><div class="ps-day-head"><span>Day ' + (d + 1) +
         ' <button type="button" class="ps-cs-btn' + (hasCS ? ' has' : '') + '" data-cs="' + d + '" title="Call sheet">📋</button></span>' +
         '<span class="ps-day-meta' + (e > targetEighths ? ' over' : '') + '">' + formatEighths(e) + ' / ' + formatEighths(targetEighths) + ' pg</span></div>' +
-        '<div class="ps-strips" data-day="' + d + '">' + scs.map(stripHtml).join('') + '</div></div>';
+        '<div class="ps-strips" data-day="' + esc(d) + '">' + scs.map(stripHtml).join('') + '</div></div>';
     }
     daysEl.innerHTML = h;
     daysEl.querySelectorAll('.ps-cs-btn').forEach(function (b) {
@@ -254,17 +254,17 @@
     var wrap = $('sbEditModal');
     if (!wrap) return;
     var tagBoxes = TAG_KEYS.map(function (k) {
-      return '<label class="ps-tagbox"><input type="checkbox" data-tag="' + k + '"' + (sc.tags[k] ? ' checked' : '') + '> ' +
+      return '<label class="ps-tagbox"><input type="checkbox" data-tag="' + esc(k) + '"' + (sc.tags[k] ? ' checked' : '') + '> ' +
         k.charAt(0).toUpperCase() + k.slice(1) + '</label>';
     }).join('');
     wrap.querySelector('.modal-card').innerHTML =
-      '<div class="modal-head"><span>Scene ' + sc.num + ' — breakdown</span><button type="button" class="tb-btn" id="sbEdClose">✕</button></div>' +
+      '<div class="modal-head"><span>Scene ' + esc(sc.num) + ' — breakdown</span><button type="button" class="tb-btn" id="sbEdClose">✕</button></div>' +
       '<div class="sbed-grid">' +
       '<label>Slugline<input id="sbEdHeading" value="' + esc(sc.heading) + '"></label>' +
       '<div class="sbed-row">' +
-      '<label>Pages (eighths)<input id="sbEdEighths" value="' + formatEighths(sc.eighths) + '" placeholder="e.g. 1 7/8"></label>' +
+      '<label>Pages (eighths)<input id="sbEdEighths" value="' + esc(formatEighths(sc.eighths)) + '" placeholder="e.g. 1 7/8"></label>' +
       '<label>Day / Night<select id="sbEdDn"><option value="day"' + (sc.dn === 'day' ? ' selected' : '') + '>Day</option><option value="night"' + (sc.dn === 'night' ? ' selected' : '') + '>Night</option></select></label>' +
-      '<label>Background / extras<input id="sbEdExtras" type="number" min="0" step="1" value="' + (sc.extras || 0) + '"></label>' +
+      '<label>Background / extras<input id="sbEdExtras" type="number" min="0" step="1" value="' + esc(sc.extras || 0) + '"></label>' +
       '</div>' +
       '<label>Cast (comma-separated)<input id="sbEdCast" value="' + esc(sc.cast.join(', ')) + '"></label>' +
       '<div class="sbed-tags">' + tagBoxes + '</div>' +
@@ -306,10 +306,10 @@
     var locs = [];
     scs.forEach(function (sc) { var L = locOf(sc.heading); if (locs.indexOf(L) < 0) locs.push(L); });
     var castRows = m.rows.filter(function (r) { return r.codes[d]; }).map(function (r) {
-      return '<tr><td>' + esc(r.name) + '</td><td>' + r.codes[d] + '</td></tr>';
+      return '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.codes[d]) + '</td></tr>';
     }).join('');
     var sceneRows = scs.map(function (sc) {
-      return '<tr><td>' + sc.num + '</td><td>' + esc(sc.heading) + '</td><td>' + (sc.dn === 'night' ? 'N' : 'D') + '</td><td>' + formatEighths(sc.eighths) + '</td><td>' + esc(sc.cast.join(', ')) + (sc.extras ? ' +' + sc.extras + ' BG' : '') + '</td></tr>';
+      return '<tr><td>' + esc(sc.num) + '</td><td>' + esc(sc.heading) + '</td><td>' + (sc.dn === 'night' ? 'N' : 'D') + '</td><td>' + esc(formatEighths(sc.eighths)) + '</td><td>' + esc(sc.cast.join(', ')) + (sc.extras ? ' +' + esc(sc.extras) + ' BG' : '') + '</td></tr>';
     }).join('');
     wrap.querySelector('.modal-card').innerHTML =
       '<div class="modal-head"><span>Call sheet — Day ' + (d + 1) + '</span><button type="button" class="tb-btn" id="sbCsClose">✕</button></div>' +
@@ -385,9 +385,9 @@
       h += '<tr><td>' + esc(r.name) + '</td>';
       r.codes.forEach(function (c) {
         var cls = c === 'SW' || c === 'SWF' ? 'sw' : c === 'WF' ? 'wf' : c === 'H' ? 'h' : '';
-        h += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + c + '</td>';
+        h += '<td' + (cls ? ' class="' + esc(cls) + '"' : '') + '>' + esc(c) + '</td>';
       });
-      h += '<td>' + r.tot + '</td><td>' + r.wrk + '</td><td>' + r.hld + '</td></tr>';
+      h += '<td>' + esc(r.tot) + '</td><td>' + esc(r.wrk) + '</td><td>' + esc(r.hld) + '</td></tr>';
     });
     h += '</tbody></table></div><div class="dood-legend">SW = Start Work · W = Work · H = Hold · WF = Work Finish · SWF = Start/Work/Finish · TOT span · WRK worked · HLD holds</div>';
     wrap.innerHTML = h;
