@@ -96,7 +96,9 @@
     var keys = [];
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
-      if (/^SB_[A-Za-z0-9]+_v\d+$/.test(k)) keys.push(k);
+      /* SB_LocalGPU_v1 holds this machine's bridge address and API key.
+         The studio cloud is shared by every owner, so it must never go up. */
+      if (/^SB_[A-Za-z0-9]+_v\d+$/.test(k) && !/^SB_LocalGPU_v\d+$/i.test(k)) keys.push(k);
     }
     keys.sort();
     var out = {};

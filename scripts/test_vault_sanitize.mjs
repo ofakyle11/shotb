@@ -31,7 +31,10 @@ o = JSON.parse(s.getItem('SB_Money_v1'));
 t('PO id sanitized', !/["'<>]/.test(o.pos[0].id));
 t('PO number sanitized', !/["'<>]/.test(o.pos[0].num));
 t('account code sanitized', !/["'<>]/.test(o.pos[0].acct));
-t('vendor prose untouched', o.pos[0].vendor === 'Acme "Props" Ltd');
+/* Under default-deny a foreign archive's vendor name loses its quotes. That is
+   the deliberate trade: only archives from OTHER owners are scrubbed, your own
+   slots restore verbatim, and a lost quote mark beats a script execution. */
+t('vendor keeps its words, loses its markup', o.pos[0].vendor === 'Acme Props Ltd');
 t('numbers untouched', o.pos[0].amount === 100);
 
 // 3. prose the product depends on survives exactly
@@ -41,7 +44,7 @@ V.restore(s, { format: 'cinamate/1', stores: { SB_Timeline_v1: JSON.stringify({
   scriptText: script, title: 'The <Lighthouse> "Keeper"' }) } });
 o = JSON.parse(s.getItem('SB_Timeline_v1'));
 t('script text preserved byte for byte', o.scriptText === script);
-t('title prose preserved', o.title === 'The <Lighthouse> "Keeper"');
+t('title keeps its words, loses its markup', o.title === 'The Lighthouse Keeper');
 
 // 4. legitimate media the app itself writes still loads
 s = mem();
@@ -66,6 +69,50 @@ t('activeClipUrl is scrubbed', o.clips[0].activeClipUrl === '');
 t('posterImage is scrubbed', o.clips[0].posterImage === '');
 t('a real https ref survives', o.clips[0].refUrl === 'https://example.com/ok.png');
 t('prompt prose untouched', o.clips[0].prompt === 'a "quiet" <room>');
+
+// 4c. the exact field names a name-based deny-list missed (found by review)
+s = mem();
+V.restore(s, { format: 'cinamate/1', stores: { SB_ScheduleBoard_v1: JSON.stringify({
+  scenes: [{ num: '1', dn: BREAKOUT, eighths: 8 }] }) } });
+o = JSON.parse(s.getItem('SB_ScheduleBoard_v1'));
+t('dn is scrubbed', !/["'<>]/.test(o.scenes[0].dn));
+
+s = mem();
+V.restore(s, { format: 'cinamate/1', stores: { SB_Cut_v1: JSON.stringify({
+  project: { clips: [{ srcId: BREAKOUT, durationSec: BREAKOUT, sec: BREAKOUT, rot: BREAKOUT }] } }) } });
+o = JSON.parse(s.getItem('SB_Cut_v1'));
+const clip = o.project.clips[0];
+t('srcId is scrubbed', !/["'<>]/.test(clip.srcId));
+t('durationSec is scrubbed', !/["'<>]/.test(clip.durationSec));
+t('sec is scrubbed', !/["'<>]/.test(clip.sec));
+t('rot is scrubbed', !/["'<>]/.test(clip.rot));
+
+// 4d. a hostile scheme has no markup characters to strip
+s = mem();
+V.restore(s, { format: 'cinamate/1', stores: { SB_Props_v1: JSON.stringify({
+  houses: [{ name: 'Acme', website: 'javascript:alert(1)', phone: 'JavaScript:alert(2)' }] }) } });
+o = JSON.parse(s.getItem('SB_Props_v1'));
+t('javascript: website is emptied', o.houses[0].website === '');
+t('javascript: in a non-url field is emptied', o.houses[0].phone === '');
+
+// 4e. an unknown future field name is covered by default, not by luck
+s = mem();
+V.restore(s, { format: 'cinamate/1', stores: { SB_Future_v1: JSON.stringify({
+  rows: [{ someFieldNobodyAnticipated: BREAKOUT, x: 1, ok: true }] }) } });
+o = JSON.parse(s.getItem('SB_Future_v1'));
+t('an unanticipated field is scrubbed by default', !/["'<>]/.test(o.rows[0].someFieldNobodyAnticipated));
+t('numbers survive', o.rows[0].x === 1);
+t('booleans survive', o.rows[0].ok === true);
+
+// 4f. the other half of the trade: YOUR OWN data is never scrubbed
+s = mem();
+s.setItem('SB_Money_v1', JSON.stringify({ pos: [{ vendor: 'Acme "Props" Ltd', id: 'a"b' }] }));
+let mine = V.saveActive(s, '2026-01-01');
+V.newProject(s, 'Other', '2026-01-01');
+V.switchTo(s, mine.active, '2026-01-01');
+o = JSON.parse(s.getItem('SB_Money_v1'));
+t('own vendor keeps its quotes', o.pos[0].vendor === 'Acme "Props" Ltd');
+t('own id keeps its quotes', o.pos[0].id === 'a"b');
 
 // 5. prototype pollution through an archive
 s = mem();

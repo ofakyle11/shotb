@@ -50,14 +50,35 @@ button:disabled{opacity:.5;cursor:wait}
     try {
       var to = new URLSearchParams(location.search).get('to') || HOME;
       /* Same-site paths only. Character checks alone are not enough: browsers
-         normalise backslashes to slashes, so "/\evil.com" would read as a
+         normalise backslashes to slashes, so "/\evil.com" reads as a
          protocol-relative URL. Resolve it and require our own origin. */
       if (to.charAt(0) !== '/' || /[\\\r\n\t]/.test(to)) return HOME;
       var u = new URL(to, location.origin);
       if (u.origin !== location.origin) return HOME;
-      return u.pathname + u.search + u.hash;
+      /* Checking the RESOLVED origin is still not enough on its own. A path
+         like "/..//evil.com" resolves against our origin — so that test passes
+         — but leaves "//evil.com" as the pathname, and handing that to
+         location.replace() is a protocol-relative jump straight off the site.
+         Whatever we hand back must therefore survive being resolved a second
+         time, exactly as the browser will resolve it. */
+      var out = u.pathname + u.search + u.hash;
+      if (out.charAt(0) !== '/' || out.charAt(1) === '/') return HOME;
+      if (new URL(out, location.origin).origin !== location.origin) return HOME;
+      return out;
     } catch (e) { return HOME; }
   }
+  /* The public landing hands a name over as ?u= — prefill it and put the
+     cursor in the password box. It is only a convenience: the name proves
+     nothing on its own and the server still decides. */
+  try {
+    var handed = new URLSearchParams(location.search).get('u') || '';
+    if (/^[a-z]{2}\d{3}$/i.test(handed.trim())) {
+      document.getElementById('n').value = handed.trim().toLowerCase();
+      var pw = document.getElementById('p');
+      if (pw) setTimeout(function () { pw.focus(); }, 0);
+    }
+  } catch (e) { /* no prefill — the field is still typable */ }
+
   f.addEventListener('submit', function (ev) {
     ev.preventDefault();
     err.textContent = '';

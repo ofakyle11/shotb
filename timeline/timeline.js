@@ -1824,7 +1824,14 @@ function exportEDL(){
 function exportProject(){SBExport.exportProject({clips:state.clips,characters:state.characters,locationBible:state.locationBible,global:state.global,assembly:state.assembly,projectName:state.projectName,scriptText:state.scriptText,parseResult:state.parseResult});toast('Project saved')}
 function loadProject(){
   const inp=document.createElement('input');inp.type='file';inp.accept='.json';
-  inp.onchange=async()=>{const f=inp.files[0];if(!f)return;pushHistory();const d=JSON.parse(await f.text());
+  inp.onchange=async()=>{const f=inp.files[0];if(!f)return;pushHistory();
+    /* A project file is data from outside this browser and is rendered straight
+       into the clip cards, so it gets the same treatment the studio cloud gets.
+       CVault owns those rules; using its scrubber keeps one definition of what
+       is safe rather than a weaker second copy that drifts. */
+    let d=JSON.parse(await f.text());
+    if(window.CVault&&typeof CVault.scrubImported==='function')d=CVault.scrubImported(d);
+    else{toast('Import blocked — the safety layer did not load. Reload and retry.');return}
     state.clips=d.clips||[];state.characters=SBCharacters.normalize(d.characters||{});state.locationBible=d.locationBible||[];
     state.global=Object.assign(state.global,d.global||{});
     state.assembly=Object.assign(state.assembly,d.assembly||{});state.projectName=d.projectName||'Imported';

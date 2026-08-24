@@ -3664,9 +3664,9 @@
      2. Typing the letters "cinamate" anywhere on the page
         (suppressed while a field is focused or the modal is open)
 
-   Auth contract (consumed, never implemented here):
-     window.CinamateAuth.verify(code) -> Promise<boolean>
-     window.CinamateAuth.grant(code)  -> stores session
+   Auth contract: none. This page is public and decides nothing about
+   credentials — the terminal collects a name and hands off to /login.html,
+   where the server-side sign-in service is the sole authority.
    ================================================================ */
 (function () {
   'use strict';
@@ -3876,23 +3876,6 @@
     }
   }
 
-  function grantAndEnter(code) {
-    if (panel) {
-      panel.classList.remove('is-denied');
-      panel.classList.add('is-granted');
-    }
-    setStatus('IDENTITY VERIFIED — WELCOME, OPERATOR ' + code, 'granted');
-    try {
-      window.CinamateAuth.grant(code);
-    } catch (_) {
-      // Session write failed (storage disabled?) — proceed anyway;
-      // dashboard's requireSession() will bounce back if truly absent.
-    }
-    setTimeout(function () {
-      window.location.href = 'dashboard.html';
-    }, reducedMotion ? 150 : 900);
-  }
-
   function submit() {
     if (isBusy || !input) return;
 
@@ -3904,32 +3887,14 @@
       return;
     }
 
-    // Defensive: auth core absent or malformed → never fake success.
-    if (!window.CinamateAuth || typeof window.CinamateAuth.verify !== 'function') {
-      setStatus('AUTH CORE OFFLINE', 'offline');
-      return;
-    }
-
+    /* This page is public, so it cannot hold anything that decides whether a
+       credential is real — it previously compared against hashed codes shipped
+       right here, which merely published the owner names to anyone who read the
+       file. The sign-in service is the only thing that can answer, so hand the
+       name straight to it and let the server decide. */
     setBusy(true);
-    setStatus('VERIFYING', 'verifying');
-
-    var verdict;
-    try {
-      verdict = window.CinamateAuth.verify(code);
-    } catch (_) {
-      deny('ACCESS DENIED — INVALID CREDENTIAL');
-      return;
-    }
-
-    Promise.resolve(verdict).then(function (ok) {
-      if (ok === true) {
-        grantAndEnter(code);
-      } else {
-        deny('ACCESS DENIED — INVALID CREDENTIAL');
-      }
-    }).catch(function () {
-      deny('ACCESS DENIED — INVALID CREDENTIAL');
-    });
+    setStatus('OPENING SECURE CHANNEL', 'verifying');
+    window.location.href = '/login.html?u=' + encodeURIComponent(code);
   }
 
   /* ---------- Wiring ------------------------------------------------------ */

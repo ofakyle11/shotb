@@ -81,19 +81,85 @@ function verifyOwnerToken(token) {
 
 exports.verifyOwnerToken = verifyOwnerToken;
 
-// Per-instance brute-force throttle: 12 attempts per IP per 10 minutes.
-// Warm lambda instances share the map; cold starts reset it — this raises
-// the cost of online guessing without a database, it is not a hard wall.
+// ── brute-force throttle ────────────────────────────────────────────────
+// Two layers. The in-memory map is instant but only covers one warm instance,
+// so an attacker spread across instances slipped past it entirely. The shared
+// counter in Netlify Blobs is authoritative across every instance and survives
+// cold starts.
+//
+// It fails OPEN on purpose: if the store is unreachable we fall back to the
+// in-memory limit rather than locking the owners out of their own studio. A
+// storage outage must not become a denial of service against the five people
+// who need to get in.
 const ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
 const ATTEMPT_MAX = 12;
 const attempts = new Map();
-function throttled(ip) {
+
+function throttledLocally(ip) {
   const now = Date.now();
   if (attempts.size > 500) attempts.clear();
   const a = attempts.get(ip);
   if (!a || now - a.t > ATTEMPT_WINDOW_MS) { attempts.set(ip, { n: 1, t: now }); return false; }
   a.n++;
   return a.n > ATTEMPT_MAX;
+}
+
+const THROTTLE_STORE = "cinamate-auth";
+// The client IP is a personal identifier and this counter is not a place to
+// keep one, so the key is a keyed digest of it rather than the address itself.
+function ipKey(ip) {
+  const salt = process.env.OWNER_TOKEN_SECRET || "cinamate";
+  return "t_" + crypto.createHmac("sha256", salt).update(String(ip)).digest("hex").slice(0, 32);
+}
+function blobUrl(key) {
+  return "https://api.netlify.com/api/v1/blobs/" +
+    process.env.CIN_SITE_ID + "/" + THROTTLE_STORE + "/" + encodeURIComponent(key);
+}
+async function blobJson(method, key, body) {
+  if (!process.env.CIN_API_TOKEN || !process.env.CIN_SITE_ID) return null;
+  const res = await fetch(blobUrl(key), {
+    method,
+    headers: {
+      Authorization: "Bearer " + process.env.CIN_API_TOKEN,
+      ...(body != null ? { "Content-Type": "application/json" } : {}),
+    },
+    body: body != null ? JSON.stringify(body) : undefined,
+  });
+  if (method !== "GET") return { ok: res.ok };
+  if (!res.ok) return res.status === 404 ? { ok: true, value: null } : null;
+  try { return { ok: true, value: JSON.parse(await res.text()) }; }
+  catch (e) { return { ok: true, value: null }; }
+}
+
+// Read the shared count. Returns true only when we are certain the caller is
+// over the limit; any uncertainty defers to the local map.
+async function throttledShared(ip) {
+  try {
+    const r = await blobJson("GET", ipKey(ip));
+    if (!r || !r.ok) return null;                       // store unreachable
+    const rec = r.value;
+    const now = Date.now();
+    if (!rec || typeof rec.t !== "number" || now - rec.t > ATTEMPT_WINDOW_MS) return false;
+    return (rec.n || 0) > ATTEMPT_MAX;
+  } catch (e) { return null; }
+}
+
+// Only failures are counted — a correct password never costs an owner budget.
+async function recordFailure(ip) {
+  try {
+    const key = ipKey(ip);
+    const r = await blobJson("GET", key);
+    const now = Date.now();
+    const rec = (r && r.ok && r.value && typeof r.value.t === "number" &&
+                 now - r.value.t <= ATTEMPT_WINDOW_MS) ? r.value : { n: 0, t: now };
+    await blobJson("PUT", key, { n: (rec.n || 0) + 1, t: rec.t });
+  } catch (e) { /* best effort — the local map still applies */ }
+}
+
+async function throttled(ip) {
+  const shared = await throttledShared(ip);
+  if (shared === true) return true;
+  return throttledLocally(ip);
 }
 function clientIp(event) {
   const h = event.headers || {};
@@ -110,19 +176,25 @@ exports.handler = async (event) => {
     return respond(500, { error: "Owner auth not configured on server" });
   }
 
-  if (throttled(clientIp(event))) {
-    return respond(429, { error: "Too many attempts — wait a few minutes and try again" });
-  }
+  const ip = clientIp(event);
 
   let body;
   try { body = JSON.parse(event.body || "{}"); }
   catch { return respond(400, { error: "Invalid JSON body" }); }
 
+  // Signing out is not a credential guess and must never be rate-limited:
+  // throttling it would leave a session cookie alive on a shared machine
+  // precisely when someone is trying to end it. Handled before the throttle,
+  // and it costs no attempt budget.
   if (body.op === "logout") {
     return respond(200, { ok: true }, [
       "cin_owner=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Lax",
       "cin_who=; Path=/; Max-Age=0; Secure; SameSite=Lax",
     ]);
+  }
+
+  if (await throttled(ip)) {
+    return respond(429, { error: "Too many attempts — wait a few minutes and try again" });
   }
 
   const { name, password } = body;
@@ -132,6 +204,7 @@ exports.handler = async (event) => {
   const nameLower = String(name).toLowerCase();
   if (nameLower !== 'mz465' && nameLower !== 'kz465' && nameLower !== 'hz465' && nameLower !== 'rz465' && nameLower !== 'dz465') {
     await sleep(150 + Math.floor(Math.random() * 250)); // same timing as a wrong password
+    await recordFailure(ip);
     return respond(401, { error: "Invalid name or password" });
   }
   const envVar = `OWNER_PW_${nameLower.toUpperCase()}`;
@@ -139,6 +212,7 @@ exports.handler = async (event) => {
 
   if (!expected) {
     await sleep(150 + Math.floor(Math.random() * 250)); // uniform failure timing
+    await recordFailure(ip);
     return respond(401, { error: "Invalid name or password" });
   }
   // Trim both sides — pasted passwords often carry stray whitespace, and
@@ -146,6 +220,7 @@ exports.handler = async (event) => {
   // meaningful in our passwords.
   if (!safeEqual(String(password).trim(), String(expected).trim())) {
     await sleep(150 + Math.floor(Math.random() * 250));
+    await recordFailure(ip);
     return respond(401, { error: "Invalid name or password" });
   }
 

@@ -97,7 +97,7 @@
     h += '<th></th></tr></thead><tbody>';
     if (!this.rows.length) h += '<tr><td colspan="' + (s.fields.length + 1) + '" class="tk-empty">Nothing here yet — add the first entry.</td></tr>';
     this.rows.forEach(function (r) {
-      h += '<tr data-id="' + r.id + '">';
+      h += '<tr data-id="' + esc(r.id) + '">';
       s.fields.forEach(function (f) {
         var v = r[f.id] == null ? '' : r[f.id];
         h += '<td>';
