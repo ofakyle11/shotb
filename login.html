@@ -90,7 +90,10 @@ button:disabled{opacity:.5;cursor:wait}
       body: JSON.stringify({ name: name, password: pw })
     }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
-        if (!res.ok || !res.j || !res.j.token) {
+        /* Success is the server's `success` flag, not the presence of a token:
+           the token is deliberately no longer in the response body, because
+           anything this script can read, injected script can read too. */
+        if (!res.ok || !res.j || res.j.success !== true) {
           go.disabled = false;
           err.textContent = 'That login didn’t match — check the name and password.';
           return;

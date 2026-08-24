@@ -94,9 +94,24 @@
     }
     Object.keys(node).forEach(function (k) {
       if (k === '__proto__' || k === 'constructor' || k === 'prototype') { delete node[k]; return; }
-      node[k] = (typeof node[k] === 'object' && node[k] !== null)
+      var val = (typeof node[k] === 'object' && node[k] !== null)
         ? scrub(node[k], k, depth + 1)
         : cleanField(k, node[k]);                       // every scalar, not a chosen few
+
+      /* Keys are content too. Nested maps in this app are routinely keyed by
+         things a person typed — a character name, a location, a department —
+         and several modules render Object.keys() straight into markup. This
+         used to re-use `k` verbatim, so an archive could carry its payload in
+         the key and walk past a sanitiser that only ever looked at values.
+         The key is cleaned rather than dropped so the entry itself survives
+         with a harmless name; a collision keeps whichever arrived first. */
+      var safeKey = k.replace(/[<>"']/g, '');
+      if (safeKey !== k) {
+        delete node[k];
+        if (safeKey && !Object.prototype.hasOwnProperty.call(node, safeKey)) node[safeKey] = val;
+      } else {
+        node[k] = val;
+      }
     });
     return node;
   }

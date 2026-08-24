@@ -225,9 +225,16 @@ exports.handler = async (event) => {
   }
 
   const token = signOwnerToken(nameLower, 12);
+  /* The token is NOT echoed in the body. It used to be, and the comment above
+     sessionCookies claiming page scripts "can never read it" was false as a
+     result: app.html and timeline.js took the token out of this response and
+     put it in localStorage as SB_OWNER_TOKEN, where any injected script could
+     read a valid 12-hour owner credential and replay it. HttpOnly on the
+     cookie is worthless while a copy is handed to JavaScript. The session
+     travels in the cookie alone; the body carries only what the page needs to
+     draw itself. */
   return respond(200, {
     success: true,
-    token,
     name: nameLower,
     expires: Date.now() + 12 * 60 * 60 * 1000,
   }, sessionCookies(token, nameLower, 12 * 60 * 60));

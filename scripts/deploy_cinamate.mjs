@@ -40,8 +40,26 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const require_ = createRequire(join(ROOT, 'package.json'));
 let terser = null;
 if (!NO_MINIFY) {
+  /* This process holds every production secret — the owner passwords and the
+     token-signing key pass through it on their way to Netlify — and it hands
+     the whole source tree to terser to rewrite. Whatever terser is at that
+     moment therefore has to be a version somebody chose, not "the newest 5.x
+     the registry served today": `npm install terser@5` resolved a floating
+     range with no lockfile behind it, so a compromised release would have run
+     here with full access to the secrets and the ability to alter the auth
+     gate on its way out. package.json now pins one exact version and
+     package-lock.json records its integrity hash. */
+  const want = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).devDependencies.terser;
   try { terser = require_('terser'); }
-  catch (e) { console.error('terser missing — run `npm install --no-save terser@5` first'); process.exit(1); }
+  catch (e) {
+    console.error('terser missing — run `npm ci` (it installs the pinned ' + want + ')');
+    process.exit(1);
+  }
+  const have = JSON.parse(readFileSync(join(ROOT, 'node_modules/terser/package.json'), 'utf8')).version;
+  if (have !== want) {
+    console.error(`terser is ${have} but package.json pins ${want} — run \`npm ci\` before deploying.`);
+    process.exit(1);
+  }
 }
 
 async function api(path, opts = {}) {
@@ -62,14 +80,36 @@ const EXCLUDE = new Set(['.git', 'local-backend', 'private', 'scripts', 'netlify
   'local-server.py', 'netlify.toml', '.netlifyignore', '.firebaserc', '.gitignore',
   'firebase.json', 'database.rules.json']);
 const EXCLUDE_EXT = new Set(['.zip', '.jpeg', '.ps1', '.bat']);
+/* Dotfiles are refused wholesale rather than listed one by one. The named
+ * list above can only exclude what somebody remembered to name, and the
+ * extension list cannot see a dotfile at all: ".env" has an "extension" of
+ * ".env" and ".htpasswd" of ".htpasswd", so neither is ever matched. A
+ * single stray .env at the repo root would therefore have been published
+ * to the CDN, readable by anyone. Anything genuinely meant to be served
+ * from a dot-path has to be named here deliberately. */
+const DOTFILE_ALLOW = new Set(['.well-known']);
+const isHidden = (entry) => entry.charAt(0) === '.' && !DOTFILE_ALLOW.has(entry);
 
 const work = mkdtempSync(join(tmpdir(), 'cinamate-'));
 const site = join(work, 'site');
 mkdirSync(site);
+const skippedHidden = [];
 for (const entry of readdirSync(ROOT)) {
+  if (isHidden(entry)) { skippedHidden.push(entry); continue; }
   if (EXCLUDE.has(entry) || EXCLUDE_EXT.has(entry.slice(entry.lastIndexOf('.')))) continue;
-  cpSync(join(ROOT, entry), join(site, entry), { recursive: true });
+  cpSync(join(ROOT, entry), join(site, entry), {
+    recursive: true,
+    /* the same rule has to hold all the way down: a module directory
+       carrying its own .env is no less published than a root one */
+    filter: (src) => {
+      const name = src.slice(src.lastIndexOf('/') + 1);
+      if (!isHidden(name)) return true;
+      skippedHidden.push(relative(ROOT, src).split('\\').join('/'));
+      return false;
+    },
+  });
 }
+if (skippedHidden.length) console.log('skipped dotfiles: ' + skippedHidden.sort().join(' '));
 cpSync(join(ROOT, 'cinamate', 'index.html'), join(site, 'index.html'));
 rmSync(join(site, 'cinamate'), { recursive: true, force: true }); // root copy is canonical
 /* Root-convention icons: iMessage/Safari/scrapers fetch these paths directly. */
@@ -173,6 +213,30 @@ for (const p of walk(site)) {
     if (statSync(p).isDirectory()) { prune(p); if (!readdirSync(p).length) rmSync(p, { recursive: true }); }
   }
 })(site);
+
+/* Last line of defence before anything is published. The copy filters above
+   should already have caught every dot-path; if one is still here, some
+   future edit has routed around them and the right outcome is a failed
+   build, not a quietly published secret.
+
+   Both trees are checked, not just the public one. The partition moves any
+   file it does not recognise into the gate bundle, so checking the CDN tree
+   alone would have watched a stray .env walk from one tree to the other and
+   called it clean — and "behind a login" is not where a credential belongs
+   either. */
+{
+  const leaked = [];
+  for (const [label, dir] of [['public CDN', site], ['gate bundle', join(fnRoot, 'site')]]) {
+    for (const p of walk(dir)) {
+      const rel = relative(dir, p).split('\\').join('/');
+      if (rel.split('/').some(isHidden)) leaked.push(label + ': ' + rel);
+    }
+  }
+  if (leaked.length) {
+    console.error('REFUSING TO DEPLOY — hidden files reached the shipped tree:\n  ' + leaked.join('\n  '));
+    process.exit(1);
+  }
+}
 
 /* ── 4. routing + headers for the public shell ───────────────────────
    Non-forced 200 rewrites: real public files still win; everything the

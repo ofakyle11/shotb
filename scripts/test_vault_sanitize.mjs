@@ -223,5 +223,36 @@ t('nesting past the limit is dropped, not passed through',
 const shallow = V.scrubImported({ a: { b: { id: BREAKOUT } } });
 t('scrubImported still cleans ordinary objects', !/["'<>]/.test(shallow.a.b.id));
 
+/* ── keys are content too ───────────────────────────────────────────────
+   Nested maps in this app are keyed by things a person typed — character
+   names, locations, departments — and several modules render Object.keys()
+   into markup. A scrubber that only cleans values lets the payload ride in
+   on the key instead. */
+{
+  const KEYED = '<img src=x onerror=alert(1)>';
+  const out = V.scrubImported({ characters: { [KEYED]: { note: 'hi' }, Jane: { note: 'ok' } } });
+  const keys = Object.keys(out.characters);
+  t('a hostile object key loses its markup characters',
+    keys.every((k) => !/[<>"']/.test(k)), JSON.stringify(keys));
+  t('the entry itself survives under a cleaned name',
+    keys.length === 2 && keys.some((k) => /img src=x onerror=alert\(1\)/.test(k)),
+    JSON.stringify(keys));
+  t('an untouched key keeps its exact name', keys.includes('Jane'), JSON.stringify(keys));
+
+  /* Cleaning must not let one key silently overwrite another. */
+  const collide = V.scrubImported({ m: { 'a"b': 1, ab: 2 } });
+  t('a cleaned key does not clobber an existing one', collide.m.ab === 2,
+    JSON.stringify(collide.m));
+
+  /* And it must survive the full archive path, not just the direct call. */
+  const s2 = mem();
+  V.restore(s2, { format: 'cinamate/1',
+    stores: { SB_Cast_v1: JSON.stringify({ roles: { [KEYED]: 'lead' } }) } });
+  const back = JSON.parse(s2.getItem('SB_Cast_v1'));
+  t('keys are cleaned through restore too',
+    Object.keys(back.roles).every((k) => !/[<>"']/.test(k)),
+    JSON.stringify(Object.keys(back.roles)));
+}
+
 console.log('test_vault_sanitize: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

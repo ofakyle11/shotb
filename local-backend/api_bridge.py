@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 from urllib import error, request
 
+import safe_fetch
 from env_loader import get_key
 
 class ApiBridgeError(Exception):
@@ -371,8 +372,8 @@ def cache_remote_image(url: str, dest: Path) -> Path:
         header, b64 = url.split(",", 1)
         dest.write_bytes(base64.b64decode(b64))
         return dest
-    with request.urlopen(url, timeout=120) as resp:
-        dest.write_bytes(resp.read())
+    dest.write_bytes(safe_fetch.fetch_provider_asset(
+        url, safe_fetch.MAX_IMAGE_BYTES, timeout=120))
     return dest
 
 
@@ -382,8 +383,8 @@ def _cache_remote_video(url: str, request_id: str, cache_dir: Path) -> str:
     if dest.exists() and dest.stat().st_size > 1000:
         return f"/output/{dest.name}"
     try:
-        with request.urlopen(url, timeout=180) as resp:
-            dest.write_bytes(resp.read())
+        dest.write_bytes(safe_fetch.fetch_provider_asset(
+            url, safe_fetch.MAX_VIDEO_BYTES, timeout=180))
         return f"/output/{dest.name}"
     except Exception:
         return url

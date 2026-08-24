@@ -1,16 +1,41 @@
 {
+  "_comment": [
+    "Deny by default, everywhere. The previous version granted .read and .write",
+    "on /projects/$projectId to 'auth != null' — any principal that could sign",
+    "in to Firebase project shotbreak-9f342 at all could read and overwrite",
+    "every production stored there. The Firebase web API key is public by",
+    "design (it appears in app.html and js/config.js), so the only thing",
+    "standing between an outsider and that data was which sign-in providers",
+    "happen to be enabled on the project.",
+    "",
+    "Nothing reads or writes this path. The Studio keeps productions in",
+    "localStorage and in Netlify Blobs via projects-sync; app.html uses",
+    "firebase.auth() only and never opens firebase.database(). So the grant",
+    "bought nothing and is removed rather than narrowed.",
+    "",
+    "Server code that legitimately needs this data uses the Admin SDK, which",
+    "bypasses these rules by design. Client access stays closed.",
+    "",
+    "server_secrets holds provider API keys. It was already unreachable by way",
+    "of Firebase's implicit deny; it is written out here so that adding a",
+    "permissive rule higher up cannot silently open it."
+  ],
   "rules": {
+    ".read": false,
+    ".write": false,
     "projects": {
-      "$projectId": {
-        ".read": "auth != null",
-        ".write": "auth != null"
-      }
+      ".read": false,
+      ".write": false
     },
     "sessions": {
       ".read": false,
       ".write": false
     },
     "users": {
+      ".read": false,
+      ".write": false
+    },
+    "server_secrets": {
       ".read": false,
       ".write": false
     }

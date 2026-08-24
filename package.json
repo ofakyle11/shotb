@@ -9,8 +9,12 @@
     "dev:local": "START_LOCAL.bat",
     "dev:ui-legacy": "npx http-server . -p 8080 -c-1",
     "dev:functions": "netlify dev",
-    "deploy": "netlify deploy --prod"
+    "deploy": "netlify deploy --prod",
+    "build:deps": "npm ci --omit=optional",
+    "test": "node scripts/run_all_tests.mjs"
   },
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "terser": "5.50.0"
+  }
 }

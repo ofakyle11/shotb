@@ -35,6 +35,7 @@ from api_bridge import (
     video_result as api_video_result,
     video_status as api_video_status,
 )
+import safe_fetch
 from comfy_client import ComfyUIClient, ComfyUIError
 from env_loader import load_env
 from ffmpeg_export import make_placeholder_mp4, transcode_to_mp4
@@ -118,19 +119,45 @@ def _is_external_job(request_id: str) -> bool:
     return is_api_job(request_id)
 
 
+def allowed_origins() -> set[str]:
+    """Origins permitted to make cross-origin calls to this bridge.
+
+    This used to reflect whatever Origin the caller sent, which is the same as
+    having no origin restriction at all: every website the operator visited
+    could drive the bridge and read its responses. The Studio is one known
+    site, so name it.
+    """
+    port = int(CONFIG.get("bridge_port", 3456))
+    origins = {
+        "https://cinamate-studio.netlify.app",
+        f"http://127.0.0.1:{port}",
+        f"http://localhost:{port}",
+    }
+    for extra in CONFIG.get("allowed_origins", []) or []:
+        if isinstance(extra, str) and extra.strip():
+            origins.add(extra.strip().rstrip("/"))
+    return origins
+
+
 def cors_headers(handler: BaseHTTPRequestHandler) -> None:
-    origin = handler.headers.get("Origin", "*")
-    handler.send_header("Access-Control-Allow-Origin", origin or "*")
+    origin = (handler.headers.get("Origin") or "").strip().rstrip("/")
+    # No ACAO for an origin we do not know. A same-origin or non-browser
+    # caller does not need one; a foreign site gets nothing back.
+    if origin and origin in allowed_origins():
+        handler.send_header("Access-Control-Allow-Origin", origin)
+        handler.send_header("Vary", "Origin")
+        # Chrome treats https://…  ->  http://127.0.0.1 as a public->private request
+        # and sends a Private Network Access preflight. Without this header the
+        # browser blocks the call before it ever reaches us, and the Studio reports
+        # the bridge as unreachable even though it is running. It is sent only to
+        # origins on the list above — it is precisely the header that would let an
+        # arbitrary site reach into the operator's loopback.
+        handler.send_header("Access-Control-Allow-Private-Network", "true")
     handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     handler.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, Range")
     handler.send_header("Access-Control-Expose-Headers", "Accept-Ranges, Content-Range, Content-Length")
     # Under the studio's COEP, a media response from another origin needs this.
     handler.send_header("Cross-Origin-Resource-Policy", "cross-origin")
-    # Chrome treats https://…  ->  http://127.0.0.1 as a public->private request and
-    # sends a Private Network Access preflight. Without this header the browser
-    # blocks the call before it ever reaches us, and the Studio reports the bridge
-    # as unreachable even though it is running.
-    handler.send_header("Access-Control-Allow-Private-Network", "true")
     handler.send_header("Access-Control-Max-Age", "86400")
 
 
@@ -165,16 +192,22 @@ def save_ref_image(url_or_data: str, job_id: str) -> Path | None:
         except Exception:
             return None
     if url_or_data.startswith("http"):
+        # Was: urlopen(url_or_data) with no checks at all, then an unbounded
+        # read written to disk and republished at /images/. Any page in the
+        # operator's browser could aim that at 127.0.0.1:8188, at the LAN, or
+        # at anything else this machine can reach, and read the bytes back.
+        # safe_fetch allows only https to known image providers, verifies the
+        # resolved address is public, refuses redirects and caps the read.
         try:
-            from urllib import request as urlreq
-
-            with urlreq.urlopen(url_or_data, timeout=30) as resp:
-                data = resp.read()
-            path = UPLOADS_DIR / f"{job_id}_ref.jpg"
-            path.write_bytes(data)
-            return path
+            data = safe_fetch.fetch_image(url_or_data, CONFIG.get("image_hosts"))
+        except safe_fetch.UnsafeUrl as exc:
+            print(f"  refused reference image: {exc}")
+            return None
         except Exception:
             return None
+        path = UPLOADS_DIR / f"{job_id}_ref.jpg"
+        path.write_bytes(data)
+        return path
     return None
 
 
@@ -755,8 +788,11 @@ class BridgeHandler(BaseHTTPRequestHandler):
             return
 
         action = body.get("action", "submit")
-        host = self.headers.get("Host", "localhost:3456")
-        base_url = f"http://{host}"
+        # Built from our own configured port, not from the caller's Host
+        # header. base_url is echoed back inside media URLs the Studio then
+        # loads, so letting the request name it let a caller choose where
+        # those URLs pointed.
+        base_url = f"http://127.0.0.1:{int(CONFIG.get('bridge_port', 3456))}"
 
         if action == "submit":
             json_response(self, 200, handle_submit(body, base_url))
@@ -793,7 +829,12 @@ def _bridge_already_running(port: int) -> bool:
 def main() -> None:
     port = int(CONFIG.get("bridge_port", 3456))
     try:
-        server = ThreadingHTTPServer(("0.0.0.0", port), BridgeHandler)
+        # Loopback only. Binding 0.0.0.0 exposed an unauthenticated bridge —
+        # which submits jobs, fetches URLs and serves files off this disk — to
+        # every machine on the operator's network, with no browser involved at
+        # all. START_CINAMATE.bat already told the operator it listens on
+        # 127.0.0.1; now it does.
+        server = ThreadingHTTPServer(("127.0.0.1", port), BridgeHandler)
     except OSError as exc:
         if getattr(exc, "winerror", None) == 10048 or exc.errno in (48, 98, 10048):
             if _bridge_already_running(port):

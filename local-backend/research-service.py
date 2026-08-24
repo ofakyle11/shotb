@@ -103,19 +103,36 @@ def prophouses(city):
     return result
 
 
+# Only the Studio and this machine's own pages may call across origins.
+# "*" meant every site the operator visited could drive this service, run
+# lookups through their address, and read the answers — and the results are
+# written to research-cache.json on their disk.
+ALLOWED_ORIGINS = {
+    "https://cinamate-studio.netlify.app",
+    f"http://127.0.0.1:{PORT}",
+    f"http://localhost:{PORT}",
+}
+
+
 class Handler(BaseHTTPRequestHandler):
+    def _cors(self):
+        origin = (self.headers.get("Origin") or "").strip().rstrip("/")
+        if origin and origin in ALLOWED_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+
     def _send(self, code, obj):
         body = json.dumps(obj).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self._cors()
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
     def do_OPTIONS(self):
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self._cors()
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
