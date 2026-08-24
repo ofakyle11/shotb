@@ -174,6 +174,9 @@
    * sheet totals; opens clean in Excel / Sheets. */
   function csvCell(v) {
     var s = String(v == null ? '' : v);
+    /* A leading = + - @ makes a spreadsheet treat the cell as a formula, so a
+       budget line typed here could run on the machine of whoever opens it. */
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
   function sheetToCsv(sheet) {

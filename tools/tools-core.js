@@ -73,12 +73,21 @@
     var r = this.rows.find(function (x) { return x.id === id; });
     if (r) { r[field] = value; this.persist(); }
   };
+  /* A spreadsheet treats a cell beginning = + - @ (or a lone tab/CR) as a
+     formula, so a value typed into a production here can execute when a
+     colleague opens the export. Prefixing an apostrophe keeps the text visible
+     and inert; Excel and Sheets both strip it on display. */
+  function csvSafe(v) {
+    var s = String(v == null ? '' : v);
+    return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+  }
+
   Register.prototype.toCsv = function () {
     var f = this.schema.fields;
-    var lines = [f.map(function (x) { return '"' + x.label.replace(/"/g, '""') + '"'; }).join(',')];
+    var lines = [f.map(function (x) { return '"' + csvSafe(x.label).replace(/"/g, '""') + '"'; }).join(',')];
     this.rows.forEach(function (r) {
       lines.push(f.map(function (x) {
-        return '"' + String(r[x.id] == null ? '' : r[x.id]).replace(/"/g, '""') + '"';
+        return '"' + csvSafe(r[x.id]).replace(/"/g, '""') + '"';
       }).join(','));
     });
     return lines.join('\n');

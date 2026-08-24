@@ -133,5 +133,52 @@ s = mem();
 V.restore(s, { format: 'cinamate/1', stores: { SB_Note_v1: 'just a plain string' } });
 t('non-JSON value preserved', s.getItem('SB_Note_v1') === 'just a plain string');
 
+/* ── data-loss guards (a review found each of these destroyed real work) ── */
+
+s = mem();
+s.setItem('SB_Timeline_v1', JSON.stringify({ scriptText: 'MY ONLY DRAFT' }));
+let threw = false;
+try { V.restore(s, { format: 'cinamate/1', stores: {} }); } catch (e) { threw = true; }
+t('an empty archive is refused', threw);
+t('the workspace survives an empty archive',
+  JSON.parse(s.getItem('SB_Timeline_v1')).scriptText === 'MY ONLY DRAFT');
+
+threw = false;
+try { V.restore(s, { format: 'cinamate/1', stores: { NOT_A_KEY: '{}' } }); } catch (e) { threw = true; }
+t('an all-foreign archive is refused', threw);
+t('the workspace survives that too',
+  JSON.parse(s.getItem('SB_Timeline_v1')).scriptText === 'MY ONLY DRAFT');
+
+s = mem();
+s.setItem('SB_Timeline_v1', JSON.stringify({ scriptText: 'first' }));
+V.saveActive(s, 'x');
+V.newProject(s, 'Second', 'x');
+s.setItem('SB_Timeline_v1', JSON.stringify({ scriptText: 'second' }));
+V.saveActive(s, 'x');
+threw = false;
+try { V.renameActive(s, 'Project 1'); } catch (e) { threw = true; }
+t('renaming onto an existing project is refused', threw);
+t('the other project still exists', !!V.meta(s).slots['Project 1']);
+
+threw = false;
+try { V.newProject(s, 'Project 1', 'x'); } catch (e) { threw = true; }
+t('reusing a name for a new project is refused', threw);
+t('the existing project keeps its contents',
+  JSON.parse(V.meta(s).slots['Project 1'].stores.SB_Timeline_v1).scriptText === 'first');
+
+/* machine-local credentials never enter a slot or an archive */
+s = mem();
+s.setItem('SB_Timeline_v1', JSON.stringify({ scriptText: 'film' }));
+s.setItem('SB_LocalGPU_v1', JSON.stringify({ url: 'http://127.0.0.1:3456', key: 'SECRET-BRIDGE-KEY' }));
+s.setItem('SB_TMDB_v1', JSON.stringify({ key: 'SECRET-TMDB-KEY' }));
+const packed = V.archive(s, 'Film', 'x');
+t('bridge key never enters an archive', packed.indexOf('SECRET-BRIDGE-KEY') === -1);
+t('TMDB key never enters an archive', packed.indexOf('SECRET-TMDB-KEY') === -1);
+t('the production itself is still in the archive', packed.indexOf('film') !== -1);
+V.saveActive(s, 'x');
+t('bridge key stays out of the project slot',
+  JSON.stringify(V.meta(s).slots).indexOf('SECRET-BRIDGE-KEY') === -1);
+t('bridge config stays on the machine', !!s.getItem('SB_LocalGPU_v1'));
+
 console.log('test_vault_sanitize: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
