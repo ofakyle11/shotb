@@ -45,40 +45,153 @@ function jsOf(path, src) {
   let out = '';
   const re = /(<script\b[^>]*>)([\s\S]*?)(<\/script>)/gi;
   let last = 0, m;
+  const blank = (x) => x.replace(/[^\n]/g, ' ');
   while ((m = re.exec(src)) !== null) {
-    out += src.slice(last, m.index).replace(/[^\n]/g, ' ');
-    out += m[1].replace(/[^\n]/g, ' ') + m[2] + m[3].replace(/[^\n]/g, ' ');
+    const tag = m[1];
+    const type = /\btype\s*=\s*["']([^"']+)["']/i.exec(tag);
+    const isJs = !type || /javascript|module/i.test(type[1]);
+    out += blank(src.slice(last, m.index)) + blank(tag);
+    out += isJs ? m[2] : blank(m[2]);      // a JSON or template <script> is data, not code
+    out += blank(m[3]);
     last = m.index + m[0].length;
   }
   return out + src.slice(last).replace(/[^\n]/g, ' ');
 }
 
-const HAS_MARKUP = /<\/?[a-zA-Z][\w-]*[\s>/]|<\/[a-zA-Z]|\bdata-[a-z-]+=|\b(class|id|src|href|value|title|style)\s*=\s*["']?$/;
+const HAS_MARKUP = /<\/?[a-zA-Z][\w-]*[\s>/]|<\/[a-zA-Z]|\bdata-[a-z-]+\s*=|\b(class|id|src|href|value|title|style|alt|placeholder)\s*=\s*["']?$/;
+
+/* Walk the source once with an explicit context stack.
+ *
+ * The previous detector was line-scoped: for a template literal it required
+ * the backtick to be on the same line as the ${...}, so every multi-line HTML
+ * template in the codebase was invisible to it. That is not a small gap —
+ * app.html builds almost all of its markup that way, and a scanner that
+ * reports "0 unreviewed" for a file it structurally cannot read is worse than
+ * no scanner, because its silence gets mistaken for assurance.
+ *
+ * Contexts also stop the failure mode a flag-based version has: a regex
+ * literal containing a backtick used to open a template that never closed,
+ * and everything after it was reported as markup. */
+function tokenize(src) {
+  const out = [];
+  const n = src.length;
+  let i = 0, line = 1;
+  const stack = [{ type: 'code', depth: 0 }];
+  let lastSignificant = '';
+
+  while (i < n) {
+    const c = src[i];
+    const frame = stack[stack.length - 1];
+
+    if (frame.type === 'tpl') {
+      if (c === '\\') { frame.text += src[i + 1] || ''; i += 2; continue; }
+      if (c === '`') { stack.pop(); lastSignificant = '`'; i++; continue; }
+      if (c === '$' && src[i + 1] === '{') {
+        stack.push({ type: 'code', depth: 0, expr: '', exprLine: line,
+                     capture: true, before: frame.text });
+        frame.text = '';
+        i += 2;
+        continue;
+      }
+      if (c === '\n') line++;
+      frame.text += c;
+      i++;
+      continue;
+    }
+
+    const cap = (s) => { if (frame.capture) frame.expr += s; };
+
+    if (c === '/' && src[i + 1] === '/') {
+      const j = src.indexOf('\n', i);
+      i = j === -1 ? n : j;
+      continue;
+    }
+    if (c === '/' && src[i + 1] === '*') {
+      const j = src.indexOf('*/', i + 2);
+      const end = j === -1 ? n : j + 2;
+      for (let k = i; k < end; k++) if (src[k] === '\n') line++;
+      i = end;
+      continue;
+    }
+    if (c === '/' && /[(,=:[!&|?{};+\-*%~^]$/.test(lastSignificant)) {
+      let j = i + 1, inClass = false, ok = false;
+      while (j < n) {
+        const d = src[j];
+        if (d === '\\') { j += 2; continue; }
+        if (d === '\n') break;
+        if (d === '[') inClass = true;
+        else if (d === ']') inClass = false;
+        else if (d === '/' && !inClass) { ok = true; break; }
+        j++;
+      }
+      if (ok) {
+        while (j + 1 < n && /[a-z]/i.test(src[j + 1])) j++;
+        cap(src.slice(i, j + 1));
+        i = j + 1;
+        lastSignificant = '/';
+        continue;
+      }
+    }
+    if (c === '"' || c === "'") {
+      const startLine = line;
+      let j = i + 1, value = '';
+      while (j < n) {
+        if (src[j] === '\\') { value += src[j + 1] || ''; j += 2; continue; }
+        if (src[j] === c) break;
+        if (src[j] === '\n') line++;
+        value += src[j]; j++;
+      }
+      out.push({ kind: 'str', value, line: startLine, start: i, end: j });
+      cap(src.slice(i, j + 1));
+      i = j + 1;
+      lastSignificant = '"';
+      continue;
+    }
+    if (c === '`') { stack.push({ type: 'tpl', text: '', line }); i++; continue; }
+    if (c === '{') { frame.depth++; cap(c); i++; lastSignificant = '{'; continue; }
+    if (c === '}') {
+      if (frame.depth === 0 && frame.capture) {
+        out.push({ kind: 'tpl-expr', expr: frame.expr.trim(),
+                   before: frame.before, line: frame.exprLine });
+        stack.pop();
+        i++;
+        continue;
+      }
+      if (frame.depth > 0) frame.depth--;
+      cap(c); i++; lastSignificant = '}';
+      continue;
+    }
+    if (c === '\n') line++;
+    if (!/\s/.test(c)) lastSignificant = c;
+    cap(c);
+    i++;
+  }
+  return out;
+}
 
 const hits = [];
 for (const path of walk(ROOT)) {
   const rel = relative(ROOT, path).split('\\').join('/');
-  const raw = readFileSync(path, 'utf8');
-  const src = jsOf(path, raw);
+  const src = jsOf(path, readFileSync(path, 'utf8'));
+  const tokens = tokenize(src);
   const lines = src.split('\n');
 
+  /* ── template literals, however many lines they span ── */
+  for (const t of tokens) {
+    if (t.kind !== 'tpl-expr') continue;
+    if (!HAS_MARKUP.test(t.before || '')) continue;
+    record(rel, t.line, t.expr, (t.before || '').slice(-90) + '${' + t.expr + '}');
+  }
+
+  /* ── concatenation: '<div>' + expr + '</div>' ──
+     Still line-based, because concatenated markup in this codebase is written
+     one statement per line and a token-level version would flag every string
+     addition in the repo. */
   lines.forEach((line, i) => {
-    const lineNo = i + 1;
     if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
-
-    /* ── template literals: ${ ... } inside a backtick string with markup ── */
-    for (const m of line.matchAll(/\$\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g)) {
-      const before = line.slice(0, m.index);
-      if (!before.includes('`')) continue;
-      if (!HAS_MARKUP.test(before) && !/<[a-zA-Z]/.test(line)) continue;
-      record(rel, lineNo, m[1].trim(), line);
-    }
-
-    /* ── concatenation: '<div>' + expr + '</div>' ── */
     for (const m of line.matchAll(/(['"])((?:\\.|(?!\1)[^\\])*)\1\s*\+\s*([^+]+?)\s*\+\s*(['"])/g)) {
-      const lit = m[2];
-      if (!HAS_MARKUP.test(lit)) continue;
-      record(rel, lineNo, m[3].trim(), line);
+      if (!HAS_MARKUP.test(m[2])) continue;
+      record(rel, i + 1, m[3].trim(), line.trim().slice(0, 150));
     }
   });
 }
