@@ -164,13 +164,13 @@
   function renderRoles() {
     renderStrip();
     $('coRoles').innerHTML = st.roles.map(function (r) {
-      return '<tr class="co-rolerow' + (r.id === st.sel ? ' sel' : '') + '" data-role="' + r.id + '">' +
+      return '<tr class="co-rolerow' + (r.id === st.sel ? ' sel' : '') + '" data-role="' + esc(r.id) + '">' +
         '<td><input class="co-wide" data-f="name" value="' + esc(r.name) + '"></td>' +
         '<td class="co-scenes">' + (r.sceneList && r.sceneList.length ? esc(r.sceneList.join(', ')) : (r.manual ? 'manual' : '—')) + '</td>' +
-        '<td class="co-num">' + (r.lines || 0) + '</td>' +
-        '<td class="co-num">' + (r.candidates || []).length + '</td>' +
+        '<td class="co-num">' + esc(r.lines || 0) + '</td>' +
+        '<td class="co-num">' + esc((r.candidates || []).length) + '</td>' +
         '<td>' + roleStatusTag(r) + '</td>' +
-        '<td><button class="tb-btn" data-del="' + r.id + '">✕</button></td></tr>';
+        '<td><button class="tb-btn" data-del="' + esc(r.id) + '">✕</button></td></tr>';
     }).join('') || '<tr><td colspan="6" class="co-note">No roles yet — Seed from the working screenplay, or add roles by hand.</td></tr>';
     renderSideSelect();
   }
@@ -221,7 +221,7 @@
     $('coCandTitle').textContent = '2 · Candidates' + (r ? ' — ' + r.name : '');
     var rows = r ? (r.candidates || []) : [];
     $('coCands').innerHTML = rows.map(function (c) {
-      return '<tr data-cand="' + c.id + '">' +
+      return '<tr data-cand="' + esc(c.id) + '">' +
         '<td><input class="co-wide" data-f="name" value="' + esc(c.name) + '"></td>' +
         '<td><input class="co-wide" data-f="contact" value="' + esc(c.contact) + '" placeholder="agent / email"></td>' +
         '<td><input data-f="selfTape" value="' + esc(c.selfTape) + '" placeholder="tape url">' +
@@ -232,8 +232,8 @@
         '<td><input data-f="holdTo" type="date" value="' + esc(c.holdTo) + '"></td>' +
         '<td><input data-f="rate" style="width:70px" value="' + esc(c.rate) + '" placeholder="rate"></td>' +
         '<td><input class="co-wide" data-f="notes" value="' + esc(c.notes) + '"></td>' +
-        '<td><button class="tb-btn" data-offer="' + c.id + '" title="Draft the offer memo for this candidate — section 4">✉</button> ' +
-        '<button class="tb-btn" data-del="' + c.id + '">✕</button></td></tr>';
+        '<td><button class="tb-btn" data-offer="' + esc(c.id) + '" title="Draft the offer memo for this candidate — section 4">✉</button> ' +
+        '<button class="tb-btn" data-del="' + esc(c.id) + '">✕</button></td></tr>';
     }).join('') || '<tr><td colspan="9" class="co-note">' + (r ? 'No candidates yet for this role.' : 'Select a role above first.') + '</td></tr>';
     renderConflicts();
   }
