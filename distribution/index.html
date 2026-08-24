@@ -97,7 +97,7 @@
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
 
   $('dtBuyer').innerHTML = Object.keys(D.BUYER_PRESETS).map(function (k) {
-    return '<option value="' + k + '"' + (k === st.buyer ? ' selected' : '') + '>' + D.BUYER_PRESETS[k].label + '</option>';
+    return '<option value="' + esc(k) + '"' + (k === st.buyer ? ' selected' : '') + '>' + esc(D.BUYER_PRESETS[k].label) + '</option>';
   }).join('');
 
   function render() {
@@ -107,7 +107,7 @@
     $('dtGroups').innerHTML = Object.keys(c.groups).map(function (g) {
       return '<div class="dt-group"><h4>' + esc(g) + '</h4>' +
         c.groups[g].map(function (it) {
-          return '<div class="dt-item' + (it.required ? '' : ' off') + (it.done ? ' done' : '') + '" data-toggle="' + it.id + '">' +
+          return '<div class="dt-item' + (it.required ? '' : ' off') + (it.done ? ' done' : '') + '" data-toggle="' + esc(it.id) + '">' +
             (it.done ? '✅' : '☐') + ' <span>' + esc(it.label) + '</span></div>';
         }).join('') + '</div>';
     }).join('');
@@ -118,14 +118,14 @@
         (w.window ? ' · ' + esc(w.window) : '') + (w.start ? ' · from ' + esc(w.start) : '') +
         (w.licensee ? ' · ' + esc(w.licensee) : '') +
         (conflicts[w.id] ? ' <span class="dt-mono" style="color:#E08A8A">exclusivity clash: ' + esc(conflicts[w.id]) + '</span>' : '') +
-        '<span style="flex:1"></span><button class="tb-btn" data-del="' + w.id + '">✕</button></div>';
+        '<span style="flex:1"></span><button class="tb-btn" data-del="' + esc(w.id) + '">✕</button></div>';
     }).join('') || '<p class="dt-note">No windows planned yet.</p>';
     $('scRows').innerHTML = st.screeners.map(function (s) {
       return '<div class="dt-row"><b>' + esc(s.recipient) + '</b>' + (s.company ? ' · ' + esc(s.company) : '') +
         ' <span class="dt-mono">sent ' + esc(s.sentAt) + (s.link ? ' · ' + esc(s.link) : '') + '</span>' +
         '<span style="flex:1"></span>' +
-        '<button class="tb-btn" data-watch="' + s.id + '">' + (s.watched ? '👁 watched' : 'mark watched') + '</button>' +
-        '<button class="tb-btn" data-del="' + s.id + '">✕</button></div>';
+        '<button class="tb-btn" data-watch="' + esc(s.id) + '">' + (s.watched ? '👁 watched' : 'mark watched') + '</button>' +
+        '<button class="tb-btn" data-del="' + esc(s.id) + '">✕</button></div>';
     }).join('') || '<p class="dt-note">No screeners out.</p>';
   }
 

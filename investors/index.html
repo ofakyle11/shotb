@@ -139,11 +139,11 @@
       return '<tr data-id="' + esc(v.id) + '">' +
         '<td><input class="iv-name" data-f="name" value="' + esc(v.name || '') + '"></td>' +
         '<td><select data-f="kind">' + I.KINDS.map(function (k) {
-          return '<option value="' + k + '"' + (k === n.kind ? ' selected' : '') + '>' + k + '</option>'; }).join('') + '</select></td>' +
-        '<td class="iv-num"><input data-f="amount" type="number" min="0" step="1000" value="' + n.amount + '"></td>' +
-        '<td class="iv-num"><input data-f="interestPct" type="number" min="0" step="0.5" value="' + n.interestPct + '"' + (money ? ' disabled title="Interest applies to debt/gap only"' : '') + '></td>' +
-        '<td class="iv-num"><input data-f="premiumPct" type="number" min="0" step="1" value="' + n.premiumPct + '"' + (money ? '' : ' disabled title="Premium applies to equity only"') + '></td>' +
-        '<td class="iv-num"><input data-f="backendPct" type="number" min="0" step="1" value="' + (v.backendPct == null || v.backendPct === '' ? '' : v.backendPct) + '" placeholder="pro-rata"></td>' +
+          return '<option value="' + esc(k) + '"' + (k === n.kind ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select></td>' +
+        '<td class="iv-num"><input data-f="amount" type="number" min="0" step="1000" value="' + esc(n.amount) + '"></td>' +
+        '<td class="iv-num"><input data-f="interestPct" type="number" min="0" step="0.5" value="' + esc(n.interestPct) + '"' + (money ? ' disabled title="Interest applies to debt/gap only"' : '') + '></td>' +
+        '<td class="iv-num"><input data-f="premiumPct" type="number" min="0" step="1" value="' + esc(n.premiumPct) + '"' + (money ? '' : ' disabled title="Premium applies to equity only"') + '></td>' +
+        '<td class="iv-num"><input data-f="backendPct" type="number" min="0" step="1" value="' + esc(v.backendPct == null || v.backendPct === '' ? '' : v.backendPct) + '" placeholder="pro-rata"></td>' +
         '<td><input data-f="contact" value="' + esc(v.contact || '') + '" placeholder="email / phone"></td>' +
         '<td><input data-f="notes" value="' + esc(v.notes || '') + '"></td>' +
         '<td><button class="tb-btn" data-del="' + esc(v.id) + '">✕</button></td></tr>';
@@ -190,7 +190,7 @@
       : 'Breakeven — full recoupment (' + I.fmt(be.owedTotal) + ' owed) at ' + I.fmt(be.gross) + ' gross receipts.';
     $('ivWfRows').innerHTML = w.rows.map(function (r) {
       return '<tr><td>' + esc(r.name) + '</td>' +
-        '<td class="iv-kind">' + r.kind + '</td>' +
+        '<td class="iv-kind">' + esc(r.kind) + '</td>' +
         '<td class="iv-num">' + I.fmt(r.invested) + '</td>' +
         '<td class="iv-num">' + I.fmt(r.recouped) + '</td>' +
         '<td class="iv-num">' + I.fmt(r.profit) + '</td>' +

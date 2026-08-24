@@ -92,18 +92,18 @@
     $('dmMeta').textContent = st.deals.length + ' deals · $' + Math.round(signedVal).toLocaleString() + ' signed';
     $('dmRows').innerHTML = st.deals.map(function (d) {
       var f = d.fields;
-      return '<tr data-deal="' + d.id + '"' + (sel === d.id ? ' style="outline:1px solid var(--gold)"' : '') + '>' +
+      return '<tr data-deal="' + esc(d.id) + '"' + (sel === d.id ? ' style="outline:1px solid var(--gold)"' : '') + '>' +
         '<td><input data-f="name" value="' + esc(f.name) + '"></td>' +
         '<td><input data-f="role" value="' + esc(f.role) + '"></td>' +
-        '<td>' + f.kind + '</td>' +
-        '<td><input data-f="rate" type="number" style="width:80px" value="' + (f.rate || 0) + '">/' +
+        '<td>' + esc(f.kind) + '</td>' +
+        '<td><input data-f="rate" type="number" style="width:80px" value="' + esc(f.rate || 0) + '">/' +
           '<select data-f="rateBasis"><option' + (f.rateBasis === 'day' ? ' selected' : '') + '>day</option><option' + (f.rateBasis === 'week' ? ' selected' : '') + '>week</option></select></td>' +
-        '<td><input data-f="guaranteed" type="number" style="width:52px" value="' + (f.guaranteed || 1) + '"></td>' +
+        '<td><input data-f="guaranteed" type="number" style="width:52px" value="' + esc(f.guaranteed || 1) + '"></td>' +
         '<td class="dm-val">$' + D.dealValue(f).toLocaleString() +
           (d.committedPo ? '<br><span class="dm-committed">committed ✓</span>' : '') + '</td>' +
-        '<td><select data-status="' + d.id + '">' + ['draft', 'sent', 'signed'].map(function (s2) {
+        '<td><select data-status="' + esc(d.id) + '">' + ['draft', 'sent', 'signed'].map(function (s2) {
           return '<option' + (s2 === d.status ? ' selected' : '') + '>' + s2 + '</option>'; }).join('') + '</select></td>' +
-        '<td><button class="tb-btn" data-view="' + d.id + '">📄</button> <button class="tb-btn" data-del="' + d.id + '">✕</button></td></tr>';
+        '<td><button class="tb-btn" data-view="' + esc(d.id) + '">📄</button> <button class="tb-btn" data-del="' + esc(d.id) + '">✕</button></td></tr>';
     }).join('') || '<tr><td colspan="8" class="dm-note">No deals yet — draft them from the Crew register in one click.</td></tr>';
   }
   function viewDoc(d) {

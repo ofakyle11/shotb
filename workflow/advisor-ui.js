@@ -87,7 +87,7 @@
       '<span class="wf-dim"> — ' + esc((c.analysis && c.analysis.genre) || 'film') + ' · ' + esc(c.prefs.scale || 'indie') + ' scale · ' + st.total + ' core positions</span></h3>';
     h += '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th>Dept</th><th>Role</th><th>#</th><th>Why</th></tr></thead><tbody>' +
       st.plan.map(function (p) {
-        return '<tr><td>' + esc(p.dept) + '</td><td>' + esc(p.role) + '</td><td style="font-family:var(--mono)">' + p.count + '</td><td class="wf-dim" style="font-size:10px">' + esc(p.why) + '</td></tr>';
+        return '<tr><td>' + esc(p.dept) + '</td><td>' + esc(p.role) + '</td><td style="font-family:var(--mono)">' + esc(p.count) + '</td><td class="wf-dim" style="font-size:10px">' + esc(p.why) + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
       '<p class="wf-adv-foot"><button class="tb-btn gold" id="wfAdvSeedCrew">Seed these as open positions in Crew</button>' +
       '<span class="wf-dim">' + esc(st.note) + '</span></p>';

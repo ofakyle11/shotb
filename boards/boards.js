@@ -40,7 +40,7 @@
 
   /* ── shot cards ─────────────────────────────────────────────────── */
   function shotCard(sh, i) {
-    function opts(list, cur) { return list.map(function (o) { return '<option' + (o === cur ? ' selected' : '') + '>' + o + '</option>'; }).join(''); }
+    function opts(list, cur) { return list.map(function (o) { return '<option' + (o === cur ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join(''); }
     return '<div class="bd-shot" data-shot="' + esc(sh.id) + '">' +
       '<div class="bd-frame">' +
       (sh.img ? '<img src="' + esc(sh.img) + '" alt="">' : '<div class="bd-ph">No frame yet — grab one from a rendered clip, upload, or generate</div>') +
@@ -57,8 +57,8 @@
       '<select data-f="move">' + opts(S.MOVES, sh.move) + '</select>' +
       '</div>' +
       '<div class="bd-shotrow">' +
-      '<span class="bd-dim">lens</span><input class="bd-lens" data-f="lensMm" type="number" value="' + (sh.lensMm || 35) + '">mm' +
-      '<span class="bd-dim">·</span><input class="bd-dur" data-f="dur" type="number" step="0.5" min="0.5" value="' + (sh.dur || 2) + '">s' +
+      '<span class="bd-dim">lens</span><input class="bd-lens" data-f="lensMm" type="number" value="' + esc(sh.lensMm || 35) + '">mm' +
+      '<span class="bd-dim">·</span><input class="bd-dur" data-f="dur" type="number" step="0.5" min="0.5" value="' + esc(sh.dur || 2) + '">s' +
       '</div>' +
       '<textarea class="bd-desc" data-f="desc" placeholder="What happens in this shot">' + esc(sh.desc) + '</textarea>' +
       '</div>' +

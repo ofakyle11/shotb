@@ -262,8 +262,8 @@
           return (order[x.status] - order[y.status]) || ((x.num || 0) - (y.num || 0));
         }).map(function (c) {
           return '<a class="wf-clip ' + c.status + '" href="/timeline/" title="' + esc(c.label) + ' — ' + c.status + '">' +
-            '<b>' + String(c.num || '·').toString().padStart(2, '0') + '</b> ' + esc((c.label || '').slice(0, 26)) +
-            '<span>' + c.status + (c.durationSec ? ' · ~' + c.durationSec + 's' : '') + '</span></a>';
+            '<b>' + esc(String(c.num || '·').toString().padStart(2, '0')) + '</b> ' + esc((c.label || '').slice(0, 26)) +
+            '<span>' + c.status + (c.durationSec ? ' · ~' + esc(c.durationSec) + 's' : '') + '</span></a>';
         }).join('') + '</div>';
     }
 

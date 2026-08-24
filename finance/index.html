@@ -108,7 +108,7 @@
     var keys = Object.keys(accts).sort();
     if (!keys.length) keys = ['1100', '2000', '3000', '5000'];
     var html = keys.map(function (a) {
-      return '<option value="' + esc(a) + '">' + a + (accts[a] ? ' · ' + esc(accts[a].name) : '') + '</option>';
+      return '<option value="' + esc(a) + '">' + esc(a) + (accts[a] ? ' · ' + esc(accts[a].name) : '') + '</option>';
     }).join('');
     $('poAcct').innerHTML = html; $('pcAcct').innerHTML = html;
   }

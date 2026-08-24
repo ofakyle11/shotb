@@ -100,7 +100,7 @@
   var video = $('srVideo');
   function renderSessions() {
     $('srSessions').innerHTML = st.sessions.map(function (s) {
-      return '<option value="' + s.id + '"' + (s.id === st.active ? ' selected' : '') + '>' + esc(s.title) + '</option>';
+      return '<option value="' + esc(s.id) + '"' + (s.id === st.active ? ' selected' : '') + '>' + esc(s.title) + '</option>';
     }).join('');
   }
   function renderNotes() {
@@ -109,10 +109,10 @@
     $('srProg').textContent = p.total + ' notes · ' + p.open + ' open' + (p.locked ? ' — ALL ADDRESSED ✓' : '');
     $('srNotes').innerHTML = S.sortNotes(s).map(function (n) {
       return '<div class="sr-note' + (n.status === 'done' ? ' done' : '') + '">' +
-        '<span class="tc" data-seek="' + n.sec + '">' + S.fmtTc(n.sec, s.fps) + '</span>' +
+        '<span class="tc" data-seek="' + esc(n.sec) + '">' + S.fmtTc(n.sec, s.fps) + '</span>' +
         '<div style="flex:1"><div>' + esc(n.text) + '</div><span class="who">' + esc(n.author) + (n.at ? ' · ' + esc(n.at) : '') + '</span></div>' +
-        '<button class="tb-btn" data-tog="' + n.id + '" title="Toggle addressed">' + (n.status === 'open' ? '☐' : '✅') + '</button>' +
-        '<button class="tb-btn" data-rm="' + n.id + '">✕</button></div>';
+        '<button class="tb-btn" data-tog="' + esc(n.id) + '" title="Toggle addressed">' + (n.status === 'open' ? '☐' : '✅') + '</button>' +
+        '<button class="tb-btn" data-rm="' + esc(n.id) + '">✕</button></div>';
     }).join('') || '<p class="sr-dim">No notes yet — play the cut and drop the first one.</p>';
   }
   function renderAll() { renderSessions(); renderNotes(); }
