@@ -149,7 +149,15 @@
     depth = depth || 0;
     if (depth > CACHE_MAX_DEPTH) return null;
     if (node === null || node === undefined) return node;
-    if (typeof node === 'string') return node.replace(/[<>"']/g, '');
+    if (typeof node === 'string') {
+      /* A scheme can be hostile without containing a single markup character:
+         "javascript:alert(1)" survives stripping <>"' untouched, and the app's
+         CSP carries 'unsafe-inline', so such a URL in an href really does run.
+         Third-party replies carry URLs (poster paths, homepages, wiki links)
+         and several modules render them as href or src. */
+      if (/^[\s\u0000-\u001f]*(javascript|vbscript|data|file)[\s\u0000-\u001f]*:/i.test(node)) return '';
+      return node.replace(/[<>"']/g, '');
+    }
     if (typeof node !== 'object') return node;
     if (Object.prototype.toString.call(node) === '[object Array]') {
       var out = [];

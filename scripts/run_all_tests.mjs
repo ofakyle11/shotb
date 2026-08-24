@@ -32,6 +32,7 @@ const SECURITY_FIRST = [
   'scripts/test_cloud_safety.mjs',
   'scripts/test_projects_sync.mjs',
   'scripts/test_safe_url.mjs',
+  'scripts/test_safe_url_client.mjs',
   'scripts/test_deploy_exclusions.mjs',
   'scripts/test_sw_cache.mjs',
   'local-backend/test_safe_fetch.py',
