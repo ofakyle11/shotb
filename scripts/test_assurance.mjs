@@ -51,6 +51,31 @@
    and --migrate records today's numbers for keys already listed. A named
    exception with a reason is honest. A silent pass is not.
 
+   HOW TO READ scripts/assurance_exceptions.json (baseline set by order G0-R3a).
+   Every one of its keys was read against the code before it was written down,
+   and each reason opens with one of three words:
+
+     DEFECT  a real bug. It is listed rather than fixed because that order
+             owned no module source, and the reason names the backlog item
+             that must clear it. A DEFECT entry is a debt, not a dispensation:
+             the right outcome is that the key disappears, never that it is
+             re-listed at a higher count.
+     SAFE    the violation is a true statement about the code and the code is
+             nonetheless correct, with the substantive reason why. These are
+             the entries that may legitimately live here forever.
+     UNSURE  appears inside a reason to mark a judgement a second reviewer
+             should re-derive rather than inherit.
+
+   The COUNT is what makes a SAFE entry safe. `esc` is accepted at eight
+   drifted versions because all eight escape the identical character class;
+   the ninth is unlisted and fails, because a new escaper is the event worth
+   stopping on. Nothing here is silenced by name.
+
+   Owners are named by the backlog item in docs/audit/PHASE1-SYNTHESIS.md
+   (wave 1.1 .. 3.x), NOT by Phase 2 team number: PROGRAM.md names only the
+   spine T5 -> T6 -> T7 and the Phase 3 T1a/T1b/T2 split and carries no T1-T10
+   roster to map onto. Remap when that roster exists.
+
      node scripts/test_assurance.mjs
      node scripts/test_assurance.mjs --migrate   # re-record listed counts
      node scripts/test_assurance.mjs --verbose   # show what passed too
@@ -143,16 +168,19 @@ function evalOnce(paths, extraGlobals) {
    they throw. Reading the dependency out of the message rather than keeping a
    table here means the wiring follows the code: when wave 1.1 repointed nine
    modules at js/lib-scenes.js mid-audit, this kept working with no edit. */
+function depFromError(e, list) {
+  for (const m of String((e && e.message) || '').matchAll(/([A-Za-z0-9_./-]+\.js)/g)) {
+    const f = SHIPPED.find((x) => x === m[1] || x.endsWith('/' + m[1]));
+    if (f && !list.includes(f)) return f;
+  }
+  return null;
+}
 function evalModule(paths, extraGlobals) {
   let list = [].concat(paths);
   for (let attempt = 0; attempt < 6; attempt++) {
     try { return evalOnce(list, extraGlobals); }
     catch (e) {
-      let hit = null;
-      for (const m of String((e && e.message) || '').matchAll(/([A-Za-z0-9_./-]+\.js)/g)) {
-        const f = SHIPPED.find((x) => x === m[1] || x.endsWith('/' + m[1]));
-        if (f && !list.includes(f)) { hit = f; break; }
-      }
+      const hit = depFromError(e, list);
       if (!hit) throw e;
       list = [hit].concat(list);
     }
@@ -354,8 +382,6 @@ for (const r of READERS) r.stores.forEach((s) => readerStores.add(s));
 for (const r of READERS) {
   const missing = r.files.filter((f) => !existsSync(join(ROOT, f)));
   if (missing.length) { flag('roundtrip', 'reader:' + r.id, `module moved or gone: ${missing.join(', ')}`); continue; }
-  const api = tryEvalModule(r.files);
-  if (!api) { flag('roundtrip', 'reader:' + r.id, `${r.files.join(', ')} would not evaluate`); continue; }
   const seenByStore = new Map();
   const rowsFor = (key) => {
     const shape = WRITER_SHAPES.get(key);
@@ -364,8 +390,29 @@ for (const r of READERS) {
     seenByStore.set(key, seen);
     return [0, 1].map((i) => recordingRow(fixtureRow(shape, i), seen));
   };
-  try { r.run(api, rowsFor); }
-  catch (e) { flag('roundtrip', 'reader:' + r.id, 'reader threw on writer-shaped rows: ' + e.message); continue; }
+  /* A module may defer its dependency check to CALL time rather than load time:
+     contracts/lib-deal.js evaluates fine on its own and only asks for
+     CMoneyMath when a deal is actually valued. evalModule resolves a name out
+     of the load-time error; the run needs the same resolution, or the reader
+     throws, the loop `continue`s, and the round trip for that store is never
+     run at all — which reads on the report as one line rather than as the
+     missing check it is. This is the exact "green over a check that did not
+     execute" shape the file exists to catch, so it must not be one here. */
+  let list = [].concat(r.files), api = null, ran = false, lastErr = null;
+  for (let attempt = 0; attempt < 6 && !ran; attempt++) {
+    api = tryEvalModule(list);
+    if (!api) break;
+    for (const s of seenByStore.values()) s.clear();
+    try { r.run(api, rowsFor); ran = true; }
+    catch (e) {
+      lastErr = e;
+      const hit = depFromError(e, list);
+      if (!hit) break;
+      list = [hit].concat(list);
+    }
+  }
+  if (!api) { flag('roundtrip', 'reader:' + r.id, `${list.join(', ')} would not evaluate`); continue; }
+  if (!ran) { flag('roundtrip', 'reader:' + r.id, 'reader threw on writer-shaped rows: ' + (lastErr && lastErr.message)); continue; }
   for (const key of r.stores) {
     const shape = WRITER_SHAPES.get(key);
     if (!shape) { flag('roundtrip', 'shape:' + key, `${r.id} reads ${key} and no writer shape is derivable from the code`); continue; }
@@ -627,7 +674,14 @@ for (const s of SUITES) {
   const executes = EXEC_MARK.test(text);
   const isBrowser = /playwright|chromium|startServer/.test(text);
   for (const m of text.matchAll(/['"`]([A-Za-z0-9_@./-]+\.js)['"`]/g)) {
-    const cand = m[1].replace(/^\.?\//, '').replace(/^\.\.\//, '');
+    /* Six suites name their target by absolute path. Stripping only a leading
+       slash left `home/user/shotb/sw.js`, which matches no shipped file, so
+       those suites contributed nothing — sw.js reported as "no suite loads it
+       at all" when scripts/test_sw_cache.mjs reads it on every run. An absence
+       misattributed is the same failure this file exists to catch, one level
+       down: make the path relative to ROOT first. */
+    const abs = m[1].startsWith(ROOT + '/') ? m[1].slice(ROOT.length + 1) : m[1];
+    const cand = abs.replace(/^\.?\//, '').replace(/^\.\.\//, '');
     const hit = SHIPPED.find((f) => f === cand || f.endsWith('/' + cand));
     if (!hit) continue;
     addTo(executes ? runBy : lintBy, hit, s);
@@ -719,10 +773,23 @@ for (const f of SHIPPED) {
   if (/\bdocument\s*\./.test(src(f))) continue;
   const api = tryEvalModule([f]);
   if (!api) continue;
+  /* evalModule pulls a module's dependencies in with it, and every namespace
+     they create lands in the same context — so props/lib-props.js was being
+     charged with CScenes.eighthsOf, which it does not define, does not export
+     and cannot fix. That reported the one real gap (js/lib-scenes.js) ten more
+     times against ten wrong files, and a reader following the report would
+     have gone looking in the wrong module. A name that does not occur in this
+     file's own text is not this file's export; the genuine owner is flagged
+     under its own path, so nothing is lost by excluding it here. */
+  const own = src(f);
   const names = new Set();
   for (const ns of Object.values(api)) {
     if (!ns || typeof ns !== 'object') continue;
-    for (const [k, v] of Object.entries(ns)) if (typeof v === 'function') names.add(k);
+    for (const [k, v] of Object.entries(ns)) {
+      if (typeof v !== 'function') continue;
+      if (!new RegExp('\\b' + k.replace(/[$]/g, '\\$') + '\\b').test(own)) continue;
+      names.add(k);
+    }
   }
   if (names.size < 3) continue;
   const text = [...new Set(suites)].map((s) => src(s)).join('\n');

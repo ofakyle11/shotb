@@ -9,13 +9,62 @@
  * shooting script that says "24 INT. KITCHEN - DAY" was called scene 7, and
  * nothing the production says out loud on the day agreed with the platform.
  *
- * The heading forms below are timeline-specific and deliberately NOT part of
- * the shared model: MONTAGE/FLASHBACK families and bare "SCENE 12" openers
- * are how treatments and documentary transcripts break, not how a screenplay
- * does, and treating them as sluglines platform-wide would be wrong. */
+ * THREE heading forms below are timeline-specific and deliberately NOT part
+ * of the shared model, and that part of the old note holds up: CScenes.parseSlug
+ * returns null for "MONTAGE - THE TRAINING", "SCENE 12 - KITCHEN" and
+ * "1. KITCHEN - DAY" — none carry an INT/EXT token — and promoting them to
+ * platform-wide sluglines would make every treatment and documentary
+ * transcript break scenes differently from every screenplay. Those three stay:
+ * SCENE_WORD_RE, BEAT_RE, NUMBERED_NO_IU_RE.
+ *
+ * The old note was ALSO used to cover a second, undefended set of locals: the
+ * bare INT./EXT. literals in the flatten/unflatten scanners. Those were not a
+ * different grammar, they were a stale COPY of the shared one — they knew
+ * INT. EXT. INT/EXT. I/E. and nothing else, so on a flattened PDF paste
+ * "EST. THE CAPITOL - DAY", "I / E CAR - DAY" and "INT KITCHEN - NIGHT" (all
+ * of which CScenes accepts) were not scene breaks at all and their content was
+ * swallowed into the previous scene. Same defect class as lib-scenes.js's own
+ * header items 3 and 4. There is now ONE unanchored copy of the CScenes
+ * interior/exterior token, IU_ALT, and scripts/test_parser_slug_agreement.mjs
+ * fails if it and CScenes.parseSlug ever disagree about what opens a scene.
+ * (CScenes.SLUG_RE itself cannot be used here: it is ^-anchored and its tail
+ * group runs to end-of-line, and these scanners must find sluglines in the
+ * MIDDLE of a run-together line. That is the whole reason the copy exists.) */
 window.SBParser = (function(){
   const CS = window.CScenes;
   if(!CS)throw new Error('timeline/parser.js requires js/lib-scenes.js to be loaded first');
+
+  /* ── the one unanchored copy of the CScenes IU token ──────────────────
+     Kept identical to IU_SRC in js/lib-scenes.js; pinned by the agreement
+     test. Order matters for the same reason it does there: the two-sided
+     forms must be tried before bare INT, or "INT/EXT. CAR" matches as INT. */
+  const IU_ALT='INT\\.?\\s*\\/\\s*EXT|EXT\\.?\\s*\\/\\s*INT|I\\s*\\/\\s*E|E\\s*\\/\\s*I|INT|EXT|EST';
+  /* The token plus the separator CScenes requires after it, so INTERCUT,
+     "Interior" and EXTRA are not sluglines here either. */
+  const IU_HEAD='\\b(?:'+IU_ALT+')\\s*\\.?[\\s\\-–—:]';
+  const IU_NAME_RE=new RegExp('^(?:'+IU_ALT+')\\b','i');
+  const IU_SCAN_RE=new RegExp('(?:^|\\s)(?:'+IU_ALT+')\\s*\\.?[\\s\\-–—:]','gim');
+  const IU_BREAK_RE=new RegExp('\\s+(?='+IU_HEAD+')','gi');
+  /* A printed scene number belongs to the slugline that follows it. Breaking
+     between them ("4" on one line, "INT. STUDY - NIGHT" on the next, with a
+     blank line in between) is how the number got orphaned and the scene fell
+     back to its ordinal — the original defect, reintroduced by the
+     unflattener. The number stays ON the heading. CScenes' own NUM_SRC shape:
+     4, 4A, A4, with an optional . ) or - after it. */
+  const NUM_SRC='(?:[0-9]+[A-Z]{0,3}|[A-Z]{1,3}[0-9]+)\\s*[.)\\-]?';
+  const IU_NUM_BREAK_RE=new RegExp('\\s+((?:SC|SCENE)?\\s*'+NUM_SRC+')\\s+(?='+IU_HEAD+')','gi');
+  const IU_SLUG_TAIL_RE=new RegExp('('+IU_HEAD+'[^\\n]{2,100}?[-—–]\\s*(?:DAY|NIGHT|MORNING|EVENING|DUSK|DAWN|CONTINUOUS|LATER|MOMENTS))\\s+(?=[A-Za-z])','gi');
+  /* Mid-line location run. A slugline location is a run of upper-case tokens
+     (dash-joined segments allowed, so "PARIS - LEFT BANK - NIGHT" survives);
+     a token followed by a lower-case letter is prose, which is where the run
+     ends. The old lazy [A-Za-z0-9 ...]{2,90}? stopped at the FIRST space, so
+     every multi-word location in a flattened paste was truncated to its first
+     word — "THE CAPITOL" was filed as "THE". What matches here is handed
+     whole to CScenes.parseSlug, which does the location/tod split. */
+  const LOC_TOK='[A-Z0-9][A-Z0-9.\'\\-/&,]*(?![a-z])';
+  const LOC_SEQ=LOC_TOK+'(?:\\s+'+LOC_TOK+'){0,12}(?:\\s*[-—–]\\s*'+LOC_TOK+'(?:\\s+'+LOC_TOK+'){0,12}){0,4}';
+  const IU_INLINE_RE=new RegExp(IU_HEAD+'\\s*'+LOC_SEQ+'(?=[.!?\\s]|$)','g');
+
   /* Timeline-only heading forms, layered on top of the shared slugline. */
   const SCENE_WORD_RE=/^SCENE\s+\d+[A-Z]?(?:\s*[.\-—:]\s*|\s+)/i;
   const BEAT_RE=/^(FLASHBACK|FLASH\s*CUT|MONTAGE|DREAM|INTERCUT|BACK\s+TO|LATER|TIME\s+CUT|SERIES\s+OF\s+SHOTS)\b/i;
@@ -163,11 +212,13 @@ window.SBParser = (function(){
       if(!t||!isSH(t))return;
       upsertLocationRow(out,t);
     });
-    const inlineRe=/\b(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.?)\s+([A-Za-z0-9][A-Za-z0-9 .'\-/&,]{2,90}?)(?:\s*[-—–]\s*(DAY|NIGHT|MORNING|EVENING|DUSK|DAWN|CONTINUOUS|LATER|MOMENTS(?:\s+LATER)?))?(?=[.!?\s]|$)/gi;
+    /* The matched text IS a slugline; hand it to CScenes rather than
+       rebuilding one. The old rebuild rewrote every I/E. heading as "INT. ",
+       silently converting an int/ext scene into an interior. */
+    const inlineRe=new RegExp(IU_INLINE_RE.source,'g');
     let m;
     while((m=inlineRe.exec(norm))!==null){
-      const head=(/^(INT|EXT)/i.test(m[0])?m[0].trim():('INT. '+m[1].trim()+(m[2]?' - '+m[2]:'')));
-      upsertLocationRow(out,head);
+      upsertLocationRow(out,m[0].trim());
     }
     const locTagRe=/^\s*Location:\s*([^\n]{3,120})/gim;
     while((m=locTagRe.exec(norm))!==null){
@@ -235,7 +286,7 @@ window.SBParser = (function(){
     opts=opts||{};
     const cn=stripCastArticle(name);
     if(!cn||cn.length<2||cn.length>40)return false;
-    if(/^(INT|EXT|I\/E|INT\/EXT)\b/.test(cn))return false;
+    if(IU_NAME_RE.test(cn))return false;
     if(isLocationCaps(cn))return false;
     const words=cn.split(/\s+/);
     if(words.every(w=>NON_NAME_WORDS.has(w)))return false;
@@ -253,7 +304,7 @@ window.SBParser = (function(){
     opts=opts||{};
     const cn=stripCastArticle(name);
     if(!cn||cn.length<2||cn.length>40)return false;
-    if(/^(INT|EXT|I\/E|INT\/EXT)\b/.test(cn))return false;
+    if(IU_NAME_RE.test(cn))return false;
     if(isLocationCaps(cn))return false;
     if(isLikelyPersonName(cn,{fromCue:!!opts.fromCue}))return true;
     if(isLikelyPersonName(cn,{fromCue:true}))return true;
@@ -292,7 +343,14 @@ window.SBParser = (function(){
     return isLikelyPersonName(cuePart,{fromCue:true});
   }
 
+  /* "CAR - DAY" is the tail of an "I/E. CAR - DAY" slugline, not a character.
+     The cue scanners in insertCueBreaks look for an ALL-CAPS run and the
+     slash in I/E is not in their character class, so they used to start the
+     run at the LOCATION and bite the second half of the heading off onto its
+     own line — the scene then had no slugline and no location at all. */
+  const SLUG_TOD_TAIL_RE=/[-—–]\s*(?:DAY|NIGHT|MORNING|AFTERNOON|EVENING|DUSK|DAWN|SUNSET|SUNRISE|CONTINUOUS|LATER|MOMENTS)(?:\s+LATER)?\s*$/i;
   function looksLikeCharCue(name){
+    if(SLUG_TOD_TAIL_RE.test(String(name||'')))return false;
     return isLikelyPersonName(name,{fromCue:true});
   }
 
@@ -383,10 +441,12 @@ window.SBParser = (function(){
 
   function splitSceneBlocks(t){
     return t
-      .replace(/\s+(?=(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s)/gi,'\n\n')
-      .replace(/((?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s+[^\n]{2,100}?[-—–]\s*(?:DAY|NIGHT|MORNING|EVENING|DUSK|DAWN|CONTINUOUS|LATER|MOMENTS))\s+(?=[A-Za-z])/gi,'$1\n\n')
-      .replace(/\s+(?=(?:FADE IN|FADE OUT|CUT TO|DISSOLVE TO|SMASH CUT)\b)/gi,'\n\n')
-      .replace(/\s+(\d+[A-Z]?\.)\s+(?=(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)\s)/gi,'\n\n$1\n');
+      /* number first, so the break lands BEFORE it and not between it and
+         the heading it numbers */
+      .replace(new RegExp(IU_NUM_BREAK_RE.source,'gi'),'\n\n$1 ')
+      .replace(new RegExp(IU_BREAK_RE.source,'gi'),'\n\n')
+      .replace(new RegExp(IU_SLUG_TAIL_RE.source,'gi'),'$1\n\n')
+      .replace(/\s+(?=(?:FADE IN|FADE OUT|CUT TO|DISSOLVE TO|SMASH CUT)\b)/gi,'\n\n');
   }
 
   /** Rebuild screenplay line breaks from flattened PDF / paste blobs. */
@@ -503,7 +563,7 @@ window.SBParser = (function(){
   function isClipReconstruction(text){
     if(!text||!String(text).trim())return false;
     const t=String(text);
-    const slugHits=(t.match(/(?:^|\s)(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim)||[]).length;
+    const slugHits=(t.match(new RegExp(IU_SCAN_RE.source,'gim'))||[]).length;
     const lineCount=countLines(t);
     const cueHits=countCueLines(t);
     if(slugHits>=1&&(lineCount>=8||cueHits>=3))return false;
@@ -564,7 +624,14 @@ window.SBParser = (function(){
       if(!t||isTr(t)){i++;continue}
       /* A bare number above a slugline IS that scene's number — it was
          skipped outright here, which discarded it a second time. */
-      if(isSceneNumberOnly(t)&&i+1<lines.length&&isSH(lines[i+1].trim())){pendingNum=t.replace(/\.$/,'').toUpperCase();i++;continue}
+      /* CScenes skips blank lines here (lib-scenes.js:261); requiring the
+         slugline on the very next line meant a normal blank line between the
+         number and its heading threw the number away again. */
+      if(isSceneNumberOnly(t)){
+        let j=i+1;
+        while(j<lines.length&&!lines[j].trim())j++;
+        if(j<lines.length&&isSH(lines[j].trim())){pendingNum=t.replace(/[.)]$/,'').toUpperCase();i++;continue}
+      }
       if(isSH(t)){cur=numberScene({heading:t,shots:[]},t);scenes.push(cur);seenFirstScene=true;i++;continue}
       pendingNum='';
       if(!seenFirstScene&&isTitlePageLine(t)){i++;continue}
