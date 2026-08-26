@@ -279,6 +279,19 @@ Cross-store checks performed: `SB_TakeLog_v1` is written only at
 `SB_DailiesPicks_v1` is written at `dailies/index.html:308` and read nowhere in
 the application. `SB_Locations_v1` (`production/production.js:128`) and
 `SB_ScoutBook_v1` (`locations/index.html:119`) are two independent location
-books. No file in the repo outside vendor bundles contains `AAF`, `OMF`, `iXML`,
-`BWF`, `ADR`, `foley`, `room tone` (outside the one column label), `jam sync`, or
-any RF/frequency-coordination term.
+books.
+
+Term searches across the whole repo (vendor bundles under `static/` and
+`node_modules/` excluded). Zero hits in application source: `AAF`, `OMF`,
+`iXML`, `BWF`, `broadcast wave`, `jam sync`, `ISO track`, `lavalier`, `radio
+mic`, `wireless mic`, `playback` (as a production term — the only matches are
+WebAudio's `playbackRate`), and every RF/frequency-coordination term.
+Single hits only: `boom` at `dailies/index.html:89`,
+`workflow/advisor.js:117`, `producer/budget-sheet.js:21`; `room tone` and
+`wild lines` at `production/production.js:202`; `foley` at
+`distribution/lib-dist.js:22` (inside the M&E deliverable label);
+`walkie` at `props/lib-props.js:101` (prop-category keyword),
+`safety/lib-safety.js:48` and `locations/lib-scout.js:516`.
+`ADR` appears only at `agents/client.js:61` as `adr-supervisor` in the LLM agent
+roster — a text-generation agent under a `voice-builder` manager, in a directory
+excluded from deploys, with no connection to any sound data model.
