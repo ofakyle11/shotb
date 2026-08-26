@@ -44,6 +44,14 @@ Tracked as tasks #56–62.
 15 stunts & safety · 16 VFX · 17 editorial & post · 18 music & sound post ·
 19 colour & finishing · 20 legal, distribution & festivals
 
+> **OUTSTANDING LAUNCH — do not lose this.** `teamA-20` (platform +
+> self-learning) bounced off the 20-agent cap and **has not run**. It is the
+> direct input to Phase 4, so launch it the moment a slot frees:
+> `Read /home/user/shotb/docs/audit/BRIEF.md, then your assignment at
+> /home/user/shotb/docs/audit/assignments/teamA-20.md. Do exactly what it says.
+> Read-only. Return at most 12 lines.`
+> Phase 1 is NOT complete until `docs/audit/teamA-20-missing-platform.md` exists.
+
 **Wave 2 status:** TEAM A DEVS **01-10 launched** (the "strengthen what exists"
 half) once crew slots freed — they read code directly and do not depend on the
 crew reports, so running them early saves hours of wall clock. **11-20 still to
