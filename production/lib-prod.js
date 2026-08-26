@@ -123,48 +123,23 @@
     return out.join('\n').trim();
   }
 
-  /* ── Music cue sheet from the Editor timeline ───────────────────── */
-  function tcOf(sec, fps) {
-    fps = fps || 24;
-    var f = Math.round(sec * fps), fr = f % fps;
-    var s = Math.floor(f / fps) % 60, m = Math.floor(f / fps / 60) % 60, h = Math.floor(f / fps / 3600);
-    var p = function (n) { return (n < 10 ? '0' : '') + n; };
-    return p(h) + ':' + p(m) + ':' + p(s) + ':' + p(fr);
-  }
-  function cueSheet(cutStore) {
-    var p = (cutStore && cutStore.project) || cutStore || {};
-    var fps = p.fps || 24;
-    return ((p.audio) || []).map(function (a, i) {
-      var dur = Math.max(0, (a.out - a.in) / (a.speed || 1));
-      return {
-        n: i + 1,
-        title: a.label || 'Cue ' + (i + 1),
-        tcIn: tcOf(a.start || 0, fps),
-        tcOut: tcOf((a.start || 0) + dur, fps),
-        durSec: Math.round(dur * 10) / 10,
-        use: 'BI',            // background instrumental — edit per cue
-        composer: '', publisher: '', society: ''
-      };
-    });
-  }
-  /* A cell that opens with = + - @ (or a tab or carriage return that scrolls
-     one into place) is a formula to Excel and Sheets, not text -- so a line
-     item typed on this site would run on the machine of whoever opens the
-     export. The leading apostrophe is what those programs read as "this is
-     literal", and they strip it on display. */
-  function csvCell(v) {
-    var s = String(v == null ? '' : v);
-    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
-    return '"' + s.replace(/"/g, '""') + '"';
-  }
+  /* ── Music cue sheet — MOVED to /music/ ───────────────────────────
+     cueSheet(), cueCsv() and tcOf() lived here and are gone. They emitted a
+     nine-column sheet with one composer and one publisher per cue and no
+     ISWC/ISRC, which no performing-rights society accepts, and the office
+     pane's CSV writer overwrote the duration this file had just computed with
+     an empty string. music/lib-music.js now owns the whole concept from the
+     same source — the Editor's audio track:
 
-  function cueCsv(cues) {
-    var rows = [['#', 'Cue title', 'TC in', 'TC out', 'Secs', 'Use', 'Composer', 'Publisher', 'Society']];
-    (cues || []).forEach(function (c) {
-      rows.push([c.n, c.title, c.tcIn, c.tcOut, c.durSec, c.use, c.composer, c.publisher, c.society]);
-    });
-    return rows.map(function (r) { return r.map(csvCell).join(','); }).join('\n');
-  }
+       CMusic.cuesFromCut(SB_Cut_v1)          real tcIn/tcOut AND durSec
+       CMusic.cueSheetRows/cueSheetCsv(cues)  PRO format, ISWC/ISRC, one line
+                                              per writer/publisher share
+       CMusic.cueSheetIssues(cues)            what a society would reject
+       CMusic.importCueRows(rows)             the old SB_CueSheet_v1 rows
+
+     SB_CueSheet_v1 is NOT deleted: it holds composer/publisher/society text
+     owners typed, and /music/'s "↧ Import the office cue register" button
+     brings it across. */
 
   /* ── Audition sides from the screenplay ───────────────────────────
      This split on /\n(?=(?:INT|EXT|...)[.\s])/ — no allowance for a scene
@@ -244,7 +219,6 @@
 
   root.CProd = {
     dpr: dpr, dprText: dprText,
-    cueSheet: cueSheet, cueCsv: cueCsv, tcOf: tcOf,
     sidesFor: sidesFor,
     RESIDUAL_RATES: RESIDUAL_RATES, residuals: residuals,
     deliveryTemplate: deliveryTemplate

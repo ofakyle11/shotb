@@ -61,10 +61,11 @@ function check(label, csv) {
 
 for (const f of ['js/lib-money-math.js', 'js/lib-money-accounts.js', 'js/lib-money-sheet.js',
                  'js/lib-scenes.js', 'js/lib-shootdays.js', 'finance/lib-money.js', 'production/lib-prod.js', 'boards/lib-shots.js',
+                 'music/lib-music.js',
                  'tools/tools-core.js', 'producer/budget-sheet.js']) {
   (0, eval)(readFileSync(join(ROOT, f), 'utf8'));
 }
-const { CMoney, CProd, CShots } = globalThis;
+const { CMoney, CShots, CMusic } = globalThis;
 
 /* ── the money room's cost report ─────────────────────────────────── */
 {
@@ -74,13 +75,18 @@ const { CMoney, CProd, CShots } = globalThis;
   check('CMoney.csv', CMoney.csv({ rows, totals: { budget: 0, actual: 0, committed: 0, etc: 0, efc: 0, variance: 0 } }));
 }
 
-/* ── the music cue sheet ──────────────────────────────────────────── */
+/* ── the music cue sheet ──────────────────────────────────────────────────
+   The cue sheet moved out of production/lib-prod.js (one composer, one
+   publisher, no ISWC) into music/lib-music.js, which emits the PRO format one
+   line per writer/publisher share. The injection check follows the writer. */
 {
-  const cues = ATTACKS.map((a, i) => ({
-    n: i + 1, title: a, tcIn: a, tcOut: a, durSec: 1,
-    use: a, composer: a, publisher: a, society: a,
+  const cues = ATTACKS.map((a) => CMusic.makeCue({
+    title: a, artist: a, use: 'featured', status: 'licensed',
+    tcIn: a, tcOut: a, durSec: 1, iswc: a, isrc: a, recordLabel: a,
+    writers: [{ name: a, role: 'C', pro: a, ipi: a, share: 100 }],
+    publishers: [{ name: a, pro: a, ipi: a, share: 100 }],
   }));
-  check('CProd.cueCsv', CProd.cueCsv(cues));
+  check('CMusic.cueSheetCsv', CMusic.cueSheetCsv(cues, { production: ATTACKS[0] }));
 }
 
 /* ── the shot list ────────────────────────────────────────────────── */

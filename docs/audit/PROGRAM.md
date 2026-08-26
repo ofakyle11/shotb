@@ -85,3 +85,31 @@ without the new prelude — including suites no team owns (T6's
 `scripts/test_scenes.mjs`). The collision matrix partitioned FILE ownership but
 not DEPENDENCY ownership. Fix centrally in one pass; do not let teams scatter
 preludes locally.
+
+
+---
+
+# LIVE STATUS (overnight, autonomous)
+
+Tree green: 55/55 suites, 32/32 pages, sinks exit 0, assurance exit 0.
+
+LANDED and committed: T1 optics (one sensor table; both contradictory lens pins
+moved together; CULL_FACE exposed an uncapped cylinder), T2 sun/timezone/power,
+T4 editor turnover (ftc, otio cursor, fps, edts/elst), T5 rights + the
+SB_Festivals_v1 data-loss migration, T8 payroll into the cost report, T9 post
+actuals, T10 story days + costume plot.
+
+RUNNING: T6 shoot-day join key (+ T5's cue-sheet handoff relayed to it),
+T3 CSP parity (gate.js holds a SECOND policy that is the one actually applied
+to every gated page — T2's weather fix does not reach production until this
+lands), T11 vault blobs (photos/scout/editor media never left the device),
+P3-T1a design tokens, P4-L3 bid-vs-final loop.
+
+QUEUED: T7 (needs T6's lib) · adversarial verifiers · rest of Phase 3 · Phase 4
+L1/L2/L4/L5 · Phase 5 landing · Phase 6 security (50) · Phase 7 manual (20).
+
+Findings surfaced by the build that the 40-agent audit MISSED:
+- SB_Festivals_v1: two writers, incompatible top-level types, silent data loss.
+- cylinderQuads had no bottom cap — every table and lamp an open shell.
+- The gate's CSP is a second copy; fixing _headers alone changes nothing.
+- The IndexedDB blindness covers THREE databases, not one.

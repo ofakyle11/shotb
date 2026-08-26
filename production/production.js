@@ -300,47 +300,31 @@
     }).render('prVfx');
   };
 
-  /* ── Cue sheet ──────────────────────────────────────────────────── */
+  /* ── Cue sheet — MOVED to /music/ ────────────────────────────────
+     This pane kept its own nine-column cue register and CSV writer: one
+     composer and one publisher per cue, no ISWC/ISRC, and a CSV writer that
+     replaced the duration the engine had just computed with an empty string.
+     No performing-rights society accepts that sheet. /music/ now owns the
+     concept end to end, from the same Editor audio track.
+
+     The rows are NOT deleted. SB_CueSheet_v1 holds composer, publisher and
+     society text that owners typed by hand, so it stays exactly where it is
+     and this pane points at the Music page's importer rather than migrating
+     behind the owner's back — the office register is legacy, not lost. */
   PANES.cues = function (pane) {
+    var legacy = readLS('SB_CueSheet_v1');
+    var n = Array.isArray(legacy) ? legacy.length : 0;
     pane.innerHTML = '<div class="pr-inline">' +
-      '<button class="tb-btn gold" id="prCueSeed">⚡ Pull cues from the Editor timeline</button>' +
-      '<button class="tb-btn" id="prCueCsv">⬇ Cue sheet CSV</button>' +
-      '<span class="ps-hint">PROs require a cue sheet for every broadcast — timings come straight from your cut\'s audio track</span></div>' +
-      '<div id="prCueReg"></div>';
-    var reg = new T.Register({
-      key: 'SB_CueSheet_v1', title: 'Cues',
-      fields: [
-        { id: 'title', label: 'Cue title', width: '20%' },
-        { id: 'tcIn', label: 'TC in', width: '12%' },
-        { id: 'tcOut', label: 'TC out', width: '12%' },
-        { id: 'use', label: 'Use', type: 'select', options: ['BI', 'BV', 'VI', 'VV', 'MT', 'ET'], width: '8%' },
-        { id: 'composer', label: 'Composer', width: '16%' },
-        { id: 'publisher', label: 'Publisher', width: '16%' },
-        { id: 'society', label: 'Society', width: '10%' }
-      ],
-      summary: function (rows) { return rows.length + ' cues · BI=background instr., VV=visual vocal, MT/ET=main & end title'; },
-      blank: function () { return { title: '', tcIn: '', tcOut: '', use: 'BI', composer: '', publisher: '', society: '' }; }
-    });
-    reg.render('prCueReg');
-    $('prCueSeed').addEventListener('click', function () {
-      var cues = P.cueSheet(readLS('SB_Cut_v1'));
-      if (!cues.length) return T.toast('No audio on the Editor timeline yet');
-      var have = {};
-      reg.rows.forEach(function (r) { have[r.title + r.tcIn] = 1; });
-      var added = 0;
-      cues.forEach(function (c) {
-        if (have[c.title + c.tcIn]) return;
-        reg.add({ title: c.title, tcIn: c.tcIn, tcOut: c.tcOut, use: c.use, composer: '', publisher: '', society: '' });
-        added++;
-      });
-      reg.render('prCueReg');
-      T.toast(added + ' cue' + (added === 1 ? '' : 's') + ' pulled from the cut');
-    });
-    $('prCueCsv').addEventListener('click', function () {
-      dl('cue-sheet.csv', P.cueCsv(reg.rows.map(function (r, i) {
-        return { n: i + 1, title: r.title, tcIn: r.tcIn, tcOut: r.tcOut, durSec: '', use: r.use, composer: r.composer, publisher: r.publisher, society: r.society };
-      })), 'text/csv');
-    });
+      '<a class="tb-btn gold" href="/music/">♪ Open the cue sheet in Music</a>' +
+      '<span class="ps-hint">PRO-format cue sheets — ISWC/ISRC, writer and publisher shares, one line per share</span></div>' +
+      '<div class="pr-report" style="margin:0 14px">' +
+      '<p>The cue sheet moved to the <a href="/music/" style="color:var(--gold)">Music</a> page. It pulls the same cues from the Editor\'s audio track, ' +
+      'with real durations, and it checks the sheet against what a society will actually accept before you send it.</p>' +
+      (n
+        ? '<p><b>' + esc(n) + ' cue' + (n === 1 ? '' : 's') + '</b> you typed here are still saved. Nothing has been deleted: open Music and press ' +
+          '<b>↧ Import the office cue register</b> to bring the composer, publisher and society you entered across.</p>'
+        : '<p>Nothing was ever entered in the office register, so there is nothing to bring across.</p>') +
+      '</div>';
   };
 
   /* ── Clearances ─────────────────────────────────────────────────── */
