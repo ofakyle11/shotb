@@ -479,7 +479,7 @@ every marketing asset with its metadata.
 
 **Where I looked.** `boards/boards.js:269-...` — key art is a single poster:
 one aspect, title / tagline / billing-block text / background, exported as one
-PNG one-sheet (`boards.js:413`). `SB_KeyArt_v1` holds
+PNG one-sheet at a fixed 1600×2400 (`boards.js:410-415`). `SB_KeyArt_v1` holds
 `{title, tag, credits, layout, bg}`. `distribution/lib-dist.js:28-30` lists
 "Key art (layered + flattened)" and "Unit stills (min 25, captioned)" as
 deliverables with nothing behind them.
@@ -509,8 +509,9 @@ metadata only, same no-blobs reasoning as gap 5.
 
 **Where I looked.** `contracts/lib-deal.js:33` — every cast deal carries a
 `credit` field defaulting to "Main titles, single card, position by mutual
-agreement", stored per deal in `SB_Contracts`/`store.deals`
-(`lib-deal.js:36-40`). `boards/index.html:72` — a free-text "Billing block"
+agreement", stored per deal in `store.deals` (`lib-deal.js:36-40`) — under the
+contested `SB_Deals_v1` key, so this gap is blocked on the shape bug above.
+`boards/index.html:72` — a free-text "Billing block"
 textarea the user retypes by hand into `SB_KeyArt_v1.credits`.
 `distribution/lib-dist.js:35` — "Final credits + paid-ad obligations" is a
 delivery item. Nothing connects the three. `billing block` → 1 hit, that
@@ -636,6 +637,10 @@ capability of its own.
 
 ## Ranked summary
 
+Fix first, before any of it: **the `SB_Deals_v1` shape collision**
+(`contracts/index.html:77` vs `tools/tools-registers.js:157`) — it is a live
+crash and a data-loss path, not a gap. Details in the section above.
+
 | # | Gap | Rank | Attaches to | New key | Size |
 |---|-----|------|-------------|---------|------|
 | 3 | Premiere-status conflict detection | HIGH | `festivals/lib-fest.js` | none | S-M |
@@ -680,7 +685,9 @@ Files read in full: `distribution/lib-dist.js` (117 lines),
 `tools/lib-script.js` (121), `tools/tools-registers.js` (177),
 `tools/tools-script-ui.js` (262), `producer/sales-forecast.js` (359).
 
-Files read in part: `production/lib-prod.js:70-182`,
+Files read in part: `contracts/index.html:77-100`, `tools/tools-core.js:14-22,
+60-72,105-115` (the two halves of the `SB_Deals_v1` collision),
+`production/lib-prod.js:70-182`,
 `festivals/index.html:150-272`, `workflow/workflow.js:120-240`,
 `workflow/advisor-ui.js:40-80`, `workflow/advisor.js:175-181`,
 `post/lib-post.js:200-262`, `finance/lib-money.js:1-70`,

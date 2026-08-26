@@ -686,3 +686,44 @@ missing. ~90 lines.
 This is the same shape as finding 35's siblings: a correct engine with no way to
 record what actually happened. Which is exactly what Phase 4's self-learning
 work needs — **you cannot learn from outcomes you never record.**
+
+## 36. TWO budget engines, 4.5× apart, and one of them is untested (teamA-04)
+
+The most consequential finding of the TEAM A sweep.
+
+- `dashboard.html:1832` loads `js/budget-engine.js`.
+- `producer/index.html:162` loads `timeline/timeline-budget.js`.
+- **1,038 of 1,082 lines are identical (95.9%)** — but only the timeline copy
+  has the documentary branch (`timeline-budget.js:541`).
+
+Same documentary project, measured: dashboard **$3,223,437** vs producer
+**$710,479**. A 4.5× disagreement between two screens of the same product.
+
+And the part that let it happen: **no test loads `js/budget-engine.js`.** Every
+suite evals the timeline copy. So the dashboard's engine — live, in front of the
+owner — can drift indefinitely while the suite reports 44/44 green.
+
+That is the third distinct failure mode in this codebase's assurance, and worth
+stating together:
+1. a test that builds its own fixture instead of the shape the app writes (12);
+2. two tests that each pin a different answer, enforcing a contradiction (23);
+3. **a whole 1,082-line engine that no test ever loads** (36).
+
+Canonical is `timeline-budget.js`. Delete the other and repoint the dashboard.
+
+**Two further money losses in the same path:**
+- `producer/budget-sheet.js:155` returns before the `SEED_MAP` lookup, so
+  `9900 · Stunts, SFX & special units` is **silently dropped — $203,500 on the
+  suite's own fixture** — and `SEED_MAP['9900']` at `:36` is dead code.
+- `js/budget-engine.js:685` labels the fringe line with no account prefix, so
+  the regex at `:152` fails and **$397k–$709k of payroll fringes lands in 18000
+  General Expenses**, pushing it to 7.5% against its own 2–7% NORMS band. A
+  freshly-seeded sheet therefore carries **12 self-inflicted norm flags** — the
+  platform flags its own arithmetic as suspicious and blames the user's budget.
+
+Round trip measured: estimator $6,486,336 → sheet $6,304,846.
+
+Also HIGH: `driver_load` is capped at 1.59 while `docs/PRODUCTION_PRICING.md`
+§2.6 shows it uncapped; auto-schedule never reads `sc.cast`, so it cannot
+minimise the hold days the DOOD already computes; and hold days are displayed
+but never priced.
