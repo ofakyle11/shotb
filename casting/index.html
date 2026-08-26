@@ -351,6 +351,24 @@
     if (!(amount > 0)) return toast('Enter a numeric rate first — the Money Room needs an amount');
     var actor = $('coOffActor').value || '(performer)';
     var role = $('coOffRole').value || '(role)';
+
+    /* One offer, one purchase order. This had no guard, so every click raised
+       another PO: two clicks double-committed the cast budget, three tripled
+       it, and nothing on the cost report said the money was the same offer
+       counted twice. contracts/index.html has always guarded its own commit
+       with `!d.committedPo`; this is the same idea keyed on the offer, since
+       the offer form has no record id of its own.
+
+       Re-committing is still possible — a rate genuinely changes — but it is a
+       decision now rather than a slip, and the previous PO is named so the
+       operator can void it instead of leaving two open against one performer. */
+    var offerKey = (actor + '|' + role + '|' + amount).toLowerCase();
+    if (st.offer && st.offer.committedKey === offerKey) {
+      if (!confirm('This offer is already committed as ' + (st.offer.committedPo || 'a purchase order') +
+                   '.\n\nRaise a SECOND purchase order for the same performer, role and rate?\n\n' +
+                   'If the rate changed, void the earlier PO in the Money Room first — two open POs ' +
+                   'against one performer will both count against the cast account.')) return;
+    }
     var money = JSON.parse(localStorage.getItem('SB_Money_v1') || 'null') || CMoney.blank();
     /* Cast is 4000 in the chart (js/lib-money-accounts.js). This used to commit
        to 1400, an account that does not exist anywhere in the platform, so
@@ -360,6 +378,8 @@
     var po = CMoney.addPO(money, { vendor: actor, desc: 'Cast offer — ' + role + ' (' + ($('coOffUnit').value === 'daily' ? 'daily' : 'weekly') + ' rate)',
       acct: acct, amount: amount, date: new Date().toISOString().slice(0, 10) });
     localStorage.setItem('SB_Money_v1', JSON.stringify(money));
+    /* Remember what was committed, so the guard above can recognise a repeat. */
+    if (st.offer) { st.offer.committedKey = offerKey; st.offer.committedPo = po.num; save(); }
     toast(po.num + ' committed — $' + amount.toLocaleString() + ' to ' + actor + ' on acct ' + acct + ' (' + CAccounts.name(acct) + ')');
   });
 

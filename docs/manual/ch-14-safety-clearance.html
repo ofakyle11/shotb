@@ -15,15 +15,16 @@ this chapter and the running code disagree, the code is what runs.</div>
 <div class="note"><strong>None of this is legal advice, and the platform says so
 itself.</strong> <span class="path">production/lib-prod.js</span> states in its
 own header that its rates and lists "follow widely published conventions and are
-estimates, not legal or accounting advice", and the same standard governs this
-whole slice. A clearance report is a prompt for counsel, not a substitute for
-one. An E&amp;O readiness banner is a checklist the production filled in about
-itself — not a policy, and not an underwriter's opinion. A deal memo is a
-plain-language template, and <span class="path">contracts/lib-deal.js</span> says
-counsel reviews it <em>before</em> signature. Every rate here is an editable
-planning figure. If you are about to shoot a stunt, licence a song, or ask
-someone to sign something, these pages are where that conversation begins, not
-where it ends.</div>
+estimates, not legal or accounting advice". The three modules in this chapter
+say the same thing in their own words: the safety page tells you to confirm real
+rates with the police service and calls its animal figures planning estimates;
+<span class="path">contracts/lib-deal.js</span> says counsel reviews the memo
+<em>before</em> signature. A clearance report is a prompt for counsel, not a
+substitute for one, and an E&amp;O readiness banner is a checklist the
+production filled in about itself — not a policy, and not an underwriter's
+opinion. If you are about to shoot a stunt, licence a song, or ask someone to
+sign something, these pages are where that conversation begins, not where it
+ends.</div>
 
 <h2>Where hazards come from</h2>
 
@@ -84,16 +85,16 @@ textarea is writable, but re-running <em>Assess the script</em> replaces its
 contents — and so does typing in <em>Prepared by</em>, which re-runs the
 assessment on every keystroke. Set the name first, then edit, then copy out.</div>
 
-<h2>Officers, and animals</h2>
+<h2>Officers, animals and the day</h2>
 
 <p>Section 3 names which scenes need police — an exterior driving scene, weapons
-visible in a public exterior, any crowd scene, street stunts — and prices them at
-officers &times; hours &times; rate &times; days plus admin, defaulting to a
-four-hour minimum call, $90 an hour and 10% admin over a caption telling you to
-confirm real rates with the service. Its directory of <strong>twelve production
-hubs</strong> refuses to invent contact details: only Toronto carries a request
-page, the rest name the service and its program with no URL at all, and an
-unknown city returns nothing rather than a guess.</p>
+visible in a public exterior, any crowd scene, street stunts — and prices the
+booking at officers &times; hours &times; rate &times; days plus admin,
+defaulting to a four-hour minimum call, $90 an hour and 10% admin over a caption
+telling you to confirm real rates with the service. Its directory of
+<strong>twelve production hubs</strong> refuses to invent contact details: only
+Toronto carries a request page, the rest name the service and its program with
+no URL at all, and an unknown city returns nothing rather than a guess.</p>
 
 <p>Section 3b covers animals, costing seven species bands at the midpoint of a
 day-rate range plus a wrangler across shoot <em>and</em> prep days. Exotic and
@@ -138,9 +139,9 @@ finding, each with a risk tier and the standard action:</p>
   <tr><td>Signage</td><td>low</td><td>Verify fictional or greeked; clear any real storefront mark</td></tr>
 </table>
 
-<p>Phone numbers are the one detector that filters itself: a 555 number is not
-reported, everything else is. Each finding carries its scene, an excerpt, and a
-status you set — <code>pending</code>, <code>cleared</code>,
+<p>Phone numbers are the one detector that filters itself: any number containing
+555 is passed over, everything else is reported. Each finding carries its scene,
+an excerpt, and a status you set — <code>pending</code>, <code>cleared</code>,
 <code>rewritten</code> or <code>accepted risk</code>. Re-scanning after a
 rewrite preserves statuses already set against a matching category, scene and
 term.</p>
@@ -159,29 +160,30 @@ deliberately.</strong></p>
 
 <h2>E&amp;O readiness, and what it is not</h2>
 
-<p>The banner above the findings answers one question. The source is blunt about
-why its rule is strict — "E&amp;O-ready is a representation made to an insurer"
-— and about having twice shipped green when it should not have. As now
-implemented, <strong>ready means every script finding is cleared or rewritten,
-and each of four files has been read and says yes</strong>: the clearance scan
-itself, the chain of title in <code>SB_Rights_v1</code>, the cue sheet in
-<code>SB_Music_v1</code>, and the E&amp;O certificate in
-<code>SB_Insurance_v1</code>. Anything else is a blocker with a name.</p>
+<p>The banner above the findings answers one question: is this file fit to go to
+an underwriter? The source is blunt about why its rule is strict — "E&amp;O-ready
+is a representation made to an insurer" — and about having twice shipped green
+when it should not have. As now implemented, <strong>ready means every script
+finding is cleared or rewritten, and each of four files has been read and says
+yes</strong>: the clearance scan itself, the chain of title in
+<code>SB_Rights_v1</code>, the cue sheet in <code>SB_Music_v1</code>, and the
+E&amp;O certificate in <code>SB_Insurance_v1</code>. Anything else is a blocker
+with a name.</p>
 
-<p>Three consequences before you argue with the banner. <em>Accepted risk</em>
-is a decision to carry a finding, not to clear it: it blocks readiness and is
-listed separately under "disclose on the application", because the underwriter
-decides, not the production. An <em>unknown</em> is a blocker in its own right —
-a store nobody opened, a policy row missing carrier, number or expiry, a scan
-that never ran — on the stated principle that absence of evidence is not
-clearance, and that a blank expiry is not a policy that never expires. And zero
-findings is a clean read only if a scan is on record. The chain of title needs
-one executed underlying-rights agreement: an option, a purchase, life rights or
-a writer agreement. Cues licensed for festivals only pass as a disclosure with a
-reminder to exercise the step-up before delivery, and a picture with no
-third-party music can say so on the record in Music.
-<span class="path">scripts/test_ops_rights.mjs</span> pins that rule against the
-exact states which once reported ready.</p>
+<p>Three things to know before you argue with that banner.
+<em>Accepted risk</em> is a decision to carry a finding, not to clear it: it
+blocks readiness and is listed separately under "disclose on the application",
+because the underwriter decides, not the production. An <em>unknown</em> is a
+blocker in its own right — a store nobody opened, a policy row missing carrier,
+number or expiry, a scan that never ran — on the stated principle that absence
+of evidence is not clearance, and that a blank expiry is not a policy that never
+expires. And zero findings is a clean read only if a scan is on record. Beyond
+the findings, the chain of title needs one executed underlying-rights agreement
+— an option, a purchase, life rights or a writer agreement — while cues licensed
+for festivals only pass as a disclosure with a reminder to exercise the step-up
+before delivery, and a picture with no third-party music can say so on the
+record in Music. <span class="path">scripts/test_ops_rights.mjs</span> pins the
+rule against the exact states which once reported ready.</p>
 
 <div class="note"><strong>A gap between the page and the engine.</strong> The
 engine deliberately distinguishes "read and empty" from "never read". The page,
