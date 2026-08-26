@@ -7,19 +7,19 @@ a city office decides whether the street is yours at all. The Scout Book at
 <span class="path">/locations/</span> is where that becomes a record.</p>
 
 <div class="note"><strong>How this chapter was written.</strong> By reading the
-files, not by using the screens. Cinamate is still being built; wherever this page
-and the running software disagree, believe the software and treat the paragraph
-below as stale.</div>
+files, not by using the screens. Cinamate is still being built; wherever a screen
+and a sentence below it disagree, the screen is what runs and this page is out of
+date.</div>
 
 <h2>The location bible</h2>
 
 <p>The page is <span class="path">locations/index.html</span>; its arithmetic and
 its directories are <span class="path">locations/lib-scout.js</span>, which exports
 <code>CScout</code>. Everything typed is written to one localStorage key,
-<code>SB_ScoutBook_v1</code>, on every change — there is no save button. That object
-holds the locations, the hub picked in each directory, the last sun query and the
-checklist ticks. A record is built by <code>blankLocation()</code>; no field is
-mandatory, and an empty one stays empty rather than being guessed at.</p>
+<code>SB_ScoutBook_v1</code>, on every change — there is no save button. It holds the
+locations, the hub picked in each directory, the last sun query and the checklist
+ticks. A record comes from <code>blankLocation()</code>; no field is mandatory, and
+an empty one stays empty rather than being guessed at.</p>
 
 <table>
 <tr><th>Group</th><th>Fields</th></tr>
@@ -68,8 +68,8 @@ id goes into the location record, so record and image travel separately.</p>
 <p>When they have separated, the page says so: a photo id whose bytes are not in
 this browser becomes a dashed <strong>⚠ photo missing</strong> tile naming that id,
 and the strip gains a line telling you to restore from a backup carrying media. It
-does not quietly drop the image — that behaviour once made a scout book which had
-lost every photograph look like one never photographed.</p>
+does not quietly drop the image; that behaviour once made a scout book that had lost
+every photograph look like one that was never photographed.</p>
 
 <div class="note"><strong>Scout photographs are other people's property, and they
 travel.</strong> These are interiors of real premises — very often private homes
@@ -102,8 +102,9 @@ not record that noise was checked anywhere in particular.</p>
 amperage out of the scouted note (<em>100A</em>, <em>200 amp 3-phase</em>, <em>2 x
 20A</em>) and returns nothing at all when the note holds no number, and
 <code>powerDemand()</code> puts the card's fixture order against that supply as amps
-per leg, verdict <em>ok</em> to <em>over</em> against the 80% continuous-load
-ceiling. An unparseable note is an unknown supply, never a safe one.</p>
+per leg, returning <em>ok</em>, <em>tight</em>, <em>derate</em>, <em>over</em> or
+<em>unknown</em> against the 80% continuous-load ceiling. An unparseable note is an
+unknown supply, never a safe one.</p>
 
 <h2>The permit directory</h2>
 
@@ -209,11 +210,10 @@ the location's own offset and 02:28 in UTC.</div>
 <strong>latitude and longitude</strong>, a start and end date,
 <code>timezone=auto</code>, and a fixed list of daily variables: weather code,
 maximum and minimum temperature, maximum precipitation probability, maximum
-10&nbsp;m wind speed. No key, no account, no production name; your browser calls
-that host directly, which is why <code>https://api.open-meteo.com</code> appears in
-the <code>connect-src</code> directive of <span class="path">_headers</span>. A
-coordinate pair for a private house is still a disclosure, and it is worth knowing
-you are making it.</p>
+10&nbsp;m wind speed. No key, no account, no production name; your browser calls that
+host directly, which is why <code>https://api.open-meteo.com</code> appears in the
+<code>connect-src</code> directive of <span class="path">_headers</span>. A
+coordinate pair for a private house is still a disclosure.</p>
 
 <p>Be precise about where it is made, because it is not this page. The Scout Book
 loads <span class="path">lib-sun.js</span> but never calls <code>weatherUrl</code>:
@@ -223,6 +223,6 @@ in the Producer Suite — the day planner in
 <span class="path">/producer/</span>, and the call-sheet forecast line. Both take
 their pin from <code>SB_ShootPlan_v1</code>, a separate coordinate entered there, and
 both capture <code>utc_offset_seconds</code> from the reply as that plan's civil
-offset — which Scout Book records never receive. A blocked or failed request is
+offset, which Scout Book records never receive. A blocked or failed request is
 reported as a failure: it may not look like a clear day, nor like a date beyond the
 forecast window.</p>
