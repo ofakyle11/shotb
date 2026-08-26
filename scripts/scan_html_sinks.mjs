@@ -14,7 +14,7 @@
  *   node scripts/scan_html_sinks.mjs            # report
  *   node scripts/scan_html_sinks.mjs --check    # exit 1 if anything is unlisted
  */
-import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
+import { readFileSync, readdirSync, statSync, existsSync, writeFileSync } from 'fs';
 import { dirname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -214,16 +214,59 @@ function record(file, line, expr, ctx) {
 }
 
 /* Reviewed and accepted: each of these was read and is safe for the stated
-   reason. Anything NOT here is unreviewed and fails --check. */
+   reason. Anything NOT here is unreviewed and fails --check.
+ *
+ * Each entry records HOW MANY occurrences were reviewed, not merely that the
+ * expression was seen once. The key is file + expression, and with no count a
+ * second, third or tenth `${row.name}` added later to the same file was
+ * covered by the review of the first — two genuinely new sinks were planted
+ * in this repository and absorbed in exactly that way, reported as nothing.
+ * Line numbers cannot be the key instead: every insertion above a sink would
+ * invalidate it and the list would be noise within a week. A count moves only
+ * when the number of sinks moves, which is the thing worth noticing.
+ *
+ * Entry shape: { "n": 2, "why": "..." }. A bare string is the old shape and
+ * is treated as n = 1, so an un-migrated entry fails closed rather than open.
+ * Run with --migrate to rewrite the file with today's counts. */
 const ALLOW_FILE = join(ROOT, 'scripts', 'html_sinks_allow.json');
 const allow = existsSync(ALLOW_FILE) ? JSON.parse(readFileSync(ALLOW_FILE, 'utf8')) : {};
 const keyOf = (h) => h.file + '::' + h.expr;
+const allowedCount = (key) => {
+  const e = allow[key];
+  if (e == null) return 0;
+  if (typeof e === 'string') return 1;
+  return typeof e.n === 'number' && e.n >= 0 ? e.n : 0;
+};
 
 /* `--only a/b.js,c/d.html` narrows the report to one worker's files. */
 const onlyArg = process.argv.find((a) => a.startsWith('--only='));
 const only = onlyArg ? new Set(onlyArg.slice(7).split(',').map((s) => s.trim()).filter(Boolean)) : null;
 
-const unlisted = hits.filter((h) => !allow[keyOf(h)]).filter((h) => !only || only.has(h.file));
+if (process.argv.includes('--migrate')) {
+  const counts = {};
+  for (const h of hits) counts[keyOf(h)] = (counts[keyOf(h)] || 0) + 1;
+  const out = {};
+  for (const key of Object.keys(allow).sort()) {
+    const e = allow[key];
+    const why = typeof e === 'string' ? e : (e && e.why) || '';
+    /* An entry whose sinks have since gone keeps n from its old shape rather
+       than dropping to zero, so removing code cannot quietly widen anything. */
+    out[key] = { n: counts[key] || 0, why };
+  }
+  writeFileSync(ALLOW_FILE, JSON.stringify(out, null, 1) + '\n');
+  console.log(`migrated ${Object.keys(out).length} entries to counted form`);
+  process.exit(0);
+}
+
+/* Occurrences beyond the reviewed count are the unreviewed ones. Ordering by
+   line makes "the extra one" the last, which is usually the newly added
+   sink — and always, at minimum, points at one that nobody has read. */
+const seen = {};
+const unlisted = hits.filter((h) => {
+  const key = keyOf(h);
+  seen[key] = (seen[key] || 0) + 1;
+  return seen[key] > allowedCount(key);
+}).filter((h) => !only || only.has(h.file));
 const byFile = {};
 for (const h of unlisted) (byFile[h.file] = byFile[h.file] || []).push(h);
 
