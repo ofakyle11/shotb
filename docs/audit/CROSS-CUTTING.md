@@ -836,3 +836,66 @@ NOAA), `TMoney.timecard`'s overtime engine, the Editor's ripple timeline maths
 and its hand-written spec-correct ISO-BMFF muxer, `CCastDesk.charactersFromScript`,
 `sets/lib-set3d.js`'s ray/triangle intersection, and the props directory's
 refusal to invent a phone number — with a test that enforces it.
+
+## 42. The money is wrong in three independent ways, and no test uses cents (teamA-08)
+
+All three reproduced by running the shipped code.
+
+**a. The cost report TOTAL does not foot, and the error scales.**
+`finance/lib-money.js:89` rounds per-row `efc`/`variance` but sums
+`budget/actual/committed/etc` raw, so `totals.efc` is Σround(row) while the rest
+are raw sums. Three accounts at $100.50 shows Actual $302, EFC $303. At 240
+accounts × $12,345.67: displayed EFC **$2,963,040** vs true **$2,962,961** —
+**$79 of phantom cost on the report that goes weekly to the studio and the
+completion bond.** The CSV then ships raw floats: `15924.599999999999`.
+
+**b. Tax credits are understated by 25–55%.** `taxcredit/lib-taxcred.js:116`
+applies `qualPct` **twice** — it is documented as a whole-budget haircut but is
+multiplied against spend that `isQualified()` already filtered with the same
+exemption list. $2M tagged qualified in Georgia: should be $500k, module says
+$375k. British Columbia: $720k vs $324k — **$396k understated**. ~6-line fix.
+
+**c. Signed deals commit 25–35% light, and label illegal rates as compliant.**
+`contracts/lib-deal.js:54` omits fringes and OT: a SAG day player at $1,204 owes
+~$1,541 before OT; the Money Room commits $1,204. Per diem is multiplied by
+`guaranteed` in rate-basis units, so a weekly deal commits $120 instead of $600.
+And `:78` uses `<=`, so **a $600/day SAG deal — half of scale — prints
+"(scale)"**. That is not a rounding error; it is the tool telling a producer an
+illegal rate is compliant.
+
+### Why none of it was caught: no test uses cents
+
+Outside `scripts/test_investors.mjs`, **no test in the entire money-and-rights
+slice uses a money value with cents.** Every fixture is a round number, so every
+rounding and float defect is invisible by construction.
+
+And `scripts/test_taxcredit.mjs:81` **pins the double-application as spec** —
+the second instance of a test enforcing a bug, after the lens contradiction
+(finding 23).
+
+## 43. The four ways this codebase's tests fail, in one place
+
+Phase 1 found four distinct assurance failure modes. They matter more than any
+individual bug, because each one let a whole class of defects live behind a
+green suite.
+
+| # | Mode | Instance |
+|---|---|---|
+| 1 | Fixture invents a shape no writer produces | `test_modules.mjs:96` — `printedCount` permanently 0 (finding 12) |
+| 2 | Two tests each pin a different answer, enforcing a contradiction | `test_set.mjs:39` vs `test_set3d.mjs:136` — the lens (finding 23) |
+| 3 | A whole live engine that no test ever loads | `js/budget-engine.js`, 1,082 lines, on the dashboard (finding 36) |
+| 4 | Fixtures avoid the input class where the bug lives | no cents anywhere in the money slice (finding 42); `test_taxcredit.mjs:81` pins the bug as spec |
+
+**Phase 2 must fix the tests as deliberately as the code.** Specifically: one
+round-trip assertion per store that the writer's shape satisfies the reader's;
+cents and A-scenes in every relevant fixture; a check that every shipped `.js`
+is loaded by at least one suite; and, where two implementations exist, one test
+asserting they agree — before deleting one of them.
+
+### Quantified duplication (teamA-08)
+
+**~28% of the 1,299 lib lines across the eight money-and-rights modules is
+genuinely distinct logic.** 8/8 pages redefine identical `$/esc/readLS/save/
+toast` (`esc()` appears in **38 files** repo-wide), 5/8 mint their own `uid()`,
+4/8 repeat the same delete idiom verbatim, and 26 hand-rolled table renders span
+the eight modules.
