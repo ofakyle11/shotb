@@ -5,9 +5,9 @@
 with something else already in your hands. Three pages carry the shooting day:
 <span class="path">/dailies/</span> logs the takes,
 <span class="path">/today/</span> is the day in your pocket, and
-<span class="path">/production/</span> turns both into paperwork. Between them
-they hold the only record of what the day actually did — a different document
-from the one that said what it would do.</p>
+<span class="path">/production/</span> turns both into paperwork — the only
+record of what the day actually did, which is a different document from the one
+that said what it would do.</p>
 
 <div class="note"><strong>On the accuracy of this chapter.</strong> It was
 written by reading Cinamate's source, not by working a shooting day with it. The
@@ -72,17 +72,15 @@ once, so every consumer gets one answer. <strong><code>Good</code> is not a
 circle</strong>: the grade list offers both, so an AD who chose <em>Good</em>
 chose it on purpose. Section 5 gives the circle rate overall and per day, and
 <strong>Send picks to Editor</strong> writes the circled takes to
-<code>SB_DailiesPicks_v1</code> as a pull list, replacing whatever was there — a
-list that prints its own caveat, that circles are the director's on-set
-preference and the cut is not bound by them.</p>
+<code>SB_DailiesPicks_v1</code> as a pull list, replacing whatever was there.</p>
 
 <h3>Two logs, two clocks</h3>
 
-<p>When the local and UTC dates differ — west of Greenwich, most of the evening —
-<span class="path">/dailies/</span> says so in as many words. This page stamps a
-take with the local date; <span class="path">tools/tools-core.js</span> stamps
-<code>SB_TakeLog_v1</code> in UTC, so takes logged on the phone slate during those
-hours file under tomorrow and will not join tonight's day. Until the two writers
+<p>This page stamps a take with the local date;
+<span class="path">tools/tools-core.js</span> stamps <code>SB_TakeLog_v1</code> in
+UTC. When the two dates differ — west of Greenwich, most of the evening — takes
+logged on the phone slate file under tomorrow and will not join tonight's day.
+<span class="path">/dailies/</span> prints a warning saying so; until the writers
 agree, log late takes here.</p>
 
 <h2>Scheduled and not shot</h2>
@@ -97,10 +95,10 @@ browser, and names whichever is missing.</p>
 date has passed; a scene scheduled for next Tuesday is not a gap. Results are
 separated by kind, because they are different facts: scheduled and never shot
 anywhere, with the outstanding pages in eighths; missed on the day and picked up
-since; shot on a day it was not scheduled for; takes logged against a scene number
-the screenplay does not contain; strips matching no scene at all, whose coverage
-cannot be checked; and scenes on no strip anywhere. <strong>Copy the gap
-list</strong> puts all of it on the clipboard for the production report.</p>
+since; shot on a day it was not scheduled for; and the joins that failed —
+strips matching no scene, takes against a scene number the screenplay lacks,
+scenes on no strip at all. <strong>Copy the gap list</strong> puts all of it on
+the clipboard for the production report.</p>
 
 <h2>Calling the wrap</h2>
 
@@ -119,10 +117,10 @@ asks first, names the day it is about to wrap, and is reversible through the sam
 call — a day wrapped by mistake would otherwise teach the schedule a pace nobody
 worked. Two things established by reading: this page is the <strong>only</strong>
 place in the shipped tree that sets the flag, and
-<span class="path">scripts/test_wrapgate.mjs</span> exists to fail the build if
-that stops being true; and the stripboard <em>displays</em> a
-<code>WRAPPED</code> chip but does not toggle one, having no handler for it
-whatever its own comment says. Wrap the day on set, on the day.</p>
+<span class="path">scripts/test_wrapgate.mjs</span> fails the build if that stops
+being true; and the stripboard <em>displays</em> a <code>WRAPPED</code> chip but
+does not toggle one, whatever its own comment says. Wrap the day on set, on the
+day.</p>
 
 <div class="note"><strong>The wrap button only offers days the stripboard
 knows.</strong> <span class="path">/today/</span> builds its day selector from the
@@ -139,12 +137,12 @@ wrapped, headed <code>NOT TODAY</code> so the two cannot be confused. A wrapped
 day is headed <code>WRAPPED</code>.</p>
 
 <p>The sheet carries the production name; the call time typed on the stripboard's
-call-sheet panel; day number, weekday and date; the unit where it is not the main
-one; the page total in eighths; the day's scenes with day/night and page count;
-the cast working; the sets parsed from the sluglines; the nearest hospital from
-the Scout Book; the safety checklist for today's scene numbers; and the call
-sheet's notes. Where the hospital is not on file it says so and points at the
-Scout Book, because it belongs on every call sheet.</p>
+call-sheet panel; day number, weekday, date and unit; the page total in eighths;
+the day's scenes with day/night and page count; the cast working; the sets parsed
+from the sluglines; the nearest hospital from the Scout Book; the safety checklist
+for today's scene numbers; and the call sheet's notes. Where the hospital is not
+on file it says so and points at the Scout Book, because it belongs on every call
+sheet.</p>
 
 <h2>The daily production report</h2>
 
@@ -158,19 +156,17 @@ shot by number, every scene covered, the take count with the circled count besid
 it, the crew timecard count and hot costs. <strong>🖨 Print</strong> and
 <strong>⬇ .txt</strong> are the outputs.</p>
 
-<p>Two figures on it are wider than the day, and are labelled by their wording
-rather than by their arithmetic: hot costs are every posting to date, not the
-day's, and while timecards are filtered to the date, one carrying <em>no</em> date
-is counted on every report you build. Where the take logs hold undated takes, the
-report prints the count and tells you to date them.</p>
+<p>Two figures are wider than the day, and say so in their wording rather than in
+their arithmetic: hot costs are every posting to date, and a timecard carrying
+<em>no</em> date is counted on every report you build. Where the take logs hold
+undated takes, the report prints the count and tells you to date them.</p>
 
 <h2>Continuity, camera and sound</h2>
 
 <p>The Continuity pane keeps one row per scene and setup in
 <code>SB_Continuity_v1</code> — circled take, screen direction, wardrobe and
-props, matching notes. The Camera and Sound panes keep the classic per-roll
-registers: roll, scene, lens, stop and filter on one side; roll, scene, timecode,
-mics and notes for wild lines and room tone on the other.
+props, matching notes. Beside it the Camera and Sound panes keep the classic
+per-roll registers, down to lens, stop, filter, timecode and mics.
 <span class="path">/dailies/</span> also exports a camera report and a sound
 report for any one day, columned like the paper ones with circled takes marked ●.
 Both print the same caution: cross-check them against the camera assistant's and
@@ -178,15 +174,16 @@ the sound mixer's own sheets before lab or DIT turnover.</p>
 
 <h2>Cards and footage</h2>
 
-<p>Footage is described here, never held here. A take records its camera, lens,
-sound roll and TC in; the registers record the roll. The one place the platform
-touches media itself is Tools → <strong>Offload Verification</strong>: pick a
-card's files and each is SHA-256 hashed in this browser, producing a manifest to
-keep with the media. Load that manifest later, re-pick the copied files, and each
-comes back ok, changed, missing or extra — a clean result reported as bit-perfect.
-Nothing is uploaded; the hashing happens on the device. The manifest is Cinamate's
-own XML, rooted at <code>&lt;cinamatemanifest&gt;</code>: MHL-shaped, but not an
-ASC MHL file, so do not hand it to a DIT expecting their tool to read it.</p>
+<p>Footage is described here, never held here: a take records its camera, lens,
+sound roll and TC in, and the registers record the roll. The one place the
+platform touches media itself is Tools → <strong>Offload Verification</strong>.
+Pick a card's files and each is SHA-256 hashed in this browser, producing a
+manifest to keep with the media; load that manifest later, re-pick the copied
+files, and each comes back ok, changed, missing or extra — a clean result reported
+as bit-perfect. Nothing is uploaded; the hashing happens on the device. The
+manifest is Cinamate's own XML, rooted at <code>&lt;cinamatemanifest&gt;</code>:
+MHL-shaped, but not an ASC MHL file, so do not hand it to a DIT expecting their
+tool to read it.</p>
 
 <h2>Sides</h2>
 
@@ -197,9 +194,12 @@ character's dialogue, and all the action — for each scene selected. Nothing is
 withheld or blacked out. The Casting Office
 (<span class="path">casting/lib-castdesk.js</span>) selects the scenes in which
 the character actually speaks; the Production Office
-(<span class="path">production/lib-prod.js</span>) selects scenes whose text
-merely <em>contains</em> the character's name anywhere, as a plain uppercase
-substring, so a scene that only mentions the name is included in full. The file
+(<span class="path">production/lib-prod.js</span>) selects scenes the character
+<em>appears in</em> — speaking, or named in an action line — because an actor who
+crosses a room with no dialogue is still called that day and still needs the
+pages. The two builders answer deliberately different questions, and both match
+whole words only: a character called AL is not pulled into every scene
+containing CALL. The file
 that comes out of <strong>⬇ .txt</strong> is an unreleased extract of the
 screenplay: sent unedited to a performer's representative, it sends those pages in
 full. Cut what the room should not see before it leaves your hands — as the

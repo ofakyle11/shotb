@@ -3,9 +3,9 @@
 
 <p class="lede">A broken-down script is a list of obligations. This chapter is
 about turning that list into a number a financier will read, and then getting
-the work back out of Cinamate in a shape another machine will accept. Both
-halves are arithmetic performed on what Chapter 05 produced; neither invents
-anything the script did not already say.</p>
+the work back out in a shape another machine will accept. Both halves are
+arithmetic on what Chapter 05 produced; neither invents anything the script did
+not already say.</p>
 
 <div class="note"><strong>How this chapter was written.</strong> Every statement
 below was established by reading the source files it names — no part of the
@@ -19,11 +19,11 @@ in front of you says something different from this page, believe the software.</
 disclosure) is drawn by <span class="path">timeline/timeline-budget.js</span>,
 which exposes itself as <code>SBBudget</code>. It answers two questions from the
 same parsed script: what the AI rough-draft preview will bill and how long that
-render run takes, and what the same script would cost to shoot for real as a
-tiered line-item budget with a shoot-day schedule attached. Your tier selections
-persist under the storage key <code>SB_Budget_v1</code>. The panel recomputes
-only when script length, clip count, character count, location-bible length,
-model, quality or clip duration changed, and skips the work while it is closed.</p>
+run takes, and what the script would cost to shoot for real as a tiered
+line-item budget with a shoot-day schedule attached. Tier selections persist
+under the storage key <code>SB_Budget_v1</code>, and the panel recomputes only
+when the script, clips, characters, locations, model, quality or clip duration
+changed.</p>
 
 <h2>The measurement pass</h2>
 
@@ -75,10 +75,10 @@ increments for stunts, pyro, water and crowds, plus a flat ten per cent when the
 VFX tier is heavy or above. The floor is five days. Prep is 1.1 times the shoot
 in weeks (1.6 on crews of 110 or more, minimum two); post is 2.4 times the shoot
 plus eight weeks for moderate VFX or sixteen for heavy, minimum eight. The week
-is five days unless you say otherwise; six- and seven-day weeks take their
-premium from <code>TMoney.TC_DEFAULTS</code> in
-<span class="path">tools/lib-money.js</span>, and if that file is absent the
-premium is reported unavailable rather than quietly applied as 1×.</p>
+is five days unless you say otherwise; six- and seven-day premiums come from
+<code>TMoney.TC_DEFAULTS</code> in
+<span class="path">tools/lib-money.js</span>, and are reported unavailable
+rather than quietly applied as 1× when that file is absent.</p>
 
 <h3>Cast weeks, drops and pick-ups</h3>
 
@@ -98,16 +98,16 @@ nobody can take.</p>
 
 <table>
   <tr><th>Selector</th><th>Default</th><th>What choosing it changes</th></tr>
-  <tr><td>Production scale</td><td>Indie ($2M–$10M)</td><td>Pages per day, crew size and day rate, art allowance, script rights, producers, sound, music, DI, editorial, casting fee</td></tr>
+  <tr><td>Production scale</td><td>Indie ($2M–$10M)</td><td>Pages per day, crew size and day rate, art allowance, script rights, producers, sound, music, DI, editorial, casting</td></tr>
   <tr><td>Director tier</td><td>Emerging</td><td>One flat fee range, first-time through legend</td></tr>
   <tr><td>Star / lead tier</td><td>Rising talent</td><td>Flat run-of-picture fee × number of leads</td></tr>
-  <tr><td>Supporting cast</td><td>Scale / indie</td><td>The per-role band the schedule-derived weekly cost is clamped into</td></tr>
-  <tr><td>Crew / unions</td><td>Non-union</td><td>Fringe rate (28 / 32 / 40 %), a labour multiplier, and the performer day and week rates</td></tr>
+  <tr><td>Supporting cast</td><td>Scale / indie</td><td>The per-role band the weekly cost is clamped into</td></tr>
+  <tr><td>Crew / unions</td><td>Non-union</td><td>Fringe rate (28 / 32 / 40 %), a labour multiplier, the performer day and week rates</td></tr>
   <tr><td>Locations</td><td>Local practical</td><td>Per-day fee, per-location permit and restore, travel percentage</td></tr>
-  <tr><td>Camera &amp; equipment</td><td>Indie kit</td><td>A weekly rental band, applied to shoot weeks plus one prep week</td></tr>
-  <tr><td>VFX intensity</td><td>Auto</td><td>Shot count and per-shot cost; auto derives both from the VFX and pyro driver counts</td></tr>
-  <tr><td>Genre</td><td>Auto</td><td>Which real-film benchmark the total is compared against — nothing in the budget itself</td></tr>
-  <tr><td>Tax incentive</td><td>None</td><td>Estimated recovery and net cost; twenty-one jurisdictions are modelled</td></tr>
+  <tr><td>Camera &amp; equipment</td><td>Indie kit</td><td>A weekly rental band, over shoot weeks plus one prep week</td></tr>
+  <tr><td>VFX intensity</td><td>Auto</td><td>Shot count and per-shot cost; auto derives both from the VFX and pyro drivers</td></tr>
+  <tr><td>Genre</td><td>Auto</td><td>Which benchmark the total is compared against — nothing in the budget itself</td></tr>
+  <tr><td>Tax incentive</td><td>None</td><td>Estimated recovery and net cost; twenty-one jurisdictions modelled</td></tr>
 </table>
 
 <p>Leads are dealt as flat fees because that is how they are actually dealt.
@@ -117,14 +117,13 @@ day-out-of-days produced, then clamped into the chosen band. Day players are the
 day rate ($400 / $810 / $1,246) times worked days.</p>
 
 <p>Lines are grouped Above the line, Production, Post-production and Other on
-the Movie Magic-style account skeleton. Crew labour splits across department
-accounts by fixed percentages; equipment splits camera 45 %, grip and electric
-50 %, sound 5 %; the art allowance splits 55/30/15 across art, wardrobe, and
-makeup and hair. Insurance is 2.5 % of direct costs, legal and finance 1.5 %, a
-completion bond a further 2.5 % on indie-financed scales only, general expenses
-4 % of below-the-line, contingency a flat 10 %. The account number prefix on each
-label is load-bearing — the Producer Suite routes a seeded line by matching it.
-The headline is three numbers: low, high, and a "likely" that is simply the
+the Movie Magic-style account skeleton, with crew labour, equipment and the art
+allowance split across department accounts by fixed percentages. Insurance is
+2.5 % of direct costs, legal and finance 1.5 %, a completion bond a further
+2.5 % on indie-financed scales only, general expenses 4 % of below-the-line,
+contingency a flat 10 %. The account number prefix on each label is
+load-bearing — the Producer Suite routes a seeded line by matching it. The
+headline is three numbers: low, high, and a "likely" that is simply the
 midpoint. Incentive recovery is total × qualifying-spend fraction × credit rate,
 with a warning when the estimate falls below a programme's minimum spend or
 above its cap.</p>
@@ -138,8 +137,7 @@ keyword-derived counts for extras, stunt, pyro, water and animal days; real day
 assignments from the stripboard (<code>castDood</code>) replace the script-order
 day-out-of-days entirely; <code>castRules</code> and <code>daysPerWeek</code>
 replace the default agreement terms. Those arrive from the Producer Suite, and
-the board's numbers win — one implementation of the cast arithmetic serving both
-surfaces rather than two files disagreeing.</p>
+the board's numbers win.</p>
 
 <h2>Documentary mode</h2>
 
@@ -149,14 +147,14 @@ or more, a scripted estimate offers to switch. Documentary numbers come from
 <span class="path">timeline/timeline-doc.js</span> (<code>SBDoc</code>), which
 returns the same groups-and-totals contract so the rest of the panel works
 unchanged. Nothing of the scripted model carries over. There are no cast tiers
-and no stunt units; instead four production scales from DIY to premium/streamer,
-an archival appetite priced in finished minutes at an all-media rate per minute,
-a music posture, a crew basis, and a shoot structure of interview days plus
-vérité days plus one travel day per region. Edit weeks come from
-weeks-per-finished-hour bands, a shooting ratio is blended from the interview
-share, and a grants panel lists funding offsets. Incentive eligibility is
-adjusted where documentary rules are known — New York excludes documentaries
-outright, Georgia gives the 20 % base without the logo uplift.</p>
+and no stunt units; instead four scales from DIY to premium/streamer, an
+archival appetite priced in finished minutes at an all-media rate per minute, a
+music posture, a crew basis, and a shoot of interview days plus vérité days plus
+one travel day per region. Edit weeks come from weeks-per-finished-hour bands, a
+shooting ratio is blended from the interview share, and a grants panel lists
+funding offsets. Incentive eligibility is adjusted where documentary rules are
+known — New York excludes documentaries outright, Georgia gives the 20 % base
+without the logo uplift.</p>
 
 <div class="note"><strong>The switch writes outside this module.</strong>
 Flipping to Documentary also rewrites the <code>strategy</code> field inside the
@@ -256,15 +254,14 @@ The Export panel offers a Master frame rate picker (<code>tlFps</code>, 23.976
 through 30). No code in the repository reads or writes that element, the
 <code>fps</code> field on the Timeline state is initialised to 24 and never read
 again, and both export calls in <span class="path">timeline/timeline.js</span>
-are made without a rate argument. On the source as it stands, the EDL and the
-project JSON are stamped at 24 whatever the picker shows. Check the
-<code>* FRAME RATE:</code> line in the exported file before you send it to a
-conform, and correct it there if it disagrees with your master.</div>
+are made without a rate argument — so on the source as it stands, both files are
+stamped at 24 whatever the picker shows. Read the <code>* FRAME RATE:</code>
+line in the export before you send it to a conform.</div>
 
-<p>Two Node suites assert this behaviour directly rather than through a browser.
+<p>Two Node suites assert this in isolation.
 <span class="path">scripts/test_timeline_export.mjs</span> checks the timecode
 arithmetic at real cut lengths — an hour, ninety minutes, sub-second trims —
-because under a minute a wrong hours field is indistinguishable from a right one.
+because under a minute a wrong hours field looks like a right one.
 <span class="path">scripts/test_budget_engines.mjs</span> enforces that one file
 defines <code>SBBudget</code> and that every page loading it also loads
 <code>timeline-doc.js</code>, so a documentary cannot be priced differently on
