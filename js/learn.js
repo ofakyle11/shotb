@@ -7,9 +7,14 @@
  *
  * Three closed loops, all fed by the user's own data on their own
  * machine (nothing leaves the browser):
- *   1. Budget calibration — every line item where a real actual lands
- *      next to an estimate teaches a per-account correction that is
- *      applied to future seeded estimates.
+ *   1. Budget calibration — every line item on a WRAPPED production where a
+ *      real actual lands next to an estimate teaches a per-account correction
+ *      that is applied to future seeded estimates. Before each observation is
+ *      folded in, the prediction that correction would have produced is
+ *      recorded next to the truth (state.pw). That walk-forward record is the
+ *      only thing here that can say whether the learning works — and it is the
+ *      only thing that may be labelled "self-learning". The size of the
+ *      corrections is not accuracy; it goes UP as the platform gets it wrong.
  *   2. Render-speed learning — every completed Cinamate AI render is
  *      timed; schedules and time estimates use the machine's real
  *      measured speed instead of the shipped default.
@@ -34,6 +39,10 @@
     d.seen = d.seen || [];       // learned line-item fingerprints
     d.render = d.render || [];   // [{c: clipSec, w: wallSec, t}]
     d.cache = d.cache || {};     // key → {t, ttl, v}
+    /* The walk-forward record: what the platform PREDICTED for a line before it
+       had ever seen that line, next to what the line really cost. This is the
+       only store here that can answer "is the learning working". */
+    d.pw = d.pw || [];           // [{acct, est, pred, act, n: priorsAtPredictTime, t}]
     return d;
   }
   var state = norm(load());
@@ -61,19 +70,88 @@
   function lineEst(it) {
     return root.CBudgetSheet ? root.CBudgetSheet.itemEst(it) : parseFloat(it.est);
   }
-  function learnBudget(sheet) {
+
+  /* ── the completion gate ──────────────────────────────────────────
+     A production teaches ONCE, when it is finished. Mid-shoot, `actual` is
+     whatever has been invoiced so far against a whole-picture estimate: a
+     department that has spent 12% of its budget in week two looks like an 88%
+     underrun, and folding that in drags every future seeded estimate down.
+     producer/budget-sheet.js calls learnBudget on every save of the live sheet
+     and finance/index.html on every render of the cost report, so without this
+     gate the store was being taught the shape of a partial ledger, repeatedly.
+
+     The marker lives on the project slot in CIN_Projects_v1 (projects/lib-vault.js
+     setWrapped) and is read here directly, because the pages that learn — the
+     Producer Suite, the money room, props — do not load the vault engine.     */
+  var PROJ_KEY = 'CIN_Projects_v1';
+  function projectMeta() {
+    var out = { name: '', status: '', wrappedAt: '' };
+    try {
+      var m = JSON.parse((root.localStorage && root.localStorage.getItem(PROJ_KEY)) || 'null');
+      if (!m || typeof m !== 'object') return out;
+      out.name = String(m.active || '');
+      var slot = (m.slots && m.slots[out.name]) || null;
+      if (slot && typeof slot === 'object') {
+        out.status = String(slot.status || '');
+        out.wrappedAt = String(slot.wrappedAt || '');
+      }
+    } catch (e) {}
+    return out;
+  }
+  /* What the learning layer is allowed to do right now, and why. */
+  function gate() {
+    var p = projectMeta();
+    return {
+      project: p.name, wrappedAt: p.wrappedAt,
+      wrapped: p.status === 'wrapped',
+      status: p.status === 'wrapped' ? 'wrapped' : 'in progress'
+    };
+  }
+
+  /* A line teaches at most once, keyed on WHAT it is — production, account,
+     line id — never on what it currently says. The old fingerprint carried the
+     estimate AND the actual, so every revision of either was a brand-new fact:
+     three postings against one invoice line taught three ratios from one
+     purchase, and a mid-shoot account re-learned itself on every invoice. */
+  function lineFp(project, acct, it, idx) {
+    var id = (it && (it.id || it.desc)) || ('#' + idx);
+    return project + '|' + (acct || '?') + '|' + String(id);
+  }
+
+  var PW_MAX = 300;
+  function learnBudget(sheet, opts) {
     if (!sheet || !Array.isArray(sheet.categories)) return 0;
+    opts = opts || {};
+    var g = gate();
+    /* `wrapped` can be forced by a caller that knows the observation is final
+       (a test, or a page that has just marked the wrap itself). Everything else
+       waits for the production to be wrapped in Projects. */
+    var wrapped = opts.wrapped == null ? g.wrapped : !!opts.wrapped;
+    if (!wrapped) return 0;
+    var project = opts.project != null ? String(opts.project) : (g.project || '');
+    var when = opts.t == null ? (typeof Date !== 'undefined' ? Date.now() : 0) : opts.t;
     var learned = 0;
     sheet.categories.forEach(function (c) {
-      (c.items || []).forEach(function (it) {
+      (c.items || []).forEach(function (it, idx) {
         var est = lineEst(it), act = parseFloat(it.actual);
         if (!(est > 0) || !(act > 0)) return;
-        var fp = (c.acct || '?') + '|' + (it.desc || '') + '|' + est + '|' + act;
+        var fp = lineFp(project, c.acct, it, idx);
         if (state.seen.indexOf(fp) >= 0) return;
         state.seen.push(fp);
         if (state.seen.length > 500) state.seen = state.seen.slice(-400);
-        var ratio = clamp(act / est, 0.25, 4);
+        /* BEFORE the fold. `pred` is the number the platform would have put in
+           front of the owner for this line, from everything it had learned up
+           to this moment — and `n` is how much evidence that stood on. Recorded
+           here and nowhere else, because one instant later the observation is
+           inside the multiplier and the prediction can never be reconstructed. */
         var b = state.budget[c.acct] || { r: 1, n: 0 };
+        var nPrior = b.n;
+        var pred = est * calibration(c.acct).mult;
+        state.pw.push({ acct: c.acct, est: est, pred: Math.round(pred * 100) / 100,
+                        act: act, n: nPrior, t: when });
+        if (state.pw.length > PW_MAX) state.pw = state.pw.slice(-Math.round(PW_MAX * 0.8));
+
+        var ratio = clamp(act / est, 0.25, 4);
         b.r = b.n === 0 ? ratio : b.r * 0.7 + ratio * 0.3;   // recent films weigh more
         b.n++;
         state.budget[c.acct] = b;
@@ -88,13 +166,93 @@
     if (!b || b.n < 2) return { mult: 1, n: b ? b.n : 0 };   // one data point is an anecdote
     return { mult: Math.round(clamp(b.r, 0.5, 2) * 100) / 100, n: b.n };
   }
+
+  /* ── the honest accuracy metric ───────────────────────────────────
+     Did the calibrated estimate beat the uncalibrated one? Over the rows where
+     the platform had actually formed an opinion (n >= 2 priors, the same
+     threshold calibration() uses), compare |pred − act| against |est − act|.
+     Nothing else here may be labelled "self-learning": the average correction
+     is a measure of how much correcting the platform has had to do, and it
+     RISES as the platform gets more wrong.                                   */
+  var WF_MIN_PRIOR = 2;   // an account with fewer priors predicted est unchanged
+  var WF_MIN_ROWS = 5;    // below this the comparison is an anecdote, not evidence
+  function walkForward(opts) {
+    opts = opts || {};
+    var minPrior = opts.minPrior == null ? WF_MIN_PRIOR : opts.minPrior;
+    var minRows = opts.minRows == null ? WF_MIN_ROWS : opts.minRows;
+    var accts = {}, rawErr = 0, calErr = 0, better = 0, worse = 0, n = 0;
+    (state.pw || []).forEach(function (r) {
+      if (!r || !(r.est > 0) || !(r.act > 0)) return;
+      if (!(r.n >= minPrior)) return;
+      var re = Math.abs(r.est - r.act);
+      var ce = Math.abs((r.pred == null ? r.est : r.pred) - r.act);
+      rawErr += re; calErr += ce;
+      if (ce < re) better++; else if (ce > re) worse++;
+      accts[r.acct] = 1;
+      n++;
+    });
+    var improvePct = rawErr > 0 ? Math.round((rawErr - calErr) / rawErr * 1000) / 10 : 0;
+    return {
+      n: n, accounts: Object.keys(accts).length,
+      rawErr: Math.round(rawErr), calErr: Math.round(calErr),
+      better: better, worse: worse, improvePct: improvePct,
+      minRows: minRows, minPrior: minPrior,
+      enough: n >= minRows,
+      verdict: n < minRows ? 'unproven' : (improvePct > 0 ? 'better' : (improvePct < 0 ? 'worse' : 'even'))
+    };
+  }
+
+  /* Activity, not accuracy — and named so nobody can print it as accuracy
+     again. `avgCorrection` is the n-weighted mean of the multipliers being
+     applied; finding 44 is that this number was labelled "Self-learning" while
+     going UP as the estimates got worse. It stays because it is worth seeing,
+     under a name that says what it is. */
   function budgetSummary() {
-    var n = 0, w = 0, wm = 0;
+    var n = 0, w = 0, wm = 0, accts = 0;
     Object.keys(state.budget).forEach(function (a) {
       var b = state.budget[a];
+      accts++;
       n += b.n; w += b.n * clamp(b.r, 0.5, 2); wm += b.n;
     });
-    return { lines: n, avgMult: wm ? Math.round(w / wm * 100) / 100 : 1 };
+    return { lines: n, accounts: accts, avgCorrection: wm ? Math.round(w / wm * 100) / 100 : 1 };
+  }
+
+  /* The sentence the owner reads. It lives here, not in the page, so what the
+     platform CLAIMS about itself is node-testable — the defect in finding 44
+     was in an untested 166-line UI file. */
+  function learningReport() {
+    var w = walkForward(), g = gate(), b = budgetSummary();
+    var head;
+    if (!w.enough) {
+      head = 'Self-learning: unproven — ' + w.n + ' of ' + w.minRows +
+        ' closed line' + (w.minRows === 1 ? '' : 's') + ' needed before a calibrated estimate ' +
+        'can be scored against the raw one it replaced' +
+        (w.n === 0 ? '. Nothing has been re-estimated yet, so there is no accuracy to report.' : '.');
+    } else if (w.verdict === 'better') {
+      head = 'Self-learning: calibrated estimates beat raw by ' + w.improvePct + '% across ' +
+        w.n + ' closed lines in ' + w.accounts + ' account' + (w.accounts === 1 ? '' : 's') +
+        ' (' + w.better + ' closer, ' + w.worse + ' further off).';
+    } else if (w.verdict === 'worse') {
+      head = 'Self-learning: calibration is making estimates ' + Math.abs(w.improvePct) +
+        '% WORSE than raw across ' + w.n + ' closed lines in ' + w.accounts + ' account' +
+        (w.accounts === 1 ? '' : 's') + ' (' + w.better + ' closer, ' + w.worse +
+        ' further off) — treat the seeded numbers as unhelped.';
+    } else {
+      head = 'Self-learning: calibrated and raw estimates are level across ' + w.n +
+        ' closed lines — the correction is not earning its place yet.';
+    }
+    var gateNote = g.wrapped
+      ? 'Learning from "' + (g.project || 'this production') + '", wrapped' +
+        (g.wrappedAt ? ' ' + g.wrappedAt : '') + '.'
+      : 'Nothing is being learned from "' + (g.project || 'this production') +
+        '" — mark it wrapped in Projects when it is finished. A part-shot ledger ' +
+        'reads as a huge underrun and would poison every future estimate.';
+    var activity = b.lines
+      ? b.lines + ' closed line' + (b.lines === 1 ? '' : 's') + ' folded in across ' +
+        b.accounts + ' account' + (b.accounts === 1 ? '' : 's') + ' · average correction applied ×' +
+        b.avgCorrection + ' (how much correcting it has done, not how well it works)'
+      : 'No budget actuals folded in yet — fill the Actual column as invoices land.';
+    return { headline: head, gate: gateNote, activity: activity, walk: w, wrapped: g.wrapped };
   }
 
   /* ── 2 · render-speed learning ──────────────────────────────────── */
@@ -202,8 +360,12 @@
 
   function summary() {
     var b = budgetSummary(), r = renderStats();
+    /* No avgMult. That key was the whole of finding 44: the page printed it as
+       "Self-learning" and it rises as the platform gets more wrong. Accuracy
+       now travels as `walk`, which can come back negative. */
     return {
-      budgetLines: b.lines, avgMult: b.avgMult,
+      budgetLines: b.lines, budgetAccounts: b.accounts, avgCorrection: b.avgCorrection,
+      walk: walkForward(), gate: gate(), report: learningReport(),
       renders: r.n, wallPerClip: r.wallPerClip, trend: r.trend,
       cached: Object.keys(state.cache).length
     };
@@ -211,8 +373,9 @@
   function reset() { state = norm({}); save(); }
 
   root.CLearn = {
-    KEY: KEY,
+    KEY: KEY, PROJ_KEY: PROJ_KEY,
     learnBudget: learnBudget, calibration: calibration, budgetSummary: budgetSummary,
+    walkForward: walkForward, learningReport: learningReport, gate: gate, lineFp: lineFp,
     recordRender: recordRender, renderStats: renderStats, genSecPerClip: genSecPerClip,
     cacheGet: cacheGet, cachePut: cachePut, cleanCached: cleanCached,
     summary: summary, reset: reset,

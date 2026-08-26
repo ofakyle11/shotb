@@ -1,8 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    CINAMATE — Dailies Logger engine (CDailies)
    Pure logic, no DOM: on-set take logging math — auto slate/take suggestion,
-   circled-take rates, script coverage gaps, classic per-day camera & sound
-   report text exports, and the editor's pull list of circled takes.
+   circled-take rates, script coverage gaps, the planned-vs-shot coverage join,
+   classic per-day camera & sound report text exports, and the editor's pull
+   list of circled takes.
    All state is passed in; nothing here touches storage or the page.
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (root) {
@@ -14,6 +15,18 @@
   var CS = root.CScenes;
   if (!CS) throw new Error('lib-dailies.js requires js/lib-scenes.js to be loaded first');
 
+  /* The shoot day (js/lib-shootdays.js) is the join key between this page, the
+     stripboard and the day planner, and it also owns the ONE translation of
+     the other take store's circle. It is resolved at call time rather than
+     captured at load: the pages that need it load it first, and the two suites
+     that only ask this file to split a screenplay must not be made to carry
+     it. Every entry point that genuinely needs it says so and throws. */
+  function SD() { return root.CShootDays || null; }
+  function needSD(what) {
+    var sd = SD();
+    if (!sd) throw new Error('lib-dailies ' + what + ' requires js/lib-shootdays.js to be loaded first');
+    return sd;
+  }
 
   function num(v) { var n = parseInt(v, 10); return isFinite(n) ? n : 0; }
   function str(v) { return String(v == null ? '' : v).trim(); }
