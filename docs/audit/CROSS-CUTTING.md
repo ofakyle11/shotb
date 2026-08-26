@@ -727,3 +727,65 @@ Also HIGH: `driver_load` is capped at 1.59 while `docs/PRODUCTION_PRICING.md`
 §2.6 shows it uncapped; auto-schedule never reads `sc.cast`, so it cannot
 minimise the hold days the DOOD already computes; and hold days are displayed
 but never priced.
+
+---
+
+# 37. VERDICT ON THE EXISTING LEARNING LAYER: replace, do not extend
+
+Phase 4 was specified as "make the software self-learning and always getting
+smarter." A learning layer already exists. Five independent agents read it, and
+the honest conclusion is that it is **currently making estimates worse**, not
+better. Extending it would compound that.
+
+| Defect | Where | Effect |
+|---|---|---|
+| Learns from a field that is always zero | `js/learn.js:60` reads `it.est` | every calculator-entered budget line teaches "0" |
+| Learns from mid-shoot partial actuals, **on every render** | `finance/index.html:144` `feedLearning` | drags future budgets toward **0.5×** |
+| Idempotence fingerprint includes `actual` | `js/learn.js:62` | correcting a mistyped actual learns the **correction on top of the error** instead of replacing it |
+| Store key does not match the vault's `KEY_RE` | `CIN_Learn_v1` vs `lib-vault.js:15` | never archived, never cloud-synced — one browser wipe and it is gone |
+| No way to see, correct or reset it | `CLearn.reset():202` has zero UI | the owner cannot audit or undo what it "learned" |
+
+So today the platform learns from zeros and half-finished shoots, compounds its
+own corrections, cannot show its work, and loses everything on a browser wipe.
+
+**Phase 4 must therefore be sequenced behind Phase 2, not layered on top of it:**
+
+1. **Record outcomes first.** Findings 30, 32, 35 all say the same thing from
+   different angles — the post calendar has no actuals, offload verification
+   leaves no record, there is no shoot-day record. *You cannot learn from
+   outcomes you never store.* This is the real prerequisite.
+2. **Fix the inputs** (findings 2, 36) so the signal is not zero or 4.5× wrong.
+3. **Only learn from completed productions**, never mid-shoot partials.
+4. **Make learning replaceable, inspectable and reversible** — fingerprint on
+   identity not value, expose the learned deltas, put the store under the vault.
+5. **Prove it.** Hold out a production, estimate it, compare to actuals, and
+   record the error. A self-improving system that cannot measure its own
+   accuracy is only asserting the claim. That measurement is the deliverable —
+   not the adjective.
+
+## 38. Finding 9 again — a whole prep/wrap scheduler in the post module (teamA-12)
+
+`post/lib-post.js:118` `CPost.schedule()` is a **tested, pure, business-day
+dependency scheduler** with topological sort, critical path, and a backward
+solve that lands a terminal milestone on a target date.
+
+Prep and wrap are entirely absent from the platform (zero repo hits for
+prep/wrap/crew calendar). This is a wiring job on an existing engine plus a new
+`PREP_TEMPLATE` — not a build. That makes roughly the **tenth** instance of
+finding 9.
+
+## 39. The DOOD over-quotes cast because it cannot express a drop (teamA-12)
+
+`producer/schedule-board.js:175` returns `tot = last - first + 1`, which becomes
+`spanWeeks = ceil(tot/5)` (`:122`) and then bills supporting cast
+`perf.week * spanWeeks` (`js/budget-engine.js:604`). **An actor working Day 1
+and Day 20 is billed four weeks, including eighteen idle days**, with no way to
+express a drop/pickup. The same wrong number is computed a second time in
+`timeline/timeline-budget.js:609`.
+
+Also: `js/budget-engine.js:552` hardcodes `shootWeeks = shootDays/5`, and the
+Day Planner's only calendar control is a boolean `skipWeekends` — so the
+platform can express five- or seven-day weeks and nothing else. Meanwhile
+`tools/lib-money.js:28` defines `sixthDayMult: 1.5` and `timecard()` applies it
+correctly, **but nothing in a schedule can ever trigger it.** Six-day weeks are
+the norm on low-budget features.
