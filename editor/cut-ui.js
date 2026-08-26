@@ -314,7 +314,39 @@
     });
   }
 
+  /* The outgoing frame a crossfade mixes against, captured HERE rather than in
+     the playback loop — and that move is the fix, not a tidy-up.
+
+     prevFrame used to be written only by the rAF playback loop, on clip
+     handoff. exportMp4 calls pause() and then renders frame by frame, so it
+     never entered that loop: an exported crossfade mixed against whatever
+     frame happened to be cached from the last time somebody scrubbed past a
+     cut, or against nothing at all. It looked right in the preview and came
+     out wrong in the file — the worst shape of bug, because you find it after
+     delivery. Fade-to-black was unaffected, since that fills with black and
+     needs no cached frame, which is exactly why the fault stayed hidden.
+
+     drawFrame is the one function BOTH paths call (playback at :405, scrub at
+     :374, export at :770), so the capture belongs here and happens once.
+
+     It must run BEFORE the black fill below, which would otherwise wipe the
+     very frame being captured. */
+  var lastDrawnHit = -1;
   async function drawFrame(tt, ctx, W, H, exact) {
+    var upcoming = C.videoAt(project, tt);
+    var upcomingI = upcoming ? upcoming.i : -1;
+    if (upcomingI !== lastDrawnHit) {
+      if (lastDrawnHit !== -1 && ctx.canvas && ctx.canvas.width) {
+        try {
+          prevFrame.width = ctx.canvas.width;
+          prevFrame.height = ctx.canvas.height;
+          prevFrame.getContext('2d').drawImage(ctx.canvas, 0, 0);
+        } catch (e) { /* a tainted canvas cannot be read back; the crossfade
+                         then degrades to a hard cut rather than throwing */ }
+      }
+      lastDrawnHit = upcomingI;
+    }
+
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
     var hit = C.videoAt(project, tt);
     if (hit) {
@@ -390,8 +422,10 @@
       if (hit) {
         var v = ensureVideo(hit.clip.srcId);
         if (hit.i !== lastHitI) {
-          // cache outgoing frame for crossfades, hand off playback
-          try { prevFrame.width = cv.width; prevFrame.height = cv.height; prevFrame.getContext('2d').drawImage(cv, 0, 0); } catch (e) {}
+          /* The outgoing-frame capture that stood here moved into drawFrame,
+             which BOTH playback and export call — export never entered this
+             loop, so an exported crossfade mixed against a stale frame. Two
+             copies would drift; one owner cannot. */
           if (activeSrc && vids[activeSrc] && activeSrc !== hit.clip.srcId) vids[activeSrc].pause();
           lastHitI = hit.i; activeSrc = hit.clip.srcId;
           v.currentTime = hit.srcTime;

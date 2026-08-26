@@ -352,5 +352,47 @@ function elstOf(u8, n) {
   ok(tkhdDurOf(tiny, M.find(tt, 'tkhd')) > 0, 'mp4: that track still presents something');
 }
 
+
+/* ── the crossfade's outgoing frame must be captured where BOTH paths run ──
+   prevFrame — the frame a crossfade mixes against — was written only inside
+   the rAF playback loop, on clip handoff. exportMp4 pauses and then renders
+   frame by frame, so it never entered that loop: an exported crossfade mixed
+   against whatever was cached the last time somebody scrubbed past a cut, or
+   against nothing. It previewed correctly and came out wrong in the file.
+   Fade-to-black was unaffected — it fills with black and needs no cached
+   frame — which is precisely why the fault stayed hidden.
+
+   This is a WIRING defect: lib-cut.js's model was always right, and every
+   assertion above drives that model directly, so none of them could have
+   caught it. Checked by source, in the file where the gap lives. */
+{
+  const ui = readFileSync(join(ROOT, 'editor/cut-ui.js'), 'utf8');
+
+  const draw = ui.slice(ui.indexOf('async function drawFrame'),
+                        ui.indexOf('async function drawFrame') + 1400);
+  ok(/prevFrame\.getContext/.test(draw),
+    'drawFrame captures the outgoing frame — the one function playback, scrub and export all call');
+
+  /* Order matters: drawFrame fills the canvas black, which would wipe the very
+     frame being captured. */
+  const capAt = draw.indexOf('prevFrame.getContext');
+  const fillAt = draw.indexOf("ctx.fillStyle = '#000'");
+  ok(capAt !== -1 && fillAt !== -1 && capAt < fillAt,
+    'the capture happens BEFORE the black fill that would erase it');
+
+  /* And exactly one owner: a second copy in the playback loop would drift. */
+  const captures = (ui.match(/prevFrame\.getContext\('2d'\)\.drawImage/g) || []).length;
+  ok(captures === 1, 'exactly one place captures the outgoing frame  (found ' + captures + ')');
+
+  /* The reader still exists, or the fix would be capturing for nobody. */
+  ok(/hit\.prevHold && prevFrame\.width/.test(ui),
+    'the crossfade still reads prevFrame');
+
+  /* Export renders through the shared function rather than its own path. */
+  const exp = ui.slice(ui.indexOf('async function exportMp4'),
+                       ui.indexOf('async function exportMp4') + 3000);
+  ok(/drawFrame\(/.test(exp), 'export renders through drawFrame, so it inherits the capture');
+}
+
 if (failed) { console.error('\nCut checks FAILED'); process.exit(1); }
 console.log('\nAll cut checks passed.');
