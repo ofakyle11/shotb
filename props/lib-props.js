@@ -31,6 +31,68 @@
   var CAT_BY_ID = {};
   CATEGORIES.forEach(function (c) { CAT_BY_ID[c.id] = c; });
 
+  /* ── real-world size, so a prop can stand on a set ───────────────────
+     A props list that knows what a thing IS but not how big it is cannot
+     answer the question the department actually asks: will it fit through
+     the door, will it read in frame, does it block the camera. These are
+     honest defaults per category in feet (width x depth x height), and
+     every one is overridable per item. */
+  var CAT_DIMS = {
+    weapon:      { w: 3.0, d: 0.6, h: 0.6 },
+    vehicle:     { w: 6.2, d: 15.0, h: 5.0 },
+    furniture:   { w: 4.0, d: 2.0, h: 2.6 },
+    electronics: { w: 1.6, d: 1.2, h: 1.4 },
+    setdress:    { w: 1.4, d: 1.4, h: 1.8 },
+    handprop:    { w: 0.7, d: 0.5, h: 0.6 },
+    greens:      { w: 2.2, d: 2.2, h: 4.5 },
+    food:        { w: 1.2, d: 1.0, h: 0.6 },
+    specialty:   { w: 5.0, d: 4.0, h: 4.0 }
+  };
+  var DEFAULT_DIMS = { w: 2, d: 2, h: 2 };
+
+  function dimsFor(item) {
+    var base = CAT_DIMS[item && item.cat] || DEFAULT_DIMS;
+    function pick(v, fallback) {
+      var n = +v;
+      return isFinite(n) && n > 0 ? n : fallback;
+    }
+    return {
+      w: pick(item && item.w, base.w),
+      d: pick(item && item.d, base.d),
+      h: pick(item && item.h, base.h)
+    };
+  }
+
+  /* A prop placed on a set becomes an ordinary set item, so the Set
+     Designer needs no knowledge of props at all — it just draws a box with
+     a name, at the size the props list says it is. propId ties the two
+     together so a size change here can follow it there. */
+  function toSetItem(item, x, y) {
+    var d = dimsFor(item);
+    return {
+      id: 'prop_' + String((item && item.id) || 'x').replace(/[^A-Za-z0-9_-]/g, ''),
+      type: 'custom',
+      x: isFinite(+x) ? +x : 6,
+      y: isFinite(+y) ? +y : 6,
+      w: d.w, h: d.d, hgt: d.h, z: 0, rot: 0,
+      label: String((item && item.name) || 'Prop').slice(0, 60),
+      propId: (item && item.id) || null
+    };
+  }
+
+  /* Does it physically go through the opening? The question that stops a
+     truck arriving with something that will not fit the stage door. */
+  function fitsThrough(item, openW, openH) {
+    var d = dimsFor(item);
+    var w = +openW, h = +openH;
+    if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return null;
+    /* Allowed to be turned on its side or stood on end — which is what
+       anyone actually does with a doorway. */
+    var footprints = [[d.w, d.h], [d.h, d.w], [d.d, d.h], [d.h, d.d], [d.w, d.d], [d.d, d.w]];
+    var ok = footprints.some(function (f) { return f[0] <= w && f[1] <= h; });
+    return { fits: ok, dims: d, opening: { w: w, h: h } };
+  }
+
   /* ── 2 · breakdown lexicon (term → category) ──────────────────────────── */
   var LEX = [
     ['weapon', 'gun|pistol|revolver|rifle|shotgun|firearm|sword|dagger|knife|machete|axe|bow|crossbow|grenade|bomb'],
@@ -281,6 +343,7 @@
   }
 
   root.CProps = {
+    CAT_DIMS: CAT_DIMS, dimsFor: dimsFor, toSetItem: toSetItem, fitsThrough: fitsThrough,
     CATEGORIES: CATEGORIES, CAT_BY_ID: CAT_BY_ID, ARMORER_DAY: ARMORER_DAY,
     splitScenes: splitScenes, breakdown: breakdown,
     priceItem: priceItem, estimate: estimate, decide: decide, recordQuote: recordQuote,

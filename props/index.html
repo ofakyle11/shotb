@@ -40,6 +40,14 @@
 .pp-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
 .pp-phone{font-family:var(--mono);font-size:12px;color:var(--gold);text-decoration:none}
 .pp-spacer{flex:1}
+.pp-hide{display:none !important}
+.pp-size-panel{margin-top:14px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px}
+.pp-size-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.pp-size-fields{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pp-size-fields label{font-size:11px;color:var(--dim);display:flex;align-items:center;gap:4px}
+.pp-size-fields input{width:64px}
+.pp-size-panel canvas{display:block;width:100%;height:300px;border-radius:6px;background:#0A1628;border:1px solid var(--border)}
+.pp-size-head b{color:var(--text)}
 .pp-note{font-size:11px;color:var(--dim);line-height:1.6}
 .pp-rfq{width:100%;min-height:220px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.6}
 .pp-learn{font-family:var(--mono);font-size:10px;color:var(--dim)}
@@ -69,9 +77,27 @@
       <label class="pp-note">Shoot days <input id="ppDays" type="number" min="1" max="200" value="15" style="width:56px"></label>
     </div>
     <table class="pp-table"><thead><tr>
-      <th>Prop</th><th>Category</th><th>Scenes</th><th>Qty</th><th>Plan</th><th>Hero</th><th>Period</th><th class="pp-num">Estimate</th><th>Quoted&nbsp;$</th><th></th>
+      <th>Prop</th><th>Category</th><th>Scenes</th><th>Qty</th><th>Plan</th><th>Hero</th><th>Period</th><th class="pp-num">Estimate</th><th>Quoted&nbsp;$</th><th title="Width x depth x height in feet">Size&nbsp;ft</th><th>Set</th><th></th>
     </tr></thead><tbody id="ppRows"></tbody></table>
     <div class="pp-total" id="ppTotals"></div>
+
+    <!-- Scale check. A measurement in feet is correct but slow to read; the
+         same prop beside a six-foot figure answers "how big is that" at a
+         glance, which is the question the department actually asks. -->
+    <div class="pp-size-panel pp-hide" id="ppSizeWrap">
+      <div class="pp-size-head">
+        <b id="ppSizeName">Prop</b>
+        <div class="pp-size-fields">
+          <label>W <input id="ppSizeW" type="number" step="0.1" min="0.1"></label>
+          <label>D <input id="ppSizeD" type="number" step="0.1" min="0.1"></label>
+          <label>H <input id="ppSizeH" type="number" step="0.1" min="0.1"></label>
+          <span class="pp-note">feet</span>
+        </div>
+        <button class="tb-btn" id="ppSizeClose">Close</button>
+      </div>
+      <canvas id="ppSizeGL"></canvas>
+      <p class="pp-note" id="ppSizeNote"></p>
+    </div>
     <p class="pp-note">Estimates use the industry 10% rule — weekly rental ≈ 10% of replacement value, later weeks discounted — with buy-vs-rent decided at the ~40% resale break-even. Weapons add a licensed armorer automatically. Enter real quotes in the Quoted column and <span class="pp-learn" id="ppLearnNote">the platform calibrates itself per category.</span></p>
 
     <h2>2 · Prop houses near the shoot</h2>
@@ -100,6 +126,8 @@
 <script src="/js/project-badge.js?v=20260823a"></script>
 <script src="/js/learn.js?v=20260823a"></script>
 <script src="lib-props.js?v=20260823a"></script>
+<script src="/sets/lib-set3d.js?v=20260824a"></script>
+<script src="/sets/gl.js?v=20260824a"></script>
 <script>
 (function () {
   'use strict';
@@ -116,6 +144,94 @@
   function plan() { return { weeks: +$('ppWeeks').value || 4, shootDays: +$('ppDays').value || 15 }; }
 
   /* ── breakdown table ── */
+  /* ── size, scale and placement ────────────────────────────────────
+     A props list that knows what a thing is but not how big it is cannot
+     answer what the department actually asks — will it fit the stage door,
+     will it read in frame, does it block the camera. */
+  function sizeLabel(it) {
+    var d = P.dimsFor(it);
+    var r = function (v) { return Math.round(v * 10) / 10; };
+    return r(d.w) + '×' + r(d.d) + '×' + r(d.h);
+  }
+
+  var sizeFor = null, sizeGL = null;
+
+  function openSize(id) {
+    var it = st.items.filter(function (x) { return x.id === id; })[0];
+    if (!it) return;
+    sizeFor = id;
+    var d = P.dimsFor(it);
+    $('ppSizeName').textContent = it.name;
+    $('ppSizeW').value = d.w; $('ppSizeD').value = d.d; $('ppSizeH').value = d.h;
+    $('ppSizeWrap').classList.remove('pp-hide');
+    drawSize();
+  }
+
+  /* The prop next to a six-foot figure. Scale is the whole question, and a
+     number in feet does not answer it as fast as a picture does. */
+  function drawSize() {
+    var it = st.items.filter(function (x) { return x.id === sizeFor; })[0];
+    if (!it) return;
+    var d = P.dimsFor(it);
+    if (!sizeGL) sizeGL = window.CSetGL && CSetGL.create($('ppSizeGL'));
+    if (!sizeGL) {
+      $('ppSizeNote').textContent = 'This browser could not start WebGL, so the scale preview is unavailable. The measurements are still correct.';
+      return;
+    }
+    var span = Math.max(d.w, d.d, 8);
+    sizeGL.setPlan({
+      w: span + 8, h: span + 8,
+      items: [
+        { id: 'thing', type: 'custom', x: (span + 8) / 2 - 1.6, y: (span + 8) / 2,
+          w: d.w, h: d.d, hgt: d.h, rot: 0, color: '#C9A86C' },
+        { id: 'human', type: 'person', x: (span + 8) / 2 + Math.max(d.w, 2), y: (span + 8) / 2,
+          w: 1.2, h: 1.2, rot: 0 }
+      ]
+    });
+    sizeGL.frameAll();
+    var fit = P.fitsThrough(it, 3, 6.75);
+    $('ppSizeNote').textContent = fit && fit.fits
+      ? 'Fits through a standard 3 × 6′9″ doorway.'
+      : 'Will NOT fit a standard 3 × 6′9″ doorway — plan a route or a break-down.';
+  }
+
+  ['ppSizeW', 'ppSizeD', 'ppSizeH'].forEach(function (id) {
+    var key = id.slice(-1).toLowerCase();
+    $(id).addEventListener('change', function () {
+      var it = st.items.filter(function (x) { return x.id === sizeFor; })[0];
+      if (!it) return;
+      var v = +this.value;
+      it[key] = isFinite(v) && v > 0 ? v : undefined;
+      save(); renderRows(); drawSize();
+    });
+  });
+  $('ppSizeClose').addEventListener('click', function () {
+    $('ppSizeWrap').classList.add('pp-hide');
+    sizeFor = null;
+  });
+
+  /* Placing a prop writes an ordinary item into the Set Designer's own
+     store, so that module needs no knowledge of props at all. */
+  function placeOnSet(id) {
+    var it = st.items.filter(function (x) { return x.id === id; })[0];
+    if (!it) return;
+    var raw, doc;
+    try { raw = localStorage.getItem('SB_SetDesign_v1'); doc = raw ? JSON.parse(raw) : null; }
+    catch (e) { doc = null; }
+    if (!doc || !doc.plans || !doc.plans.length) {
+      toast('Open the Set Designer and make a set plan first.');
+      return;
+    }
+    var plan = doc.plans.filter(function (pl) { return pl.id === doc.active; })[0] || doc.plans[0];
+    var item = P.toSetItem(it, (+plan.w || 24) / 2, (+plan.h || 18) / 2);
+    /* Placing the same prop twice should move it, not litter the stage. */
+    plan.items = (plan.items || []).filter(function (x) { return x.id !== item.id; });
+    plan.items.push(item);
+    try { localStorage.setItem('SB_SetDesign_v1', JSON.stringify(doc)); }
+    catch (e) { toast('Could not save to the set plan.'); return; }
+    toast(it.name + ' placed on "' + plan.name + '" at ' + sizeLabel(it) + ' ft');
+  }
+
   function renderRows() {
     var est = P.estimate(st.items, plan());
     var byId = {}; est.rows.forEach(function (r) { byId[r.id] = r; });
@@ -134,8 +250,11 @@
         '<td><input data-f="period" type="checkbox"' + (it.period ? ' checked' : '') + '></td>' +
         '<td class="pp-num">$' + (r.est || 0).toLocaleString() + (r.learnedN ? ' <span class="pp-learn" title="calibrated from ' + esc(r.learnedN) + ' past quotes">·cal</span>' : '') + '</td>' +
         '<td><input data-f="actual" type="number" min="0" style="width:80px" value="' + esc(it.actual || '') + '" placeholder="quote"></td>' +
+        '<td class="pp-num pp-size" title="Width × depth × height in feet. Click to see it at scale.">' +
+          '<button class="tb-btn" data-size="' + esc(it.id) + '">' + esc(sizeLabel(it)) + '</button></td>' +
+        '<td><button class="tb-btn" data-place="' + esc(it.id) + '" title="Put this on the active set plan at its real size">→ Set</button></td>' +
         '<td><button class="tb-btn" data-del="' + esc(it.id) + '">✕</button></td></tr>';
-    }).join('') || '<tr><td colspan="10" class="pp-note">No props yet — Rebuild from script reads the working screenplay in this browser.</td></tr>';
+    }).join('') || '<tr><td colspan="12" class="pp-note">No props yet — Rebuild from script reads the working screenplay in this browser.</td></tr>';
     $('ppTotals').innerHTML =
       '<span>Rentals &amp; purchases <b>$' + esc(est.subtotal.toLocaleString()) + '</b></span>' +
       (est.armorer ? '<span>Armorer <b>$' + esc(est.armorer.toLocaleString()) + '</b></span>' : '') +
@@ -143,6 +262,12 @@
       '<span>Props budget <b>$' + esc(est.total.toLocaleString()) + '</b></span>';
     renderRfq();
   }
+  $('ppRows').addEventListener('click', function (e) {
+    var sz = e.target.getAttribute('data-size');
+    if (sz) { openSize(sz); return; }
+    var pl = e.target.getAttribute('data-place');
+    if (pl) { placeOnSet(pl); return; }
+  });
   $('ppRows').addEventListener('change', function (e) {
     var tr = e.target.closest('tr'); if (!tr) return;
     var it = st.items.filter(function (x) { return x.id === tr.getAttribute('data-id'); })[0];

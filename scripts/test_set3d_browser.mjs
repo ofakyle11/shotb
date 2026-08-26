@@ -206,6 +206,96 @@ t('OBJ keeps one group per piece', exports_.objGroups === 8, exports_.objGroups)
 t('STL export has facets', exports_.stlFacets > 40, exports_.stlFacets);
 t('no NaN reached either export', !exports_.objNaN && !exports_.stlNaN);
 
+/* ── the props half: size, scale preview, and placement onto the set ── */
+{
+  const pctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const pp = await pctx.newPage();
+  const perr = [];
+  pp.on('pageerror', (e) => perr.push(String(e.message)));
+  pp.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    if (/net::ERR_|Failed to load resource/i.test(m.text())) return;
+    perr.push('console: ' + m.text());
+  });
+  await pp.route('**/*', (r) => (r.request().url().startsWith(`http://127.0.0.1:${PORT}`)
+    ? r.continue() : r.abort()));
+
+  await pp.addInitScript(() => {
+    localStorage.setItem('SB_Props_v1', JSON.stringify({
+      v: 1, items: [
+        { id: 'p1', name: 'Upright piano', cat: 'specialty', scenes: [4], qty: 1, mode: 'auto' },
+        { id: 'p2', name: 'Pocket watch', cat: 'handprop', scenes: [12], qty: 1, mode: 'auto' },
+      ],
+    }));
+    localStorage.setItem('SB_SetDesign_v1', JSON.stringify({
+      v: 1, active: 'sp1',
+      plans: [{ id: 'sp1', name: 'Stage A', w: 24, h: 18, scenes: '', items: [] }],
+    }));
+  });
+
+  await pp.goto(`http://127.0.0.1:${PORT}/props/`, { waitUntil: 'domcontentloaded' });
+  await pp.waitForTimeout(700);
+  t('the props page loads clean', perr.length === 0, perr.slice(0, 2).join(' | '));
+
+  const sizes = await pp.$$eval('[data-size]', (b) => b.map((x) => x.textContent));
+  t('every prop shows a size', sizes.length === 2, JSON.stringify(sizes));
+  t('a piano is bigger than a pocket watch',
+    parseFloat(sizes[0]) > parseFloat(sizes[1]), JSON.stringify(sizes));
+
+  /* the scale preview must actually draw */
+  await pp.click('[data-size="p1"]');
+  await pp.waitForTimeout(900);
+  const shown = await pp.evaluate(() =>
+    !document.getElementById('ppSizeWrap').classList.contains('pp-hide'));
+  t('clicking a size opens the scale preview', shown);
+  const drew = await pp.evaluate(() => {
+    const c = document.getElementById('ppSizeGL');
+    const gl = c.getContext('webgl', { preserveDrawingBuffer: true });
+    if (!gl) return -1;
+    const buf = new Uint8Array(c.width * c.height * 4);
+    gl.readPixels(0, 0, c.width, c.height, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+    let lit = 0;
+    for (let i = 0; i < buf.length; i += 4) if (buf[i] + buf[i + 1] + buf[i + 2] > 120) lit++;
+    return lit;
+  });
+  t('the scale preview renders the prop and the figure', drew > 400, drew);
+  const fitNote = await pp.textContent('#ppSizeNote');
+  t('the preview answers the doorway question', /doorway/i.test(fitNote || ''), fitNote);
+
+  /* placing writes into the Set Designer's own store */
+  await pp.click('[data-place="p1"]');
+  await pp.waitForTimeout(300);
+  const placed = await pp.evaluate(() => {
+    const doc = JSON.parse(localStorage.getItem('SB_SetDesign_v1'));
+    return doc.plans[0].items;
+  });
+  t('placing a prop adds it to the set plan', placed.length === 1, JSON.stringify(placed));
+  t('the placed item carries the prop name', placed[0] && placed[0].label === 'Upright piano');
+  t('the placed item carries real dimensions',
+    placed[0] && placed[0].w > 0 && placed[0].hgt > 0, JSON.stringify(placed[0]));
+  t('the placed item is tied back to the prop', placed[0] && placed[0].propId === 'p1');
+
+  /* placing twice should move it, not litter the stage */
+  await pp.click('[data-place="p1"]');
+  await pp.waitForTimeout(300);
+  const again = await pp.evaluate(() =>
+    JSON.parse(localStorage.getItem('SB_SetDesign_v1')).plans[0].items.length);
+  t('placing the same prop twice does not duplicate it', again === 1, again);
+
+  /* and the Set Designer must render what props wrote */
+  const sp = await pctx.newPage();
+  await sp.route('**/*', (r) => (r.request().url().startsWith(`http://127.0.0.1:${PORT}`)
+    ? r.continue() : r.abort()));
+  await sp.goto(`http://127.0.0.1:${PORT}/sets/`, { waitUntil: 'domcontentloaded' });
+  await sp.waitForTimeout(500);
+  const inSet = await sp.evaluate(() =>
+    !!document.querySelector('#sdCanvas svg [data-id^="prop_"]'));
+  t('the Set Designer draws the placed prop', inSet);
+
+  t('the props run produced no script errors', perr.length === 0, perr.slice(0, 3).join(' | '));
+  await pctx.close();
+}
+
 t('still no script errors after the whole run', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 await browser.close();
