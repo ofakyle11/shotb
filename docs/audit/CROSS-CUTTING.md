@@ -537,3 +537,75 @@ sun *direction* can be answered, which is most of what a DP actually asks of it.
 **Phase 1 crew sweep closed: 20 of 20 reported.** The final report did not add a
 seventh root cause; it deepened three existing ones. That convergence is the
 strongest evidence the six root causes are real and the backlog is tractable.
+
+---
+
+# TEAM A findings
+
+## 25. A checksum verifier that reports "bit-perfect" while pairing the wrong hash
+
+`tools/lib-media.js:109` `parseManifest` uses lazy `[\s\S]*?` runs that are not
+anchored inside a `<hash>` block, so it pairs **one file's path with another
+file's hash**. Reproduced with a truncated manifest: `{path:'A.mov',
+sha256:'ffff'}` — B's hash, and B is gone entirely — with `verifyAgainst`
+returning `clean: true`.
+
+This is the worst available failure mode for a verifier. Media offload is the
+one place on a production where "probably fine" is not acceptable, and the tool
+says *bit-perfect* over lost footage (teamA-05).
+
+## 26. `csvCell` exists in five copies — three of them are mine
+
+`finance/lib-money.js:114`, `production/lib-prod.js:91`,
+`producer/budget-sheet.js:175`, `boards/lib-shots.js:104`, and `csvSafe` at
+`tools/tools-core.js:82`.
+
+Three of those I added myself, closing the CSV formula-injection findings from
+the previous security review. Each one was correct in isolation and I wrote a
+sweep asserting that every CSV writer carries the guard — but the right move
+was one shared helper in `js/`, and the sweep I wrote actively *rewards*
+duplication: it checks that the guard is present in each file, so copying it is
+the cheapest way to pass. A test that makes the wrong fix the easy fix is a
+design error in the test.
+
+Fold all five into one `js/lib-csv.js`, and change the sweep to assert that no
+file defines its own.
+
+## 27. `Register` is the right nucleus and is used by exactly one module
+
+`tools/tools-core.js` `Register` is a working schema-driven table with CRUD,
+validation and CSV. **Sixteen module `index.html` files hand-roll the same
+table.** Promoting it to `js/` and adopting it is the largest single reduction
+in surface area available — and it is the same conclusion, reached
+independently, as the shared-project-model finding (3) and the shared-parser
+finding (17): this codebase's problem is not missing capability, it is the same
+capability written many times, slightly differently, in many places (teamA-05).
+
+## 28. Timezone bug confirmed a third time, with the fix data already fetched
+
+`tools/sched-weather.js:147` renders sun times in the **viewer's** timezone:
+Budapest sunrise (04:47 CEST) prints as 02:47 from a UTC browser. The request at
+`weatherUrl` already sends `&timezone=auto` and the response's
+`utc_offset_seconds` **is fetched and then discarded** (teamA-05).
+
+And the weather planner is dead in production regardless: `_headers:4` omits
+`api.open-meteo.com` from `connect-src`, so the fetch is CSP-blocked and
+`.catch(function(){})` at `sched-weather.js:135` swallows it. Every day shows
+"beyond forecast" and the risk score never runs — silently, forever.
+
+## 29. Cinematography vocabulary with no arithmetic behind it (teamA-14)
+
+`app.html:2071` ships "Shallow f/1.4", "Daylight 5600K", "Anamorphic Bokeh" as
+AI prompt tokens. There is no depth-of-field or hyperfocal maths anywhere
+(`hyperfocal`, `circle of confusion`: zero hits; `lensCalc()` takes no
+aperture), and zero hits repo-wide for `kilowatt|kW|watt|amperage|distro` or
+`HMI|tungsten|fixture|gel|kelvin`.
+
+`sets/lib-set.js:29` gives every fixture the same circle and a hardcoded 20°
+cone; the sample data types wattage into the free-text **label** (`"Key 2K"`).
+`locations/lib-scout.js:510` records available power as free text and nothing
+computes demand — which is both a budget miss and the most common on-set
+electrical incident.
+
+The platform speaks the language and cannot do the sums. DOF/hyperfocal is
+~80 lines onto `tools/lib-media.js` with no new `SB_` key.
