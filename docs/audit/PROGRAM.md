@@ -44,18 +44,11 @@ Tracked as tasks #56–62.
 15 stunts & safety · 16 VFX · 17 editorial & post · 18 music & sound post ·
 19 colour & finishing · 20 legal, distribution & festivals
 
-> **OUTSTANDING LAUNCH — do not lose this.** `teamA-20` (platform +
-> self-learning) bounced off the 20-agent cap and **has not run**. It is the
-> direct input to Phase 4, so launch it the moment a slot frees:
-> `Read /home/user/shotb/docs/audit/BRIEF.md, then your assignment at
-> /home/user/shotb/docs/audit/assignments/teamA-20.md. Do exactly what it says.
-> Read-only. Return at most 12 lines.`
-> Phase 1 is NOT complete until `docs/audit/teamA-20-missing-platform.md` exists.
+> **RESOLVED.** `teamA-20` bounced off the 20-agent cap, was relaunched when a
+> slot freed, and completed. Its report exists and it is the direct input to
+> Phase 4 — see finding 44 in CROSS-CUTTING.md.
 
-**Wave 2 status:** TEAM A DEVS **01-10 launched** (the "strengthen what exists"
-half) once crew slots freed — they read code directly and do not depend on the
-crew reports, so running them early saves hours of wall clock. **11-20 still to
-launch** when slots free.
+**Wave 2 status: COMPLETE.** All 20 TEAM A reports landed.
 
 **Wave 2 — 20 TEAM A DEVS.** Assignments already written to
 `docs/audit/assignments/teamA-01..20.md`. Launch each as:
@@ -82,3 +75,40 @@ synthesis is Phase 2's input. Commit everything.
 Babysit this overnight. Do not wait on the user between phases. A recurring
 check-in is armed as a fallback; re-arm it each time and stay silent on
 no-change ticks.
+
+
+---
+
+# PHASE 1: COMPLETE — 40 of 40
+
+20 crew + 20 TEAM A. Findings consolidated in `CROSS-CUTTING.md` (51 findings);
+the ordered build plan is `PHASE1-SYNTHESIS.md`. **Read the synthesis, not the
+40 reports, to continue.**
+
+# PHASE 2: IN PROGRESS — wave 1, the foundations
+
+**Deliberate change of approach from Phase 1.** Twenty parallel agents was right
+for *reading* — they cross-referenced each other and covered disjoint ground.
+For *writing*, twenty agents editing the same money and breakdown files collide
+and produce merge slop rather than speed. So the build fans out along real file
+boundaries: few agents where files overlap, wide fan-out where they do not.
+
+Wave 1 is three agents with **disjoint file ownership**, stated in each prompt:
+
+| Agent | Owns | Must not touch |
+|---|---|---|
+| scene model | `js/lib-scenes.js`, `timeline/parser.js`, the 8 `splitScenes` copies (props, vfx, music, wardrobe, dailies, casting, clearance, safety, production) | money modules, `scripts/` |
+| money foundation | `js/budget-engine.js`, `dashboard.html`, finance, taxcredit, contracts, investors, producer, casting/vfx index | scene files, `scripts/run_all_tests.mjs` |
+| assurance layer | `scripts/` only | all module source |
+
+None commits; each leaves work in the tree and reports. I verify, run the full
+suite, and commit.
+
+**Wave 2 (after wave 1 lands)** — correctness, naturally disjoint, wide fan-out:
+sets/3D normals + sensor + aspect + doors; sun/timezone + CSP; shoot-day record
++ take log; editor `ftc()`/`otio()`/fps/`colr`/`edts`; the sides leak; E&O and
+rights gates; `app.html` dead code + session restore + CSP.
+
+**Wave 3** — missing modules, ranked by consequence per line (see synthesis).
+
+**Wave 4** — outcome records, which are the Phase 4 prerequisite.
