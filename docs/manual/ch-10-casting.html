@@ -1,0 +1,284 @@
+<h1 class="ch">Casting &amp; The Cast Desk</h1>
+<span class="mk">@@CH10@@</span>
+
+<p class="lede">Casting is the first department that sends your screenplay to
+people outside the production. Everything in this chapter — the role list, the
+pipeline, the sides, the lookups — is downstream of that one fact, and the
+chapter is written so that you know exactly what leaves the building.</p>
+
+<div class="note"><strong>On the accuracy of this chapter.</strong> It was
+written by reading Cinamate's source rather than by operating the software. The
+platform changes; when a screen contradicts a paragraph here, the screen is the
+authority.</div>
+
+<h2>Two rooms, three stores</h2>
+
+<p>Casting is not one page. The <strong>Casting Office</strong> at
+<span class="path">casting/index.html</span> is the cast desk proper: roles,
+candidates, audition sides, offer memos. Its engine is
+<span class="path">casting/lib-castdesk.js</span> (<code>CCastDesk</code>), and
+its state lives under one key, <code>SB_CastingDesk_v1</code>, holding
+<code>roles</code>, the selected role, and the offer draft.</p>
+
+<p>The <strong>Production Office</strong> at
+<span class="path">production/index.html</span> carries a second Casting &amp;
+Sides pane, with its own registers under <code>SB_Roles_v1</code> and
+<code>SB_Candidates_v1</code>, its own sides cutter in
+<span class="path">production/lib-prod.js</span>, and the Cast Intelligence
+lookups in <span class="path">production/lib-cast.js</span>.</p>
+
+<p>These stores do not synchronise. A candidate entered on the cast desk is not
+visible in the production office register, and Cast Intelligence's
+<strong>Add as candidate</strong> writes to <code>SB_Candidates_v1</code> — the
+production office list — not to the cast desk. Pick one as your book of record
+and keep it.</p>
+
+<h2>Roles from the screenplay</h2>
+
+<p><strong>Seed roles from script</strong> reads <code>scriptText</code> out of
+<code>SB_Timeline_v1</code> — the working screenplay from the Studio — and needs
+at least 40 non-whitespace characters before it will attempt anything.
+<code>CCastDesk.charactersFromScript</code> then splits the script through the
+one scene model in <span class="path">js/lib-scenes.js</span> and counts
+dialogue cues.</p>
+
+<p>A cue is decided by <code>CScenes.cueName</code>, which every module now
+shares. The line must be ALL-CAPS, between 2 and 30 characters after any
+<code>(V.O.)</code>, <code>(O.S.)</code>, <code>(O.C.)</code>,
+<code>(CONT'D)</code>, VOICE OVER, OFF SCREEN, PRE-LAP or FILTERED suffix is
+stripped; it must not parse as a slugline; it must not end in a colon,
+semicolon, exclamation or question mark; it must not open with a format keyword
+(FADE IN, CUT TO, DISSOLVE TO, INTERCUT, MONTAGE, TITLE, SUPER, CHYRON, ANGLE
+ON, CLOSE ON, INSERT, OMITTED, THE END and the rest of <code>NOT_CUES</code>);
+and it must match <code>^[A-Z][A-Z0-9 .,'\-]*$</code>. The cast desk adds one
+more test of its own: the cue must be followed by a non-blank line that is not
+itself a slugline, so a lone shouted word with nothing under it is not promoted
+to a character.</p>
+
+<p>Each role comes back with its name, the number of cues, the number of scenes
+it speaks in, and the scene list, sorted by cue count descending and then by
+name. That ordering is the first useful thing on the page: the two or three
+names at the top are your leads, and the long tail of one-cue roles is your day
+player list.</p>
+
+<p>The board still needs curating. A shouted ALL-CAPS action line that happens
+to be short and to have dialogue-shaped text under it will land in the list,
+and characters credited only in action never appear at all, because they never
+speak. Prune by hand; add anything the parser missed with <strong>Add
+role</strong>, which marks the role <code>manual</code>.</p>
+
+<div class="note"><strong>Re-seeding rebuilds the board and can take candidates
+with it.</strong> On a re-seed, roles marked <code>manual</code> survive, and a
+seeded role whose name still appears in the script keeps its candidate list.
+Any seeded role the parser no longer finds — because the character was cut, or
+because you renamed the row in place — is dropped outright, and its candidates,
+contacts, hold dates and notes go with it. There is no confirmation and no
+undo. The row-level <code>✕</code> on a role deletes it and its candidates the
+same way.</div>
+
+<h2>What the desk tracks per role</h2>
+
+<p>Each role carries a candidate list, and each candidate carries: name,
+contact, self-tape link, status, hold-from, hold-to, rate and notes. Nothing
+here is looked up. Contacts and tape links are whatever you paste; a tape link
+is rendered as a clickable button only when it begins with <code>http://</code>
+or <code>https://</code>, and then only through the platform's URL sanitiser.</p>
+
+<p>The pipeline is a fixed ladder, <code>CCastDesk.STATUSES</code>:
+<em>submitted → callback → test → offer → hold → booked / released</em>. Nothing
+enforces the order; the status is a label you set. A role shows as
+<em>booked</em> once any candidate reaches that status, otherwise as
+<em>n in play</em> when offers or holds exist, otherwise as <em>open</em>. The
+strip across the top is <code>boardSummary</code>: a count per status plus the
+totals — candidates, roles, and roles with a booking.</p>
+
+<h3>Hold conflicts</h3>
+
+<p><code>holdConflicts</code> compares every candidate on the whole board, not
+just the selected role. Two entries conflict when the names match
+case-insensitively, both are at <em>hold</em> or <em>booked</em>, both carry a
+from and a to date, and the ranges overlap. Dates are compared as ISO text, and
+the endpoints are inclusive: a hold ending 10 October and one beginning 10
+October is a conflict. A candidate at <em>submitted</em> never conflicts, and
+missing dates are skipped rather than guessed. The warning names both roles and
+both ranges, and tells you to resolve it with the reps — the platform will not
+resolve it for you.</p>
+
+<h2>Audition sides — what is actually in them</h2>
+
+<p><code>CCastDesk.sidesFor(scriptText, character)</code> assembles the sides.
+It matches the character name case-insensitively, walks the scenes, and keeps
+every scene in which that name appears as a dialogue cue. For each kept scene
+it emits a rule reading <code>── SCENE</code> and the scene's printed label,
+then the slugline — or <code>(no slugline)</code> — then the scene body. If the
+character never speaks, the result is an empty string and the page says so.</p>
+
+<div class="note"><strong>Sides are not redacted, and that is correct.</strong>
+What comes out is the <em>full text</em> of every selected scene: the other
+characters' cues and dialogue, the action lines, the stage business, all of it.
+A performer cannot play a scene from their own lines alone, so this is the
+right behaviour — but it means the file you are about to send to an agent
+contains complete pages of an unreleased screenplay. Read what you generated
+before it leaves the browser. Trim it if the scene contains material you are
+not ready to circulate; the generated text says as much in its own header, and
+asks you to verify the draft is current first.</div>
+
+<p>Sides are generated in the browser from the working screenplay and are not
+stored — regenerate after every rewrite. <strong>Copy</strong> puts the text on
+the clipboard; <strong>Download .txt</strong> saves it as
+<code>sides-&lt;role&gt;.txt</code>.</p>
+
+<h2>Two modules cut sides, and they select differently</h2>
+
+<p>This is deliberate, and an operator who does not know it will conclude that
+one of them is broken.</p>
+
+<table>
+<thead><tr><th>&nbsp;</th><th>Cast desk</th><th>Production office</th></tr></thead>
+<tbody>
+<tr><td>File</td><td><span class="path">casting/lib-castdesk.js</span></td><td><span class="path">production/lib-prod.js</span></td></tr>
+<tr><td>Test</td><td><code>speaksIn</code> — a dialogue cue in the scene</td><td><code>appearsIn</code> — a cue <em>or</em> the name in an action line</td></tr>
+<tr><td>Purpose</td><td>Audition sides</td><td>On-set sides</td></tr>
+<tr><td>Output</td><td>One text block</td><td>Array of scenes: label, number, slug, text</td></tr>
+</tbody>
+</table>
+
+<p>A performer auditions with the scenes they perform, so the audition cut asks
+whether the character speaks. An actor who wrestles someone across a kitchen
+with no dialogue is still called that day and still needs the pages, so the
+on-set cut asks whether the character is present at all. Both questions are
+answered by <span class="path">js/lib-scenes.js</span>, which owns
+<code>cueName</code>, <code>speaksIn</code> and <code>appearsIn</code>, so the
+two modules disagree only where they are meant to.</p>
+
+<p><code>appearsIn</code> matches whole words, with explicit boundaries rather
+than a word-break class, so a possessive still counts — MAGGIE'S COAT contains
+MAGGIE — while a character named AL is no longer found in every scene
+containing CALL, HALL or GENERAL. The source records that the substring match
+this replaced was mailing entire screenplays to representatives who had no
+reason to receive them.</p>
+
+<div class="note"><strong>The production office pane still heads its output
+"AUDITION SIDES".</strong> That block is built on <code>appearsIn</code>, so it
+is an on-set cut regardless of the caption. Take the selection from the module
+you used, not from the title line.</div>
+
+<h2>The offer memo</h2>
+
+<p><code>offerLetter</code> prints business points only: production, date,
+performer and representative, role, engagement dates, rate and unit, and
+billing. Anything you leave blank prints as <code>TBD</code> — no figure, date
+or name is ever invented. Every memo carries the same closing: it is not a
+binding agreement, engagement is conditional on a long-form agreement prepared
+and reviewed by production counsel and on any required union clearances and
+work permits, and the representatives are asked to confirm availability. The
+envelope button on a candidate row pre-fills the memo from that candidate's
+name, rate and hold dates.</p>
+
+<div class="note"><strong>Commit to Money Room writes a real commitment.</strong>
+It parses the digits out of the rate field, refuses anything that is not a
+positive number, and posts an open purchase order into <code>SB_Money_v1</code>
+against the Cast account — <code>4000</code>, from
+<code>CAccounts.DEFAULT_CAST</code> in
+<span class="path">js/lib-money-accounts.js</span>. The caption printed beside
+that button still says account 1400; the code does not use it, and 1400 exists
+nowhere in the chart. Believe the toast, which names the account it actually
+used. The amount posted is the rate as entered — one week or one day — not a
+computed total for the engagement.</div>
+
+<h2>Cast intelligence</h2>
+
+<p>The Cast Intelligence block sits at the foot of the production office's
+Casting &amp; Sides pane. Type an actor's name, optionally a target director,
+and press <strong>Analyze</strong>.</p>
+
+<div class="note"><strong>This sends a real person's name off the device.</strong>
+The actor and director names you type are transmitted to
+<code>query.wikidata.org</code>, a public SPARQL endpoint, on every lookup — no
+key, no account, and the query text carries the name. If you have stored a TMDB
+key, the name is additionally sent to <code>api.themoviedb.org</code> with that
+key in the request. Nothing else on the cast desk leaves the browser; this
+feature does. The key itself stays local: <code>SB_TMDB_v1</code> is excluded
+from the cloud snapshot in <span class="path">js/project-badge.js</span> and
+from vault exports by the local-only rule in
+<span class="path">projects/lib-vault.js</span>. Replies are cached in
+<code>CIN_Learn_v1</code> for one week, capped at sixty entries, with markup
+characters and script-bearing URL schemes stripped on the way in.</div>
+
+<p>Wikidata supplies the filmography, the directors a performer has worked with,
+and — for <strong>Suggest cast for this director</strong> — the collaborators a
+director keeps returning to, ranked by count. TMDB, when a key is present, adds
+billing order and a popularity figure the card labels an audience-demand
+index.</p>
+
+<h3>Fit</h3>
+
+<p><code>CCast.fit</code> returns a score out of 100 and the reasons behind it.
+The arithmetic is plain: up to three shared films with the director at 22 points
+each, cosine overlap of the two genre profiles scaled to 30, 16 points for a
+credit within the last two years against 4 if not, and one point per film up to
+20. A shared film is matched by film id on the TMDB path and by director name on
+the Wikidata path. It is a rough sort order for a shortlist — history, shared
+sensibility, and whether the performer is currently working — not a judgement
+about the role.</p>
+
+<h3>The quote estimate, and what it is worth</h3>
+
+<p><code>CCast.quote</code> places the performer in one of five named bands —
+Scale / day player, Established supporting, Name, Star, A-list — using three
+inputs: credits released in the last six years, how many of those were
+top-two-billed, and the TMDB popularity figure. The band's low and high are
+fixed constants in the <code>TIERS</code> table, identical for everyone placed
+in that band; the source describes them as trade-reported convention brackets
+and states that profit participation is not modelled. The floor quoted in the
+basis lines is published SAG-AFTRA theatrical scale as recorded in
+<span class="path">production/lib-cast.js</span>. Enter a figure in the
+<em>known quote</em> field and it overrides the model entirely.</p>
+
+<p>Read the basis lines, not the number. The estimate is a bracket derived from
+public career data, calculated without an agency, a script, a start date, or a
+single conversation — treat it as a bucket for a shortlist, never as a
+negotiating position. One structural limit is worth knowing: the Wikidata path
+carries no billing order and no popularity, so with no TMDB key stored, the
+top-billed count and the demand index are both zero and no performer can be
+placed above <em>Established supporting</em>, however famous they are.</p>
+
+<h2>Scheduling implications</h2>
+
+<p>The cast desk's cue counts are the earliest read on the shape of the cast. A
+role speaking in one or two scenes is a day player: a single engagement, a
+single call, and a cost the estimator budgets on account <code>4200</code>,
+Cast — day players. A role carrying
+cues across twenty scenes is a lead, whose availability constrains the entire
+board, and whose idle days between first and last work day are either held and
+billed or dropped and released.</p>
+
+<p>Cinamate does not carry that judgement through automatically. The estimator
+in <span class="path">timeline/timeline-budget.js</span> makes its own split —
+the top two ranked characters are leads, the next six at most are supporting,
+everything beyond that is a day player — and the Day-Out-of-Days matrix in
+<span class="path">producer/schedule-board.js</span> is built from the cast
+assigned to the stripboard's strips, not from the cast desk. Neither reads
+<code>SB_CastingDesk_v1</code>. If you have pruned the role list here, prune the
+strip cast and the roles register too, or the schedule and the budget will keep
+counting characters you have already cut.</p>
+
+<p>The one piece of scheduling the desk does enforce is the hold conflict, and
+it does so only across its own board. It cannot see another production's holds
+or an availability your candidate has not told you about, so confirm dates with
+the representatives before you move the board.</p>
+
+<h2>What the suites check</h2>
+
+<p><span class="path">scripts/test_castoffice.mjs</span> exercises the cast desk
+engine against a fixture screenplay: scene splitting through the shared model,
+every cue-detection rule above, the role counts and their scene lists, the hold
+conflict cases including touching endpoints and missing dates, that sides
+include the slugline and the dialogue and exclude scenes without the role, that
+an unknown character yields nothing, that an empty offer memo prints
+<code>TBD</code> rather than inventing figures, and the board totals.
+<span class="path">scripts/test_advisor.mjs</span> covers Cast Intelligence: the
+TMDB and Wikidata parsers, the fit scoring, and the quote tiers including the
+known-quote override and the stated scale floor. Both run under
+<code>node scripts/run_all_tests.mjs</code>, which discovers suites rather than
+listing them.</p>

@@ -1,0 +1,258 @@
+<h1 class="ch">Workflow — Pipeline Mission Control</h1>
+<span class="mk">@@CH03@@</span>
+
+<p class="lede">Every other module knows one thing about your production. The
+Workflow page is the only one that reads all of them at once, works out where
+the picture actually stands, and says what to do next. It writes almost nothing
+and decides nothing on its own — it is a mirror held up to the stores the rest
+of the platform has already filled.</p>
+
+<div class="note"><strong>On this text.</strong> This chapter was written by
+reading <span class="path">workflow/workflow.js</span>,
+<span class="path">workflow/advisor.js</span>,
+<span class="path">workflow/advisor-ui.js</span>,
+<span class="path">workflow/index.html</span>,
+<span class="path">workflow/workflow.css</span> and
+<span class="path">js/learn.js</span>, together with the node suites that pin
+them. Nothing here was observed in a running browser. The platform is under
+active development; where this manual and the software disagree, the software
+is what runs.</div>
+
+<h2>Where the page gets its facts</h2>
+
+<p>The page is <span class="path">workflow/index.html</span>. Its engine,
+<code>window.CWorkflow.assess()</code>, is a pure function: hand it a bag of
+already-parsed stores and it returns the whole assessment, with no reference to
+the document — which is why it can be executed in node, and is. In the browser,
+<code>gather()</code> fills that bag from <code>localStorage</code>, one
+<code>JSON.parse</code> per key, each wrapped so a corrupt value reads as
+<code>null</code> rather than breaking the page.</p>
+
+<table>
+  <tr><th>Key</th><th>Feeds</th></tr>
+  <tr><td><code>SB_Timeline_v1</code></td><td>project name, screenplay text, clips, characters, location bible</td></tr>
+  <tr><td><code>SB_Writer_v1</code></td><td>treatment beats and the Writer's project title</td></tr>
+  <tr><td><code>SB_BudgetSheet_v1</code></td><td>top-sheet categories, estimates, actuals, contingency</td></tr>
+  <tr><td><code>SB_Budget_v1</code></td><td>project mode, scale and the modelled incentive</td></tr>
+  <tr><td><code>SB_ScheduleBoard_v1</code></td><td>strips and the day each is boarded onto</td></tr>
+  <tr><td><code>SB_ShootPlan_v1</code></td><td>the first shoot date</td></tr>
+  <tr><td><code>SB_LocalGPU_v1</code></td><td>the Cinamate AI bridge URL</td></tr>
+  <tr><td><code>SB_Captions_v1</code>, <code>SB_Credits_v1</code>, <code>SB_EPK_v1</code></td><td>three of the four delivery steps</td></tr>
+  <tr><td><code>SB_Cut_v1</code></td><td>the Editor's last export, which satisfies the fourth</td></tr>
+  <tr><td><code>SB_ReviewNotes_v1</code></td><td>the dailies-notes count on the Review stage</td></tr>
+</table>
+
+<p><code>SB_Sales_v1</code>, <code>SB_Crew_v1</code> and <code>SB_Drafts_v1</code>
+are gathered as well but no stage consults them; the Advisor reads
+<code>SB_Crew_v1</code> for itself. Everything is read from this browser. The
+page makes no network call except one optional health ping to the bridge.</p>
+
+<h2>The seven stages</h2>
+
+<p>Completion is derived, never ticked off by hand. There is no "mark done"
+control on this page, and there is no half-done state — a stage is
+<em>Done</em>, <em>In progress</em> or <em>Up ahead</em>.</p>
+
+<table>
+  <tr><th>Stage</th><th>Module</th><th>Counts as done when</th></tr>
+  <tr><td>1 Develop</td><td>Writer</td><td>the Studio's <code>scriptText</code> exceeds 200 characters, or the Writer holds at least one scene</td></tr>
+  <tr><td>2 Breakdown</td><td>Studio</td><td>the timeline holds at least one clip</td></tr>
+  <tr><td>3 Budget</td><td>Producer Suite</td><td>the top sheet's estimate subtotal is above zero</td></tr>
+  <tr><td>4 Schedule</td><td>Producer Suite</td><td>at least one strip carries a day of 0 or higher</td></tr>
+  <tr><td>5 Generate</td><td>Studio · Cinamate AI</td><td>there is at least one clip and every clip has a <code>videoUrl</code></td></tr>
+  <tr><td>6 Review</td><td>Studio · Dailies</td><td>there is at least one clip and every clip's status is <code>approved</code></td></tr>
+  <tr><td>7 Deliver</td><td>Tools</td><td>all four finishing chips are satisfied</td></tr>
+</table>
+
+<p>The metrics under each card come from the same read. Budget prints the subtotal
+grossed up by <code>contingencyPct</code>, the project mode, and actuals if any.
+Schedule prints boarded strips against total strips, the number of distinct days,
+and the planner's first date as <em>Day 1</em>. Generate prints rendered against
+total, how many are rendering now, and the bridge URL or <em>Bridge not
+configured</em>. Deliver carries four chips — Captions, Credit roll, Press kit,
+Final export — the last satisfied either by every clip being approved or by the
+Editor having recorded a <code>lastExport</code>.</p>
+
+<p>The header percentage is blunt arithmetic: finished stages divided by seven,
+rounded, so each stage is worth about fourteen points whatever it cost in real
+days. The <em>Next up</em> line names the first unfinished stage, quotes its hint
+and offers its button; when nothing is outstanding it reads <em>Pipeline
+complete — every stage is done</em>, followed by a clapperboard glyph. Only that
+first unfinished stage is promoted to <em>In progress</em>; a later stage with
+partial work of its own — clips rendering while the budget is still empty — also
+shows as in progress. The <em>Next up</em> line, not the badges, is the single
+answer to "where am I".</p>
+
+<div class="note"><strong>A budget built with the calculator can read as
+empty.</strong> The Budget stage sums each line's stored <code>est</code> field
+directly. The Producer Suite also lets a line be written as Amount × Units ×
+Rate, and those lines leave <code>est</code> at zero. The Advisor avoids this by
+reading through <code>CBudgetSheet.subtotal()</code> in
+<span class="path">js/lib-money-sheet.js</span>, which honours the calculator;
+the pipeline stage and the Advisor's own <em>top sheet is empty</em> prompt do
+not. A sheet built entirely that way can show a real total in the Producer
+Suite while this page still says <em>Estimates unlock after breakdown</em>.
+Nothing is lost — only mis-reported.</div>
+
+<h2>The generation board and system row</h2>
+
+<p>Below the stages, every clip appears as a tile. Status is derived in one pass:
+<code>approved</code> or <code>generating</code> if the clip says so,
+<em>rendered</em> if it merely carries a video URL, <em>queued</em> otherwise.
+Tiles sort by urgency — generating, queued, rendered, approved — then by clip
+number, so what needs attention sits at the top left. Labels truncate at 26
+characters; numbers pad to two digits.</p>
+
+<p>The System row carries three chips: the bridge, the model (always reported as
+Cinamate AI, rendering on your machine), and the project type. When a bridge URL
+is configured the page fetches <code>/health</code> against it with a 2.5-second
+abort, once per URL, and rewrites the chip to say either that the bridge is
+online or that it is configured but not reachable right now. A failed ping is a
+reachability statement, nothing more.</p>
+
+<p>The page re-renders on the browser's <code>storage</code> event — that is,
+when <em>another tab</em> saves — and whenever this tab becomes visible again.
+It does not poll. Work saved by other code in this same tab will not refresh it
+until you leave and return.</p>
+
+<h2>The Advisor</h2>
+
+<p>The Advisor is a separate layer: pure functions in
+<span class="path">workflow/advisor.js</span>, mounted on this page by
+<span class="path">workflow/advisor-ui.js</span>. It computes the film's script
+analysis through <code>SBBudget.analyze()</code>, takes the budget through the
+shared sheet reader, and produces three things.</p>
+
+<h3>Prep actions</h3>
+
+<p>A ranked list of what is outstanding, each row a link into the module that
+fixes it. Four severities are printed as words, so the ranking survives print:</p>
+
+<table>
+  <tr><th>Severity</th><th>Raised by</th></tr>
+  <tr><td>NOW</td><td>no screenplay; script not broken down; permits at <em>Applied</em> or <em>Denied</em>; clearances still <em>Flagged</em> or <em>Clearing</em></td></tr>
+  <tr><td>SOON</td><td>night scenes with no shoot-day plan; empty top sheet; no jurisdiction modelled; uncast roles; empty crew register; no insurance certificates; a cut exported with no delivery checklist</td></tr>
+  <tr><td>NEXT</td><td>unscouted locations; rendered clips awaiting approval; approved clips not yet on the Editor timeline</td></tr>
+  <tr><td>CLEAR</td><td>nothing outstanding</td></tr>
+</table>
+
+<p>If there is no screenplay at all the list stops after one row — everything
+downstream is moot until there is a script.</p>
+
+<h3>Where to shoot it</h3>
+
+<p>The ranking scores every jurisdiction in the platform's incentive table
+against three things: the money back on this budget, weighted heaviest; how many
+of the script's look cues that place can supply, at fourteen points each; and a
+hand-authored crew-depth rating of one to three, at six points each. Falling
+below a programme's minimum spend costs fifty points and exceeding its budget
+cap costs sixty — a penalty, not a veto, so an ineligible programme can still
+place if the money is large enough. It is flagged in the reasons when it does.
+Look cues are drawn from the screenplay by keyword, plus a few implied by genre.
+The top three are shown.</p>
+
+<p>Two cautions the source states plainly. The incentive figures are headline
+programme terms and are to be verified with a production accountant before
+anything is relied on. And when no budget has been seeded the whole ranking is
+modelled on a five-million-dollar placeholder — the heading says so in
+parentheses, and that parenthesis is the difference between a recommendation
+about your film and a recommendation about a hypothetical one.</p>
+
+<h3>Who to hire for this style</h3>
+
+<p>The staffing table starts from a core unit — eleven entries for scripted work,
+a five-person unit for documentary — and multiplies the elastic positions by
+scale: 1 for indie, 1.5 for mid, 2.2 for studio, read from
+<code>SB_Budget_v1</code>. The script's detected drivers then add specialists: a
+stunt coordinator, a marine coordinator and safety, an on-set VFX supervisor,
+extras casting, an animal wrangler, a period set decorator. More than 30% night
+work adds lighting crew; more than eight speaking parts adds a 2nd AD. Each row
+states its reason.</p>
+
+<h3>Turning a recommendation into an action</h3>
+
+<p><strong>Model this jurisdiction</strong> writes the chosen id into
+<code>SB_Budget_v1</code> as the <code>incentive</code> preference, so the Studio
+estimate and the Producer Suite immediately assume it. <strong>Seed these as
+open positions in Crew</strong> writes into <code>SB_Crew_v1</code>: one row per
+recommended head, named <em>(open position)</em>, with department, a union
+default per department, and every contact field blank.</p>
+
+<div class="note"><strong>Seeding crew rewrites the register.</strong> The seeder
+skips any role name already on the books, so pressing it twice adds nothing —
+but it also will not top up a role you genuinely need more of. Rows are added
+to the front of the list, and there is no undo on this page. If
+<code>SB_Crew_v1</code> holds anything other than an array, that value is
+discarded and replaced.</div>
+
+<h2>What the self-learning paragraph is telling you</h2>
+
+<p>Beneath the staffing table sits a short grey paragraph. It is the only place
+on this page that reports on the platform's own performance, and it is worth
+reading precisely.</p>
+
+<p>Its first line is built in <span class="path">js/learn.js</span> by
+<code>CLearn.learningReport()</code>, from the walk-forward record kept in
+<code>CIN_Learn_v1</code>. Before any closed budget line is folded into the
+learning store, the platform writes down what it <em>would</em> have predicted
+for that line from everything it knew at that moment, next to what the line
+really cost. The walk-forward check compares those predictions against the raw
+estimates they replaced, over lines where the account already had at least two
+prior observations. It reports one of four things:</p>
+
+<ul>
+  <li><strong>unproven</strong> — fewer than five scored lines exist. The
+  sentence says how many of the five are in hand and shows no percentage at
+  all.</li>
+  <li><strong>better</strong> — calibrated estimates beat raw by a stated
+  percentage, with the counts of lines that landed closer and further off.</li>
+  <li><strong>worse</strong> — calibration is making estimates a stated
+  percentage <em>worse</em> than raw, and the sentence says to treat the seeded
+  numbers as unhelped.</li>
+  <li><strong>level</strong> — the correction is not earning its place yet.</li>
+</ul>
+
+<p>The second line is the gate. Nothing is learned from a production until it is
+marked wrapped in Projects, because a part-shot ledger reads as an enormous
+underrun and would drag every future estimate down. Until then this line tells
+you plainly that nothing is being learned.</p>
+
+<p>The third line is the one to be careful with. It reports how many closed
+lines have been folded in, across how many accounts, and then an
+<strong>average correction applied</strong> — a multiplier such as ×1.95. That
+number is <em>not</em> an accuracy score, and the page labels it in full: how
+much correcting it has done, not how well it works. It rises as the platform
+gets things more wrong. A large correction average sitting above a
+<em>worse</em> verdict is not a contradiction; it is the same fact stated
+twice.</p>
+
+<p>The fourth line reports render speed from the same store: how many renders
+have been timed, the median wall-clock seconds per clip on this machine, and a
+trend of faster, steady or slower — computed only once at least eight renders
+have been recorded. A count of cached research lookups follows if there are
+any.</p>
+
+<div class="note"><strong>The verdict is carried by the words, not the
+colour.</strong> On screen the headline is tinted red for <em>worse</em> and
+green for <em>better</em>. In print there is no tint, and none is needed: the
+sentence states the verdict, the percentage and the sample size outright. Read
+the sentence.</div>
+
+<h2>What is pinned, and what is not</h2>
+
+<p><span class="path">scripts/test_workflow.mjs</span> executes the engine directly
+and fixes the stage rules above — 0% on an empty browser, Develop first, the
+rendered and approved ratios, the contingency arithmetic, the distinct-day count,
+the Editor export satisfying the final delivery step, 100% with nothing next, and
+that malformed stores never throw.
+<span class="path">scripts/test_advisor.mjs</span> runs the Advisor against the
+real incentive table and pins the look extraction, the ranking penalties for
+minimum spend and budget cap, the driver-led staffing additions and every
+prep-action rule. The self-learning paragraph is pinned separately, by a suite
+that renders the panel and asserts no code in it reads the old correction average
+as though it were accuracy.</p>
+
+<p>What no test can establish, and this manual therefore does not claim: whether
+the incentive terms are current, whether a crew-depth rating reflects today's
+market, or whether the bridge on your machine is healthy. Those are questions for
+a production accountant, a line producer and a ping.</p>

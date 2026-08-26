@@ -90,8 +90,24 @@ function tokenize(src) {
       if (c === '\\') { frame.text += src[i + 1] || ''; i += 2; continue; }
       if (c === '`') { stack.pop(); lastSignificant = '`'; i++; continue; }
       if (c === '$' && src[i + 1] === '{') {
+        /* STICKY MARKUP CONTEXT, and this is a real hole that was closed.
+
+           frame.text is reset after every interpolation, so `before` only ever
+           held the text since the PREVIOUS ${}. In
+
+               `<td>${esc(a)}${row.name}</td>`
+
+           the first interpolation saw "<td>" and was recorded; the second saw
+           "" and was invisible to this scanner — an unescaped value sitting in
+           markup, reported as nothing to review. A reviewer proved it with
+           fixtures: eight of sixteen sink shapes went unseen.
+
+           Once a template literal has opened a tag, everything remaining in it
+           is in markup context until the literal ends. So the frame REMEMBERS,
+           and the flag rides onto the code frame with the text. */
+        if (!frame.sawMarkup && HAS_MARKUP.test(frame.text)) frame.sawMarkup = true;
         stack.push({ type: 'code', depth: 0, expr: '', exprLine: line,
-                     capture: true, before: frame.text });
+                     capture: true, before: frame.text, sticky: frame.sawMarkup });
         frame.text = '';
         i += 2;
         continue;
@@ -150,12 +166,12 @@ function tokenize(src) {
       lastSignificant = '"';
       continue;
     }
-    if (c === '`') { stack.push({ type: 'tpl', text: '', line }); i++; continue; }
+    if (c === '`') { stack.push({ type: 'tpl', text: '', sawMarkup: false, line }); i++; continue; }
     if (c === '{') { frame.depth++; cap(c); i++; lastSignificant = '{'; continue; }
     if (c === '}') {
       if (frame.depth === 0 && frame.capture) {
         out.push({ kind: 'tpl-expr', expr: frame.expr.trim(),
-                   before: frame.before, line: frame.exprLine });
+                   before: frame.before, sticky: frame.sticky, line: frame.exprLine });
         stack.pop();
         i++;
         continue;
@@ -182,7 +198,7 @@ for (const path of walk(ROOT)) {
   /* ── template literals, however many lines they span ── */
   for (const t of tokens) {
     if (t.kind !== 'tpl-expr') continue;
-    if (!HAS_MARKUP.test(t.before || '')) continue;
+    if (!HAS_MARKUP.test(t.before || '') && !t.sticky) continue;
     record(rel, t.line, t.expr, (t.before || '').slice(-90) + '${' + t.expr + '}');
   }
 
