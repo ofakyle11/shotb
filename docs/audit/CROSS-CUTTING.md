@@ -487,3 +487,53 @@ Almost every individual finding rolls up into six root causes:
 
 Ranked honestly, fixing 1, 2 and 3 alone would change more about this platform's
 trustworthiness than any new module in the backlog.
+
+---
+
+## 23. The test suite ENFORCES the lens contradiction (crew-10)
+
+Finding 12 said green tests can sit over dead features. This is worse: two
+passing tests each assert a *different* sensor for the same lens, so the suite
+actively locks the contradiction in place.
+
+- `scripts/test_set.mjs:39` pins the 2D cone to full frame — 54.4° at 35mm.
+- `scripts/test_set3d.mjs:136` pins the 3D frustum to Super 35 — 39.2° at 35mm.
+
+Both pass. 44/44 is green. **Fixing either one alone breaks a test**, which is
+exactly the trap that keeps a contradiction alive: the suite reports the bug as
+the intended behaviour. A third sensor table sits unused at
+`tools/lib-media.js:59`.
+
+Measured aspect dependence, since `sets/index.html:83` sets the canvas to
+`width:100%;height:100%` and so it is **never** the 4:3 the maths assumes:
+
+| Window shape | What a 35mm shows |
+|---|---|
+| 4:3 | 39.1° (correct) |
+| 16:9 | **50.7°** |
+| 21:9 | **63.8°** |
+
+Widen the browser window and the lens sees more room. No aspect-ratio or
+safe-area overlay exists anywhere in the repo.
+
+## 24. Sun times are wrong in two different ways, in two different places
+
+Finding 14 recorded that Locations uses an approximate solar engine while a
+correct tested one sits unloaded. Cinematography found the *other* half: where
+the correct engine **is** used, it is passed no timezone.
+
+`tools/lib-sun.js:66` falls back to `getTimezoneOffset()` — the **viewer's**
+offset, not the location's — and neither `tools/sched-weather.js:147` nor
+`production/production.js:152` passes one. Verified by execution: **LA sunset on
+2026-08-26 is 19:28 local and renders as 02:28 on a UTC machine.** The city
+picker ships 12 cities spanning 19 hours of offset, so the remote case is the
+designed one, not an edge case.
+
+`TSun` also returns times only — no azimuth, no altitude — so no question about
+sun *direction* can be answered, which is most of what a DP actually asks of it.
+
+---
+
+**Phase 1 crew sweep closed: 20 of 20 reported.** The final report did not add a
+seventh root cause; it deepened three existing ones. That convergence is the
+strongest evidence the six root causes are real and the backlog is tractable.
