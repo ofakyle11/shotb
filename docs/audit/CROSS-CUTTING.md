@@ -609,3 +609,80 @@ electrical incident.
 
 The platform speaks the language and cannot do the sums. DOF/hyperfocal is
 ~80 lines onto `tools/lib-media.js` with no new `SB_` key.
+
+## 30. "The day" has three incompatible identities (teamA-16)
+
+The reason the DPR is fiction is not the two field-name bugs — it is that the
+platform has no shoot-day record at all.
+
+| Where | What a "day" is |
+|---|---|
+| stripboard | an **int index** plus a hand-typed `MM/DD` string |
+| Dailies | `yyyy-mm-dd` plus a unit |
+| `SB_ShootPlan_v1` | the real computed date — **which nobody asks for** |
+
+So `today/index.html:71` has to **guess what day it is by string-matching**. On
+top of that, `production/lib-prod.js:27,30` filters takes on `t.date` and counts
+prints on `t.status||t.print` — neither field exists in either take store — so
+every take ever logged counts on every date and `printedCount` is permanently
+zero. The DPR never opens `SB_Dailies_v1` at all.
+
+Fix: an `SB_ShootDays_v1` record. Small, and it is the join key the call sheet,
+the DPR, the pull list, the costume plot and the day log all need.
+
+## 31. `SB_BudgetSheet_v1`: read by eight modules, written by one (teamA-15)
+
+This is the structural reason no department rollup is possible. The only writer
+is `producer/budget-sheet.js:11`, seeding from `SB_Budget_v1` and `SB_Money_v1`.
+Real priced props and costume totals are therefore invisible to investors,
+incentives, sales forecast, money room and dashboard — **all eight instead see
+the flat 55/30/15 guess at `js/budget-engine.js:682`**.
+
+Finding 6 said department numbers are not derived from department content. This
+is why: there is no write path.
+
+## 32. Verification that leaves no record (teamA-16, teamA-17)
+
+`tools/lib-media.js:88` does **correct** SHA-256/MHL verification — and
+`tools-media-ui.js:93` keeps every entry in function locals and pushes the XML
+to an `<a download>`. **Nothing reaches any `SB_*` key.**
+
+Consequences: nothing can answer *"is A007 clear to format?"* — the one
+irreversible mistake available on a set; no take records a camera roll; the
+editor bin carries no hash and dead-ends at `missing`; and
+`distribution/lib-dist.js:38` bills an *"Archive master (verified backup)"* that
+nothing can evidence.
+
+The engine is written and tested. It needs a place to put its answer.
+
+## 33. Nothing gates what leaves the building (teamA-17)
+
+`SB_Music_v1` is read by no file outside `music/` (verified). `addScreener`
+(`distribution/lib-dist.js:97`) records the recipient and never the content.
+`CScreen.newSession` records no cut identity.
+
+**A screener can go out with unlicensed cues in it, and the platform holds every
+fact needed to stop that.** ~50 lines of `rightsGate(music, clearance)` — a
+join, not new capability. Best consequence-per-line item found in Phase 1.
+
+## 34. Continuity photos leave the project (teamA-15)
+
+`wardrobe/index.html:133` writes JPEGs to IndexedDB. `projects/lib-vault.js:15`
+and `netlify/functions/projects-sync.js:227` only ever touch `SB_*` localStorage
+keys — so the photos are outside the vault and outside cloud sync. Worse,
+`lib-vault.js:170` wipes and rewrites localStorage on a project switch and
+leaves the blobs behind: the department's matching record is **device-only,
+silently vanishes on a project switch, and the orphans grow unbounded**.
+
+## 35. The post calendar reports a template guess as "ready" (teamA-17)
+
+`SB_Post_v1` stores no milestone status and no actual dates, so `CPost.schedule`
+is a pure plan and `distReadiness` (`post/lib-post.js:243`) reports `ready` off
+the planned end date — while `post/index.html:104` tells the user "as each
+milestone completes…". **Nothing ever completes.** The graph, business-day
+maths and critical path are all built and correct; only the observation layer is
+missing. ~90 lines.
+
+This is the same shape as finding 35's siblings: a correct engine with no way to
+record what actually happened. Which is exactly what Phase 4's self-learning
+work needs — **you cannot learn from outcomes you never record.**

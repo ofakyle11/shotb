@@ -88,8 +88,34 @@ with one that already exists.
 
 ## What exists but needs work
 
-Kept short — ten teammates are covering improvements. These four only because
-they define where the gaps below have to attach.
+Kept short — ten teammates are covering improvements. The first is a hard bug I
+tripped over while verifying gap 8 and cannot leave unreported; the rest are
+here because they define where the gaps below have to attach.
+
+- **`SB_Deals_v1` is written in two incompatible shapes by two modules — one of
+  them crashes on load. HIGH, data loss.**
+  `contracts/index.html:77` sets `KEY = 'SB_Deals_v1'` and stores an **object**,
+  `{v:1, deals:[…]}` (`contracts/lib-deal.js:21`).
+  `tools/tools-registers.js:157` gives the Buyers & Investors register the
+  **same key**, and `TCore.Register` stores a bare **array** of rows
+  (`tools/tools-core.js:60,62`).
+  Neither guards the shape it reads:
+  - `contracts/index.html:85` — `var st = readLS(KEY) || D.blank();`. An array
+    is truthy (even `[]`), so `D.blank()` never runs, and `render()` at
+    `contracts/index.html:90` immediately calls `st.deals.forEach(…)` on
+    `undefined`. The Deal Memos page throws and renders nothing.
+  - The reverse is just as bad: `TCore.load` (`tools/tools-core.js:15`) returns
+    the object rather than its `[]` fallback, so `this.rows` becomes
+    `{v:1,deals:[]}`; `this.rows.length` is `undefined` so the table renders
+    "Nothing here yet", and the first `add()` (`tools-core.js:66`,
+    `this.rows.unshift`) throws.
+  Whichever module the owner opens second is broken, and the first `persist()`
+  or `save()` afterwards overwrites the other module's data permanently. Both
+  modules are on my brief's list (contracts, and the buyer pipeline behind
+  gap 8). Fix: give the deal-memo store its own key — but note the brief's
+  rule, existing owners already have data under `SB_Deals_v1` in *one* of the
+  two shapes, so the migration has to sniff the shape (`Array.isArray`) and
+  move the right half, not just rename.
 
 - `distribution/lib-dist.js:53,71-75` — HIGH. Completion is a bare boolean map
   (`done: {}`), toggled by id. A deliverable has no due date, no delivered
