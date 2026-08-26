@@ -53,9 +53,35 @@ function tokenOwner(token, secret) {
   return safeEqual(parts[3], expect) ? name : null;
 }
 
-function cookieToken(header) {
-  const m = /(?:^|;\s*)cin_owner=([^;]+)/.exec(String(header || ''));
-  try { return m ? decodeURIComponent(m[1]) : null; } catch (e) { return null; }
+/* Every cin_owner the header carries, not just the first. A browser will send
+   two cookies of the same name — one set for a narrower path, or set for this
+   domain by a subdomain — and it sends the more specific one first. Reading
+   the first and stopping meant a planted cookie could stand in front of the
+   real session and hide it, signing the owner out of their own studio. Read
+   them all and accept whichever verifies: a forged value still cannot verify,
+   and a genuine one can no longer be pushed out of the way. The cap keeps an
+   enormous header from being turned into work.
+   (A __Host-cin_owner cookie could not be set by a subdomain at all, which
+   would stop this at the source, but renaming the cookie signs out every live
+   session, so that is a separate decision.) */
+function cookieTokens(header) {
+  const out = [];
+  const re = /(?:^|;\s*)cin_owner=([^;]*)/g;
+  let m;
+  while ((m = re.exec(String(header || ''))) !== null && out.length < 12) {
+    if (!m[1]) continue;
+    try { out.push(decodeURIComponent(m[1])); } catch (e) { /* not ours */ }
+  }
+  return out;
+}
+
+function ownerFromCookies(header, secret) {
+  const seen = cookieTokens(header);
+  for (let i = 0; i < seen.length; i++) {
+    const who = tokenOwner(seen[i], secret);
+    if (who) return who;
+  }
+  return null;
 }
 
 exports.handler = async (event) => {
@@ -66,7 +92,7 @@ exports.handler = async (event) => {
 
   const secret = process.env.OWNER_TOKEN_SECRET;
   const headers = event.headers || {};
-  const owner = tokenOwner(cookieToken(headers.cookie || headers.Cookie), secret);
+  const owner = ownerFromCookies(headers.cookie || headers.Cookie, secret);
 
   if (!owner) {
     // Pages bounce to the sign-in screen; subresources get a plain 401.

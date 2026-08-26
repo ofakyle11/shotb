@@ -55,6 +55,12 @@ function safeEqual(a, b) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
+// The five owners. gate.js and projects-sync.js both check a decoded token's
+// name against this list before trusting it; this file, which mints the
+// tokens, was the only one of the three that did not — so a token signed for
+// a name retired from the sign-in path would still have verified here.
+const NAMES = ['mz465', 'kz465', 'hz465', 'rz465', 'dz465'];
+
 function signOwnerToken(name, ttlHours) {
   const expires = Date.now() + ttlHours * 60 * 60 * 1000;
   const payload = `owner:${name}:${expires}`;
@@ -68,14 +74,17 @@ function verifyOwnerToken(token) {
   if (!token || typeof token !== "string") return null;
   const parts = token.split(":");
   if (parts.length !== 4 || parts[0] !== "owner") return null;
-  const [, name, expiresStr, providedHmac] = parts;
+  const [, rawName, expiresStr, providedHmac] = parts;
+  const name = String(rawName).toLowerCase();
+  if (NAMES.indexOf(name) < 0) return null;
   // Signed over the literal field, not a reparsed integer — see gate.js.
   if (!/^\d+$/.test(expiresStr)) return null;
   const expires = parseInt(expiresStr, 10);
   if (!expires || Date.now() > expires) return null;
   const secret = process.env.OWNER_TOKEN_SECRET;
   if (!secret) return null;
-  const payload = `owner:${name}:${expiresStr}`;
+  // The HMAC covers the name exactly as it arrived, not the lower-cased copy.
+  const payload = `owner:${rawName}:${expiresStr}`;
   const expectedHmac = crypto.createHmac("sha256", secret).update(payload).digest("hex");
   if (!safeEqual(providedHmac, expectedHmac)) return null;
   return { name, expires };
@@ -95,11 +104,36 @@ exports.verifyOwnerToken = verifyOwnerToken;
 // who need to get in.
 const ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
 const ATTEMPT_MAX = 12;
+const ATTEMPT_CAP = 500;
+/* Above this many failures against one NAME, from any combination of
+   addresses, every answer for that name is slowed down. It is deliberately a
+   delay and not a lockout: a lockout would let anyone deny an owner their own
+   studio by typing a wrong password often enough, and against a 256-bit
+   random password the guessing it would prevent is not the threat. A delay
+   costs a distributed attacker their throughput and costs the owner a second
+   and a half. */
+const ACCOUNT_SOFT_MAX = 20;
+const ACCOUNT_DELAY_MS = 1500;
 const attempts = new Map();
+
+/* The map used to be emptied wholesale once it passed 500 entries. That made
+   the entire local layer resettable on demand: 500 requests carrying
+   throwaway keys wiped the record of an attack already in progress, and the
+   attacker's own counter went with it. Expired entries go first, and if the
+   map is still over the cap the oldest go — never all of them. */
+function evict(now) {
+  for (const [k, v] of attempts) {
+    if (now - v.t > ATTEMPT_WINDOW_MS) attempts.delete(k);
+  }
+  if (attempts.size <= ATTEMPT_CAP) return;
+  const byAge = Array.from(attempts.entries()).sort((a, b) => a[1].t - b[1].t);
+  const drop = attempts.size - ATTEMPT_CAP;
+  for (let i = 0; i < drop; i++) attempts.delete(byAge[i][0]);
+}
 
 function throttledLocally(ip) {
   const now = Date.now();
-  if (attempts.size > 500) attempts.clear();
+  evict(now);
   const a = attempts.get(ip);
   if (!a || now - a.t > ATTEMPT_WINDOW_MS) { attempts.set(ip, { n: 1, t: now }); return false; }
   a.n++;
@@ -113,24 +147,31 @@ function ipKey(ip) {
   const salt = process.env.OWNER_TOKEN_SECRET || "cinamate";
   return "t_" + crypto.createHmac("sha256", salt).update(String(ip)).digest("hex").slice(0, 32);
 }
+function nameKey(name) {
+  const salt = process.env.OWNER_TOKEN_SECRET || "cinamate";
+  return "n_" + crypto.createHmac("sha256", salt).update(String(name)).digest("hex").slice(0, 32);
+}
 function blobUrl(key) {
   return "https://api.netlify.com/api/v1/blobs/" +
     process.env.CIN_SITE_ID + "/" + THROTTLE_STORE + "/" + encodeURIComponent(key);
 }
-async function blobJson(method, key, body) {
+async function blobJson(method, key, body, cond) {
   if (!process.env.CIN_API_TOKEN || !process.env.CIN_SITE_ID) return null;
   const res = await fetch(blobUrl(key), {
     method,
     headers: {
       Authorization: "Bearer " + process.env.CIN_API_TOKEN,
       ...(body != null ? { "Content-Type": "application/json" } : {}),
+      ...(cond && cond.ifMatch ? { "If-Match": cond.ifMatch } : {}),
+      ...(cond && cond.ifNoneMatch ? { "If-None-Match": cond.ifNoneMatch } : {}),
     },
     body: body != null ? JSON.stringify(body) : undefined,
   });
-  if (method !== "GET") return { ok: res.ok };
-  if (!res.ok) return res.status === 404 ? { ok: true, value: null } : null;
-  try { return { ok: true, value: JSON.parse(await res.text()) }; }
-  catch (e) { return { ok: true, value: null }; }
+  if (method !== "GET") return { ok: res.ok, status: res.status };
+  if (!res.ok) return res.status === 404 ? { ok: true, value: null, etag: null } : null;
+  const etag = res.headers && typeof res.headers.get === "function" ? res.headers.get("etag") : null;
+  try { return { ok: true, value: JSON.parse(await res.text()), etag }; }
+  catch (e) { return { ok: true, value: null, etag }; }
 }
 
 // Read the shared count. Returns true only when we are certain the caller is
@@ -146,16 +187,50 @@ async function throttledShared(ip) {
   } catch (e) { return null; }
 }
 
-// Only failures are counted — a correct password never costs an owner budget.
-async function recordFailure(ip) {
-  try {
-    const key = ipKey(ip);
+/* Read, add one, write — with nothing between the read and the write, every
+   request that overlapped another simply overwrote it. Sixty simultaneous
+   wrong passwords were measured landing a count of eight, so the shared
+   counter under-reported by more than sevenfold at exactly the moment it
+   mattered: a burst is what the counter exists to catch.
+   The write is now conditional on the value not having changed since the
+   read, and a rejected write is re-read and retried. If the store turns out
+   not to honour the condition the write simply succeeds as it always did, so
+   this cannot be worse than what it replaces. */
+async function bump(key) {
+  for (let attempt = 0; attempt < 5; attempt++) {
     const r = await blobJson("GET", key);
+    if (!r || !r.ok) return;
     const now = Date.now();
-    const rec = (r && r.ok && r.value && typeof r.value.t === "number" &&
-                 now - r.value.t <= ATTEMPT_WINDOW_MS) ? r.value : { n: 0, t: now };
-    await blobJson("PUT", key, { n: (rec.n || 0) + 1, t: rec.t });
+    const fresh = r.value && typeof r.value.t === "number" && now - r.value.t <= ATTEMPT_WINDOW_MS;
+    const rec = fresh ? r.value : { n: 0, t: now };
+    const cond = r.etag ? { ifMatch: r.etag } : { ifNoneMatch: "*" };
+    const put = await blobJson("PUT", key, { n: (rec.n || 0) + 1, t: rec.t }, cond);
+    if (!put || put.ok) return;
+    /* 412 (or 409) means somebody else got there first — re-read and add to
+       their count instead of replacing it. Anything else is not a conflict. */
+    if (put.status !== 412 && put.status !== 409) return;
+  }
+}
+
+// Only failures are counted — a correct password never costs an owner budget.
+async function recordFailure(ip, name) {
+  try {
+    await bump(ipKey(ip));
+    /* Counted per name as well as per address. Twelve tries per address is no
+       limit at all to somebody with a thousand addresses, and every one of
+       them is aimed at the same five names. */
+    if (name) await bump(nameKey(name));
   } catch (e) { /* best effort — the local map still applies */ }
+}
+
+/* How hot this owner's name is, across every address. Null when unknown. */
+async function accountPressure(name) {
+  try {
+    const r = await blobJson("GET", nameKey(name));
+    if (!r || !r.ok || !r.value || typeof r.value.t !== "number") return 0;
+    if (Date.now() - r.value.t > ATTEMPT_WINDOW_MS) return 0;
+    return r.value.n || 0;
+  } catch (e) { return 0; }
 }
 
 async function throttled(ip) {
@@ -208,18 +283,27 @@ exports.handler = async (event) => {
     ]);
   }
 
-  if (await throttled(ip)) {
-    return respond(429, { error: "Too many attempts — wait a few minutes and try again" });
-  }
-
   const { name, password } = body;
   if (!name || !password) return respond(400, { error: "name and password required" });
 
   // Only mz465, kz465, hz465, rz465 and dz465 are valid owner names.
   const nameLower = String(name).toLowerCase();
-  if (nameLower !== 'mz465' && nameLower !== 'kz465' && nameLower !== 'hz465' && nameLower !== 'rz465' && nameLower !== 'dz465') {
+  const known = NAMES.indexOf(nameLower) >= 0;
+  /* Everything unrecognised shares one bucket, so an attacker cannot mint an
+     unbounded number of counter keys by inventing names. */
+  const countAs = known ? nameLower : "unknown";
+
+  if (await throttled(ip)) {
+    return respond(429, { error: "Too many attempts — wait a few minutes and try again" });
+  }
+
+  /* Looked up on every path, valid name or not, so that the check's own cost
+     cannot be timed to discover which names exist. */
+  if (await accountPressure(countAs) > ACCOUNT_SOFT_MAX) await sleep(ACCOUNT_DELAY_MS);
+
+  if (!known) {
     await sleep(150 + Math.floor(Math.random() * 250)); // same timing as a wrong password
-    await recordFailure(ip);
+    await recordFailure(ip, countAs);
     return respond(401, { error: "Invalid name or password" });
   }
   const envVar = `OWNER_PW_${nameLower.toUpperCase()}`;
@@ -227,7 +311,7 @@ exports.handler = async (event) => {
 
   if (!expected) {
     await sleep(150 + Math.floor(Math.random() * 250)); // uniform failure timing
-    await recordFailure(ip);
+    await recordFailure(ip, countAs);
     return respond(401, { error: "Invalid name or password" });
   }
   // Trim both sides — pasted passwords often carry stray whitespace, and
@@ -235,7 +319,7 @@ exports.handler = async (event) => {
   // meaningful in our passwords.
   if (!safeEqual(String(password).trim(), String(expected).trim())) {
     await sleep(150 + Math.floor(Math.random() * 250));
-    await recordFailure(ip);
+    await recordFailure(ip, countAs);
     return respond(401, { error: "Invalid name or password" });
   }
 
