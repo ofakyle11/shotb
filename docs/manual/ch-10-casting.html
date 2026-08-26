@@ -94,8 +94,7 @@ from and a to date, and the ranges overlap. Dates are compared as ISO text, and
 the endpoints are inclusive: a hold ending 10 October and one beginning 10
 October is a conflict. A candidate at <em>submitted</em> never conflicts, and
 missing dates are skipped rather than guessed. The warning names both roles and
-both ranges, and tells you to resolve it with the reps — the platform will not
-resolve it for you.</p>
+both ranges; resolving it is yours to do.</p>
 
 <h2>Audition sides — what is actually in them</h2>
 
@@ -147,8 +146,8 @@ two modules disagree only where they are meant to.</p>
 <p><code>appearsIn</code> matches whole words, with explicit boundaries rather
 than a word-break class, so a possessive still counts — MAGGIE'S COAT contains
 MAGGIE — while a character named AL is no longer found in every scene
-containing CALL, HALL or GENERAL. The source records that the substring match
-this replaced was mailing entire screenplays to representatives who had no
+containing CALL, HALL or GENERAL. The substring match this replaced was, by the
+source's own account, mailing entire screenplays to representatives who had no
 reason to receive them.</p>
 
 <div class="note"><strong>The production office pane still heads its output
@@ -209,9 +208,8 @@ The arithmetic is plain: up to three shared films with the director at 22 points
 each, cosine overlap of the two genre profiles scaled to 30, 16 points for a
 credit within the last two years against 4 if not, and one point per film up to
 20. A shared film is matched by film id on the TMDB path and by director name on
-the Wikidata path. It is a rough sort order for a shortlist — history, shared
-sensibility, and whether the performer is currently working — not a judgement
-about the role.</p>
+the Wikidata path. It is a sort order for a shortlist, not a judgement about the
+role.</p>
 
 <h3>The quote estimate, and what it is worth</h3>
 
@@ -237,12 +235,11 @@ placed above <em>Established supporting</em>, however famous they are.</p>
 <h2>Scheduling implications</h2>
 
 <p>The cast desk's cue counts are the earliest read on the shape of the cast. A
-role speaking in one or two scenes is a day player: a single engagement, a
-single call, and a cost the estimator budgets on account <code>4200</code>,
-Cast — day players. A role carrying
-cues across twenty scenes is a lead, whose availability constrains the entire
-board, and whose idle days between first and last work day are either held and
-billed or dropped and released.</p>
+role speaking in one or two scenes is a day player — a single engagement, a
+single call, a cost the estimator budgets on account <code>4200</code>. A role
+carrying cues across twenty scenes is a lead, whose availability constrains the
+whole board and whose idle days between first and last work day are either held
+and billed or dropped and released.</p>
 
 <p>Cinamate does not carry that judgement through automatically. The estimator
 in <span class="path">timeline/timeline-budget.js</span> makes its own split —

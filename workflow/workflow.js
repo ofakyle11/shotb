@@ -64,13 +64,36 @@
       action: 'Open Studio'
     });
 
-    /* 3 · Budget — top sheet carries real numbers */
+    /* 3 · Budget — top sheet carries real numbers.
+
+       ASK THE ENGINE. This used to sum `it.est` directly, and that is not what
+       a line is worth: js/lib-money-sheet.js computes an item as rate × amt ×
+       units whenever all three are set, and falls back to the stored `est`
+       only when they are not. A line entered through the Amt × Units × Rate
+       calculator therefore has a real value and, until the sheet is saved and
+       the estimate written back, an `est` of zero.
+
+       Summed naively, a live $400,000 top sheet read as 0 here. That is not a
+       cosmetic miscount: subtotal === 0 drives status to "active", the metric
+       to "Seed the top sheet from the script estimate", and the hint to
+       "⚡ Seed from script estimate" — and seeding DELETES every line item and
+       resets contingency. So the Workflow told an operator their budget was
+       empty and pointed them at the one control that would make it true.
+
+       CBudgetSheet owns this arithmetic, this page already loads it, and the
+       fallback below is the old behaviour for the case where it is absent. */
     var sheet = s.sheet || {};
     var cats = Array.isArray(sheet.categories) ? sheet.categories : [];
+    var BS = root.CBudgetSheet;
     var subtotal = 0, actuals = 0;
-    cats.forEach(function (c) {
-      (c.items || []).forEach(function (it) { subtotal += num(it.est); actuals += num(it.actual); });
-    });
+    if (BS && typeof BS.subtotal === 'function') {
+      subtotal = num(BS.subtotal(sheet));
+      actuals = num(typeof BS.actualTotal === 'function' ? BS.actualTotal(sheet) : 0);
+    } else {
+      cats.forEach(function (c) {
+        (c.items || []).forEach(function (it) { subtotal += num(it.est); actuals += num(it.actual); });
+      });
+    }
     var grand = Math.round(subtotal * (1 + num(sheet.contingencyPct) / 100));
     var mode = (s.budgetPrefs && s.budgetPrefs.mode) === 'documentary' ? 'Documentary' : 'Feature Film';
     stages.push({

@@ -90,9 +90,9 @@ Rate, and those lines leave <code>est</code> at zero. The Advisor avoids this by
 reading through <code>CBudgetSheet.subtotal()</code> in
 <span class="path">js/lib-money-sheet.js</span>, which honours the calculator;
 the pipeline stage and the Advisor's own <em>top sheet is empty</em> prompt do
-not. A sheet built entirely that way can show a real total in the Producer
-Suite while this page still says <em>Estimates unlock after breakdown</em>.
-Nothing is lost — only mis-reported.</div>
+not. A sheet built entirely that way can carry a real total in the Producer Suite
+while this page still shows Budget unfinished and prompts you to seed it. Nothing
+is lost — only mis-reported.</div>
 
 <h2>The generation board and system row</h2>
 
@@ -126,7 +126,8 @@ reader, and produces three things.</p>
 <h3>Prep actions</h3>
 
 <p>A ranked list of what is outstanding, each row a link into the module that
-fixes it. Four severities are printed as words, so the ranking survives print:</p>
+fixes it. Four severities are printed as words, so the ranking never depends on
+colour:</p>
 
 <table>
   <tr><th>Severity</th><th>Raised by</th></tr>
@@ -220,10 +221,9 @@ you plainly that nothing is being learned.</p>
 lines have been folded in, across how many accounts, and then an
 <strong>average correction applied</strong> — a multiplier such as ×1.95. That
 number is <em>not</em> an accuracy score, and the page labels it in full: how
-much correcting it has done, not how well it works. It rises as the platform
-gets things more wrong. A large correction average sitting above a
-<em>worse</em> verdict is not a contradiction; it is the same fact stated
-twice.</p>
+much correcting it has done, not how well it works. It rises as the platform gets
+things more wrong. A large correction average is not evidence that the learning
+is helping; only the first line answers that question.</p>
 
 <p>The fourth line reports render speed from the same store: how many renders have
 been timed, the median wall-clock seconds per clip on this machine, and a trend
@@ -238,19 +238,18 @@ the sentence.</div>
 
 <h2>What is pinned, and what is not</h2>
 
-<p><span class="path">scripts/test_workflow.mjs</span> executes the engine directly
-and fixes the stage rules above — 0% on an empty browser, Develop first, the
-rendered and approved ratios, the contingency arithmetic, the distinct-day count,
-the Editor export satisfying the final delivery step, 100% with nothing next, and
-that malformed stores never throw.
+<p><span class="path">scripts/test_workflow.mjs</span> executes the engine and fixes
+the stage rules above — 0% on an empty browser, Develop first, the rendered and
+approved ratios, the contingency arithmetic, the distinct-day count, the Editor
+export satisfying the final delivery step, 100% with nothing next, and that
+malformed stores never throw.
 <span class="path">scripts/test_advisor.mjs</span> runs the Advisor against the
-real incentive table and pins the look extraction, the ranking penalties for
-minimum spend and budget cap, the driver-led staffing additions and every
-prep-action rule. The self-learning paragraph is pinned separately, by a suite
-that renders the panel and asserts no code in it reads the old correction average
-as though it were accuracy.</p>
+real incentive table and pins the look extraction, the ranking penalties, the
+driver-led staffing additions and every prep-action rule. The self-learning
+paragraph is pinned by a further suite that renders the panel and asserts no code
+in it reads the old correction average as though it were accuracy.</p>
 
-<p>What no test can establish, and this manual therefore does not claim: whether
-the incentive terms are current, whether a crew-depth rating reflects today's
-market, or whether the bridge on your machine is healthy. Those are questions for
-a production accountant, a line producer and a ping.</p>
+<p>What no test can establish, and this manual does not claim: whether the
+incentive terms are current, whether a crew-depth rating reflects today's market,
+or whether the bridge on your machine is healthy. Those are questions for a
+production accountant, a line producer and a ping.</p>

@@ -1,0 +1,249 @@
+<h1 class="ch">The Writer — Treatment to Screenplay</h1>
+<span class="mk">@@CH04@@</span>
+
+<p class="lede">The Writer takes a treatment — a PDF from a producer, a Word
+document, a paragraph pasted out of an email — turns it into scene beats you can
+reorder, retitle and rewrite, and emits a Fountain draft the Studio can break
+down. It is the front door of the platform, and the format it emits is the
+format every department downstream inherits.</p>
+
+<div class="note"><strong>How this chapter was written.</strong> By reading
+<span class="path">writer/index.html</span>,
+<span class="path">writer/writer.js</span>,
+<span class="path">writer/lib-treatment.js</span>,
+<span class="path">js/lib-scenes.js</span> and
+<span class="path">scripts/test_writer.mjs</span>, and by running the two
+engines together outside the browser to confirm what one hands the other.
+Cinamate is under active development; where this manual and the software
+disagree, the software is what runs.</div>
+
+<h2>What it accepts</h2>
+
+<p>The module is <span class="path">writer/index.html</span>, served at
+<code>/writer/</code> and linked from the dashboard rail. Panel 1,
+<strong>Treatment in</strong>, offers a drop zone, a <strong>Choose file</strong>
+picker and a collapsed <em>…or paste the treatment text</em> box. Five
+extensions are handled, and the picker and the code agree on them:
+<code>.pdf</code>, <code>.docx</code>, <code>.txt</code>, <code>.md</code> and
+<code>.fountain</code>. Anything else is refused with <em>Use .pdf, .docx, .txt,
+.md or .fountain</em>. The paste route requires at least 40 characters.</p>
+
+<p>A PDF is read with the vendored pdf.js at
+<span class="path">static/vendor/pdf.min.js</span>: text items are grouped into
+lines by vertical position, a gap over twenty units taken as a paragraph break.
+That is a reconstruction of the page, not a transcript, and a scanned PDF with
+no text layer yields nothing. A DOCX is unzipped with JSZip and
+<span class="path">word/document.xml</span> read directly — only
+<code>&lt;w:t&gt;</code> runs survive, and tracked changes, comments and tables
+are ignored; a zip without that part is refused as <em>Not a Word
+document</em>. The text formats are taken as-is. Whatever the route, the result
+passes through <code>cleanText</code>, which drops any line that is only a page
+number (<em>Page 3 of 12</em> included), rejoins words hyphenated across a line
+break, and re-flows hard-wrapped lines into paragraphs. A blank line is the only
+paragraph break it trusts.</p>
+
+<h2>What the Writer thinks a scene is</h2>
+
+<p>There are no acts, sequences or beat sheets as objects anywhere in
+<span class="path">writer/lib-treatment.js</span>. The single structural unit is
+the scene beat, and a beat starts wherever <code>isHeadingLine</code> says a
+heading starts. That function accepts a line of 90 characters or fewer that is a
+slugline; or begins <code>ACT</code>, <code>PART</code>, <code>CHAPTER</code>,
+<code>SEQUENCE</code>, <code>SCENE</code> or <code>BEAT</code>; or is a Markdown
+<code>#</code> heading; or is numbered, as in <em>12. THE HEIST</em>; or is
+simply in capitals and not a run-on sentence. Everything else becomes the body
+of the current beat, and prose before any heading becomes one beat per
+paragraph. Ahead of the first beat, an opening block under 80 characters is
+lifted as the <strong>Title</strong>, a line reading <em>by …</em> as the
+<strong>Writer</strong>, and <em>Logline: …</em> as the <strong>Logline</strong>;
+those, plus a draft date, stay editable in panel 1.</p>
+
+<p>Each beat is then given a slugline by <code>guessSlug</code>. A heading that
+is already a slugline is kept, upper-cased, its dashes normalised, and a time of
+day appended if it has none. Otherwise the interior/exterior and the time of day
+are inferred from word lists scanned in the body — <em>kitchen</em> and
+<em>cockpit</em> lean interior, <em>street</em> and <em>rooftop</em> exterior —
+and the location is the heading with its <code>ACT</code>, <code>SCENE</code> or
+numbering prefix stripped, truncated to 48 characters, falling back to a
+location cue from the body or the literal word <code>LOCATION</code>.</p>
+
+<p>It is worth seeing that inference miss. The treatment fixture in
+<span class="path">scripts/test_writer.mjs</span> contains the structural
+heading <em>ACT ONE</em>, which becomes the slugline
+<code>INT. ONE - DAY</code>; a beat titled <em>THE CALL</em> becomes
+<code>EXT. THE CALL - NIGHT</code>; <em>SEQUENCE 4</em> and <em>PART III</em>
+both become <code>EXT. LOCATION - DAY</code>. These are legal sluglines the rest
+of the platform will treat as real places, so a location bible built off an
+unedited import contains sets called ONE and LOCATION. Panel 2 exists so you fix
+them before they travel.</p>
+
+<p>Character chips come from <code>extractCharacters</code>: capitalised names
+count double, repeated Title Case words once, a stop-word list removes
+<em>THE</em>, <em>FADE</em> and their kin, and a name needs two mentions to
+survive. It reads the heading as well as the body, which is why the shipped
+fixture yields MARA alongside ONE, CALL and HIGHWAY. Treat the chips as a
+suggestion; casting is not built from them.</p>
+
+<h2>The scene cards</h2>
+
+<p>Panel 2 is the whole structural toolkit. Each card carries its position
+number, an editable slugline, an editable body and its character chips;
+<strong>▲</strong> and <strong>▼</strong> reorder, <strong>✕</strong> deletes,
+<strong>+ Scene</strong> appends a blank card seeded
+<code>INT. NEW SCENE - DAY</code>, and <strong>New project</strong> starts over.
+Editing a body re-derives that card's
+characters. Editing a slugline does <em>not</em> re-run <code>guessSlug</code> —
+what you type is what ships, with no validation. That matters, and the next
+section explains why.</p>
+
+<div class="note"><strong>Both ✕ and New project discard work
+immediately.</strong> ✕ deletes a card with no confirmation and no undo.
+<strong>New project</strong> asks once — <em>Start a new project? The current
+scenes are discarded.</em> — and on <em>OK</em> clears the title, writer, date,
+logline and every scene from this browser. Export the <code>.fountain</code>
+first if there is anything in it you want.</div>
+
+<h2>The screenplay it emits, and whether the Timeline reads it</h2>
+
+<p>Panel 3 previews the Fountain draft live and offers <strong>Copy</strong>,
+<strong>⬇ .fountain</strong> and <strong>→ Send to Studio</strong>. The shape is
+fixed:</p>
+
+<pre>Title: THE LAST DISPATCH
+Credit: Written by
+Author: Kyle Francis
+Draft date: 2026-08-20
+Source: Treatment developed in CINAMATE Writer
+
+= A night-shift dispatcher fields a call from her own future.
+
+INT. ONE - DAY
+
+MARA (30s), tired eyes, works the graveyard shift...
+
+EXT. THE CALL - NIGHT
+
+A voice she recognizes — her own — warns her about tomorrow night.
+
+MARA
+Who is this?</pre>
+
+<p>Dialogue is the one thing carried through from treatment prose: a paragraph
+of the form <em>MARA: "Who is this?"</em> becomes a cue line and a speech,
+whether it stands alone or sits mid-paragraph, and the surrounding action is
+split around it. There are no transitions, no parentheticals, no dual dialogue
+and no scene numbers.</p>
+
+<p><strong>Does it parse?</strong> Yes, for anything the Writer generates
+itself. Every slugline <code>guessSlug</code> emits opens with <code>INT.</code>,
+<code>EXT.</code> or <code>INT./EXT.</code>, followed by a non-empty location and
+a <code>- DAY</code>/<code>- NIGHT</code> tail. The scene model in
+<span class="path">js/lib-scenes.js</span> accepts all three tokens, requires a
+separator after them and a location that is not empty, and both conditions are
+always met — <code>guessSlug</code> falls back to the literal word
+<code>LOCATION</code> rather than emit a headless slug. Running the two modules
+together over the shipped fixture, three cards produce three scenes numbered 1,
+2 and 3, with location, time of day and interior/exterior read correctly on
+each, and the MARA cue recognised as dialogue by <code>CScenes.speaksIn</code>.</p>
+
+<p><strong>On the preamble.</strong> The Writer emits no <code>FADE IN:</code>
+at all. What precedes the first slugline is the Fountain title page and the
+logline, and <span class="path">js/lib-scenes.js</span> holds that separately as
+the preamble at ordinal 0 — never as a scene, never dropped. This is the exact
+defect that file was written to end: seven of the eight scene splitters it
+replaced counted a preamble as scene 0 and then numbered the first real scene 2.
+A Writer draft opens on scene 1.</p>
+
+<p><strong>Where it diverges, and this is the paragraph to read twice.</strong>
+The slugline field on a card is free text, and a card whose slugline does not
+carry an <code>INT</code>/<code>EXT</code>/<code>EST</code> token is not a scene
+break downstream — its content is silently absorbed into the previous scene.
+Five cards edited as below produce three scenes in the Timeline, and neither end
+warns you:</p>
+
+<table>
+  <tr><th>Card slugline in the Writer</th><th>What the Timeline makes of it</th></tr>
+  <tr><td><code>INT. KITCHEN - DAY</code></td><td>Scene 1 — KITCHEN, DAY</td></tr>
+  <tr><td><code>Kitchen, night</code></td><td>Not a scene. Body folded into scene 1</td></tr>
+  <tr><td><code>THE ROOFTOP</code></td><td>Not a scene. Body folded into scene 1</td></tr>
+  <tr><td><code>4A INT. STUDY - NIGHT</code></td><td>Scene 4A — STUDY, NIGHT</td></tr>
+  <tr><td><code>INT. NEW SCENE - DAY</code></td><td>Scene 3 — NEW SCENE, DAY</td></tr>
+</table>
+
+<p>Two rules follow. Keep the interior/exterior token on every card you rename:
+the card count in panel 2 and the scene count in the Studio should always match,
+and when they do not, a slugline is the reason. And note the fourth row — a
+printed number typed into a card <em>is</em> honoured, and it flips the whole
+script to numbered, at which point unnumbered cards fall back to their position.
+Number every card or none. Left alone, a Writer draft carries no numbers at all,
+so the scene label on the call sheet, the slate and the daily report is the
+scene's position in the file: right for a first draft, and not a shooting
+script's numbering.</p>
+
+<div class="note"><strong>The Writer is not a screenplay importer.</strong>
+<code>.fountain</code> is in the file picker, but the engine reads everything as
+a treatment. Feeding it a finished script was checked and does real damage: a
+character cue standing alone on its line is a capitalised line, so it is read as
+a heading and becomes a scene — <code>EXT. HANK - DAY</code> — with the speech
+below it demoted to action. On a numbered shooting script, <em>24 INT. KITCHEN -
+DAY</em> comes out as <code>EXT. 24  INT. KITCHEN - DAY - DAY</code>: the
+printed number 24 survives only as part of the location, the interior/exterior
+is inverted, and scene 24 becomes scene 1. To bring an existing screenplay into
+Cinamate, use the Studio's own import, covered in the Timeline chapter. The
+Writer is for material that is not a screenplay yet.</div>
+
+<div class="note"><strong>Nothing in the test suite defends this
+agreement.</strong> <span class="path">scripts/test_writer.mjs</span> runs with
+<code>npm test</code> and checks the Fountain string with its own regular
+expressions; no suite in <span class="path">scripts/</span> loads
+<span class="path">writer/lib-treatment.js</span> and
+<span class="path">js/lib-scenes.js</span> in the same process. The behaviour
+described above was established by doing so by hand, and it is not pinned
+against future change.</div>
+
+<h2>Export and the hand-off</h2>
+
+<p><strong>Copy</strong> puts the Fountain text on the clipboard, and advises the
+download if the browser blocks it. <strong>⬇ .fountain</strong> saves a file
+named from the title, lower-cased and hyphenated, or
+<span class="path">cinamate-draft.fountain</span> if there is none; Fountain is
+plain text, so it opens in a screenwriting application as well as in Cinamate.
+<strong>→ Send to Studio</strong> reads the Studio's store
+<code>SB_Timeline_v1</code>, replaces its <code>scriptText</code> with the
+Fountain draft and its <code>projectName</code> with the title, writes it back,
+and navigates to <code>/timeline/</code> after a short pause. If the write fails
+it reports <em>Could not save — storage full?</em> and stays put.</p>
+
+<div class="note"><strong>Send to Studio overwrites the Studio's screenplay of
+record, without asking.</strong> The Studio's clips, parse result and location
+bible are left untouched, so immediately after a send they describe a script
+that is no longer there. Re-parse in the Studio before reading anything off the
+timeline.</div>
+
+<h2>What is stored, and where</h2>
+
+<p>The Writer keeps everything in <code>SB_Writer_v1</code> in this browser's
+local storage, written on every keystroke: the project fields, the scene array —
+slugline, body and characters per scene — and the name of the imported file. No
+scene numbers, because a scene's number is its position. Nothing is sent to a
+server and nothing follows you to another browser or machine, so the
+<code>.fountain</code> download is the portable copy.</p>
+
+<p>Three other places read that key. The dashboard counts
+<code>SB_Writer_v1.scenes</code> for its scene tile.
+<span class="path">boards/lib-shots.js</span> seeds the shot boards from the
+Studio's clips when there are any and from the Writer's beats when there are not,
+so a treatment that never reached the Studio can still be storyboarded. The
+Workflow advisor reads it as one input among several.</p>
+
+<h2>The page and runtime figures</h2>
+
+<p>Panel 1 reports scenes, words, an estimated page count and an estimated
+runtime. The arithmetic is explicit in the source: 450 words is one treatment
+page, a treatment page expands to 3.5 screenplay pages, and one screenplay page
+is one minute — so the page and minute figures are always the same number. On
+the shipped fixture, 43 words of treatment estimate 4 pages and 4 minutes, while
+the scene model measures the actual Fountain output at three eighths, or one
+page. They answer different questions: the Writer forecasts the screenplay this
+treatment would become, the Timeline measures the text that exists today. The
+schedule and the board are built from the second.</p>

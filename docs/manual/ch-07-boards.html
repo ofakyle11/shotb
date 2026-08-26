@@ -1,11 +1,10 @@
 <h1 class="ch">Boards — Storyboards, Shot Lists &amp; Key Art</h1>
 <span class="mk">@@CH07@@</span>
 
-<p class="lede">The breakdown says what the film contains. The schedule says
-when it is shot. Boards is the room between them, where a scene becomes a set of
-frames someone can hand to a crew: a shot list with sizes and lenses, a board
-with pictures in it, a timed animatic, and the one-sheet the whole thing is
-eventually sold on.</p>
+<p class="lede">The breakdown says what the film contains; the schedule says when
+it is shot. Boards is the room between them, where a scene becomes a set of
+frames a crew can be handed: a shot list with sizes and lenses, a board with
+pictures in it, a timed animatic, and the one-sheet it is eventually sold on.</p>
 
 <div class="note"><strong>How this chapter was written.</strong> By reading
 <span class="path">boards/lib-shots.js</span>,
@@ -17,12 +16,9 @@ eventually sold on.</p>
 software. The platform is under active development. Where this manual and the
 running application disagree, believe the application.</div>
 
-<h2>The two tabs</h2>
-
-<p>The page is <span class="path">boards/index.html</span>, and it carries
-<strong>Storyboards</strong> and <strong>Key art</strong>. They share nothing but
-the page: Storyboards holds a scene rail, a shot grid and the exports; Key art
-holds a poster form and a canvas. The engine is
+<p>The page is <span class="path">boards/index.html</span>, and it carries two
+tabs that share nothing but the page: <strong>Storyboards</strong> and
+<strong>Key art</strong>. The engine behind both is
 <span class="path">boards/lib-shots.js</span>, which publishes <code>CShots</code>
 and touches neither the DOM nor the network — the part the node suite exercises
 directly. <span class="path">boards/boards.js</span> is the interface around it,
@@ -39,37 +35,35 @@ already knows. <code>CShots.seedScenes()</code> looks first at
 <code>SB_Timeline_v1</code> and maps every clip to one board scene, slugged
 <code>SC</code> + the clip number padded to two digits + an em dash + the clip
 label: <code>SC01 — Opening</code>. With no clips it falls back to
-<code>SB_Writer_v1</code> and maps each treatment beat, taking the beat's own
-slugline and the first 200 characters of its body as a description. With neither
-store populated nothing is seeded. <strong>+ Scene</strong> adds an empty
-<code>SCENE n</code> by hand.</p>
+<code>SB_Writer_v1</code> and maps each treatment beat, taking its slugline and
+the first 200 characters of its body. With neither store populated nothing is
+seeded. <strong>+ Scene</strong> adds an empty <code>SCENE n</code> by hand.</p>
 
 <div class="note"><strong>Seeding replaces the scene list.</strong> Shots are
 carried across only where the <em>slug string matches exactly</em> — the code
-indexes the old scenes by slug and reattaches what it finds. Rename a clip in
-the Studio, renumber it, or re-parse a script so the clips return in a different
+indexes the old scenes by slug and reattaches what it finds. Rename a clip in the
+Studio, renumber it, or re-parse a script so the clips return in a different
 order, and the matching slug no longer exists: the new scene arrives empty and
 the shots attached to the old one are gone. No confirmation, no undo.</div>
 
 <h2>What the board knows about a scene, and what it does not</h2>
 
 <p><span class="path">js/lib-scenes.js</span> is the platform's one scene record:
-<code>ord</code>, the printed <code>number</code> verbatim (<code>4A</code>), a
-numeric <code>n</code>, a <code>label</code>, a stable <code>key</code>, a
-<code>sortKey</code> that collates 4 &lt; 4A &lt; 5, the cleaned <code>slug</code>
-and the page measure in eighths. Boards does not use it. It calls no
-<code>CScenes</code> function and never reads <code>SB_Scenes_v1</code>. Its
-scene is four fields — <code>id</code>, <code>slug</code>, <code>desc</code>,
-<code>shots</code> — and its identity is the slug string.</p>
+the printed <code>number</code> verbatim (<code>4A</code>), a numeric
+<code>n</code>, a stable <code>key</code>, a <code>sortKey</code> that collates
+4 &lt; 4A &lt; 5, the cleaned <code>slug</code> and the page measure in eighths.
+Boards does not use it. It calls no <code>CScenes</code> function and never reads
+<code>SB_Scenes_v1</code>. Its scene is four fields — <code>id</code>,
+<code>slug</code>, <code>desc</code>, <code>shots</code> — and its identity is the
+slug string.</p>
 
-<p>Two consequences to hold on to. The <code>SC01</code> on a board is the Studio
-clip's running number, assigned in <span class="path">timeline/parser.js</span>
-as a counter across every parsed shot; it is not the screenplay's printed scene
-number, so a revised script's <code>4A</code> will not appear there on its own.
-And the seeded description is read from a clip field named <code>prompt</code>,
-which the clip record the Studio parser writes does not carry — scenes seeded
-from the Studio arrive with an empty description, while Writer beats arrive with
-200 characters of body.</p>
+<p>Two consequences. The <code>SC01</code> on a board is the Studio clip's running
+number, assigned in <span class="path">timeline/parser.js</span> as a counter
+across every parsed shot; it is not the screenplay's printed scene number, so a
+revised script's <code>4A</code> will not reach the board on its own. And the
+seeded description is read from a clip field named <code>prompt</code>, which the
+clip record the Studio parser writes does not carry — scenes seeded from the
+Studio arrive with an empty description.</p>
 
 <h2>The shot record</h2>
 
@@ -88,10 +82,10 @@ description.</p>
   <tr><td>Frame</td><td><code>img</code></td><td>an image, held inline as a data URL</td></tr>
 </table>
 
-<p>The lens is recorded, never enforced: nothing here derives a field of view,
-checks the lens against a sensor, or warns that an 85 mm insert will not fit the
-room. It is a note to the camera department, and it travels to the CSV. The card
-footer moves a shot earlier or later with ◀ and ▶ and deletes it with 🗑.</p>
+<p>The lens is recorded, never enforced: nothing here derives a field of view or
+warns that an 85 mm insert will not fit the room. It is a note to the camera
+department, and it travels to the CSV. The card footer moves a shot earlier or
+later with ◀ and ▶ and deletes it with 🗑.</p>
 
 <div class="note"><strong>Deletions are immediate.</strong> 🗑 removes a shot and
 ✕ clears a frame, both without a prompt and both written to storage at once. The
@@ -102,13 +96,12 @@ only recovery is a project archive taken beforehand.</div>
 <p><strong>✨ Suggest coverage</strong> appends a conventional set to the selected
 scene: a WS master described <em>Master — full scene</em>, a 50 mm CU single per
 named character, then an 85 mm <em>Insert — key prop / detail</em>. The node
-suite pins that shape — two characters produce four shots, the first a master
-and the last sized INSERT. Two limits before you press it. The cast comes from
+suite pins that shape — two characters produce four shots, the first a master and
+the last sized INSERT. Two limits before you press it. The cast comes from
 <code>characters</code> in <code>SB_Timeline_v1</code> — the whole film's map —
 and it takes the first four names in it, not the cast of the scene in front of
-you, so on an ensemble it will propose singles on people who are not in the
-room. And the set is appended, not reconciled: press it twice and it is there
-twice.</p>
+you, so on an ensemble it will propose singles on people who are not in the room.
+And the set is appended, not reconciled: press it twice and it is there twice.</p>
 
 <h2>Getting a picture into the frame</h2>
 
@@ -118,28 +111,27 @@ the captured frame is drawn to a 480×270 canvas and stored as a JPEG data URL a
 quality 0.65. A clip served cross-origin taints that canvas and the capture fails
 with a toast saying so. <strong>⬆</strong> takes any image file and centre-crops
 it to the same 480×270 JPEG. <strong>✨ AI</strong> posts to your own machine: it
-needs a bridge URL in <code>SB_LocalGPU_v1</code> (Studio → Settings → Local
-GPU), and sends a prompt built from the scene slug, the shot size, the angle and
-the description, capped at 400 characters, to <code>/generate-image</code>. What
-that endpoint returns cannot be established from this repository; the board
-documents only what it will accept — a data URL, or a link it fetches and
-converts.</p>
+needs a bridge URL in <code>SB_LocalGPU_v1</code> (Studio → Settings → Local GPU),
+and sends a prompt built from the scene slug, the shot size, the angle and the
+description, capped at 400 characters, to <code>/generate-image</code>. What that
+endpoint returns cannot be established from this repository; the board documents
+only what it accepts — a data URL, or a link it fetches and converts.</p>
 
 <p>Frames live in the board record itself, not in IndexedDB. That is why they are
 downscaled so hard, and why a failed write raises <em>Storage full — export a
-project backup and clear old frames</em>. Read that toast as a warning that the
+project backup and clear old frames</em>: read that toast as a warning that the
 edit you just made was not saved.</p>
 
 <h2>The shot list as a file</h2>
 
 <p><strong>⬇ Shot list CSV</strong> writes <span class="path">shot-list.csv</span>:
 one header row — Scene, Shot, Size, Angle, Move, Lens (mm), Secs, Description —
-and one row per shot, numbered within its scene. Every cell is quoted and
-internal quotes doubled. A cell opening with <code>=</code>, <code>+</code>,
-<code>-</code>, <code>@</code>, a tab or a carriage return is prefixed with an
-apostrophe, because a spreadsheet reads those as formulas rather than text; the
-apostrophe is stripped on display. A description beginning with a dash is the
-ordinary case that guard exists for.</p>
+and one row per shot, numbered within its scene. Every cell is quoted and internal
+quotes doubled. A cell opening with <code>=</code>, <code>+</code>, <code>-</code>,
+<code>@</code>, a tab or a carriage return is prefixed with an apostrophe, because
+a spreadsheet reads those as formulas rather than text; the apostrophe is stripped
+on display. A description beginning with a dash is the ordinary case that guard
+exists for.</p>
 
 <h2>The animatic</h2>
 
@@ -153,24 +145,22 @@ animatic usable before anything has been drawn.</p>
 
 <p>Where the browser supports WebCodecs the frames are encoded as H.264 at
 2.5 Mbit/s with a keyframe every two seconds and muxed to MP4 by
-<span class="path">editor/lib-mp4.js</span>. Where it does not, the module
-records the canvas in real time to WebM — a three-minute animatic takes three
-minutes. The file is named from the Studio's project name; with no Studio project
-stored, that resolves to <code>animatic-undefined</code>. A browser with neither
-path reports that it cannot export video.</p>
+<span class="path">editor/lib-mp4.js</span>. Where it does not, the canvas is
+recorded in real time to WebM — a three-minute animatic takes three minutes. The
+file is named from the Studio's project name; with no Studio project stored, that
+resolves to <code>animatic-undefined</code>.</p>
 
 <h2>Key art</h2>
 
 <p>The second tab composites a one-sheet at 2:3 — 800×1200 on screen, exported at
 double scale to a 1600×2400 PNG named from the title, or
 <span class="path">poster-onesheet.png</span> when there is none. The form takes a
-title, a tagline and a billing block of one line per row.
-<em>Title low</em> sets the title at 78% of the height, <em>Title high</em> at
-16%, with the gradient scrim flipped to match. The background comes from an
-uploaded image or from the same frame-grab dialogue used on the boards. The title
-is uppercased and set in Cinzel, the tagline and billing block in Inter, over the
-navy ground — webfonts the page loads, so a poster exported without them falls
-back to the generic serif and sans.</p>
+title, a tagline and a billing block of one line per row. <em>Title low</em> sets
+the title at 78% of the height, <em>Title high</em> at 16%, with the gradient
+scrim flipped to match; the background comes from an uploaded image or from the
+same frame-grab dialogue used on the boards. The title is uppercased in Cinzel,
+the tagline and billing block in Inter, over the navy ground — webfonts the page
+loads, so a poster exported without them falls back to generic serif and sans.</p>
 
 <h2>Printing a board</h2>
 
@@ -183,8 +173,8 @@ block does before sending sixty pages to a device.</p>
   <li>The background becomes white, and everything that is chrome rather than
   content is removed: the top bar, the scene rail, the toolbar, the toast and the
   frame-grab dialogue.</li>
-  <li>The layout stops being a scrolling pane and becomes an ordinary block that
-  flows across pages.</li>
+  <li>The layout stops being a scrolling pane and becomes a block that flows
+  across pages.</li>
   <li>The grid is fixed at <strong>three cards per row</strong>, and a card is
   told not to break across a page boundary — a shot is never split between two
   sheets.</li>
@@ -197,8 +187,7 @@ block does before sending sixty pages to a device.</p>
 <p>The white paper is deliberate. The brand specification forbids pure black and
 pure white as dominant screen surfaces and exempts <code>@media print</code> for
 exactly this case — the manual you are holding is built on the same exemption.
-Ink on white is the right medium for a document that goes into a folder on a
-set.</p>
+Ink on white is the right medium for a page that goes into a folder on a set.</p>
 
 <div class="note"><strong>Two limits of the printed board.</strong> The grid holds
 the <em>selected scene only</em>, so a print produces that scene's board and
@@ -221,11 +210,10 @@ before it leaves the printer.</div>
 
 <p>All of it is browser storage on the machine in front of you. Boards and key
 art travel with the production: both match the portable <code>SB_*_v#</code>
-pattern the vault snapshots, so they are carried in a project archive and swapped
-when you switch productions. <code>SB_LocalGPU_v1</code> is deliberately excluded
-— it holds a credential and belongs to the machine, not to the film. Frame images
-ride inside the board record as data URLs, the single largest thing a production
-stores here. An archive restored from another owner has hostile image values
-blanked and identifier fields stripped of the characters that break out of an
-HTML attribute, which is why a frame from an untrusted archive may come back
-empty rather than merely broken.</p>
+pattern the vault snapshots, so they ride in a project archive and swap when you
+switch productions. <code>SB_LocalGPU_v1</code> is deliberately excluded — it
+holds a credential and belongs to the machine, not to the film. An archive
+restored from another owner has hostile image values blanked and identifier
+fields stripped of the characters that break out of an HTML attribute, which is
+why a frame from an untrusted archive may come back empty rather than merely
+broken.</p>

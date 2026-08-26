@@ -5,6 +5,14 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+/* The page loads the money engine ABOVE workflow.js (workflow/index.html), and
+   the budget stage now asks CBudgetSheet for the subtotal rather than summing
+   `est` itself. A suite that loads workflow.js alone leaves CBudgetSheet
+   undefined and silently exercises the fallback — testing the old behaviour
+   while the page runs the new one. Mirror the page. */
+(0, eval)(readFileSync(join(ROOT, 'js/lib-money-math.js'), 'utf8'));
+(0, eval)(readFileSync(join(ROOT, 'js/lib-money-accounts.js'), 'utf8'));
+(0, eval)(readFileSync(join(ROOT, 'js/lib-money-sheet.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'workflow/workflow.js'), 'utf8'));
 const W = globalThis.CWorkflow;
 
@@ -153,6 +161,50 @@ const byId = (a, id) => a.stages.find(s => s.id === id);
   const a = W.assess({ cut: { lastExport: { when: 'x', res: '1280x720' } } });
   const d = a.stages.find(s => s.id === 'deliver');
   ok(d.checklist.find(c => c.key === 'export').ok, 'deliver: cut export counts as final export');
+}
+
+
+/* ── a calculator-entered budget is not an empty budget ───────────────
+   The budget stage summed `it.est` directly. js/lib-money-sheet.js computes an
+   item as rate × amt × units whenever all three are set and falls back to the
+   stored `est` only otherwise, so a line entered through the Amt × Units ×
+   Rate calculator has a real value and — until the sheet is saved and the
+   estimate written back — an `est` of zero.
+
+   A live $400,000 top sheet therefore read as 0, which is not a cosmetic
+   miscount: it drove the stage to "active", the metric to "Seed the top sheet
+   from the script estimate", and the hint to "⚡ Seed from script estimate" —
+   and seeding DELETES every line item. The Workflow told an operator their
+   budget was empty and pointed them at the control that would make it true. */
+{
+  const calcSheet = {
+    contingencyPct: 10,
+    categories: [{ acct: '2000', name: 'Camera', items: [
+      /* Cents, and deliberately NOT round: 3 × 5 × $1061.64 is the exact case
+         budget-sheet.js cites for the float bug — a raw float writes
+         15924.599999999999 into a cell the producer then sums. A fixture of
+         round hundreds would pass whether or not the arithmetic handles it. */
+      { desc: 'Operator', amt: 3, units: 5, rate: 106164, actual: 1592461 },
+    ] }],
+  };
+  const a = W.assess({ sheet: calcSheet, timeline: { clips: [{ id: 1 }] } });
+  const budget = a.stages.find((x) => x.id === 'budget');
+  ok(!!budget, 'the budget stage exists');
+  ok(budget.status === 'done',
+    'a calculator-entered budget reads as done, not empty  (got ' + budget.status + ')');
+  ok(!budget.hint.includes('Seed from script estimate'),
+    'it does not advise seeding — which would delete the line items  (' + budget.hint + ')');
+  ok(budget.metrics.some((m) => /grand total/.test(m || '')),
+    'the grand total is reported  (' + JSON.stringify(budget.metrics) + ')');
+  ok(budget.metrics.some((m) => /actuals posted/.test(m || '')),
+    'actuals are reported through actualTotal, not dropped  (' + JSON.stringify(budget.metrics) + ')');
+
+  /* Counter-assertion: a genuinely empty sheet must STILL read as empty, or
+     the fix would have simply disabled the check. */
+  const empty = W.assess({ sheet: { categories: [] }, timeline: { clips: [{ id: 1 }] } });
+  const eb = empty.stages.find((x) => x.id === 'budget');
+  ok(eb.status !== 'done', 'a genuinely empty sheet still reads as not done');
+  ok(eb.hint.includes('Seed from script estimate'), 'and still advises seeding');
 }
 
 if (failed) { console.error('\nWorkflow checks FAILED'); process.exit(1); }
