@@ -963,3 +963,66 @@ So export and cloud pull silently drop every scout and wardrobe photo, and
 `locations/index.html:209` deletes the `img` element on a miss — no error, no
 placeholder, no indication anything was lost. Deleted project slots orphan the
 blobs forever.
+
+## 48. Every face normal in the 3D engine points inward (teamA-09) — my bug
+
+`sets/lib-set3d.js:153-232`. Measured: box top `0,-1,0`, bottom `0,+1,0`, all
+sides and both cylinder faces reversed — contradicting the CCW-from-outside
+convention stated in my own comment at `:20`.
+
+Consequences: sets render **lit from below** (`gl.js:52` clamps `dot(n,key)` to
+0, so every top surface sits at flat ambient), and **every OBJ and STL export
+imports inside-out** into Blender, Maya or a slicer.
+
+Why it survived: `gl.js` never enables `CULL_FACE`, so backwards winding is
+invisible on screen, and no test checks orientation. I wrote 63 geometry
+assertions for this module and not one of them asked which way a face points.
+Related, same module: the camera mesh points **180° opposite its own view
+frustum** (`:225` vs `:391`).
+
+## 49. `splitScenes` is copy-pasted into eight modules, and most never emit scene 1
+
+`props`, `vfx`, `music`, `wardrobe`, `dailies`, `casting`, `clearance`, `safety`
+each carry their own copy, in four textual variants. Measured with an ordinary
+`FADE IN:` preamble:
+
+| Modules | First real scene numbered |
+|---|---|
+| props, vfx, music, wardrobe, dailies | **2** |
+| clearance | **2** |
+| safety | **1** |
+
+So the props breakdown and the VFX board cite scene numbers one off the actual
+pages, while the risk assessment cites the correct ones — and a producer
+reconciling the two has no way to tell which is lying. This is finding 1/17
+again, now with the mechanism fully exposed: not twelve independent regexes, but
+one function copied eight times and drifted.
+
+## 50. A fifth assurance failure mode: glob discovery hides untested modules
+
+`safety/lib-safety.js` is 326 lines — the largest file in its slice — and has
+**no test suite at all**. This is invisible because `scripts/run_all_tests.mjs`
+discovers suites by globbing `scripts/test_*.mjs`: a module with no test file
+does not appear as a failure, it simply does not appear.
+
+Added to the taxonomy in finding 43. The check is one line: enumerate shipped
+`lib-*.js` and assert each is loaded by some suite.
+
+## 51. The browser harnesses could not be run twice at once — now fixed
+
+During this phase an agent reported `test_set3d_browser` failing; a second
+agent saw it fail 2 of 4 runs and attributed it to machine load. Neither was a
+code defect. Both harnesses **hardcoded a port** (8123, 8124) and then slept
+1200 ms, so with ~20 agents running the suite concurrently the second run bound
+nothing and talked to the first run's server — which was serving a different
+working directory.
+
+A test that fails when somebody else is also testing is worse than no test,
+because it teaches you to disbelieve red. Fixed in `scripts/lib-testserver.mjs`:
+bind port 0, read the port the OS actually assigned, and poll until the server
+answers rather than sleeping. Verified with four concurrent runs, all passing.
+
+Noted honestly: I quoted "44/44" repeatedly through this phase while ~20 agents
+were running suites in parallel. The number was right for a solo run and not
+reliably right under load, and I had no way to know that until an agent
+reported red and I chased it instead of dismissing it.

@@ -11,7 +11,7 @@
  *
  *   node scripts/smoke_pages.mjs
  */
-import { spawn } from 'child_process';
+import { startServer } from './lib-testserver.mjs';
 import { createRequire } from 'module';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -20,7 +20,6 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const require_ = createRequire('/opt/node22/lib/node_modules/');
 const { chromium } = require_('playwright');
 
-const PORT = 8123;
 const EXECUTABLE = '/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell';
 
 /* Pages worth loading: the public shell plus one page per module family. */
@@ -35,12 +34,9 @@ const PAGES = [
   '/distribution/', '/locations/', '/today/',
 ];
 
-const server = spawn('python3', ['-m', 'http.server', String(PORT), '--bind', '127.0.0.1'],
-  { cwd: ROOT, stdio: 'ignore' });
-const stop = () => { try { server.kill('SIGKILL'); } catch {} };
-process.on('exit', stop);
-
-await new Promise((r) => setTimeout(r, 1200));
+/* An OS-chosen port, so a second run cannot collide with this one.
+   See scripts/lib-testserver.mjs. */
+const { port: PORT, stop } = await startServer(ROOT);
 
 const browser = await chromium.launch({ executablePath: EXECUTABLE });
 const rows = [];

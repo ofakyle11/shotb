@@ -7,7 +7,7 @@
  *
  * Run: NODE_PATH=/opt/node22/lib/node_modules node scripts/test_set3d_browser.mjs
  */
-import { spawn } from 'child_process';
+import { startServer } from './lib-testserver.mjs';
 import { createRequire } from 'module';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -15,13 +15,11 @@ import { fileURLToPath } from 'url';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const require_ = createRequire('/opt/node22/lib/node_modules/');
 const { chromium } = require_('playwright');
-const PORT = 8124;
 const EXECUTABLE = '/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell';
 
-const server = spawn('python3', ['-m', 'http.server', String(PORT), '--bind', '127.0.0.1'],
-  { cwd: ROOT, stdio: 'ignore' });
-process.on('exit', () => { try { server.kill('SIGKILL'); } catch {} });
-await new Promise((r) => setTimeout(r, 1200));
+/* An OS-chosen port, so a second run — or twenty of them — cannot collide.
+   See scripts/lib-testserver.mjs for why that matters. */
+const { port: PORT } = await startServer(ROOT);
 
 /* SwiftShader gives a real GL implementation with no GPU, which is what a CI
    box has. Without it the context request simply fails and the test would be
