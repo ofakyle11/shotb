@@ -106,7 +106,20 @@
   --text-hi:    #E8EEF2;   /* headlines, primary copy       */
   --text-mid:   #A0B4C8;   /* body copy                     */
   --text-dim:   #7E92A8;   /* captions, meta, mono readouts */
-  --text-faint: #6A7E94;   /* lowest readable tier — 5.05:1 on --void */
+  /* MEASURED, not asserted: 4.34:1 on --void. The figure this comment carried
+     for months was higher and simply wrong — see docs/audit/BRAND.md §3 for
+     what it said and how it was caught. 4.34 is under the 4.5:1 WCAG AA the
+     brand kit requires.
+     Worse on raised surfaces: 3.72:1 on --surface-1, 3.24:1 on --surface-2.
+     --text-dim is only marginally better (4.24:1 on --surface-2).
+     Neither tier is in the brand kit, which specifies exactly two text
+     colours: --text-hi (15.49:1) and --text-mid (8.51:1), both fine. These
+     two dimmer tiers were invented below the kit and are the ones failing.
+     Restructuring the scale repaints every page and is the owner's call, so
+     the numbers are corrected here rather than the colours changed. Use
+     --text-mid for anything that must be read; reserve these for decoration
+     on --void, never on a card. Pinned by scripts/test_brand.mjs. */
+  --text-faint: #6A7E94;
 
   /* ---- Semantic ---- */
   --ok:    #4A8B7A;
@@ -210,14 +223,18 @@
   /* Hover-brightened --cyan. */
   --cyan-lift: #7FA8CC;
 
-  /* Lifted --error and --ok, for SMALL TEXT SITTING ON ITS OWN TINT.
-     --error and --ok are mid-tone by design: they read correctly as a dot, a
-     border or a bar against --void. But a status chip puts 9px bold text on a
-     .16-.18 wash of that same colour, which lightens the background toward the
-     text and collapses the ratio — --error on its own tint is 2.7:1 and --ok
-     is 3.2:1, both under WCAG AA, which the kit requires. These are the same
-     hues lifted until they clear 4.5:1 there (5.3:1 and 5.3:1). Use them for
-     text on a self-tinted ground; use --error/--ok everywhere else. */
+  /* Lifted --error and --ok, for SMALL TEXT — anywhere, not only on a tint.
+     --error and --ok are mid-tone by design: correct as a dot, a border or a
+     bar against --void, where shape carries the meaning and contrast is not
+     load-bearing. As TEXT they are marginal and often fail: --error measures
+     3.75:1 on --void, 3.22:1 on --surface-1 and 2.80:1 on --surface-2, all
+     under the 4.5:1 WCAG AA the kit requires at small sizes. A status chip is
+     the worst case rather than the only one — it puts 9px bold text on a
+     .16-.18 wash OF ITS OWN COLOUR, lightening the ground toward the text
+     until --error reaches 2.73:1 and --ok 3.21:1.
+     The lifts clear AA on every surface tier (--error-lift is 7.31 / 6.26 /
+     5.46 across void/surface-1/surface-2). Rule of thumb: --error/--ok for a
+     shape, --error-lift/--ok-lift for words. */
   --error-lift: #D49494;
   --ok-lift:    #6FB3A0;
 

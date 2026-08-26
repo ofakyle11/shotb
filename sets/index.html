@@ -29,15 +29,23 @@
 .sd-pal button{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 4px;font-size:10.5px;cursor:pointer}
 .sd-pal button:hover{border-color:var(--gold);color:var(--gold)}
 .sd-plan{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px;cursor:pointer;display:flex;gap:8px;align-items:center}
+/* The plan rows were the one pointer target in this rail with no hover state,
+   so a list of plans gave no feedback until you clicked one. §3's interactive
+   pair is Action Blue and Patina: Metallic Highlight takes the hover rim,
+   Action Blue stays the selected mark, and the two no longer read alike. */
+.sd-plan:hover{border-color:var(--patina-hi)}
 .sd-plan.on{border-color:var(--gold)}
-.sd-plan b{font-family:var(--display);font-weight:700;flex:1}
+.sd-plan b{font-family:var(--display);font-weight:700;letter-spacing:.04em;flex:1}
 .sd-center{flex:1;overflow:auto;padding:18px;display:flex;align-items:flex-start;justify-content:center}
 .sd-canvas{touch-action:none;user-select:none;box-shadow:0 8px 40px rgba(0,0,0,.45);border:1px solid var(--border);border-radius:6px;overflow:hidden}
 .sd-canvas svg{display:block}
 .sd-hide{display:none !important}
 .sd-gl-bar{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
-.sd-gl-bar button{font-size:11px;padding:4px 8px;background:var(--card2);border:1px solid var(--border);color:var(--text);border-radius:5px;cursor:pointer}
-.sd-gl-bar button.on{background:var(--gold);color:#0A1628;border-color:var(--gold);font-weight:600}
+/* --card2 is declared only in login.html's own :root, so on a module page
+   var(--card2) went invalid at computed-value time and these buttons drew
+   with no fill. #1A2F4A is the value it holds there — the §3 raised tier. */
+.sd-gl-bar button{font-size:11px;padding:4px 8px;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:5px;cursor:pointer}
+.sd-gl-bar button.on{background:var(--gold);color:var(--void);border-color:var(--gold);font-weight:600}
 .sd-insp{width:250px;flex:0 0 250px;border-left:1px solid var(--border);overflow-y:auto;padding:14px}
 .sd-insp h3{font-size:11px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:14px 0 8px}
 .sd-insp h3:first-child{margin-top:0}

@@ -35,18 +35,22 @@
 .pp-total{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
 .pp-total b{color:var(--gold);font-size:15px}
 .pp-house{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.pp-house b{font-family:var(--display);font-size:14px}
+.pp-house b{font-family:var(--display);font-size:14px;letter-spacing:.04em}
 .pp-house .pp-spec{font-size:11px;color:var(--text2);flex-basis:100%;margin-top:-4px}
 .pp-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
 .pp-phone{font-family:var(--mono);font-size:12px;color:var(--gold);text-decoration:none}
 .pp-spacer{flex:1}
 .pp-hide{display:none !important}
-.pp-size-panel{margin-top:14px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px}
+/* --card is declared only inside login.html/404.html's own :root, so on a
+   module page var(--card) had no fallback, went invalid at computed-value
+   time and left this panel with no surface at all. #12253A is what --card
+   holds there — the §3 card tier, --surface-1. */
+.pp-size-panel{margin-top:14px;background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:12px}
 .pp-size-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
 .pp-size-fields{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .pp-size-fields label{font-size:11px;color:var(--dim);display:flex;align-items:center;gap:4px}
 .pp-size-fields input{width:64px}
-.pp-size-panel canvas{display:block;width:100%;height:300px;border-radius:6px;background:#0A1628;border:1px solid var(--border)}
+.pp-size-panel canvas{display:block;width:100%;height:300px;border-radius:6px;background:var(--void);border:1px solid var(--border)}
 .pp-size-head b{color:var(--text)}
 .pp-note{font-size:11px;color:var(--dim);line-height:1.6}
 .pp-rfq{width:100%;min-height:220px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.6}

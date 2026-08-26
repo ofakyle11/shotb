@@ -364,7 +364,13 @@
         '</b> travel with this production — continuity photos, scout photos and cutting-room sources. ' +
         'They are packed into the backup file and pushed to the studio cloud in parts.';
       if (missing.length) {
-        h += '<br><b style="color:var(--bad,#e06c6c)">⚠ ' + esc(missing.length) +
+        /* --bad is declared NOWHERE in the tree, so this never resolved and the
+           off-kit #e06c6c fallback is what actually painted, every time. The
+           fallback is the tell: a var() with a hardcoded default is a colour
+           nobody has to look at twice. --error is the right hue but fails AA
+           here (3.2:1 on a card at .pv-note's 11px); --error-lift clears it at
+           6.3:1. */
+        h += '<br><b style="color:var(--error-lift)">⚠ ' + esc(missing.length) +
           ' referenced file(s) have no bytes on this device</b> — ' +
           esc(missing.slice(0, 4).map(function (x) { return x.module + ' ' + x.id; }).join(', ')) +
           (missing.length > 4 ? ' and ' + esc(missing.length - 4) + ' more' : '') +

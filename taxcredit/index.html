@@ -34,15 +34,19 @@
 .tc-table th.tc-num{text-align:right}
 .tc-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
 .tc-tag.guess{color:var(--gold);border-color:var(--gold)}
-.tc-meter{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
-.tc-meter b{color:var(--gold);font-size:15px}
-.tc-warn{background:var(--surface);border:1px solid #E08A8A;border-radius:10px;padding:10px 14px;font-size:12px;color:#E08A8A;margin-top:10px}
+/* BRAND §1 names "tax-credit wins" as a sanctioned Heritage Gold use, and this
+   is that readout — the credit the production has earned back. Gold is the rim
+   and the figure only; the panel stays --surface, because a whole gold panel is
+   the thing the kit calls wrong. This is the only gold on the page. */
+.tc-meter{background:var(--surface);border:1px solid var(--brass);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
+.tc-meter b{color:var(--brass);font-size:15px}
+.tc-warn{background:var(--surface);border:1px solid var(--error-lift);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--error-lift);margin-top:10px}
 .tc-note{font-size:11px;color:var(--dim);line-height:1.6}
 .tc-check{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start}
 .tc-check input{margin-top:3px}
 .tc-check .tc-why{font-size:11px;color:var(--dim);display:block;margin-top:2px}
-.tc-neg{color:#E08A8A}
-.tc-pos{color:#9BCB9B}
+.tc-neg{color:var(--error-lift)}
+.tc-pos{color:var(--ok-lift)}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
 </head>

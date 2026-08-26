@@ -21,15 +21,19 @@
 .sf-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .sf-bar input,.sf-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
 .sf-scene{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
-.sf-scene b{font-family:var(--display)}
+.sf-scene b{font-family:var(--display);letter-spacing:.04em}
 .sf-h{display:inline-block;font-family:var(--mono);font-size:9.5px;border-radius:4px;padding:1px 7px;margin:3px 6px 0 0;text-transform:uppercase;letter-spacing:.05em}
-.sf-h3{background:#E08A8A22;color:#E08A8A}
-.sf-h2c{background:#C9A86C22;color:#C9A86C}
-.sf-h1{background:#8BA3B822;color:#8BA3B8}
+/* Hazard severity is the kit's semantic trio, each chip tinted with its own
+   colour. H2 was Heritage Gold — §1 keeps that for money moments, and a
+   mid-severity hazard is precisely what Warning names. Lifted tokens for text
+   on a self-tinted ground (--error there is 2.7:1, under AA). */
+.sf-h3{background:rgba(var(--error-rgb),.18);color:var(--error-lift)}
+.sf-h2c{background:rgba(var(--warn-rgb),.18);color:var(--warn)}
+.sf-h1{background:rgba(var(--violet-rgb),.18);color:var(--violet)}
 .sf-doc{width:100%;min-height:260px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11px;line-height:1.55}
 .sf-note{font-size:11px;color:var(--dim);line-height:1.6}
 .sf-card{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.sf-card b{font-family:var(--display);font-size:14px}
+.sf-card b{font-family:var(--display);font-size:14px;letter-spacing:.04em}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
   <script src="/js/safe-url.js"></script>
@@ -269,7 +273,7 @@
   function renderIncidents() {
     $('inRows').innerHTML = st.incidents.map(function (i) {
       return '<div>' + esc(i.date) + ' · <b>' + esc(i.who) + '</b> — ' + esc(i.what) +
-        (i.injury ? ' <span style="color:#E08A8A">[INJURY]</span>' : '') +
+        (i.injury ? ' <span style="color:var(--error-lift)">[INJURY]</span>' : '') +
         (i.action ? ' · action: ' + esc(i.action) : '') + '</div>';
     }).join('') || 'No incidents on record. Keep it that way.';
   }

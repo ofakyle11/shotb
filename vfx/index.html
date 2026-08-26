@@ -34,10 +34,15 @@
 .vx-code{font-family:var(--mono);font-size:11px;color:var(--gold);cursor:pointer;white-space:nowrap}
 .vx-ver{font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
 .vx-st{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--border);border-radius:4px;padding:1px 6px;white-space:nowrap}
-.vx-st-briefed{color:var(--dim)} .vx-st-bid{color:#7fb3d5;border-color:#7fb3d5}
-.vx-st-awarded{color:var(--gold);border-color:var(--gold)} .vx-st-plates{color:#c39bd3;border-color:#c39bd3}
-.vx-st-temp{color:#f0b27a;border-color:#f0b27a} .vx-st-final{color:#7dcea0;border-color:#7dcea0}
-.vx-st-approved{color:#2ecc71;border-color:#2ecc71}
+/* The seven-step ladder ran grey → sky → blue → lilac → orange → green → neon
+   green: a rainbow from no kit, and its last step was exactly the high-chroma
+   accent the kit's Avoid list rules out. Kit tokens only now, cold-to-warm —
+   informational, action, material in hand, provisional, delivered, signed off —
+   and every step clears AA on --void. */
+.vx-st-briefed{color:var(--dim)} .vx-st-bid{color:var(--violet);border-color:var(--violet)}
+.vx-st-awarded{color:var(--gold);border-color:var(--gold)} .vx-st-plates{color:var(--patina-hi);border-color:var(--patina-hi)}
+.vx-st-temp{color:var(--warn);border-color:var(--warn)} .vx-st-final{color:var(--ok-lift);border-color:var(--ok-lift)}
+.vx-st-approved{color:var(--ok-lift);border-color:var(--ok-lift);background:rgba(var(--ok-rgb),.16)}
 .vx-total{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
 .vx-total b{color:var(--gold);font-size:15px}
 .vx-note{font-size:11px;color:var(--dim);line-height:1.6}
@@ -47,7 +52,7 @@
 .vx-check li{font-size:12px;padding:4px 0 4px 22px;position:relative;border-bottom:1px dashed var(--border)}
 .vx-check li:before{content:'▢';position:absolute;left:2px;color:var(--gold)}
 .vx-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
-.vx-over{color:#e74c3c} .vx-under{color:#7dcea0}
+.vx-over{color:var(--error-lift)} .vx-under{color:var(--ok-lift)}
 .vx-sheet{width:100%;min-height:260px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.6;white-space:pre}
 .vx-selrow{outline:1px solid var(--gold)}
 .vx-learned{border-left:2px solid var(--gold);padding-left:10px;margin-top:8px}

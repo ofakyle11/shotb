@@ -190,8 +190,8 @@
         esc(b.missing ? why : 'Double-click to add to the timeline') + '">' +
         (b.thumb ? '<img src="' + CinUrl.safe(b.thumb) + '" alt="">' : '<span class="ed-thumbph">' + (b.missing ? '⚠' : (b.kind === 'audio' ? '🎵' : '🎬')) + '</span>') +
         '<div class="ed-binmeta"><b>' + esc(b.name) + '</b><span>' + (b.missing ? 'media missing' : (b.dur ? b.dur.toFixed(1) + 's' : '…')) + (b.origin === 'studio' ? ' · studio' : '') + '</span></div></div>';
-    }).join('') + (gone ? '<div style="border:1px dashed var(--bad,#e06c6c);border-radius:8px;padding:6px 8px;' +
-      'font-size:10px;line-height:1.5;color:var(--bad,#e06c6c)">⚠ ' + gone + ' source(s) have no media in this ' +
+    }).join('') + (gone ? '<div style="border:1px dashed rgba(var(--error-rgb),.55);border-radius:8px;padding:6px 8px;' +
+      'font-size:10px;line-height:1.5;color:var(--error-lift)">⚠ ' + gone + ' source(s) have no media in this ' +
       'browser. Restore this production from a backup that carries media (Projects → Import backup), or ' +
       're-import from disk.</div>' : '');
     $('edBinHint').style.display = bin.length ? 'none' : 'block';
@@ -224,7 +224,7 @@
     for (var s = 0; s * zoom < w; s += step) h += '<span class="tick" style="left:' + (s * zoom) + 'px">' + (s % (step * 2) === 0 ? C.tc(s, project.fps).slice(3, 8) : '') + '</span>';
     // Screening Room notes land here as review markers — click one to jump.
     (project.markers || []).forEach(function (m, i) {
-      h += '<span class="tick" data-mark="' + (+m.sec || 0) + '" title="' + esc(m.text || '') + '" style="left:' + ((+m.sec || 0) * zoom) + 'px;border-left:2px solid #C9A86C;height:100%;cursor:pointer">▾</span>';
+      h += '<span class="tick" data-mark="' + (+m.sec || 0) + '" title="' + esc(m.text || '') + '" style="left:' + ((+m.sec || 0) * zoom) + 'px;border-left:2px solid var(--brass-dim);height:100%;cursor:pointer">▾</span>';
     });
     el.innerHTML = h;
   }

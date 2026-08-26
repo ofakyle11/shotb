@@ -16,16 +16,18 @@
 .bd-stats{font-family:var(--mono);font-size:10px;color:var(--text2);border-top:1px solid var(--border);padding-top:8px;line-height:1.8}
 
 .bd-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
-.bd-scenetitle{font-family:var(--display);font-size:14px}
+.bd-scenetitle{font-family:var(--display);font-size:14px;letter-spacing:.04em}
 .bd-shots{flex:1;overflow-y:auto;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;align-content:start}
 .bd-shot{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
-.bd-frame{position:relative;aspect-ratio:16/9;background:#000;display:flex;align-items:center;justify-content:center}
+/* The frame well repeats on every card in the grid, so it is a dominant
+   surface in §1's sense — those take --void, not pure black. */
+.bd-frame{position:relative;aspect-ratio:16/9;background:var(--void);display:flex;align-items:center;justify-content:center}
 .bd-frame img{width:100%;height:100%;object-fit:cover}
 .bd-frame .bd-ph{color:var(--dim);font-size:11px;text-align:center;padding:8px}
 .bd-framebtns{position:absolute;bottom:6px;right:6px;display:flex;gap:4px;opacity:0;transition:.15s}
 .bd-frame:hover .bd-framebtns{opacity:1}
-.bd-framebtns button{border:1px solid var(--border2);background:rgba(10,22,40,.85);color:var(--text2);border-radius:5px;font-size:10px;padding:3px 7px;cursor:pointer}
-.bd-framebtns button:hover{color:#fff;border-color:var(--gold)}
+.bd-framebtns button{border:1px solid var(--border2);background:rgba(var(--void-rgb),.85);color:var(--text2);border-radius:5px;font-size:10px;padding:3px 7px;cursor:pointer}
+.bd-framebtns button:hover{color:var(--text-hi);border-color:var(--gold)}
 .bd-shotbody{padding:8px 10px;display:flex;flex-direction:column;gap:5px}
 .bd-shotrow{display:flex;gap:5px;align-items:center;font-size:10px}
 .bd-shotrow select,.bd-shotrow input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 5px;font-size:10px;font-family:var(--mono);min-width:0}
@@ -43,14 +45,14 @@
 .bd-f input,.bd-f select,.bd-f textarea{display:block;width:100%;margin-top:3px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:11px;font-family:var(--body)}
 
 .bd-kamain{align-items:center;justify-content:center;display:flex;overflow:auto;padding:16px}
-#kaCanvas{max-height:calc(100vh - 120px);max-width:100%;border:1px solid var(--border);border-radius:8px;background:#000}
+#kaCanvas{max-height:calc(100vh - 120px);max-width:100%;border:1px solid var(--border);border-radius:8px;background:var(--void)}
 
 /* frame-grab modal */
-.bd-modal{position:fixed;inset:0;background:rgba(4,10,20,.8);display:flex;align-items:center;justify-content:center;z-index:60}
+.bd-modal{position:fixed;inset:0;background:rgba(var(--void-rgb),.8);display:flex;align-items:center;justify-content:center;z-index:var(--z-app-overlay)}
 .bd-modal.hidden{display:none}
 .bd-modalcard{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:16px;width:min(520px,92vw);display:flex;flex-direction:column;gap:10px}
 .bd-modalcard h3{margin:0;font-size:12px;color:var(--gold);text-transform:uppercase;letter-spacing:.06em}
-.bd-modalcard video{width:100%;border-radius:8px;background:#000;aspect-ratio:16/9}
+.bd-modalcard video{width:100%;border-radius:8px;background:var(--void);aspect-ratio:16/9}
 .bd-modalbtns{display:flex;gap:8px;justify-content:flex-end}
 
 /* print boards */

@@ -40,15 +40,15 @@
 .wd-table th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)}
 .wd-table td{padding:4px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
 .wd-table input,.wd-table select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 6px;font-size:11.5px}
-.wd-warn{font-family:var(--mono);font-size:10.5px;color:#e8b34b;margin-top:6px}
+.wd-warn{font-family:var(--mono);font-size:10.5px;color:var(--warn);margin-top:6px}
 .wd-flag{font-family:var(--mono);font-size:10px;border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
-.wd-flag.qc{color:#e8735a;border-color:#e8735a}
+.wd-flag.qc{color:var(--error-lift);border-color:var(--error-lift)}
 .wd-flag.span{color:var(--gold);border-color:var(--gold)}
 .wd-gridwrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px}
 .wd-grid{border-collapse:collapse;font-size:11px;min-width:100%}
 .wd-grid th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;padding:6px 10px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
 .wd-grid td{padding:5px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap}
-.wd-grid td.qc{color:#e8735a}
+.wd-grid td.qc{color:var(--error-lift)}
 .wd-grid td.sc{font-family:var(--mono);color:var(--dim)}
 .wd-total{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
 .wd-total b{color:var(--gold);font-size:15px}
@@ -57,23 +57,26 @@
 .wd-photo img{display:block;width:150px;height:110px;object-fit:cover}
 .wd-photo .wd-cap{font-family:var(--mono);font-size:9.5px;color:var(--dim);padding:3px 6px;display:block}
 .wd-photo button{position:absolute;top:4px;right:4px}
-.wd-grid tr.wd-dayrow td{background:rgba(139,163,184,.10);font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;color:var(--gold)}
+.wd-grid tr.wd-dayrow td{background:rgba(var(--violet-rgb),.10);font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;color:var(--gold)}
 .wd-grid td.chg{font-family:var(--mono);color:var(--dim)}
-.wd-flag.unc{color:#8fb0c9;border-color:#8fb0c9}
-.wd-flag.match{color:#6fbf8a;border-color:#6fbf8a}
+/* Unconfirmed reads as Blue Patina (§1 secondary/informational); a matched
+   size is Success. Green TEXT uses --ok-lift: --ok is 4.2:1 on --surface,
+   under AA. */
+.wd-flag.unc{color:var(--violet);border-color:var(--violet)}
+.wd-flag.match{color:var(--ok-lift);border-color:var(--ok-lift)}
 .wd-sd{width:100%;border-collapse:collapse;font-size:11.5px}
 .wd-sd th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)}
 .wd-sd td{padding:4px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
 .wd-sd td.k{font-family:var(--mono);color:var(--gold);white-space:nowrap}
 .wd-sd select,.wd-sd input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 6px;font-size:11px}
-.wd-sd tr.unc td.k{color:#8fb0c9}
-.wd-cal{font-family:var(--mono);font-size:10px;color:#6fbf8a;white-space:nowrap}
-.wd-act{font-family:var(--mono);font-size:10px;color:#8fb0c9;white-space:nowrap}
+.wd-sd tr.unc td.k{color:var(--violet)}
+.wd-cal{font-family:var(--mono);font-size:10px;color:var(--ok-lift);white-space:nowrap}
+.wd-act{font-family:var(--mono);font-size:10px;color:var(--violet);white-space:nowrap}
 .wd-learn{font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.8;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:10px}
-.wd-learn b{color:#6fbf8a}
+.wd-learn b{color:var(--ok-lift)}
 .wd-scan{font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.7;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:10px}
 .wd-scan b{color:var(--text)}
-.wd-scan .bad{color:#e8b34b}
+.wd-scan .bad{color:var(--warn)}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
 </head>

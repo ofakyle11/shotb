@@ -43,7 +43,7 @@
 .bs-head .bs-sub input{font-family:var(--mono);font-size:10px;color:var(--text2);border:1px solid var(--border);border-radius:5px;padding:3px 6px;width:130px}
 .bs-head .bs-sub input.bs-cont{width:44px;text-align:right}
 
-.bsd-title{font-size:13px;font-weight:700;color:var(--gold);margin-bottom:10px;font-family:var(--mono)}
+.bsd-title{font-size:13px;font-weight:500;color:var(--gold);margin-bottom:10px;font-family:var(--mono)}
 .bsd-table{width:100%;border-collapse:collapse;font-size:11px}
 .bsd-table th{text-align:left;color:var(--dim);font-size:9px;text-transform:uppercase;letter-spacing:.05em;padding:6px;border-bottom:1px solid var(--border2);white-space:nowrap}
 .bsd-table td{padding:4px 6px;border-bottom:1px solid var(--border);vertical-align:middle}
@@ -56,7 +56,7 @@
 .bsd-del{border:none;background:transparent;color:var(--dim);cursor:pointer;font-size:12px;padding:2px 6px}
 .bsd-del:hover{color:var(--red)}
 .bsd-foot{margin-top:10px;display:flex;gap:8px;align-items:center}
-.bsd-cat-tot{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--gold);font-weight:700}
+.bsd-cat-tot{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--gold);font-weight:500}
 
 /* ── stripboard ── */
 .ps-board{flex:1;display:flex;overflow:hidden;min-height:0}

@@ -51,7 +51,7 @@
     vehicle:     { h: 5,    shape: 'box',      color: '#43506080' },
     greenscreen: { h: 12,   shape: 'box',      color: '#2FA84F' },
     person:      { h: 5.8,  shape: 'person',   color: '#C9A86C' },
-    camera:      { h: 5,    shape: 'camera',   color: '#E8EEF4' },
+    camera:      { h: 5,    shape: 'camera',   color: '#E8EEF2' },
     light:       { h: 7,    shape: 'light',    color: '#F2D98C' },
     custom:      { h: 3,    shape: 'box',      color: '#8BA3B8' }
   };

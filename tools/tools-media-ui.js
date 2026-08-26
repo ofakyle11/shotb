@@ -208,7 +208,7 @@
     function move(e) {
       if (!drawing) return;
       var p = pos(e);
-      ctx.strokeStyle = '#d4a843'; ctx.lineWidth = Math.max(2, cv.width / 320); ctx.lineCap = 'round';
+      ctx.strokeStyle = '#C9A06C'; ctx.lineWidth = Math.max(2, cv.width / 320); ctx.lineCap = 'round';  /* --warn */
       ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(p[0], p[1]); ctx.stroke();
       px = p[0]; py = p[1]; e.preventDefault();
     }
@@ -263,15 +263,15 @@
       var camX = 40, camY = 150, len = 560;
       var dy = Math.tan(half) * len;
       x.beginPath(); x.moveTo(camX, camY); x.lineTo(camX + len, camY - dy); x.lineTo(camX + len, camY + dy); x.closePath(); x.fill();
-      x.strokeStyle = '#d4a843'; x.stroke();
-      x.fillStyle = '#8e8e9e'; x.font = '11px monospace';
+      x.strokeStyle = '#C9A06C'; x.stroke();                 /* --warn */
+      x.fillStyle = '#A0B4C8'; x.font = '11px monospace';    /* --text-mid */
       x.fillText('camera', camX - 10, camY + 28);
       var d = num(C.$('lnDist').value) || 3;
       var px = camX + Math.min(len, d / (d + 2) * len * 1.6);
-      x.strokeStyle = '#60a5fa';
+      x.strokeStyle = '#5B8DB8';                              /* --cyan */
       x.beginPath(); x.moveTo(px, camY - Math.tan(half) * (px - camX)); x.lineTo(px, camY + Math.tan(half) * (px - camX)); x.stroke();
       x.fillText(d + 'm → ' + (r.widthAt || '?') + 'm wide', px - 40, camY + Math.tan(half) * (px - camX) + 16);
-      x.fillStyle = '#e8e8ec';
+      x.fillStyle = '#E8EEF2';                                /* --text-hi */
       x.beginPath(); x.arc(camX, camY, 5, 0, 7); x.fill();
     }
     ['lnSensor', 'lnFocal', 'lnDist'].forEach(function (id) { C.$(id).addEventListener('input', draw); });
@@ -511,13 +511,18 @@
       cv.width = board.clientWidth * 2; cv.height = board.clientHeight * 2;
       var x = cv.getContext('2d');
       x.scale(2, 2);
-      x.fillStyle = '#0c0c12'; x.fillRect(0, 0, board.clientWidth, board.clientHeight);
+      x.fillStyle = '#0A1628'; x.fillRect(0, 0, board.clientWidth, board.clientHeight);  /* --void */
       var loads = items.map(function (it) {
         return new Promise(function (res) {
           if (it.kind === 'note') {
-            x.fillStyle = '#C9A86C';
+            /* Must track .tk-boarditem.note in tools.css — a solid gold slab
+               here and a rimmed panel on screen would export a board that does
+               not look like the one the user arranged. */
+            x.fillStyle = '#1A2F4A';                    /* --surface-2 */
             x.fillRect(it.x, it.y, 180, 60);
-            x.fillStyle = '#1a1408'; x.font = '12px sans-serif';
+            x.strokeStyle = '#C9A86C';                  /* --magenta rim */
+            x.lineWidth = 1; x.strokeRect(it.x + 0.5, it.y + 0.5, 179, 59);
+            x.fillStyle = '#E8EEF2'; x.font = '12px sans-serif';   /* --text-hi */
             String(it.text || '').split('\n').forEach(function (ln, i) { x.fillText(ln.slice(0, 28), it.x + 8, it.y + 18 + i * 15); });
             return res();
           }

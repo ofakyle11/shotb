@@ -24,13 +24,19 @@
 .dt-group{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
 .dt-group h4{font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px}
 .dt-item{display:flex;gap:8px;align-items:center;font-size:12px;padding:3px 0;cursor:pointer}
-.dt-item.off{opacity:.4}
+/* Optional deliverable. opacity:.4 put this clickable row at 3.38:1; --text-faint
+   is the kit's lowest readable tier and de-emphasises it without going under. */
+.dt-item.off{color:var(--dim)}
 .dt-item.done span{text-decoration:line-through;color:var(--dim)}
 .dt-progwrap{flex:1;height:8px;background:var(--surface2);border-radius:4px;min-width:140px}
-.dt-prog{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--patina,#8BA3B8),var(--brass,#C9A86C))}
+/* Was a violet→Heritage Gold gradient FILLING the bar. The kit permits exactly
+   one surface-filling gradient (--grad-brand), and gold is reserved for money
+   and awards — a territory-progress bar is neither. Solid Action Blue is the
+   platform's progress idiom (editor .ed-progbar, workflow .wf-bar-fill). */
+.dt-prog{height:100%;border-radius:4px;background:var(--gold)}
 .dt-note{font-size:11px;color:var(--dim);line-height:1.6}
 .dt-row{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:7px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12px}
-.dt-conflict{border-color:#E08A8A}
+.dt-conflict{border-color:var(--error-lift)}
 .dt-mono{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
@@ -141,14 +147,14 @@
         (w.window ? ' · ' + esc(w.window) : '') + (w.start ? ' · from ' + esc(w.start) : '') +
         (w.end ? ' to ' + esc(w.end) : '') +
         (w.licensee ? ' · ' + esc(w.licensee) : '') +
-        (conflicts[w.id] ? ' <span class="dt-mono" style="color:#E08A8A">exclusivity clash: ' + esc(conflicts[w.id]) + '</span>'
-          : undated[w.id] ? ' <span class="dt-mono" style="color:#C9A86C">term missing: ' + esc(undated[w.id]) + '</span>' : '') +
+        (conflicts[w.id] ? ' <span class="dt-mono" style="color:var(--error-lift)">exclusivity clash: ' + esc(conflicts[w.id]) + '</span>'
+          : undated[w.id] ? ' <span class="dt-mono" style="color:var(--warn)">term missing: ' + esc(undated[w.id]) + '</span>' : '') +
         '<span style="flex:1"></span><button class="tb-btn" data-del="' + esc(w.id) + '">✕</button></div>';
     }).join('') || '<p class="dt-note">No windows planned yet.</p>';
 
     var gate = currentGate();
     $('scGate').innerHTML = '<span class="dt-mono" style="color:' +
-      (gate.level === 'blocked' ? '#E08A8A' : gate.level === 'caution' ? '#C9A86C' : '#9BCB9B') + '">' +
+      (gate.level === 'blocked' ? 'var(--error-lift)' : gate.level === 'caution' ? 'var(--warn)' : 'var(--ok-lift)') + '">' +
       esc(gate.level.toUpperCase()) + ' — ' + esc(gate.summary) + '</span>' +
       (gate.blockers.length ? '<br>' + gate.blockers.map(function (b) {
         return '· <b>' + esc(b.label) + '</b> — ' + esc(b.detail); }).join('<br>') : '') +
@@ -161,9 +167,9 @@
         (s.company ? ' · ' + esc(s.company) : '') +
         ' <span class="dt-mono">sent ' + esc(s.sentAt) + (s.link ? ' · ' + esc(s.link) : '') +
         ' · cut: ' + esc(s.cutLabel || 'not recorded') + ' · ' + esc(s.scope || 'all-media') + '</span>' +
-        (r ? '<br><span class="dt-mono" style="color:' + (r.ok ? '#9BCB9B' : '#E08A8A') + '">rights at send: ' +
+        (r ? '<br><span class="dt-mono" style="color:' + (r.ok ? 'var(--ok-lift)' : 'var(--error-lift)') + '">rights at send: ' +
           esc(r.summary || r.level) + (r.blockers && r.blockers.length ? ' — ' + esc(r.blockers.join('; ')) : '') + '</span>' : '') +
-        (s.overrideReason ? '<br><span class="dt-mono" style="color:#E08A8A">sent anyway: ' + esc(s.overrideReason) + '</span>' : '') +
+        (s.overrideReason ? '<br><span class="dt-mono" style="color:var(--error-lift)">sent anyway: ' + esc(s.overrideReason) + '</span>' : '') +
         '<span style="flex:1"></span>' +
         '<button class="tb-btn" data-watch="' + esc(s.id) + '">' + (s.watched ? '👁 watched' : 'mark watched') + '</button>' +
         '<button class="tb-btn" data-del="' + esc(s.id) + '">✕</button></div>';

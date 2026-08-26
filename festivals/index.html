@@ -29,8 +29,11 @@
 .fs-tier{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 6px}
 .fs-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
 .fs-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
-.fs-card.off{opacity:.38}
-.fs-card b{font-family:var(--display);font-size:14px}
+/* opacity:.38 dropped this card's body copy to 3.11:1 and its captions lower
+   still — well under AA. Out-of-play now reads from the dashed rim and the
+   dropped fill, and every line of type stays at full contrast. */
+.fs-card.off{background:transparent;border-style:dashed}
+.fs-card b{font-family:var(--display);font-size:14px;text-transform:uppercase;letter-spacing:.05em}
 .fs-card .fs-city{font-family:var(--mono);font-size:10px;color:var(--dim);margin-left:6px}
 .fs-card p{font-size:11px;color:var(--text2);margin:5px 0 0;line-height:1.55}
 .fs-card .fs-fee{color:var(--dim)}
@@ -44,7 +47,12 @@
 .fs-num{font-family:var(--mono);text-align:right}
 .fs-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
 .fs-tag.acc{color:var(--gold);border-color:var(--gold)}
-.fs-tag.past{color:#e07b6a;border-color:#e07b6a}
+/* The one celebratory moment on this page. .fs-tag.acc could NOT carry it —
+   three of its four uses are ordinary tier labels, so painting that class gold
+   would have spread brass through the chrome. BRAND §1 sanctions Heritage Gold
+   for exactly this: an award. */
+.fs-tag.win{color:var(--brass);border-color:var(--brass)}
+.fs-tag.past{color:var(--error-lift);border-color:var(--error-lift)}
 .fs-total{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:12px 16px;display:flex;gap:26px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:10px}
 .fs-total b{color:var(--gold);font-size:15px}
 .fs-note{font-size:11px;color:var(--dim);line-height:1.6}
@@ -189,7 +197,7 @@
         '<td><input data-f="submittedOn" type="date" value="' + esc(s.submittedOn) + '"></td>' +
         '<td><select data-f="result">' + F.RESULTS.map(function (r) {
           return '<option' + (r === s.result ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>' +
-          (s.result === 'accepted' ? ' <span class="fs-tag acc">in!</span>' : '') +
+          (s.result === 'accepted' ? ' <span class="fs-tag win">official selection</span>' : '') +
           (s.stage ? ' <span class="fs-tag" title="Logged in Tools › Festivals">' + esc(s.stage) + '</span>' : '') + '</td>' +
         '<td><button class="tb-btn" data-del="' + esc(s.id) + '">✕</button></td></tr>';
     }).join('') || '<tr><td colspan="7" class="fs-note">No submissions logged yet — add the first one above.</td></tr>';
@@ -200,7 +208,7 @@
       '<span>All-in <b>$' + esc(fees.total.toLocaleString()) + '</b></span>' +
       '<span>Pending <b>' + esc(counts.pending) + '</b></span>' +
       '<span>Accepted <b>' + esc(counts.accepted) + '</b></span>' +
-      (fees.unknown ? '<span style="color:#e07b6a">Not in the total: <b>' + esc(fees.unknown) +
+      (fees.unknown ? '<span style="color:var(--warn)">Not in the total: <b>' + esc(fees.unknown) +
         '</b> fee' + (fees.unknown === 1 ? '' : 's') + ' unreadable — ' +
         esc(fees.unknownFees.map(function (u) { return u.festival + ' "' + u.fee + '"'; }).join(', ')) + '</span>' : '');
   }
@@ -217,7 +225,7 @@
     var s = st.subs.filter(function (x) { return x.id === tr.getAttribute('data-id'); })[0];
     if (!s) return;
     var f = e.target.getAttribute('data-f');
-    if (f === 'result') { F.setResult(st.subs, s.id, e.target.value); if (e.target.value === 'accepted') toast('Accepted — congratulations!'); }
+    if (f === 'result') { F.setResult(st.subs, s.id, e.target.value); if (e.target.value === 'accepted') toast('Official selection — congratulations.'); }
     else if (f === 'submittedOn') s.submittedOn = e.target.value;
     save(); renderSubs();
   });

@@ -125,8 +125,40 @@ order** — do not fold it into a territory.
 | Raised / inputs / hover | `#1A2F4A` | `--surface-2` |
 
 Interactive elements are **Action Blue and Patina**. Dark mode is the default
-and the only mode. Contrast must meet **WCAG AA**; `--text-faint` `#6A7E94` is
-the lowest readable tier at 5.05:1 on `--void` — nothing dimmer.
+and the only mode. Contrast must meet **WCAG AA** — 4.5:1 for normal text.
+
+### The two dim text tiers do not meet it — an open decision for the owner
+
+`css/tokens.css` and `css/theme.css` both described `--text-faint` as "the
+lowest readable tier — 5.05:1 on `--void`", and I copied that figure into this
+document without checking it. A reviewer measured it. **It is 4.34:1**, under
+AA, and the claim had stood unverified for months.
+
+Measured, with a calculator checked against the two fixed points (white on
+black = 21.00, `#777` on white = 4.48):
+
+| | on `--void` | on `--surface-1` | on `--surface-2` |
+|---|---|---|---|
+| `--text-hi` `#E8EEF2` | 15.49 | 13.28 | 11.58 |
+| `--text-mid` `#A0B4C8` | 8.51 | 7.29 | 6.36 |
+| `--text-dim` `#7E92A8` | 5.67 | 4.86 | **4.24** |
+| `--text-faint` `#6A7E94` | **4.34** | **3.72** | **3.24** |
+
+**The kit's own two text colours are fine.** The kit specifies Text Primary
+`#E8EEF2` and Text Secondary `#A0B4C8`, and both clear AA everywhere. The two
+dimmer tiers were invented *below* the kit, and they are the ones failing.
+
+This was not fixed silently, and here is why. Lifting `--text-faint` until it
+clears AA on `--surface-2` requires `#8098B3` — which is **lighter than
+`--text-dim`**, inverting the scale. So there is no one-token fix: the dim end
+of the text ramp has to be restructured, which repaints all 28 module pages.
+That is a visible, platform-wide change to the owner's brand and it is his
+call, not a side effect of an accessibility pass.
+
+**Until that decision:** use `--text-mid` for anything that must be read.
+Reserve `--text-dim` and `--text-faint` for decoration on `--void`, never for
+text on a card. All four ratios are pinned in `scripts/test_brand.mjs`, and the
+disproved figure is banned from reappearing in any stylesheet comment.
 
 ---
 

@@ -305,7 +305,7 @@ button,input,select,textarea{font-family:inherit}
 .bud-table th{text-align:left;color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.05em;padding:6px 8px;border-bottom:1px solid var(--border2);white-space:nowrap}
 .bud-table td{padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text2);white-space:nowrap}
 .bud-table tr:last-child td{border-bottom:none}
-.bud-table b{color:var(--text);font-family:var(--mono);font-weight:600}
+.bud-table b{color:var(--text);font-family:var(--mono);font-weight:500}
 .bud-table .bud-r{text-align:right;font-family:var(--mono)}
 .bud-table tr.bud-cur td{background:rgba(91,141,184,.07);color:var(--text)}
 .bud-table em{color:var(--gold);font-style:normal;font-size:10px}

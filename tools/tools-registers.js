@@ -14,7 +14,7 @@
   }
   function section(host, title) {
     var d = document.createElement('div');
-    if (title) d.innerHTML = '<h3 style="font-family:var(--display);font-size:13px;margin:16px 0 8px">' + esc(title) + '</h3>';
+    if (title) d.innerHTML = '<h3 style="font-family:var(--display);font-size:13px;text-transform:uppercase;letter-spacing:.05em;margin:16px 0 8px">' + esc(title) + '</h3>';
     var mountEl = document.createElement('div');
     d.appendChild(mountEl);
     host.appendChild(d);

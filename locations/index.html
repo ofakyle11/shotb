@@ -27,7 +27,7 @@
 .sk-bar input,.sk-bar select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:7px 10px;font-size:12px}
 .sk-note{font-size:11px;color:var(--dim);line-height:1.6}
 .sk-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px}
-.sk-card b.sk-name{font-family:var(--display);font-size:15px}
+.sk-card b.sk-name{font-family:var(--display);font-size:15px;letter-spacing:.04em}
 .sk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:10px}
 .sk-grid label{display:block;font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px}
 .sk-grid input,.sk-grid select,.sk-grid textarea{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:11.5px}
@@ -39,10 +39,14 @@
 /* A photo whose bytes are not on this device. It used to be removed from the
    page outright, so a scout book that had lost every image looked like a scout
    book that never had one. It stays, and it says what happened. */
-.sk-photos .sk-gone{height:72px;width:96px;border-radius:6px;border:1px dashed var(--bad,#e06c6c);
+/* --bad was never declared in any token file, so the #e06c6c fallback was
+   what actually painted — an off-kit red nobody chose. --error-lift is the
+   Error hue at a weight that clears AA on --surface-2 (5.5:1); plain --error
+   is 3.4:1 there. */
+.sk-photos .sk-gone{height:72px;width:96px;border-radius:6px;border:1px dashed var(--error-lift);
   display:flex;align-items:center;justify-content:center;text-align:center;padding:4px;
-  font-size:9px;line-height:1.3;color:var(--bad,#e06c6c);background:var(--surface2)}
-.sk-missing{color:var(--bad,#e06c6c);font-size:11px;margin-top:6px;display:block}
+  font-size:9px;line-height:1.3;color:var(--error-lift);background:var(--surface2)}
+.sk-missing{color:var(--error-lift);font-size:11px;margin-top:6px;display:block}
 .sk-photos button{position:absolute;top:2px;right:2px;font-size:9px;line-height:1;padding:2px 4px}
 .sk-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
 .sk-spacer{flex:1}
@@ -68,10 +72,12 @@
 .sk-fx select{flex:1;min-width:190px}
 .sk-fx input{width:64px}
 .sk-pwout{margin-top:9px;font-family:var(--mono);font-size:11.5px;line-height:1.6}
-.sk-pwout .sk-v-ok{color:var(--green)}
+/* Power-load verdicts sit on --surface cards, where --ok is 4.2:1 and --error
+   3.4:1 — both under AA. The lifted pair carries the same hues over the bar. */
+.sk-pwout .sk-v-ok{color:var(--ok-lift)}
 .sk-pwout .sk-v-tight,.sk-pwout .sk-v-unknown{color:var(--gold)}
-.sk-pwout .sk-v-over,.sk-pwout .sk-v-derate{color:var(--red)}
-.sk-sun .sk-est{color:var(--red)}
+.sk-pwout .sk-v-over,.sk-pwout .sk-v-derate{color:var(--error-lift)}
+.sk-sun .sk-est{color:var(--error-lift)}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
   <script src="/js/safe-url.js"></script>

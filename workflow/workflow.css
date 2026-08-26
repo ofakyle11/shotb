@@ -6,9 +6,9 @@
 
 /* hero */
 .wf-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:14px}
-.wf-hero h1{font-family:var(--display);font-size:26px;font-weight:700;display:inline;margin-right:10px}
+.wf-hero h1{font-family:var(--display);font-size:26px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;display:inline;margin-right:10px}
 .wf-hero-right{text-align:right;min-width:220px}
-.wf-pct{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--gold)}
+.wf-pct{font-family:var(--mono);font-size:22px;font-weight:500;color:var(--gold)}
 .wf-bar{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin:6px 0 4px}
 .wf-bar-fill{height:100%;background:var(--gold);border-radius:3px;transition:width .4s}
 .wf-next{margin:12px 0 0;font-size:13px;color:var(--text2);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -18,17 +18,17 @@
 /* stages */
 .wf-stages{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
 .wf-stage{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
-.wf-stage.active{border-color:var(--gold);box-shadow:0 0 0 1px rgba(91,141,184,.25)}
+.wf-stage.active{border-color:var(--gold);box-shadow:0 0 0 1px rgba(var(--cyan-rgb),.25)}
 .wf-stage.done{opacity:.85}
 .wf-stage-head{display:flex;align-items:center;gap:10px}
 .wf-stage-n{width:26px;height:26px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;color:var(--text2);flex-shrink:0}
-.wf-stage.done .wf-stage-n{background:rgba(74,139,122,.2);color:var(--green);border-color:transparent}
-.wf-stage.active .wf-stage-n{background:rgba(91,141,184,.2);color:var(--gold);border-color:transparent}
-.wf-stage-title{font-family:var(--display);font-size:15px;font-weight:700}
+.wf-stage.done .wf-stage-n{background:rgba(var(--ok-rgb),.2);color:var(--ok-lift);border-color:transparent}
+.wf-stage.active .wf-stage-n{background:rgba(var(--cyan-rgb),.2);color:var(--cyan-lift);border-color:transparent}
+.wf-stage-title{font-family:var(--display);font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
 .wf-stage-mod{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
 .wf-badge{margin-left:auto;font-size:9px;font-weight:700;border-radius:4px;padding:2px 7px;text-transform:uppercase;letter-spacing:.04em}
-.wf-badge.done{background:rgba(74,139,122,.16);color:var(--green)}
-.wf-badge.active{background:rgba(91,141,184,.18);color:var(--gold)}
+.wf-badge.done{background:rgba(var(--ok-rgb),.16);color:var(--ok-lift)}
+.wf-badge.active{background:rgba(var(--cyan-rgb),.18);color:var(--cyan-lift)}
 .wf-badge.todo{background:var(--surface2);color:var(--dim)}
 .wf-metrics{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.8}
 .wf-metrics li::before{content:'·';color:var(--gold);margin-right:6px}
@@ -38,12 +38,16 @@
 
 /* chips */
 .wf-chip{display:inline-block;font-size:10px;font-weight:700;border-radius:5px;padding:2px 8px;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
-.wf-chip.good{background:rgba(74,139,122,.16);color:var(--green);border-color:transparent}
-.wf-chip.warn{background:rgba(212,168,67,.14);color:var(--gold);border-color:transparent}
-.wf-chip.generating{background:rgba(91,141,184,.2);color:var(--gold);border-color:transparent}
+/* Each wash is a tint of its own text colour, which lifts the ground toward the
+   text: --ok read 3.44:1 and --gold 3.87:1 that way. The -lift variants clear AA.
+   .warn was a pre-palette gold wash carrying Action Blue text — two colours that
+   were never meant to meet; it is now --warn on --warn. */
+.wf-chip.good{background:rgba(var(--ok-rgb),.16);color:var(--ok-lift);border-color:transparent}
+.wf-chip.warn{background:rgba(var(--warn-rgb),.16);color:var(--warn);border-color:transparent}
+.wf-chip.generating{background:rgba(var(--cyan-rgb),.2);color:var(--cyan-lift);border-color:transparent}
 .wf-chip.queued{background:var(--surface2);color:var(--dim)}
-.wf-chip.rendered{background:rgba(91,141,184,.14);color:var(--text2);border-color:transparent}
-.wf-chip.approved{background:rgba(74,139,122,.16);color:var(--green);border-color:transparent}
+.wf-chip.rendered{background:rgba(var(--cyan-rgb),.14);color:var(--text2);border-color:transparent}
+.wf-chip.approved{background:rgba(var(--ok-rgb),.16);color:var(--ok-lift);border-color:transparent}
 
 /* generation board */
 .wf-clipsum{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
@@ -53,8 +57,8 @@
 .wf-clip span{display:block;font-family:var(--mono);font-size:9px;color:var(--dim)}
 .wf-clip.generating{border-color:var(--gold)}
 .wf-clip.generating span{color:var(--gold)}
-.wf-clip.approved{border-color:rgba(74,139,122,.5)}
-.wf-clip.approved span{color:var(--green)}
+.wf-clip.approved{border-color:rgba(var(--ok-rgb),.5)}
+.wf-clip.approved span{color:var(--ok-lift)}   /* --ok is 4.17:1 at 9px here */
 .wf-clip.rendered span{color:var(--text2)}
 .wf-clip:hover{border-color:var(--border2)}
 

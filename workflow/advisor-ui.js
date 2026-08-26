@@ -18,7 +18,16 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3000);
   }
   function money(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
-  var SEV = { high: ['#A65D5D', 'NOW'], med: ['#5B8DB8', 'SOON'], low: ['#6A7E94', 'NEXT'], ok: ['#4A8B7A', 'CLEAR'] };
+  /* [wash, text, label]. Each pill used to paint its text AND its background
+     from one hex (`color:#A65D5D` over `background:#A65D5D22`), which lifts the
+     ground toward the text and collapses --error to 2.7:1 — under AA. The wash
+     and the text are now separate tokens. */
+  var SEV = {
+    high: ['rgba(var(--error-rgb),.18)', 'var(--error-lift)', 'NOW'],
+    med:  ['rgba(var(--cyan-rgb),.18)',  'var(--cyan-lift)',  'SOON'],
+    low:  ['var(--surface2)',            'var(--dim)',        'NEXT'],
+    ok:   ['rgba(var(--ok-rgb),.16)',    'var(--ok-lift)',    'CLEAR']
+  };
 
   var lastStaffing = null;
 
@@ -58,7 +67,7 @@
     h += '<div class="wf-adv-acts">' + acts.map(function (x) {
       var s = SEV[x.sev] || SEV.low;
       return '<a class="wf-adv-act" href="' + CinUrl.safe(x.href) + '">' +
-        '<span class="wf-adv-sev" style="background:' + s[0] + '22;color:' + s[0] + '">' + s[1] + '</span>' +
+        '<span class="wf-adv-sev" style="background:' + s[0] + ';color:' + s[1] + '">' + s[2] + '</span>' +
         '<span>' + esc(x.text) + '</span><b>' + esc(x.label) + ' →</b></a>';
     }).join('') + '</div>';
 
@@ -112,7 +121,7 @@
       var R = CLearn.learningReport();
       var S = CLearn.summary();
       var w = R.walk;
-      var tone = !w.enough ? 'var(--dim)' : (w.verdict === 'worse' ? '#A65D5D' : (w.verdict === 'better' ? '#4A8B7A' : 'var(--dim)'));
+      var tone = !w.enough ? 'var(--dim)' : (w.verdict === 'worse' ? 'var(--error-lift)' : (w.verdict === 'better' ? 'var(--ok-lift)' : 'var(--dim)'));
       h += '<p class="wf-adv-foot wf-dim" style="font-size:10px;color:var(--dim);display:block;line-height:1.7">' +
         '<span style="color:' + esc(tone) + '">' + esc(R.headline) + '</span><br>' +
         esc(R.gate) + '<br>' + esc(R.activity) + '<br>' +

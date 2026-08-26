@@ -100,6 +100,47 @@ for (const re of [/var\(--font-serif\)[^}]*font-weight:\s*(?:800|900)/g,
     hits.length === 0, hits.join(', '));
 }
 
+/* ── 1b · the SAME defect, one typeface over ─────────────────────────
+   The Cinzel checks above were written from a defect found by eye, and they
+   hardcode Cinzel's weights. That let an identical bug hide in plain sight for
+   the whole session: 30 of the 31 pages load IBM Plex Mono at wght@400;500,
+   app.html at 400;500;600 — and 23 rules asked --mono for 600, 700 or 800.
+   Same synthesised smear, same invisibility, different font. A reviewer found
+   it; this suite did not, because it was checking a face rather than a rule.
+
+   So this check derives the contract instead of asserting it: read the weights
+   each page actually LOADS from its own Google Fonts URL, then fail any rule
+   that asks for one outside that set. It needs no updating when the font link
+   changes, and it would have caught the Cinzel defect too.
+
+   A .css file is shared across pages, so it is held to the WEAKEST contract
+   among them — 400;500 — because a rule that synthesises on 30 pages is a
+   defect even if it happens to resolve on the 31st. */
+{
+  const monoWeights = new Map();
+  for (const { rel, src } of corpus) {
+    if (!rel.endsWith('.html')) continue;
+    const m = src.match(/IBM\+Plex\+Mono:wght@([0-9;]+)/);
+    if (m) monoWeights.set(rel, new Set(m[1].split(';').map(Number)));
+  }
+  t('the mono font link is discoverable (no link = this check tests nothing)',
+    monoWeights.size > 5, `found ${monoWeights.size} pages declaring mono weights`);
+
+  const RE = /(?:var\(--(?:mono|font-code)\)[^}]*?font-weight:\s*(\d{3})|font-weight:\s*(\d{3})[^}]*?var\(--(?:mono|font-code)\))/g;
+  const bad = [];
+  for (const { rel, src } of corpus) {
+    const loaded = rel.endsWith('.html')
+      ? (monoWeights.get(rel) || new Set([400, 500]))
+      : new Set([400, 500]);
+    for (const m of stripComments(src).matchAll(RE)) {
+      const w = Number(m[1] || m[2]);
+      if (!loaded.has(w)) bad.push(`${rel}:${w}`);
+    }
+  }
+  t('no synthesised bold on IBM Plex Mono (every weight asked for is loaded)',
+    bad.length === 0, bad.join(', '));
+}
+
 /* ── 2 · display tracking is positive ────────────────────────────────
  * The kit sets display type all-caps at +0.04em..+0.08em. Negative tracking
  * on Cinzel is always wrong, never a taste call. */
@@ -228,6 +269,63 @@ for (const sheet of ['css/tokens.css', 'css/theme.css']) {
     t(`${sheet} declares ${tok}: ${hex}`,
       new RegExp(tok.replace(/-/g, '\\-') + ':\\s*' + hex + '\\s*;', 'i').test(src));
   }
+}
+
+/* ── 5b · contrast is MEASURED, and the measurement is pinned ────────
+   tokens.css and theme.css both carried the comment "lowest readable tier —
+   5.05:1 on --void" against --text-faint for months. It measures 4.34:1, which
+   is UNDER the 4.5:1 WCAG AA the kit requires. Nobody had run the number; it
+   was asserted, inherited, and then copied by me into BRAND.md §3 without
+   checking — a reviewer caught it.
+   These assertions pin the real ratios. If a token is edited, the arithmetic
+   here moves and the suite says so, instead of a stale comment quietly
+   outliving the colour it describes. The calculator is checked against the two
+   values every implementation must agree on before it is trusted. */
+{
+  const chan = (h) => [0, 2, 4].map((i) => parseInt(h.replace('#', '').substr(i, 2), 16));
+  const lum = (h) => {
+    const v = chan(h).map((c) => {
+      c /= 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  };
+  const cr = (a, b) => {
+    const [x, y] = [lum(a), lum(b)];
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  };
+  const near = (a, b) => Math.abs(a - b) < 0.02;
+
+  /* Calibration first: a broken calculator would make every ratio below agree
+     with itself and prove nothing. 21:1 and 4.48:1 are the two fixed points. */
+  t('contrast calculator is calibrated (white on black is exactly 21:1)',
+    near(cr('#FFFFFF', '#000000'), 21));
+  t('contrast calculator is calibrated (#777 on white is 4.48:1)',
+    near(cr('#777777', '#FFFFFF'), 4.48));
+
+  /* The kit's own two text colours. These are the ones that must hold. */
+  t('--text-hi clears AA on every surface tier',
+    ['#0A1628', '#12253A', '#1A2F4A'].every((bg) => cr('#E8EEF2', bg) >= 4.5));
+  t('--text-mid clears AA on every surface tier',
+    ['#0A1628', '#12253A', '#1A2F4A'].every((bg) => cr('#A0B4C8', bg) >= 4.5));
+
+  /* The two tiers the platform invented BELOW the kit. Pinned at their true
+     values, and deliberately NOT asserted to pass — they do not. Changing that
+     repaints every page and is the owner's decision, not a silent fix. */
+  t('--text-faint is 4.34:1 on --void (documented, still under AA)',
+    near(cr('#6A7E94', '#0A1628'), 4.34));
+  t('--text-dim is 4.24:1 on --surface-2 (documented, still under AA)',
+    near(cr('#7E92A8', '#1A2F4A'), 4.24));
+
+  /* No comment may re-assert the figure that was wrong. */
+  const stale = corpus.filter((f) => /5\.05:1/.test(f.src)).map((f) => f.rel);
+  t('the disproved 5.05:1 figure appears nowhere', stale.length === 0, stale.join(', '));
+
+  /* The lifted pair exists precisely to clear AA where the base colours cannot. */
+  t('--error-lift clears AA on every surface tier',
+    ['#0A1628', '#12253A', '#1A2F4A'].every((bg) => cr('#D49494', bg) >= 4.5));
+  t('--ok-lift clears AA on every surface tier',
+    ['#0A1628', '#12253A', '#1A2F4A'].every((bg) => cr('#6FB3A0', bg) >= 4.5));
 }
 
 /* ── 6 · the two sheets stay mirrored ────────────────────────────────

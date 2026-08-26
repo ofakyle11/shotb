@@ -21,15 +21,23 @@
 .cl-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .cl-find{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px;margin-bottom:8px}
 .cl-risk{display:inline-block;font-family:var(--mono);font-size:9px;border-radius:4px;padding:1px 7px;text-transform:uppercase;letter-spacing:.05em;margin-right:8px}
-.cl-high{background:#E08A8A22;color:#E08A8A}
-.cl-medium{background:#C9A86C22;color:#C9A86C}
-.cl-low{background:#8BA3B822;color:#8BA3B8}
+/* Risk tiers are the kit's semantic trio, each chip tinted with its OWN
+   colour (the .tk-chip recipe in cinamate-ui.css). Medium was Heritage Gold,
+   which §1 reserves for money moments, not an ordinary severity badge —
+   Warning is the role that already names this state. Text on a self-tinted
+   ground uses the lifted tokens; --error there is only 2.7:1. */
+.cl-high{background:rgba(var(--error-rgb),.18);color:var(--error-lift)}
+.cl-medium{background:rgba(var(--warn-rgb),.18);color:var(--warn)}
+.cl-low{background:rgba(var(--violet-rgb),.18);color:var(--violet)}
 .cl-ex{font-family:var(--mono);font-size:10.5px;color:var(--text2);display:block;margin:5px 0}
 .cl-note{font-size:11px;color:var(--dim);line-height:1.6}
 .cl-doc{width:100%;min-height:230px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11px;line-height:1.55}
 .cl-banner{border-radius:10px;padding:12px 16px;font-family:var(--mono);font-size:12px;margin-bottom:10px}
-.cl-ready{background:#9BCB9B18;border:1px solid #9BCB9B;color:#9BCB9B}
-.cl-open{background:#C9A86C14;border:1px solid var(--gold);color:var(--gold)}
+.cl-ready{background:rgba(var(--ok-rgb),.16);border:1px solid var(--ok);color:var(--ok-lift)}
+/* .cl-open carries blockers and disclosures — a Warning state. It used to be
+   a Heritage Gold wash under var(--gold) text, and --gold resolves to Action
+   Blue: a brass ground with blue type sitting in it. Both halves now agree. */
+.cl-open{background:rgba(var(--warn-rgb),.14);border:1px solid var(--warn);color:var(--warn)}
 select.cl-status{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 6px;font-size:11px}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
