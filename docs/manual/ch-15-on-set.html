@@ -117,8 +117,8 @@ asks first, names the day it is about to wrap, and is reversible through the sam
 call — a day wrapped by mistake would otherwise teach the schedule a pace nobody
 worked. Two things established by reading: this page is the <strong>only</strong>
 place in the shipped tree that sets the flag, and
-<span class="path">scripts/test_wrapgate.mjs</span> fails the build if that stops
-being true; and the stripboard <em>displays</em> a <code>WRAPPED</code> chip but
+<span class="path">scripts/test_wrapgate.mjs</span> exists to catch it if that
+stops being true; and the stripboard <em>displays</em> a <code>WRAPPED</code> chip but
 does not toggle one, whatever its own comment says. Wrap the day on set, on the
 day.</p>
 
@@ -190,29 +190,28 @@ tool to read it.</p>
 <div class="note"><strong>What this platform calls sides is not a redacted
 side.</strong> Both builders were read for this chapter, and both emit the
 <em>complete scene</em>: the slugline followed by the entire body — every other
-character's dialogue, and all the action — for each scene selected. Nothing is
-withheld or blacked out. The Casting Office
-(<span class="path">casting/lib-castdesk.js</span>) selects the scenes in which
-the character actually speaks; the Production Office
-(<span class="path">production/lib-prod.js</span>) selects scenes the character
-<em>appears in</em> — speaking, or named in an action line — because an actor who
-crosses a room with no dialogue is still called that day and still needs the
-pages. The two builders answer deliberately different questions, and both match
-whole words only: a character called AL is not pulled into every scene
-containing CALL. The file
-that comes out of <strong>⬇ .txt</strong> is an unreleased extract of the
-screenplay: sent unedited to a performer's representative, it sends those pages in
-full. Cut what the room should not see before it leaves your hands — as the
-Casting Office's own header says, trim for the room and verify against the current
-draft before sending.</div>
+character's dialogue, and all the action — for each scene they select. Nothing is
+withheld or blacked out. They differ only in which scenes those are. The Casting
+Office (<span class="path">casting/lib-castdesk.js</span>) takes the scenes in
+which the character has a dialogue cue — audition sides, the scenes a performer
+would actually perform. The Production Office
+(<span class="path">production/lib-prod.js</span>) takes the scenes the character
+<em>appears</em> in, whether by cue or by name in an action line, because an actor
+who crosses a room without speaking is still called that day; the name is matched
+as a whole word, so a character called AL is no longer pulled into every scene
+containing CALL. Either way, what comes out of <strong>⬇ .txt</strong> is an
+unreleased extract of the screenplay, and sent unedited to a performer's
+representative it sends those pages in full. Cut what the room should not see
+before it leaves your hands — as the Casting Office's own header says, trim for
+the room and verify against the current draft before sending.</div>
 
 <h2>What these pages do not do</h2>
 
 <ul>
-<li><strong>They do not upload footage anywhere.</strong>
-<span class="path">/dailies/</span> and <span class="path">/today/</span> make no
-network calls at all; the take logs, reports and DPR are assembled in the browser
-from this device's own storage.</li>
+<li><strong>They do not upload footage anywhere.</strong> Neither
+<span class="path">/dailies/</span> nor <span class="path">/today/</span> sends
+anything to a server: once loaded, they read and write this device's own storage,
+and the take logs, the reports and the DPR are all assembled in the browser.</li>
 <li><strong>They notify no one.</strong> Nothing emails a call sheet, texts a unit
 or tells the office a day has wrapped. Every output is a printout, a
 <code>.txt</code> download or the clipboard, and it moves because a person moves

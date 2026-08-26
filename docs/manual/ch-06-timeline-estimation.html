@@ -83,16 +83,16 @@ rather than quietly applied as 1× when that file is absent.</p>
 <h3>Cast weeks, drops and pick-ups</h3>
 
 <p>Supporting cast are paid for the weeks they are <em>held</em>, not the days
-they work. <code>castWeeks()</code> takes the worked shoot days and returns
-billed weeks, holds and the drop/pick-up arithmetic. The defaults in
+they work. <code>castWeeks()</code> turns the worked shoot days into billed
+weeks, holds and drop/pick-up arithmetic. The defaults in
 <code>CAST_RULES</code> — five days per week, a minimum ten free days before a
 drop is permitted at all, one drop per performer, one day of written notice, a
 one-week minimum guarantee restarting on re-engagement, and
 <code>asOfDay: null</code> meaning nothing has been shot yet — are all
 parameters, because they are contract terms. A drop whose notice date is already
-past is <em>refused</em> into <code>refusedDrops</code> with its reason, and
-those idle days stay billed as holds, rather than the panel quoting a saving
-nobody can take.</p>
+past is <em>refused</em> into <code>refusedDrops</code> with its reason, and its
+idle days stay billed as holds rather than the panel quoting a saving nobody can
+take.</p>
 
 <h2>The tiers, and what each assumes</h2>
 
@@ -150,11 +150,10 @@ unchanged. Nothing of the scripted model carries over. There are no cast tiers
 and no stunt units; instead four scales from DIY to premium/streamer, an
 archival appetite priced in finished minutes at an all-media rate per minute, a
 music posture, a crew basis, and a shoot of interview days plus vérité days plus
-one travel day per region. Edit weeks come from weeks-per-finished-hour bands, a
-shooting ratio is blended from the interview share, and a grants panel lists
-funding offsets. Incentive eligibility is adjusted where documentary rules are
-known — New York excludes documentaries outright, Georgia gives the 20 % base
-without the logo uplift.</p>
+one travel day per region. Edit weeks come from weeks-per-finished-hour bands,
+and a grants panel lists funding offsets. Incentive eligibility is adjusted
+where documentary rules are known — New York excludes documentaries outright,
+Georgia gives the 20 % base without the logo uplift.</p>
 
 <div class="note"><strong>The switch writes outside this module.</strong>
 Flipping to Documentary also rewrites the <code>strategy</code> field inside the
@@ -171,18 +170,16 @@ trade-press deal reporting, and every figure is sourced by line in
 the same way in <span class="path">docs/DOCUMENTARY_MODE.md</span>. Read them
 before you defend a number. Both publish their own limits, and these bite
 hardest: marketing and print costs are excluded entirely; fees above
-"established" are reported figures, not scale; cast fringes are approximated
-because pension and health caps out on large fees; the day-out-of-days schedules
+"established" are reported figures, not scale; the day-out-of-days schedules
 scenes in script order with no stripboard optimisation, so supporting spans run
 conservative; genre benchmarks are inflation-adjusted 2005-vintage data,
-order-of-magnitude context rather than forecast; and incentive recovery is
-modelled on headline terms, where the real number is a production accountant's
-opinion letter.</p>
+context rather than forecast; and incentive recovery is modelled on headline
+terms, where the real number is a production accountant's opinion letter.</p>
 
-<p>The preview half of the panel is simpler and carries the same warning: clip
-count times average duration times the model's dollars-per-second, multiplied by
-a retake factor of 1.6 — the average generations per kept clip — with stills at
-four cents each. A local-render build prices at zero, because there the cost is
+<p>The preview half of the panel carries the same warning: clip count times
+average duration times the model's dollars-per-second, multiplied by a retake
+factor of 1.6 — the average generations per kept clip — with stills at four
+cents each. A local-render build prices at zero, because there the cost is
 electricity.</p>
 
 <h2>Getting the work back out</h2>
@@ -202,17 +199,14 @@ produces four things, and only four.</p>
 <code>FCM: NON-DROP FRAME</code>, then a comment stating the frame rate the
 numbers were counted in — an EDL carries no rate of its own beyond the FCM line,
 so a conform at the wrong rate is otherwise silent. Events are numbered from 001
-and butt together, each record-in the previous record-out, and a zero-length clip
-is floored to a single frame, because an event whose record-in equals its
-record-out is one no conform will accept. Duration honours sub-second trims and
-rounds to frames exactly once.</p>
+and butt together, each record-in the previous record-out; a zero-length clip is
+floored to one frame, because an event whose record-in equals its record-out is
+one no conform will accept.</p>
 
 <p>Exporting from the Timeline sends only clips that are <em>approved and have
 video</em>; if none qualify, it falls back to every clip. The stitcher fetches
 each approved clip, hands the blobs to <code>SBFFmpeg.stitchBlobs</code>, and
-packages a ZIP through JSZip if that fails. Re-importing a project file goes
-through <code>CVault.scrubImported</code> and is refused outright if that safety
-layer did not load.</p>
+packages a ZIP through JSZip if that fails.</p>
 
 <div class="note"><strong>Formats this module does not produce.</strong> There is
 no OTIO, no FCPXML or Premiere XML, and no CSV anywhere in
@@ -232,8 +226,8 @@ was never made. Every interpolated field therefore passes through
 the file: carriage returns, newlines and the Unicode line separators U+2028 and
 U+2029 are folded to single spaces, control characters removed, the result
 trimmed and truncated at 200 characters. The reel identifier is separately
-synthesised as <code>CLIP_nn</code> from the clip number and capped at 32
-characters, with the event line's reel column taking the first eight.</p>
+synthesised as <code>CLIP_nn</code> from the clip number, so it is never your
+text at all.</p>
 
 <div class="note"><strong>This is deliberate, not corruption.</strong> A clip
 label that appears in an exported EDL with its line breaks flattened to spaces,
@@ -243,20 +237,27 @@ folded, and the full text still lives in the project JSON.</div>
 
 <h3>The frame rate</h3>
 
-<p>Every conversion in the exporter passes through <code>normFps</code>, so an
-absent, zero, negative or nonsensical rate becomes 24 in one place rather than
-differently at each call site. An unstated rate is therefore not treated as
-unknown — it is stamped as 24 with total confidence, and a 30 fps master turned
-over at 24 lands 25 per cent long with no error anywhere.</p>
+<p>Every conversion passes through <code>normFps</code>, so an absent, zero,
+negative or nonsensical rate becomes 24 in one place rather than differently at
+each call site. An unstated rate is therefore not treated as unknown — it is
+stamped as 24 with total confidence, and a 30 fps master turned over at 24 lands
+25 per cent long with no error anywhere.</p>
 
-<div class="note"><strong>A gap this manual cannot close by reading.</strong>
-The Export panel offers a Master frame rate picker (<code>tlFps</code>, 23.976
-through 30). No code in the repository reads or writes that element, the
-<code>fps</code> field on the Timeline state is initialised to 24 and never read
-again, and both export calls in <span class="path">timeline/timeline.js</span>
-are made without a rate argument — so on the source as it stands, both files are
-stamped at 24 whatever the picker shows. Read the <code>* FRAME RATE:</code>
-line in the export before you send it to a conform.</div>
+<div class="note"><strong>The Master frame rate, and what it stamps.</strong>
+The Export panel's picker (<code>tlFps</code>, 23.976 through 30) is read at the
+moment of export and passed to both the EDL and the project JSON. It was not
+always: for a period nothing read the element at all, the state's
+<code>fps</code> was set to 24 and never read again, and both export calls
+passed no rate — so every file was stamped 24 whatever the picker showed, and a
+25 or 29.97 master conformed a frame adrift per second with no hint in the file.
+That was found while this chapter was being written and is fixed; the wiring is
+now pinned by <span class="path">scripts/test_timeline_export.mjs</span>.
+<br><br>Note that the stamped rate is an <em>integer</em>: 29.97 is written as
+30 and 23.976 as 24, because non-drop timecode counts whole frames and the
+<code>FCM</code> line carries the drop/non-drop distinction. That is convention,
+not rounding error. Read the <code>* FRAME RATE:</code> line before you send an
+export to a conform regardless — an EDL carries no rate of its own, so a conform
+at the wrong one is silent.</div>
 
 <p>Two Node suites assert this in isolation.
 <span class="path">scripts/test_timeline_export.mjs</span> checks the timecode

@@ -19,9 +19,10 @@ const JUNK_CHAR_WORDS=new Set([
    and the project JSON — are read by a machine that cannot infer the rate, so
    an unstated rate is not "unknown", it is 24: SBExport.normFps() substitutes
    the default and the file says `* FRAME RATE: 24` with total confidence. That
-   is how a 30 fps master ships with 24 fps timecode. The rate is threaded from
-   here to every export call below, and nothing reads $('tlFps') except the one
-   handler that writes it back to this field. */
+   is how a 30 fps master ships with 24 fps timecode. The rate is read from
+   the Master frame rate picker by masterFps() at the moment of export, and
+   both export calls below pass it. It was not always so — see the note on
+   masterFps. */
 let state={
   projectName:'Untitled Film',clips:[],characters:{},locationBible:[],selectedId:null,selectedChar:null,selectedLoc:null,
   scriptText:'',fps:24,
@@ -1852,12 +1853,29 @@ function syncGlobal(){['gFilm','gColor','gAspect','gQuality','gAudio','gModel','
   state.global.quality=$('gQuality').value;state.global.audioProfile=$('gAudio').value;state.global.model=$('gModel').value;
   state.global.clipDuration=parseInt($('gDuration').value,10)||5;state.global.language=$('gLang').value;save()}
 
+/* The Master frame rate picker, read at the moment of export.
+
+   The comment at the top of this file describes exactly this hazard — "that is
+   how a 30 fps master ships with 24 fps timecode" — and then claims the rate
+   "is threaded from here to every export call below". It was not. Nothing read
+   $('tlFps'), state.fps was initialised to 24 and never read again, and both
+   export calls passed no rate at all, so SBExport.normFps() substituted the
+   default and every EDL said `* FRAME RATE: 24` with total confidence. A cut
+   mastered at 25 or 29.97 conformed a frame adrift per second and the file
+   gave no hint. A manual author found it by looking for the wiring the comment
+   promised. */
+function masterFps(){
+  const el=$('tlFps');
+  const v=el?+el.value:state.fps;
+  if(isFinite(v)&&v>0)state.fps=v;
+  return state.fps;
+}
 function exportEDL(){
   const approved=state.clips.filter(c=>c.status==='approved'&&c.videoUrl);
-  SBExport.exportEDL(approved.length?approved:state.clips);
+  SBExport.exportEDL(approved.length?approved:state.clips,masterFps());
   toast('EDL downloaded');
 }
-function exportProject(){SBExport.exportProject({clips:state.clips,characters:state.characters,locationBible:state.locationBible,global:state.global,assembly:state.assembly,projectName:state.projectName,scriptText:state.scriptText,parseResult:state.parseResult});toast('Project saved')}
+function exportProject(){SBExport.exportProject({clips:state.clips,characters:state.characters,locationBible:state.locationBible,global:state.global,assembly:state.assembly,projectName:state.projectName,scriptText:state.scriptText,parseResult:state.parseResult},masterFps());toast('Project saved')}
 function loadProject(){
   const inp=document.createElement('input');inp.type='file';inp.accept='.json';
   inp.onchange=async()=>{const f=inp.files[0];if(!f)return;pushHistory();

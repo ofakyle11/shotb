@@ -229,5 +229,56 @@ const clip = (num, durationSec, extra) => Object.assign({ num, label: 'Clip ' + 
   ok(X.renderQueue([], { running: true }).includes('Batch job'), 'renderQueue: a running batch shows even with no clips');
 }
 
+/* ── the Master frame rate must actually REACH the exporter ───────────
+   buildEDL/exportEDL/exportProject all take an fps argument and always
+   honoured it. The defect was one level up: timeline/timeline.js called them
+   with NO rate, nothing read the #tlFps picker, and state.fps was set to 24
+   and never read again — so normFps() substituted the default and every export
+   said `* FRAME RATE: 24` however the picker was set. A 25 or 29.97 master
+   conformed a frame adrift per second, and the file gave no hint.
+
+   The file's own header comment described the hazard precisely ("that is how a
+   30 fps master ships with 24 fps timecode") and asserted the rate WAS threaded
+   to every export call. A comment is not a wire. So this checks the WIRING, by
+   source — the exporter assertions above could never have caught it, because
+   the exporter was never wrong. */
+{
+  const page = readFileSync(join(ROOT, 'timeline/timeline.js'), 'utf8');
+  const html = readFileSync(join(ROOT, 'timeline/index.html'), 'utf8');
+
+  ok(/id="tlFps"/.test(html), 'the Master frame rate picker exists in the page');
+  ok(/\$\('tlFps'\)/.test(page), 'something actually READS the picker');
+
+  const edlCall = /SBExport\.exportEDL\(([^;]*)\)/.exec(page);
+  ok(!!edlCall && edlCall[1].includes(','),
+    'exportEDL is called with a second argument (the rate)');
+  const projCall = /SBExport\.exportProject\(([\s\S]*?)\);/.exec(page);
+  ok(!!projCall && /\},\s*\w+/.test(projCall[1]),
+    'exportProject is called with a second argument (the rate)');
+
+  /* And the exporter half, so the pairing is pinned end to end. */
+  const at25 = X.buildEDL([{ num: 1, durationSec: 1, label: 'A' }], 25);
+  const at24 = X.buildEDL([{ num: 1, durationSec: 1, label: 'A' }], 24);
+  const at2997 = X.buildEDL([{ num: 1, durationSec: 1, label: 'A' }], 29.97);
+  const atJunk = X.buildEDL([{ num: 1, durationSec: 1, label: 'A' }], 'not a rate');
+  ok(/FRAME RATE: 25/.test(at25), 'a 25 fps export prints 25');
+  /* 29.97 is stamped as 30, and that is CORRECT, not a rounding bug: non-drop
+     timecode counts whole frames, so buildEDL takes Math.round(normFps(fps))
+     deliberately (see the comment at timeline-export.js:19) and FCM carries the
+     drop/non-drop distinction instead. I asserted 29.97 here first and was
+     wrong about the format, not the code. What matters is that a 29.97 master
+     is NOT silently stamped 24. */
+  ok(/FRAME RATE: 30/.test(at2997), 'a 29.97 fps master stamps 30, the integer non-drop rate');
+  ok(!/FRAME RATE: 24/.test(at2997), 'a 29.97 master is never stamped with the 24 fps default');
+  const at23976 = X.buildEDL([{ num: 1, durationSec: 1, label: 'A' }], 23.976);
+  ok(/FRAME RATE: 24/.test(at23976), 'a 23.976 master stamps 24, likewise by convention');
+  ok(/FRAME RATE: 24/.test(atJunk),
+    'an unreadable rate falls back to the default rather than NaN');
+  /* Counter-assertion: 25 and 24 must actually DIFFER, or the checks above
+     would pass on an exporter that ignored its argument entirely. */
+  ok(at25 !== at24, 'the rate changes the output, not just the header line');
+}
+
 if (failed) { console.error('\nTimeline export checks FAILED'); process.exit(1); }
+
 console.log('\nAll timeline export checks passed.');
