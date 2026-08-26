@@ -1,0 +1,310 @@
+<h1 class="ch">The Producer Suite I — The Budget Top Sheet</h1>
+<span class="mk">@@CH08@@</span>
+
+<p class="lede">A top sheet is a promise about money made in public. This chapter
+describes exactly how Cinamate arrives at every figure on it — which numbers you
+type, which the sheet derives, and the order the derivations run in, because that
+order moves the grand total.</p>
+
+<div class="note"><strong>On the accuracy of this chapter.</strong> Everything
+below was established by reading the source files named in it. The platform is
+being worked on continuously; if a figure on your screen contradicts a sentence
+here, the running software is the authority and this page is out of date.</div>
+
+<h2>Three levels, one stored sheet</h2>
+
+<p>The Budget tab of the Producer Suite (<span class="path">producer/index.html</span>,
+driven by <span class="path">producer/budget-sheet.js</span>) is a three-level
+hierarchy: the <em>top sheet</em> on the left, a list of account categories; the
+<em>detail table</em> on the right, the line items inside whichever category is
+selected; and beneath both, the derived totals. Selecting a row on the left
+changes what the right-hand table edits.</p>
+
+<p>There is exactly one sheet. It autosaves to browser storage under the key
+<code>SB_BudgetSheet_v1</code>, on a 300 ms debounce after any edit. There is no
+version history and no undo — a replaced sheet is gone unless you exported it
+first.</p>
+
+<h2>The chart of accounts</h2>
+
+<p>Account numbers here are not local to this page. They come from
+<span class="path">js/lib-money-accounts.js</span>, the single chart every module
+that posts money shares: crew deal memos, the casting office, VFX bids and the
+Money Room cost report all commit against these same numbers, which is what lets
+an actual find its way back to the budget line that anticipated it.</p>
+
+<p>A new sheet carries nineteen major accounts. Eleven are <em>labour</em>
+accounts, and that flag defines the base payroll fringes are computed on.</p>
+
+<table>
+  <tr><th>Acct</th><th>Category</th><th>Labour</th><th>Acct</th><th>Category</th><th>Labour</th></tr>
+  <tr><td>1000</td><td>Story &amp; Rights</td><td></td><td>11000</td><td>Makeup &amp; Hair</td><td>yes</td></tr>
+  <tr><td>2000</td><td>Producers Unit</td><td>yes</td><td>12000</td><td>Transportation</td><td>yes</td></tr>
+  <tr><td>3000</td><td>Direction</td><td>yes</td><td>13000</td><td>Locations</td><td></td></tr>
+  <tr><td>4000</td><td>Cast</td><td>yes</td><td>14000</td><td>Media &amp; Stock</td><td></td></tr>
+  <tr><td>5000</td><td>Production Staff</td><td>yes</td><td>15000</td><td>Post-Production</td><td></td></tr>
+  <tr><td>6000</td><td>Camera</td><td>yes</td><td>16000</td><td>Insurance &amp; Legal</td><td></td></tr>
+  <tr><td>7000</td><td>Sound</td><td>yes</td><td>17000</td><td>Publicity</td><td></td></tr>
+  <tr><td>8000</td><td>Grip &amp; Electric</td><td>yes</td><td>18000</td><td>General Expenses</td><td></td></tr>
+  <tr><td>9000</td><td>Art Department</td><td>yes</td><td>20000</td><td>Payroll Fringes</td><td></td></tr>
+  <tr><td>10000</td><td>Wardrobe</td><td>yes</td><td>19000</td><td>Contingency</td><td>computed</td></tr>
+</table>
+
+<p>Two absences are deliberate. <strong>19000 Contingency</strong> is not a
+category you can type into — it is derived from everything else, so seeding
+explicitly discards any contingency line offered to it. <strong>20000 Payroll
+Fringes</strong> exists as its own account precisely because fringes are
+cross-departmental; folded into General Expenses they read as several times the
+whole of an account whose job is to be a small percentage of below-the-line.</p>
+
+<p>The chart also carries <em>detail</em> accounts that departments post to, each
+rolling up to exactly one major above: 4100/4200/4400/4500 under Cast, 8500 under
+Grip &amp; Electric, 9100 and 9900 under Art Department, 13500 under Locations,
+15200/15400/15600/15800 under Post-Production, 16500/16800 under Insurance &amp;
+Legal. Anything the chart does not recognise rolls up to itself, so it surfaces
+on the cost report as <code>Unbudgeted</code> rather than disappearing into a
+real line.</p>
+
+<h2>Line items — Amt × Units × Rate</h2>
+
+<p>Each line item stores a description, three calculator fields (Amt, Units,
+Rate), an Estimated figure, an Actual figure and free-text notes. The rule that
+decides what a line is worth lives once, in
+<span class="path">js/lib-money-sheet.js</span>:</p>
+
+<ul>
+  <li>If <strong>all three</strong> of Amt, Units and Rate are greater than zero,
+  the line is worth Amt × Units × Rate, and the Estimated cell becomes a
+  read-only computed display.</li>
+  <li>Otherwise the line is worth whatever is typed into Estimated, which stays
+  an editable field. This is the lump-sum path.</li>
+</ul>
+
+<p>A zero or a negative in any of the three calculator fields therefore switches
+the line back to the manual figure. Numbers are read tolerantly — <code>1234.56</code>,
+<code>$1,234.56</code> and <code>1 234.56</code> all parse the same, and
+accounting parentheses <code>(50)</code> read as minus fifty. Anything genuinely
+unreadable reads as zero; a budget cell is never allowed to become <code>NaN</code>.</p>
+
+<p>On save, the computed figure is written back onto the line item's stored
+Estimated value. That is not cosmetic: five readers across finance, the investor
+letter and the learning layer sum the stored value alone, so before this a fully
+built sheet of calculator lines read as zero everywhere outside this page.</p>
+
+<h2>Category subtotals and the percentage column</h2>
+
+<p>A category subtotal is the sum of its line items' values, with an Actual
+subtotal alongside it summed the same way. The percentage at the right of each
+top-sheet row is that category's share of the <em>grand total</em> — not of the
+direct subtotal — rounded to a whole percent.</p>
+
+<h2>The derived layers, and the order they run in</h2>
+
+<p>Four figures are computed rather than typed. The order matters, and it is
+fixed in <code>sheetTotals()</code>:</p>
+
+<ol>
+  <li><strong>Direct subtotal</strong> — every line item in every category.</li>
+  <li><strong>Payroll fringes</strong> — the fringes percentage applied to the
+  <em>labour base</em>, which is the subtotal of the eleven labour accounts only.
+  Not the whole sheet.</li>
+  <li><strong>Completion bond</strong> — the bond percentage applied to the
+  direct subtotal.</li>
+  <li><strong>Insurance</strong> — the insurance percentage applied to the direct
+  subtotal.</li>
+  <li><strong>Contingency</strong> — applied last, to the sum of the four figures
+  above. Contingency therefore covers the fringes, the bond and the insurance,
+  not merely the direct costs.</li>
+</ol>
+
+<p>Bond and insurance quote on the direct subtotal and nothing else, so raising
+the fringes percentage does not move either of them. Worked through on a round
+million, with a labour base of $400,000:</p>
+
+<table>
+  <tr><th>Layer</th><th>Base</th><th>Rate</th><th>Amount</th></tr>
+  <tr><td>Direct subtotal</td><td>—</td><td>—</td><td>1,000,000.00</td></tr>
+  <tr><td><em>labour base (a subset, not added again)</em></td><td>—</td><td>—</td><td><em>400,000.00</em></td></tr>
+  <tr><td>Payroll fringes</td><td>labour base</td><td>28%</td><td>112,000.00</td></tr>
+  <tr><td>Completion bond</td><td>direct subtotal</td><td>2%</td><td>20,000.00</td></tr>
+  <tr><td>Insurance</td><td>direct subtotal</td><td>2.5%</td><td>25,000.00</td></tr>
+  <tr><td>Contingency basis</td><td>sum of the four</td><td>—</td><td>1,157,000.00</td></tr>
+  <tr><td>Contingency</td><td>basis</td><td>10%</td><td>115,700.00</td></tr>
+  <tr><td><strong>Grand total</strong></td><td></td><td></td><td><strong>1,272,700.00</strong></td></tr>
+</table>
+
+<p>Had contingency been taken on the direct subtotal instead — the order most
+hand-built spreadsheets use — it would be $100,000 and the grand total
+$1,257,000. The same inputs, $15,700 apart. When you quote a top sheet against
+someone else's, establish which order they used before arguing about the number.</p>
+
+<p>All four percentages are edited in the header strip above the top sheet, and
+each is clamped: contingency 0–30%, fringes 0–45%, bond 0–6%, insurance 0–8%.
+A value outside the range is pulled back to the nearest end rather than rejected.</p>
+
+<div class="note"><strong>Fringes default to zero, on purpose.</strong> A new
+sheet's fringes, bond and insurance percentages are all zero, while the default
+skeleton already contains a <em>Cast fringes</em> line under 4000 and a
+<em>Payroll fringes (labor accounts)</em> line under 20000. Fill in those line
+items or set the percentage — doing both counts your fringes twice, and nothing
+warns you.</div>
+
+<h2>Why every figure is held in cents</h2>
+
+<p>All arithmetic on this sheet runs through
+<span class="path">js/lib-money-math.js</span>, which carries money as an integer
+number of cents. Rounding happens once, half away from zero, at the moment a
+fraction of a cent is created — a multiplication or a percentage — and never on a
+sum. A total is then the sum of the cents that were actually posted, so it foots
+by construction rather than by luck.</p>
+
+<p>This is not fastidiousness. A JavaScript number is a binary float: 3 × 5 ×
+1061.64 is 15,924.6, and left as a float it prints as
+<code>15924.599999999999</code>. Rounding each row before adding, rather than
+adding what was posted, produced a cost report whose TOTAL row disagreed with its
+own columns by tens of dollars across a couple of hundred accounts — on the report
+that goes to the completion bond.</p>
+
+<p>Money therefore leaves the platform as a fixed two-decimal <em>string</em>, not
+as a raw number, and that is what makes an exported column safe to sum. The test
+suites assert it: <span class="path">scripts/test_ops_money.mjs</span> requires
+every money cell in an exported report to match <code>-?\d+\.\d{2}</code> with no
+cell anywhere carrying three or more decimals, and
+<span class="path">scripts/test_producer_suite.mjs</span> requires the 3 × 5 ×
+1061.64 line to export as <code>15924.60</code>.</p>
+
+<h2>Actuals against estimates</h2>
+
+<p>Every line item carries an Actual column beside its estimate, and category and
+sheet actuals are summed from those. When the sheet holds any actual, the grand
+total row prints it alongside the estimate.</p>
+
+<p>If the Money Room has posted anything — purchase orders, petty cash or payroll
+in <code>SB_Money_v1</code> — the top sheet also prints a one-line cost summary
+beneath the totals: estimated final cost, and the variance marked <em>over</em> or
+<em>under</em>, linking through to the finance page. That summary is computed by
+the Money Room's own cost report, not recomputed here.</p>
+
+<p>Actuals also feed the estimator's learning layer (<span class="path">js/learn.js</span>,
+stored under <code>CIN_Learn_v1</code>), which learns a per-account correction
+from lines that have both an estimate and a real actual. It is gated: a
+production teaches only once, when it has been marked wrapped in
+<code>CIN_Projects_v1</code>. Mid-shoot, a department that has spent 12% of its
+budget in week two looks like an 88% underrun, and folding that in would drag
+every future estimate down.</p>
+
+<h2>Cash needed by phase</h2>
+
+<p>Below the grand total the sheet prints a three-way split — prep, shoot, post —
+of when the money actually leaves the bank. Each account has a fixed phase
+profile (rights are entirely prep, post-production is almost entirely post, cast
+is overwhelmingly shoot), and the derived layers that sit above the categories
+are split between shoot and post, with the last bucket absorbing the remainder so
+the three figures add back to the grand total exactly.</p>
+
+<h2>The norms advisor</h2>
+
+<p>Each top-sheet row is measured against a band of typical shares of the grand
+total for that account, held in the <code>NORMS</code> table in
+<span class="path">producer/budget-sheet.js</span>. A category outside its band
+gets a marker: <strong>▲</strong> for heavy, <strong>▽</strong> for light, with
+the band itself in the marker's tooltip, and a line beneath the totals counts how
+many accounts are flagged. Being outside a band is not an error. It is the
+question the bond company will ask, asked early.</p>
+
+<h2>Seeding from the script estimate</h2>
+
+<p><em>Seed from script estimate</em> runs the script-driven estimator over the
+current project, routes every estimated line to the top-sheet category its
+account rolls up to, and writes the <strong>midpoint</strong> of each estimated
+low–high range into the line, with the range itself preserved in that line's
+notes. Where the learning layer has at least two past actuals on an account and a
+correction other than 1.0, the seeded figure is multiplied by it and the note
+records by how much. Contingency lines are dropped, since contingency is derived.
+If the stripboard on the Schedule tab has real day assignments, the estimator
+uses them, and the confirmation reports what the cast drops saved in weeks.</p>
+
+<div class="note"><strong>Seeding replaces the whole sheet.</strong> Every line
+item in every category is deleted before the estimated lines are written, and the
+contingency percentage is reset to 10%. Anything you had typed by hand is lost,
+including actuals. Export first — <em>Save (.json)</em> — if the sheet holds work
+you cannot retype.</div>
+
+<h2>The CSV export</h2>
+
+<p><em>Export CSV</em> downloads the sheet as
+<code>&lt;sheet name&gt;.csv</code>, with the name stripped of anything outside
+letters, digits, hyphen and space. The columns are <code>Account</code>,
+<code>Category</code>, <code>Line item</code>, <code>Amt</code>,
+<code>Units</code>, <code>Rate</code>, <code>Estimated</code>,
+<code>Actual</code>, <code>Notes</code>. Each category writes one row per line
+item, followed by a <code>SUBTOTAL</code> row when it holds anything. Then, at
+the foot: <code>SUBTOTAL (all categories)</code>; a fringes, bond and insurance
+row each, but only when that percentage produced a figure; a contingency row
+always; and <code>GRAND TOTAL</code>. The Actual column is left empty rather than
+written as <code>0.00</code> when there is nothing in it.</p>
+
+<p>Two things about that file are worth knowing before you open it.</p>
+
+<h3>The money columns are text-formatted numbers</h3>
+
+<p>Estimated and Actual are written as fixed two-decimal strings, for the reason
+given above. A spreadsheet reads them as numbers and sums them correctly. What
+you will not see is a float tail, and that is the point.</p>
+
+<h3>The leading apostrophe is deliberate</h3>
+
+<p>A cell whose first character is <code>=</code>, <code>+</code>, <code>-</code>,
+<code>@</code>, a tab or a carriage return is treated by Excel and Google Sheets
+as a <em>formula</em>, not as text. A line item description typed into this sheet
+would then execute on the machine of whoever opened the export. The exporter
+therefore prefixes such a cell with a single apostrophe, which both spreadsheets
+read as "the rest of this cell is text".</p>
+
+<div class="note"><strong>Do not strip those apostrophes.</strong> If you see a
+cell reading <code>'=Second unit day</code>, that is the neutralisation working
+as designed. One consequence to expect: a genuinely negative money figure exports
+as <code>'-1234.56</code>, because it too begins with a hyphen, and a spreadsheet
+will treat it as text rather than as a number. If you need a credit to behave
+arithmetically in Excel, re-enter that one cell after opening the file.</div>
+
+<h2>Saving, loading, printing, starting over</h2>
+
+<p><em>Save (.json)</em> writes the complete sheet — categories, line items,
+percentages, actuals — to <code>&lt;sheet name&gt;.budget.json</code>. That file
+is the archive copy; the CSV is a report, and cannot be loaded back.
+<em>Print / PDF</em> hands the rendered sheet to the browser's print dialogue.</p>
+
+<div class="note"><strong>Load and New sheet both replace the live sheet.</strong>
+<em>Load</em> accepts a <code>.json</code> file and, if it parses and contains a
+categories array, swaps it in immediately — with no confirmation prompt.
+<em>New sheet</em> asks first ("Start a new blank top sheet? The current sheet
+will be replaced (save it first if needed).") and then discards everything. Both
+write straight to <code>SB_BudgetSheet_v1</code>. There is no undo.</div>
+
+<h2>What this sheet is not</h2>
+
+<p>Stated plainly, because a document full of account numbers invites the
+assumption:</p>
+
+<ul>
+  <li><strong>It is not an accounting system.</strong> It holds one estimate and
+  one actual per line. It has no ledger, no double entry, no reconciliation and
+  no audit trail. The Money Room tracks commitments and spend; neither is a set
+  of books.</li>
+  <li><strong>It files nothing.</strong> Nothing here is submitted to a
+  jurisdiction, a payroll company, a guild, a bond company or a tax authority.
+  Every export is a file that lands in your downloads folder.</li>
+  <li><strong>The incentive figures are estimates from a table.</strong> The
+  Incentives tab computes recovery as budget × qualified-spend percentage ×
+  credit rate against a stored table of headline program terms, and flags a
+  budget below a program's minimum spend or above its cap. Real programs carry
+  qualification rules, allocation queues, sunset dates and audits that no table
+  models. Treat the output as a shortlist to discuss with a production
+  accountant, never as advice.</li>
+  <li><strong>The on-screen figures are abbreviated.</strong> The top sheet
+  displays money in shortened form — a grand total of $1,272,700 reads as
+  <code>$1.3M</code>, a line of $15,924.60 as <code>$15.9k</code> — and clamps a
+  negative to zero for display. The exact figures live in the CSV and the JSON.
+  Quote from the export, not from the screen.</li>
+</ul>

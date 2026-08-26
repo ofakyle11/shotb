@@ -22,3 +22,6 @@ local-backend/output/*
 local-backend/uploads/
 my-owner-pws.txt
 node_modules
+
+# Manual build scratch — a unique dir per run; never tracked.
+.manual-build/

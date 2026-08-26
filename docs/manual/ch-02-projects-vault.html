@@ -1,0 +1,200 @@
+<h1 class="ch">Projects, The Vault &amp; Cloud Sync</h1>
+<span class="mk">@@CH02@@</span>
+
+<p class="lede">A production is not a document you open. It is the whole of this
+browser's storage, held under one name — and the Projects page is the only place
+that can move it, copy it, or take it away.</p>
+
+<div class="note"><strong>On this chapter.</strong> Everything here was
+established by reading the platform's source rather than by operating it. The
+software is under active development; if a screen contradicts a paragraph below,
+the screen is what is running and this page is out of date.</div>
+
+<h2>What a production is made of</h2>
+
+<p>Two stores hold a film, and they behave differently.</p>
+
+<p><strong>The written record</strong> lives in this browser's localStorage,
+under keys matching <code>SB_&lt;Module&gt;_v&lt;n&gt;</code> — the pattern
+<code>KEY_RE</code> in <span class="path">projects/lib-vault.js</span>. Script
+and scenes (<code>SB_Timeline_v1</code>), boards, budget
+(<code>SB_BudgetSheet_v1</code>), crew (<code>SB_Crew_v1</code>), schedule,
+clearances, the cut, and some seventy others. A key that does not match that
+pattern is not part of any production and the vault will not carry it.</p>
+
+<p><strong>The photographs</strong> live in IndexedDB, in three databases the
+vault names explicitly in <code>BLOB_DBS</code>: <code>cinamate_wardrobe</code>
+(continuity stills), <code>cinamate_scout</code> (location scouting), and
+<code>cinamate_cut</code> (cutting-room sources). Those bytes are never copied
+into localStorage. A production claims a photograph either because the record
+carries its project stamp, or because one of its <code>SB_*</code> stores still
+points at that id — which is how a scout photo, which carries no stamp at all,
+stays attributable to the right film.</p>
+
+<p>The index of every production on the machine is <code>CIN_Projects_v1</code>:
+the active name, and a slot per project holding a full copy of that project's
+<code>SB_*</code> values plus a <em>manifest</em> of its media — ids and sizes,
+no bytes. Bytes stay in IndexedDB deliberately; five photographs written into the
+one record that indexes every project would exhaust the storage quota and take
+all of them down together.</p>
+
+<h2>Switching between productions</h2>
+
+<p>Open takes the outgoing project's live workspace, writes it into that
+project's slot, and only then rewrites localStorage from the incoming slot. The
+order matters: the snapshot is persisted before anything is cleared, so an
+interruption cannot leave a slot pointing at work that has already been thrown
+away. IndexedDB is not cleared on a switch — the other production's photographs
+stay on the machine, attributed to it by its manifest.</p>
+
+<p>A name may be reused for nothing: starting a new project under an existing
+name is refused, and so is renaming onto one. Every module carries the
+active-project badge from
+<span class="path">js/project-badge.js</span>. If another tab switches
+productions, open pages lock behind a reload prompt so two films cannot bleed
+into one another.</p>
+
+<h2>Backing up: the .cinamate export</h2>
+
+<p>Export backup writes a single file — <code>format: "cinamate/1"</code> —
+containing the project name, a timestamp, every portable <code>SB_*</code> value,
+the media bytes as data URLs, and <code>blobsMissing</code>: a list of files the
+production references that this machine could not produce, recorded at pack time
+so a later restore can tell "this backup never had them" from "this restore lost
+them". A cutting-room source above 16 MB is counted and reported, never read into
+the file.</p>
+
+<p>Four things are deliberately absent.</p>
+
+<table>
+  <tr><th>Not in a backup</th><th>Why</th></tr>
+  <tr><td><code>SB_LocalGPU_v1</code></td><td>This workstation's render-bridge
+    address and its API key. Machine-local, and a credential.</td></tr>
+  <tr><td><code>SB_TMDB_v1</code></td><td>A personal API key. Same reason.</td></tr>
+  <tr><td><code>CIN_Learn_v1</code></td><td>Cross-project learning. Outside the
+    <code>SB_</code> prefix, so structurally excluded — it belongs to the machine,
+    not to any one film, and it is neither backed up nor synced anywhere.</td></tr>
+  <tr><td><code>CIN_Projects_v1</code></td><td>The index of every project on this
+    machine. Also outside the prefix, and not one production's to carry.</td></tr>
+</table>
+
+<p>The two <code>SB_</code> exclusions are enforced twice — in the vault's
+<code>LOCAL_ONLY</code> pattern and again in the cloud function — because either
+side alone is one bug away from publishing a key to every owner.</p>
+
+<div class="note"><strong>A backup is readable by anyone holding it.</strong> The
+file is plain JSON, not encrypted and not password-protected. It contains the
+crew directory as entered: names, rates, telephone numbers, email addresses and
+emergency contacts, alongside deals, budget actuals and everything else the
+production has recorded. Treat the file as you would a printed deal memo, and
+think before sending one over an ordinary channel.</div>
+
+<h2>Restoring</h2>
+
+<div class="note"><strong>Restore is destructive.</strong> Writing an archive
+removes <em>every</em> portable <code>SB_*</code> key in this browser and then
+writes what arrived. It is not a merge and there is no undo inside the workspace.
+The Projects page stashes the current workspace into its own slot before
+importing — that stash, or a backup file, is the only way back. An archive
+carrying no production data is refused outright rather than obeyed, because
+obeying it would clear the workspace and write nothing.</div>
+
+<p>An archive from another owner or machine is treated as untrusted: every string
+is neutralised before a single key is written, with a short list of prose fields
+(script, notes, synopsis) kept exactly as typed. That happens in full before
+storage is touched, so a file that fails the check changes nothing.</p>
+
+<p>The restore reports rather than reassures. It states how many media files were
+written, how many were unreadable and left out, how many this browser refused to
+store, and how many the production references but nobody has the bytes for. It
+claims to be complete only when all four of those are empty.</p>
+
+<h2>The studio cloud</h2>
+
+<p>The cloud is one shared namespace for five owner accounts, behind the owner
+login. This is the design, not an oversight: <strong>every owner can list, pull,
+overwrite and delete every production</strong>, including ones they did not
+create. There is no per-owner partition and no private area. Pushing under a name
+that already exists replaces the cloud copy of that film, and the catalog records
+who saved it last.</p>
+
+<p>Two protections exist, and they are narrow. A push may declare the version it
+believes it is replacing; if the cloud has moved on, the save is refused with a
+conflict rather than burying the newer one. And the badge holds back auto-sync
+when the cloud copy belongs to another owner and this tab has never taken it
+over. Neither prevents a deliberate Save to cloud from overwriting a colleague's
+work.</p>
+
+<h3>Versions: a ring of eight</h3>
+
+<p>Each push moves the copy it replaces into a rotating ring of eight superseded
+copies. History lists what is on file, with times and the owner who saved each;
+restoring puts one back, and the copy that was live at that moment is kept too,
+so the undo is not itself a way to lose work. A delete also lands in the ring,
+with a record of who deleted it and when.</p>
+
+<div class="note"><strong>The ring holds the written record, not the
+photographs.</strong> Eight copies of every still would be a storage bill rather
+than a backup policy. Restoring an earlier version brings back the text of the
+production; it does not bring media back, and the response says so plainly rather
+than letting an operator infer otherwise.</div>
+
+<div class="note"><strong>Delete removes the media permanently.</strong> Deleting
+a production from the cloud sweeps its media parts from the store. The written
+record stays recoverable through the ring; the photographs do not. This is
+deliberate and recent: the parts were previously left behind, which meant a
+production its owner believed deleted could still have its location interiors and
+wardrobe continuity fetched by anyone who had seen the name. That was a leak that
+looked like a safety net, so the sweep was made real and the deletion record now
+states that the media went. Export a <code>.cinamate</code> backup before
+deleting anything you may want the pictures of.</div>
+
+<h3>The four-minute auto-sync</h3>
+
+<p>Every module page runs a background sync on a four-minute interval
+(<code>SYNC_MS</code>), with a first pass around twenty-five seconds after load
+and one more attempt when the tab is hidden. It hashes the portable
+<code>SB_*</code> stores, does nothing if they have not changed, checks the cloud
+catalog, and pushes the active production under this owner's name.</p>
+
+<p>It carries the written record only — never media. The server treats that
+silence as "this push is not about photographs" and carries the previous media
+state forward untouched, so the cloud copy's pictures remain whatever the last
+deliberate Save to cloud uploaded.</p>
+
+<p>Working on two machines, take this literally: whichever machine has a Cinamate
+tab open is pushing its own idea of the production every four minutes. Pull
+before you start on the second machine, and close or reload the first — otherwise
+the version check will start refusing saves, or a quiet machine will push a stale
+record over a day's work. An archive approaching the cloud's four-megabyte
+ceiling is skipped by auto-sync entirely and becomes manual territory.</p>
+
+<h2>Limits that will stop you</h2>
+
+<table>
+  <tr><th>Limit</th><th>Value</th><th>Applies to</th></tr>
+  <tr><td>Written record</td><td>4 MB</td><td>One production's
+    <code>SB_*</code> half in the cloud. Media travels separately and does not
+    count towards it.</td></tr>
+  <tr><td>One media record</td><td>900 KB</td><td>Roughly three times a
+    full-size scout JPEG. The cloud carries stills and short takes, not source
+    masters.</td></tr>
+  <tr><td>One part</td><td>1 MB</td><td>A single upload request, sized to be
+    cheap to retry.</td></tr>
+  <tr><td>Parts per production</td><td>48</td><td>Which is where the 48 MB
+    per-production ceiling comes from — it holds by construction.</td></tr>
+</table>
+
+<p>Anything over any of these is refused whole, before a single byte goes on the
+wire, with a message naming the offending file and its size, stating that nothing
+was sent, and offering the <code>.cinamate</code> export instead — which has no
+size limit. A production is never uploaded down to whatever happened to fit: an
+archive that arrives without its photographs must not look complete.</p>
+
+<div class="note"><strong>Not established from source.</strong> The vault engine
+and the cloud function are exercised by
+<span class="path">scripts/test_vault_blobs.mjs</span> against an in-memory media
+adapter, so the pinned behaviours above are the engine's. How a real browser
+behaves under storage pressure — quota refusals, an IndexedDB write aborted
+mid-restore — is reported by the page when it happens but cannot be characterised
+by reading, and no figure for it is offered here.</div>

@@ -31,15 +31,31 @@
  * There are no webfonts. The manual renders offline, and a font that fails to
  * load silently reflows every page after it.
  */
-import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync, rmSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync, rmSync, mkdtempSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { dirname, join } from 'path';
+import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const MANUAL = join(ROOT, 'docs', 'manual');
 const OUT = join(MANUAL, 'manual.pdf');
-const WORK = join(ROOT, '.manual-build');
+
+/* A UNIQUE scratch directory per run, and that is not fussiness.
+
+   The first version wrote pass1.html/pass1.pdf into a single shared
+   .manual-build. Twenty authors verify their own fragment by running this
+   build, so two concurrent runs raced: one deleted the directory in its
+   cleanup while the other was mid-render, and the loser failed with
+   "chromium produced no PDF for pass2" — a message pointing at the browser
+   when the fault was here.
+
+   This repo has already paid for this lesson once. scripts/lib-testserver.mjs
+   exists because the browser harnesses hardcoded ports 8123/8124, so
+   concurrent runs answered each other's requests. Same bug, different
+   resource. Shared mutable scratch state plus parallel callers is the shape;
+   mkdtemp is the fix. */
+const WORK = mkdtempSync(join(tmpdir(), 'cinamate-manual-'));
 
 /* The browser. chromium-1194 is the full build; headless_shell also renders but
    the full build is what was verified against @page and page-break-before. */
@@ -92,7 +108,7 @@ ${chapters.map((c) => c.src).join('\n\n')}
 }
 
 /* ── render ────────────────────────────────────────────────────────── */
-mkdirSync(WORK, { recursive: true });
+
 function render(html, name) {
   const htmlPath = join(WORK, name + '.html');
   const pdfPath = join(WORK, name + '.pdf');
