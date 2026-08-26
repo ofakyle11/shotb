@@ -6,7 +6,9 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-for (const f of ['finance/lib-money.js', 'safety/lib-safety.js', 'clearance/lib-clear.js',
+for (const f of ['js/lib-scenes.js',
+                 'js/lib-money-math.js', 'js/lib-money-accounts.js', 'js/lib-money-sheet.js',
+                 'finance/lib-money.js', 'safety/lib-safety.js', 'clearance/lib-clear.js',
                  'contracts/lib-deal.js', 'screening/lib-screen.js', 'distribution/lib-dist.js']) {
   (0, eval)(readFileSync(join(ROOT, f), 'utf8'));
 }

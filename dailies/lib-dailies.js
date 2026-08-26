@@ -7,28 +7,23 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (root) {
   'use strict';
+  /* The one scene model — js/lib-scenes.js. Every module used to carry its
+     own screenplay splitter; they disagreed on preambles, printed scene
+     numbers and A/B scenes, so they now all read from here. Loaded by a
+     <script> tag before this file, and by the node suites. */
+  var CS = root.CScenes;
+  if (!CS) throw new Error('lib-dailies.js requires js/lib-scenes.js to be loaded first');
+
 
   function num(v) { var n = parseInt(v, 10); return isFinite(n) ? n : 0; }
   function str(v) { return String(v == null ? '' : v).trim(); }
 
-  /* ── 1 · screenplay scenes (same slugline rule as the rest of CINAMATE) ── */
-  function splitScenes(text) {
-    var lines = String(text || '').split(/\r?\n/);
-    var scenes = [], cur = { n: 0, slug: '', body: [] };
-    lines.forEach(function (ln) {
-      if (/^\s*(?:\d+[\s.]*)?(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(ln)) {
-        if (cur.body.length || cur.slug) scenes.push(cur);
-        cur = { n: scenes.length + 1, slug: ln.trim(), body: [] };
-      } else cur.body.push(ln);
-    });
-    if (cur.body.length || cur.slug) scenes.push(cur);
-    return scenes.filter(function (s) { return s.slug || s.body.join('').trim(); });
-  }
-  function sceneList(scriptText) {
-    return splitScenes(scriptText)
-      .filter(function (s) { return s.slug; })
-      .map(function (s, i) { return { n: i + 1, slug: s.slug }; });
-  }
+  /* ── 1 · screenplay scenes (the one scene model) ─────────────────────────
+     sceneList used to renumber the scenes 1..n by position, which is how a
+     take slated "24" could not be matched to the scene the script calls 24.
+     CScenes.sceneList carries the printed number through instead.          */
+  var splitScenes = CS.split;
+  var sceneList = CS.sceneList;
 
   /* ── 2 · slate arithmetic ────────────────────────────────────────────────
      Slates follow the classic scheme: scene number + setup letter

@@ -7,6 +7,8 @@ import { fileURLToPath } from 'url';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 (0, eval)(readFileSync(join(ROOT, 'projects/lib-vault.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'boards/lib-shots.js'), 'utf8'));
+/* lib-prod.js cuts audition sides with the one scene model */
+(0, eval)(readFileSync(join(ROOT, 'js/lib-scenes.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'production/lib-prod.js'), 'utf8'));
 const V = globalThis.CVault, S = globalThis.CShots, P = globalThis.CProd;
 

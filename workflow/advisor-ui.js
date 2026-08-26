@@ -28,10 +28,11 @@
     var sheet = readLS('SB_BudgetSheet_v1') || {};
     var analysis = null;
     try { analysis = B && B.analyze ? B.analyze(tl) : null; } catch (e) {}
-    var subtotal = 0;
-    (sheet.categories || []).forEach(function (c) {
-      (c.items || []).forEach(function (i) { subtotal += parseFloat(i.est) || 0; });
-    });
+    /* One line-item reader (js/lib-money-sheet.js). Summing the stored `est`
+       alone read 0 for any sheet built with the Amt x Units x Rate calculator,
+       and the Advisor then fell back to its $5M placeholder while a real
+       budget sat in localStorage. */
+    var subtotal = window.CBudgetSheet ? window.CBudgetSheet.subtotal(sheet) : 0;
     var budget = subtotal > 0 ? Math.round(subtotal * (1 + (parseFloat(sheet.contingencyPct) || 0) / 100)) : 0;
     var looks = A.wantedLooks(tl.scriptText || '', analysis && analysis.genre);
     return {

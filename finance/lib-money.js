@@ -6,10 +6,29 @@
    EFC = Actual + Committed + ETC and Variance = Budget − EFC. Overruns
    surface while there is still time to act, and every actual feeds the
    learning layer so the next film's estimates calibrate automatically.
+
+   Arithmetic is carried in integer cents (js/lib-money-math.js) and the budget
+   is read through the one line-item reader (js/lib-money-sheet.js). Both are
+   load-bearing: the report used to round each row's EFC and variance while
+   summing the raw columns, so the TOTAL row did not foot — $79 of cost that
+   was never committed, at 240 accounts, on the report that goes weekly to the
+   studio and the completion bond. And it summed `est` alone, so a sheet built
+   with the Amt x Units x Rate calculator showed a budget of $0.
    Pure logic, no DOM.
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (root) {
   'use strict';
+
+  function MM() {
+    var m = root.CMoneyMath;
+    if (!m) throw new Error('finance/lib-money.js requires js/lib-money-math.js');
+    return m;
+  }
+  function SHEET() {
+    var s = root.CBudgetSheet;
+    if (!s) throw new Error('finance/lib-money.js requires js/lib-money-sheet.js');
+    return s;
+  }
 
   function uid() { return 'm' + Math.random().toString(36).slice(2, 9); }
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
@@ -49,24 +68,34 @@
     return n !== m.pos.length + m.petty.length;
   }
 
-  /* ── the cost report ───────────────────────────────────────────────── */
-  function budgetByAcct(sheet) {
-    var out = {};
-    ((sheet && sheet.categories) || []).forEach(function (c) {
-      var t = 0;
-      (c.items || []).forEach(function (it) { t += num(it.est); });
-      out[String(c.acct)] = { budget: t, name: c.name || c.acct };
-    });
-    return out;
+  /* ── the cost report ─────────────────────────────────────────────────
+     The budget side is read through CBudgetSheet, so a line entered as
+     Amt x Units x Rate counts for what the calculator says it is worth.   */
+  function budgetByAcct(sheet) { return SHEET().byAcct(sheet); }
+
+  /* Where a posting lands on the report. A department posts to the account it
+     actually spends on — VFX bids to 15200, cast offers to 4000 — and the
+     report shows it against the budget line that covers it, rolling a detail
+     account up to its major account when only the major one is budgeted.
+     A genuinely unknown account still surfaces as Unbudgeted, which is the
+     point of that row. */
+  function postAcct(accts, a) {
+    var k = String(a == null ? '' : a);
+    if (accts[k]) return k;
+    var A = root.CAccounts;
+    var up = A ? A.rollup(k) : k;
+    return (up !== k && accts[up]) ? up : k;
   }
 
   function costReport(sheet, m) {
-    var accts = budgetByAcct(sheet);
+    var M = MM();
+    m = m || {};
+    var accts = SHEET().byAcctCents(sheet);
     var rows = {};
     function row(acct) {
       if (!rows[acct]) {
         rows[acct] = { acct: acct, name: (accts[acct] && accts[acct].name) || 'Unbudgeted · ' + acct,
-                       budget: (accts[acct] && accts[acct].budget) || 0,
+                       budget: (accts[acct] && accts[acct].budget) || 0,   // cents until the end
                        actual: 0, committed: 0, etc: 0, efc: 0, variance: 0, over: false };
       }
       return rows[acct];
@@ -74,25 +103,43 @@
     Object.keys(accts).forEach(row);
     (m.pos || []).forEach(function (po) {
       if (po.status === 'void') return;
-      var r = row(String(po.acct));
-      if (po.status === 'open') r.committed += po.amount;
-      else r.actual += po.amount;                      // invoiced or paid = real money
+      var r = row(postAcct(accts, po.acct));
+      if (po.status === 'open') r.committed += M.cents(po.amount);
+      else r.actual += M.cents(po.amount);              // invoiced or paid = real money
     });
-    (m.petty || []).forEach(function (p) { row(String(p.acct)).actual += p.amount; });
+    (m.petty || []).forEach(function (p) { row(postAcct(accts, p.acct)).actual += M.cents(p.amount); });
 
-    var totals = { budget: 0, actual: 0, committed: 0, etc: 0, efc: 0, variance: 0 };
+    /* Totals are the sum of the cents that were actually posted — never a sum
+       of already-rounded rows, and EFC/variance are DERIVED from those sums
+       rather than added up separately. That is what makes the TOTAL row foot:
+       totals.efc === actual + committed + etc, exactly, every time. */
+    var tc = { budget: 0, actual: 0, committed: 0, etc: 0 };
     var list = Object.keys(rows).sort().map(function (a) {
       var r = rows[a];
       var override = m.etc && m.etc[a];
-      r.etc = override != null && override !== '' ? num(override)
-        : Math.max(0, r.budget - r.actual - r.committed);   // default: spend the plan, no more
-      r.efc = Math.round(r.actual + r.committed + r.etc);
-      r.variance = Math.round(r.budget - r.efc);
-      r.over = r.variance < 0;
-      ['budget', 'actual', 'committed', 'etc', 'efc', 'variance'].forEach(function (k) { totals[k] += r[k]; });
+      r.etc = override != null && override !== ''
+        ? M.cents(override)
+        : Math.max(0, r.budget - r.actual - r.committed);  // default: spend the plan, no more
+      tc.budget += r.budget; tc.actual += r.actual;
+      tc.committed += r.committed; tc.etc += r.etc;
+      var efc = r.actual + r.committed + r.etc;
+      var variance = r.budget - efc;
+      r.budget = M.dollars(r.budget);
+      r.actual = M.dollars(r.actual);
+      r.committed = M.dollars(r.committed);
+      r.etc = M.dollars(r.etc);
+      r.efc = M.dollars(efc);
+      r.variance = M.dollars(variance);
+      r.over = variance < 0;
       return r;
     });
-    totals.over = totals.variance < 0;
+    var efcC = tc.actual + tc.committed + tc.etc;
+    var varC = tc.budget - efcC;
+    var totals = {
+      budget: M.dollars(tc.budget), actual: M.dollars(tc.actual),
+      committed: M.dollars(tc.committed), etc: M.dollars(tc.etc),
+      efc: M.dollars(efcC), variance: M.dollars(varC), over: varC < 0
+    };
     return { rows: list, totals: totals,
              openPOs: (m.pos || []).filter(function (p) { return p.status === 'open'; }).length };
   }
@@ -117,14 +164,18 @@
     return '"' + s.replace(/"/g, '""') + '"';
   }
 
+  /* Money columns are written with two fixed decimals. A raw JS float in a CSV
+     ships `15924.599999999999` into the cell the producer then sums. */
   function csv(report) {
+    var M = MM();
+    var COLS = ['budget', 'actual', 'committed', 'etc', 'efc', 'variance'];
     var lines = ['Acct,Category,Budget,Actual,Committed,ETC,EFC,Variance'];
-    report.rows.forEach(function (r) {
-      lines.push([csvCell(r.acct), csvCell(r.name),
-        r.budget, r.actual, r.committed, r.etc, r.efc, r.variance].join(','));
+    (report.rows || []).forEach(function (r) {
+      lines.push([csvCell(r.acct), csvCell(r.name)].concat(
+        COLS.map(function (k) { return M.csvNum(r[k]); })).join(','));
     });
-    var t = report.totals;
-    lines.push(['TOTAL', '', t.budget, t.actual, t.committed, t.etc, t.efc, t.variance].join(','));
+    var t = report.totals || {};
+    lines.push(['TOTAL', ''].concat(COLS.map(function (k) { return M.csvNum(t[k]); })).join(','));
     return lines.join('\n');
   }
 
@@ -144,6 +195,6 @@
   root.CMoney = {
     blank: blank, addPO: addPO, setPoStatus: setPoStatus, addPetty: addPetty,
     removeRow: removeRow, budgetByAcct: budgetByAcct, costReport: costReport,
-    snapshot: snapshot, csv: csv, feedLearning: feedLearning
+    postAcct: postAcct, snapshot: snapshot, csv: csv, feedLearning: feedLearning
   };
 })(typeof window !== 'undefined' ? window : globalThis);

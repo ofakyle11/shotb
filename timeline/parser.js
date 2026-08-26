@@ -1,13 +1,33 @@
-/* CINAMATE Timeline — Script Parser (offline module ①) */
+/* CINAMATE Timeline — Script Parser (offline module ①)
+ *
+ * Sluglines are decided by the one scene model, js/lib-scenes.js, which must
+ * be loaded before this file. The regex that used to live here read the
+ * printed scene number with a NON-capturing group —
+ * (?:(?:SC|SCENE)\s*\d+[A-Z]?[.\s\-]+\s*|\d+[.\s-]+\s*)? — so the
+ * screenplay's own numbering was matched and then thrown away, and every
+ * scene downstream was identified by its position in the file instead. A
+ * shooting script that says "24 INT. KITCHEN - DAY" was called scene 7, and
+ * nothing the production says out loud on the day agreed with the platform.
+ *
+ * The heading forms below are timeline-specific and deliberately NOT part of
+ * the shared model: MONTAGE/FLASHBACK families and bare "SCENE 12" openers
+ * are how treatments and documentary transcripts break, not how a screenplay
+ * does, and treating them as sluglines platform-wide would be wrong. */
 window.SBParser = (function(){
+  const CS = window.CScenes;
+  if(!CS)throw new Error('timeline/parser.js requires js/lib-scenes.js to be loaded first');
+  /* Timeline-only heading forms, layered on top of the shared slugline. */
+  const SCENE_WORD_RE=/^SCENE\s+\d+[A-Z]?(?:\s*[.\-—:]\s*|\s+)/i;
+  const BEAT_RE=/^(FLASHBACK|FLASH\s*CUT|MONTAGE|DREAM|INTERCUT|BACK\s+TO|LATER|TIME\s+CUT|SERIES\s+OF\s+SHOTS)\b/i;
+  /* "1. KITCHEN - DAY" — numbered, but with no INT/EXT token at all. */
+  const NUMBERED_NO_IU_RE=/^(\d+[A-Z]?)[.\s]+\s*([A-Z][A-Z0-9\s'\-]+?)\s+[-—–]\s+(DAY|NIGHT|MORNING|EVENING|DUSK|DAWN|CONTINUOUS|LATER)\s*$/i;
   function isSH(t){
     const line=(t||'').trim();
     if(!line)return false;
-    if(/^(?:(?:SC|SCENE)\s*\d+[A-Z]?[.\s\-]+\s*|\d+[.\s-]+\s*)?(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)[\s\-]/i.test(line))return true;
-    if(/^SCENE\s+\d+(?:\s*[.\-—:]\s*|\s+)/i.test(line))return true;
-    if(/^(FLASHBACK|FLASH\s*CUT|MONTAGE|DREAM|INTERCUT|BACK\s+TO|LATER|TIME\s+CUT|SERIES\s+OF\s+SHOTS)\b/i.test(line)&&line===line.toUpperCase())return true;
-    if(/^\d+[.\s]+\s*[A-Z][A-Z0-9\s'\-]+\s+[-—–]\s+(DAY|NIGHT|MORNING|EVENING|DUSK|DAWN|CONTINUOUS|LATER)\s*$/i.test(line))return true;
-    return /^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i.test(line);
+    if(CS.isSlug(line))return true;
+    if(SCENE_WORD_RE.test(line))return true;
+    if(BEAT_RE.test(line)&&line===line.toUpperCase())return true;
+    return NUMBERED_NO_IU_RE.test(line);
   }
   /** Character cue — must be ALL CAPS (matches Edit Studio isCC). */
   function isCC(l){
@@ -53,30 +73,45 @@ window.SBParser = (function(){
     if(/\b(crash|sudden)\b/.test(x))return'HANDHELD';
     return'STATIC';
   }
+  /* parseSceneHeading(h) → {key, name, timeOfDay, number, raw}
+     `number` is the screenplay's OWN printed scene number ('4A'), '' when the
+     script is unnumbered. It is the field this function used to discard. */
   function parseSceneHeading(heading){
     const h=String(heading||'').trim();
-    if(!h)return{key:'',name:'',timeOfDay:'',raw:''};
+    if(!h)return{key:'',name:'',timeOfDay:'',number:'',raw:''};
     const normKey=name=>String(name||'').trim().toUpperCase().replace(/\s+/g,' ');
 
-    let m=h.match(/^\s*(?:(?:SC|SCENE)\s*\d+[A-Z]?[.\s\-—]*\s*)?(INT\.|EXT\.|INT\/EXT\.|I\/E\.?)\s+(.+?)(?:\s*[-—–]\s*(.+))?$/i);
+    const slug=CS.parseSlug(h);
+    if(slug){
+      return{key:normKey(slug.location),name:slug.location,timeOfDay:slug.tod,
+             number:slug.number,iu:slug.iu,raw:h};
+    }
+
+    let m=h.match(NUMBERED_NO_IU_RE);
     if(m){
       const name=m[2].trim();
-      const tod=(m[3]||'').trim();
-      return{key:normKey(name),name,timeOfDay:tod,raw:h};
+      return{key:normKey(name),name,timeOfDay:m[3].trim(),number:String(m[1]).toUpperCase(),raw:h};
     }
 
-    m=h.match(/^(?:(?:SCENE\s+)?\d+[A-Z]?[.\s]+)\s*([A-Z][A-Z0-9\s'\-/&,]+?)\s+[-—–]\s+(DAY|NIGHT|MORNING|EVENING|DUSK|DAWN|CONTINUOUS|LATER|MOMENTS(?:\s+LATER)?)/i);
+    m=h.match(/^(?:SCENE\s+)(\d+[A-Z]?)[.\s]+\s*([A-Z][A-Z0-9\s'\-/&,]+?)\s+[-—–]\s+(DAY|NIGHT|MORNING|EVENING|DUSK|DAWN|CONTINUOUS|LATER|MOMENTS(?:\s+LATER)?)/i);
     if(m){
-      const name=m[1].trim();
-      return{key:normKey(name),name,timeOfDay:m[2].trim(),raw:h};
+      const name=m[2].trim();
+      return{key:normKey(name),name,timeOfDay:m[3].trim(),number:String(m[1]).toUpperCase(),raw:h};
     }
 
-    if(/^(FLASHBACK|FLASH\s*CUT|MONTAGE|DREAM|INTERCUT|BACK\s+TO|LATER|TIME\s+CUT|SERIES\s+OF\s+SHOTS)\b/i.test(h)){
+    if(BEAT_RE.test(h)){
       const name=h.split(/\s*[-—–]\s*/)[0].trim();
-      return{key:normKey(name),name,timeOfDay:'',raw:h};
+      return{key:normKey(name),name,timeOfDay:'',number:'',raw:h};
     }
 
-    return{key:'',name:'',timeOfDay:'',raw:h};
+    m=h.match(SCENE_WORD_RE);
+    if(m){
+      const num=(h.match(/^SCENE\s+(\d+[A-Z]?)/i)||[])[1]||'';
+      const name=h.replace(/^SCENE\s+\d+[A-Z]?(?:\s*[.\-—:]\s*|\s+)/i,'').split(/\s*[-—–]\s*/)[0].trim();
+      return{key:normKey(name),name,timeOfDay:'',number:String(num).toUpperCase(),raw:h};
+    }
+
+    return{key:'',name:'',timeOfDay:'',number:'',raw:h};
   }
 
   function inferLocation(heading){
@@ -507,16 +542,35 @@ window.SBParser = (function(){
     const dur=durSec||5;
     const dl=dur+'-'+(dur+1)+'s';
     const lines=normalizeScriptText(text).split('\n'),scenes=[],chars={};
-    let cur=null,i=0,seenFirstScene=false;
+    let cur=null,i=0,seenFirstScene=false,pendingNum='';
+    /* Give a scene its identity: the screenplay's own printed number where
+       there is one, the ordinal only where there is not. Carrying both means
+       a caller can display what the call sheet says AND still do arithmetic. */
+    const numberScene=(sc,heading)=>{
+      const meta=parseSceneHeading(heading);
+      const num=meta.number||pendingNum||'';
+      pendingNum='';
+      const m=num?/^(\d+)([A-Z]*)$/.exec(num):null;
+      sc.ord=scenes.length+1;
+      sc.number=num;
+      sc.n=m?parseInt(m[1],10):sc.ord;
+      sc.label=num||String(sc.ord);
+      sc.location=meta.name||'';
+      sc.timeOfDay=meta.timeOfDay||'';
+      return sc;
+    };
     while(i<lines.length){
       const l=lines[i],t=l.trim();
       if(!t||isTr(t)){i++;continue}
-      if(isSceneNumberOnly(t)&&i+1<lines.length&&isSH(lines[i+1].trim())){i++;continue}
-      if(isSH(t)){cur={heading:t,shots:[]};scenes.push(cur);seenFirstScene=true;i++;continue}
+      /* A bare number above a slugline IS that scene's number — it was
+         skipped outright here, which discarded it a second time. */
+      if(isSceneNumberOnly(t)&&i+1<lines.length&&isSH(lines[i+1].trim())){pendingNum=t.replace(/\.$/,'').toUpperCase();i++;continue}
+      if(isSH(t)){cur=numberScene({heading:t,shots:[]},t);scenes.push(cur);seenFirstScene=true;i++;continue}
+      pendingNum='';
       if(!seenFirstScene&&isTitlePageLine(t)){i++;continue}
       if(!cur){
         if(!seenFirstScene&&isTitlePageLine(t)){i++;continue}
-        cur={heading:'SCENE 1',shots:[]};scenes.push(cur);seenFirstScene=true;
+        cur=numberScene({heading:'SCENE 1',shots:[]},'');scenes.push(cur);seenFirstScene=true;
       }
       if(isCC(t)){
         const rn=exCN(t),cn=resCN(rn,chars),ci=t.match(/\(([^)]+)\)/);

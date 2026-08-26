@@ -87,7 +87,7 @@
       <th>Code</th><th>Complexity</th><th class="vx-num">Planning est. range</th><th class="vx-num">Bid $</th><th>Bid vs est.</th><th>Status</th><th></th>
     </tr></thead><tbody id="vxMoney"></tbody></table>
     <div class="vx-total" id="vxMoneyTotals"></div>
-    <p class="vx-note">Ranges are internal <b>planning estimates</b> by complexity band — not quotes; real vendor bids always win. Award a bid to commit it to the Money Room under acct 15000 (VFX) as an open PO; each award commits once. Verify bids and vendor scope before relying on these figures — VFX pricing drifts with schedule and iteration count.</p>
+    <p class="vx-note">Ranges are internal <b>planning estimates</b> by complexity band — not quotes; real vendor bids always win. Award a bid to commit it to the Money Room under acct 15200 (VFX) as an open PO; each award commits once. Verify bids and vendor scope before relying on these figures — VFX pricing drifts with schedule and iteration count.</p>
 
     <h2>4 · On-set VFX day sheet</h2>
     <div class="vx-bar">
@@ -101,7 +101,14 @@
 
 <div class="toast" id="vxToast" aria-live="polite"></div>
 <script src="/js/project-badge.js?v=20260823a"></script>
+<!-- Shared money foundation: one decimal arithmetic helper, one chart of
+     accounts, one budget-sheet reader. Must load before anything that
+     totals, posts or reports money. -->
+<script src="/js/lib-money-math.js?v=20260826a"></script>
+<script src="/js/lib-money-accounts.js?v=20260826a"></script>
+<script src="/js/lib-money-sheet.js?v=20260826a"></script>
 <script src="/finance/lib-money.js?v=20260823a"></script>
+<script src="/js/lib-scenes.js?v=20260826a"></script>
 <script src="lib-vfx.js?v=20260823a"></script>
 <script>
 (function () {
@@ -237,6 +244,12 @@
       '<span>Awarded <b>' + esc(money(b.totalAwarded)) + '</b></span>' +
       (b.uncommitted ? '<span class="vx-over">' + esc(b.uncommitted) + ' awarded bid(s) not yet committed</span>' : '');
   }
+  /* VFX is 15200 in the chart (js/lib-money-accounts.js) and that is where the
+     estimator budgets it. Committing bids to 15000 — Post-Production entire —
+     meant the VFX budget line and the VFX spend never met, so cost-per-shot
+     could not be asked anywhere. 15200 rolls up to 15000 on the cost report,
+     so a sheet that only carries the major account still reconciles. */
+  var VFX_ACCT = '15200';
   $('vxMoney').addEventListener('click', function (e) {
     var id = e.target.getAttribute('data-award'); if (!id) return;
     var sh = shotById(id); if (!sh) return;
@@ -245,11 +258,11 @@
     if (V.statusRank(sh.status) < V.statusRank('awarded')) sh.status = 'awarded';
     var money2 = JSON.parse(localStorage.getItem('SB_Money_v1') || 'null') || CMoney.blank();
     var po = CMoney.addPO(money2, { vendor: sh.vendor || 'VFX vendor TBD', desc: sh.code + ' — ' + (sh.desc || 'VFX shot'),
-      acct: '15000', amount: sh.bid, date: new Date().toISOString().slice(0, 10) });
+      acct: VFX_ACCT, amount: sh.bid, date: new Date().toISOString().slice(0, 10) });
     localStorage.setItem('SB_Money_v1', JSON.stringify(money2));
     sh.committedPo = true;
     save(); renderAll();
-    toast(po.num + ' committed — ' + money(sh.bid) + ' to acct 15000 (VFX) for ' + sh.code);
+    toast(po.num + ' committed — ' + money(sh.bid) + ' to acct ' + VFX_ACCT + ' (' + CAccounts.name(VFX_ACCT) + ') for ' + sh.code);
   });
 
   /* ── 4 · day sheet ── */

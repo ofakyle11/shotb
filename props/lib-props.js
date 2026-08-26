@@ -8,6 +8,13 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (root) {
   'use strict';
+  /* The one scene model — js/lib-scenes.js. Every module used to carry its
+     own screenplay splitter; they disagreed on preambles, printed scene
+     numbers and A/B scenes, so they now all read from here. Loaded by a
+     <script> tag before this file, and by the node suites. */
+  var CS = root.CScenes;
+  if (!CS) throw new Error('lib-props.js requires js/lib-scenes.js to be loaded first');
+
 
   /* ── 1 · pricing categories ─────────────────────────────────────────────
      value  = typical replacement value (USD) used by the 10% weekly rule
@@ -112,19 +119,10 @@
     });
   });
 
-  /* Split a screenplay into scenes on sluglines; scene 0 catches preamble. */
-  function splitScenes(text) {
-    var lines = String(text || '').split(/\r?\n/);
-    var scenes = [], cur = { n: 0, slug: '', body: [] };
-    lines.forEach(function (ln) {
-      if (/^\s*(?:\d+[\s.]*)?(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(ln)) {
-        if (cur.body.length || cur.slug) scenes.push(cur);
-        cur = { n: scenes.length + 1, slug: ln.trim(), body: [] };
-      } else cur.body.push(ln);
-    });
-    if (cur.body.length || cur.slug) scenes.push(cur);
-    return scenes.filter(function (s) { return s.slug || s.body.join('').trim(); });
-  }
+  /* Scenes come from the one scene model, js/lib-scenes.js. The private copy
+     that used to live here numbered the first scene 2 whenever the script
+     opened on FADE IN:, and did not recognise "4A" as a scene at all. */
+  var splitScenes = CS.split;
 
   /* breakdown(scriptText) → [{name, cat, scenes:[n..], qty}] deduped by term */
   function breakdown(scriptText) {
@@ -136,7 +134,7 @@
         if (!lx.re.test(body)) return;
         var k = lx.term;
         if (!found[k]) found[k] = { name: cap(lx.term), cat: lx.cat, scenes: [], qty: 1 };
-        if (found[k].scenes.indexOf(sc.n) < 0) found[k].scenes.push(sc.n);
+        if (found[k].scenes.indexOf(sc.label) < 0) found[k].scenes.push(sc.label);
       });
     });
     return Object.keys(found).sort().map(function (k, i) {

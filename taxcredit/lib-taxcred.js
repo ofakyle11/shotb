@@ -96,11 +96,21 @@
 
   /* ── 4 · credit model ───────────────────────────────────────────────────
      qualifiedSpend = qualified actual + committed rows
-     estCredit      = qualifiedSpend × qualPct × midpoint(rate)
+     estCredit      = qualifiedSpend × midpoint(rate)
      advisorModel   = budgetTotal × qualPct × midpoint(rate)   (the Advisor's
                       whole-budget assumption) — delta shows how the real
                       ledger tracks against it. minSpend not met → credit 0
-                      with a warning; budgetCap breached → overCap flag.   */
+                      with a warning; budgetCap breached → overCap flag.
+
+     `qualPct` is the fraction of a TYPICAL BUDGET that qualifies — a haircut
+     for a whole-budget model that has no ledger to look at. It belongs to
+     advisorModel and nowhere else. Applying it to `qualifiedSpend` as well
+     charged the same haircut twice against spend that isQualified() had
+     already filtered with the same exemption list, understating every credit
+     by (1 − qualPct): 25% in Georgia, 55% in British Columbia. On $2M of
+     tagged BC labour that is $720,000 of credit reported as $324,000 —
+     $396,000 the production would not have known it could finance against.
+     Row-level tagging is the more accurate answer; the ledger wins.        */
   function creditModel(juris, tags, money, budgetTotal) {
     juris = juris || jurisById('none');
     var rows = rowsFromMoney(money);
@@ -111,19 +121,22 @@
       if (t !== true && t !== false) guessedCount++;
       if (isQualified(r, tags, juris)) { qualifiedSpend += r.amount; qualifiedCount++; }
     });
+    var M = root.CMoneyMath;
+    var r2 = M ? function (v) { return M.dollars(M.cents(v)); }
+               : function (v) { return Math.round(v * 100) / 100; };
     var mid = midpoint(juris.rate);
     var qp = num(juris.qualPct);
-    var rawCredit = qualifiedSpend * qp * mid;
+    var rawCredit = qualifiedSpend * mid;
     var belowMin = !!(juris.minSpend && totalSpend < juris.minSpend);
     var bt = num(budgetTotal);
-    var estCredit = belowMin ? 0 : Math.round(rawCredit);
-    var advisorModel = Math.round(bt * qp * mid);
+    var estCredit = belowMin ? 0 : r2(rawCredit);
+    var advisorModel = r2(bt * qp * mid);
     return {
       juris: juris.id, midRate: mid, qualPct: qp,
       rowCount: rows.length, qualifiedCount: qualifiedCount, guessedCount: guessedCount,
-      totalSpend: Math.round(totalSpend), qualifiedSpend: Math.round(qualifiedSpend),
-      rawCredit: Math.round(rawCredit), estCredit: estCredit,
-      advisorModel: advisorModel, delta: estCredit - advisorModel,
+      totalSpend: r2(totalSpend), qualifiedSpend: r2(qualifiedSpend),
+      rawCredit: r2(rawCredit), estCredit: estCredit,
+      advisorModel: advisorModel, delta: r2(estCredit - advisorModel),
       belowMin: belowMin, minSpend: juris.minSpend || 0,
       overCap: !!(juris.budgetCap && bt > juris.budgetCap), budgetCap: juris.budgetCap || 0,
       note: juris.note || ''

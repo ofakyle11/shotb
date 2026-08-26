@@ -119,7 +119,14 @@
 
 <div class="toast" id="coToast" aria-live="polite"></div>
 <script src="/js/project-badge.js?v=20260823a"></script>
+<!-- Shared money foundation: one decimal arithmetic helper, one chart of
+     accounts, one budget-sheet reader. Must load before anything that
+     totals, posts or reports money. -->
+<script src="/js/lib-money-math.js?v=20260826a"></script>
+<script src="/js/lib-money-accounts.js?v=20260826a"></script>
+<script src="/js/lib-money-sheet.js?v=20260826a"></script>
 <script src="/finance/lib-money.js?v=20260823a"></script>
+<script src="/js/lib-scenes.js?v=20260826a"></script>
 <script src="lib-castdesk.js?v=20260823a"></script>
 <script>
 (function () {
@@ -342,10 +349,15 @@
     var actor = $('coOffActor').value || '(performer)';
     var role = $('coOffRole').value || '(role)';
     var money = JSON.parse(localStorage.getItem('SB_Money_v1') || 'null') || CMoney.blank();
+    /* Cast is 4000 in the chart (js/lib-money-accounts.js). This used to commit
+       to 1400, an account that does not exist anywhere in the platform, so
+       every cast offer landed on the cost report as a permanently
+       over-budget "Unbudgeted · 1400" line that nothing could reconcile. */
+    var acct = CAccounts.DEFAULT_CAST;
     var po = CMoney.addPO(money, { vendor: actor, desc: 'Cast offer — ' + role + ' (' + ($('coOffUnit').value === 'daily' ? 'daily' : 'weekly') + ' rate)',
-      acct: '1400', amount: amount, date: new Date().toISOString().slice(0, 10) });
+      acct: acct, amount: amount, date: new Date().toISOString().slice(0, 10) });
     localStorage.setItem('SB_Money_v1', JSON.stringify(money));
-    toast(po.num + ' committed — $' + amount.toLocaleString() + ' to ' + actor + ' on acct 1400 (Cast)');
+    toast(po.num + ' committed — $' + amount.toLocaleString() + ' to ' + actor + ' on acct ' + acct + ' (' + CAccounts.name(acct) + ')');
   });
 
   /* ── init ── */

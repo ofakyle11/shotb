@@ -10,28 +10,22 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (root) {
   'use strict';
+  /* The one scene model — js/lib-scenes.js. Every module used to carry its
+     own screenplay splitter; they disagreed on preambles, printed scene
+     numbers and A/B scenes, so they now all read from here. Loaded by a
+     <script> tag before this file, and by the node suites. */
+  var CS = root.CScenes;
+  if (!CS) throw new Error('lib-ward.js requires js/lib-scenes.js to be loaded first');
 
-  var SLUG_RE = /^\s*(?:\d+[\s.]*)?(INT|EXT|INT\/EXT|I\/E)[.\s]/i;
+
   var SOURCES = ['buy', 'rent', 'build', 'cast-own'];
 
   function uid(p) { return (p || 'w') + Math.random().toString(36).slice(2, 9); }
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
   function round2(v) { return Math.round(v * 100) / 100; }
 
-  /* ── 1 · scenes ─────────────────────────────────────────────────────────
-     Split a screenplay into scenes on sluglines; scene 0 catches preamble. */
-  function splitScenes(text) {
-    var lines = String(text || '').split(/\r?\n/);
-    var scenes = [], cur = { n: 0, slug: '', body: [] };
-    lines.forEach(function (ln) {
-      if (SLUG_RE.test(ln)) {
-        if (cur.body.length || cur.slug) scenes.push(cur);
-        cur = { n: scenes.length + 1, slug: ln.trim(), body: [] };
-      } else cur.body.push(ln);
-    });
-    if (cur.body.length || cur.slug) scenes.push(cur);
-    return scenes.filter(function (s) { return s.slug || s.body.join('').trim(); });
-  }
+  /* ── 1 · scenes ─────────────────────────────────────────────────────── */
+  var splitScenes = CS.split;
 
   /* ── 2 · dialogue cues → characters ─────────────────────────────────────
      A character cue is a short ALL-CAPS line (2–30 chars), not a slugline,
@@ -42,7 +36,7 @@
   function cueName(line) {
     var t = String(line == null ? '' : line).trim();
     if (!t) return null;
-    if (SLUG_RE.test(t)) return null;
+    if (CS.isSlug(t)) return null;
     var s = t.replace(/\s*\((?:V\.?\s?O\.?|O\.?\s?S\.?|O\.?\s?C\.?|CONT'?D\.?|VOICE OVER|OFF SCREEN|PRE-?LAP|FILTERED)\)\.?\s*$/i, '');
     s = s.replace(/^\s+|\s+$/g, '');
     if (s.length < 2 || s.length > 30) return null;
@@ -68,7 +62,7 @@
         for (j = i + 1; j < sc.body.length; j++) {
           if (sc.body[j].replace(/\s+/g, '')) { nxt = sc.body[j]; break; }
         }
-        if (!nxt || SLUG_RE.test(nxt)) continue;      /* a cue needs dialogue after it */
+        if (!nxt || CS.isSlug(nxt)) continue;      /* a cue needs dialogue after it */
         if (!found[name]) found[name] = { name: name, lines: 0, sceneSet: {} };
         found[name].lines++;
         found[name].sceneSet[sc.n] = true;

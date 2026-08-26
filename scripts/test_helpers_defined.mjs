@@ -10,8 +10,10 @@
  *   · the browser smoke test loads dashboard.html, which redirects to sign-in,
  *     so it ends up inspecting login.html;
  *   · a textual "is this name declared anywhere in the page's scripts" test
- *     passes, because js/budget-engine.js does define esc() — at line 790,
- *     inside an IIFE, where it is not global and dashboard.html cannot see it.
+ *     passed, because the js/budget-engine.js the page loaded at the time did
+ *     define esc() — inside an IIFE, where it is not global and dashboard.html
+ *     could not see it. (That file has since been deleted as a duplicate
+ *     engine; the check it defeated is the reason this suite exists.)
  *
  * So this tracks brace depth. A `function esc()` in an inline classic script
  * is global only at depth 0; in a loaded module file, only an explicit

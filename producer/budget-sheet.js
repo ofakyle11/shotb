@@ -10,7 +10,21 @@
 
   var KEY = 'SB_BudgetSheet_v1';
 
-  /* Standard feature top-sheet skeleton with common starter line items. */
+  function MM() {
+    var m = root.CMoneyMath;
+    if (!m) throw new Error('producer/budget-sheet.js requires js/lib-money-math.js');
+    return m;
+  }
+  function SHEET() {
+    var s = root.CBudgetSheet;
+    if (!s) throw new Error('producer/budget-sheet.js requires js/lib-money-sheet.js');
+    return s;
+  }
+
+  /* Standard feature top-sheet skeleton with common starter line items.
+     The account numbers are the platform's one chart (js/lib-money-accounts.js)
+     — the same chart the deal memos, the casting office, VFX and the cost
+     report post against. */
   var DEFAULT_CATEGORIES = [
     { acct: '1000',  name: 'Story & Rights',      items: ['Option / purchase', 'Screenplay / writer fees'] },
     { acct: '2000',  name: 'Producers Unit',      items: ['Producer fee', 'Line producer / UPM'] },
@@ -29,11 +43,20 @@
     { acct: '15000', name: 'Post-Production',     items: ['Editorial', 'VFX', 'Sound design & mix', 'Music', 'Color / DI'] },
     { acct: '16000', name: 'Insurance & Legal',   items: ['Production insurance', 'Legal & finance', 'Completion bond'] },
     { acct: '17000', name: 'Publicity',           items: ['Unit publicist / stills'] },
-    { acct: '18000', name: 'General Expenses',    items: ['Production office', 'Payroll fringes', 'Miscellaneous'] }
+    { acct: '18000', name: 'General Expenses',    items: ['Production office', 'Miscellaneous'] },
+    /* Fringes are cross-departmental and belong on their own line. They used
+       to sit inside General Expenses, where an unprefixed estimator line
+       ($397k-$709k on an indie) also landed by accident — an account whose
+       whole job is to be ~4% of BTL, reading five times the entire rest of it. */
+    { acct: '20000', name: 'Payroll Fringes',     items: ['Payroll fringes (labor accounts)'] }
   ];
 
-  /* Estimator account → top-sheet category routing for seeding. */
-  var SEED_MAP = { '4100': '4000', '4200': '4000', '4400': '4000', '4500': '4000', '8500': '8000', '9900': '9000', '13500': '13000', '15200': '15000', '15400': '15000', '15600': '15000', '15800': '15000', '16500': '16000', '16800': '16000' };
+  /* Estimator account → top-sheet category routing for seeding: the chart's
+     own rollup, so a detail account has exactly one home. */
+  function seedTarget(acct) {
+    var A = root.CAccounts;
+    return A ? A.rollup(acct) : acct;
+  }
 
   var _uid = 0;
   function uid() { return 'li' + (++_uid) + '_' + Math.random().toString(36).slice(2, 7); }
@@ -53,48 +76,46 @@
     };
   }
 
-  function num(v) { var n = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return isFinite(n) ? n : 0; }
+  function num(v) { return MM().num(v); }
 
-  /* Amt × Units × Rate wins when all three are set; manual estimate otherwise. */
-  function itemEst(it) {
-    var a = num(it.amt), u = num(it.units), r = num(it.rate);
-    if (a > 0 && u > 0 && r > 0) return a * u * r;
-    return num(it.est);
-  }
-  function catTotals(cat) {
-    var est = 0, act = 0;
-    cat.items.forEach(function (it) { est += itemEst(it); act += num(it.actual); });
-    return { est: est, actual: act };
-  }
+  /* Amt × Units × Rate wins when all three are set; manual estimate otherwise.
+     The rule lives in js/lib-money-sheet.js so finance, investors, the Advisor
+     and the learning layer read a line item exactly the way the calculator
+     wrote it — five readers summing `est` alone is why a fully built budget
+     read $0 everywhere outside this page. */
+  function itemEst(it) { return SHEET().itemEst(it); }
+  function catTotals(cat) { return SHEET().catTotals(cat); }
+
   function sheetTotals(sheet) {
-    var sub = 0, act = 0;
-    sheet.categories.forEach(function (c) { var t = catTotals(c); sub += t.est; act += t.actual; });
-    var laborBase = 0;
-    sheet.categories.forEach(function (c) { if (LABOR_ACCTS[c.acct]) laborBase += catTotals(c).est; });
-    var fringes = Math.round(laborBase * num(sheet.fringesPct) / 100);
-    var bond = Math.round(sub * num(sheet.bondPct) / 100);
-    var insurance = Math.round(sub * num(sheet.insurancePct) / 100);
+    var M = MM(), S = SHEET();
+    var sub = S.subtotalCents(sheet);
+    var act = S.actualCents(sheet);
+    var laborBase = S.laborBaseCents(sheet);
+    var fringes = M.pctOfCents(laborBase, sheet.fringesPct);
+    var bond = M.pctOfCents(sub, sheet.bondPct);
+    var insurance = M.pctOfCents(sub, sheet.insurancePct);
     var basis = sub + fringes + bond + insurance;
-    var cont = basis * num(sheet.contingencyPct) / 100;
-    return { subtotal: sub, fringes: fringes, bond: bond, insurance: insurance,
-             contingency: cont, grand: basis + cont, actual: act };
+    var cont = M.pctOfCents(basis, sheet.contingencyPct);
+    return { subtotal: M.dollars(sub), fringes: M.dollars(fringes),
+             bond: M.dollars(bond), insurance: M.dollars(insurance),
+             contingency: M.dollars(cont), grand: M.dollars(basis + cont),
+             actual: M.dollars(act) };
   }
 
   /* ── line-producer brain: fringes, bond/insurance, norms, cashflow ──
      Labor accounts carry payroll fringes (union H&P + payroll taxes);
      bond and insurance quote as a % of the direct subtotal. All default
-     to 0 so sheets that already carry fringe line items never double up. */
-  var LABOR_ACCTS = { '2000': 1, '3000': 1, '4000': 1, '5000': 1, '6000': 1, '7000': 1, '8000': 1, '9000': 1, '10000': 1, '11000': 1 };
+     to 0 so sheets that already carry fringe line items never double up.
+     Which accounts are labour is the chart's call, not a second list here. */
   function extras(sheet) {
-    var laborBase = 0;
-    sheet.categories.forEach(function (c) { if (LABOR_ACCTS[c.acct]) laborBase += catTotals(c).est; });
-    var sub = 0;
-    sheet.categories.forEach(function (c) { sub += catTotals(c).est; });
+    var M = MM(), S = SHEET();
+    var laborBase = S.laborBaseCents(sheet);
+    var sub = S.subtotalCents(sheet);
     return {
-      laborBase: laborBase,
-      fringes: Math.round(laborBase * num(sheet.fringesPct) / 100),
-      bond: Math.round(sub * num(sheet.bondPct) / 100),
-      insurance: Math.round(sub * num(sheet.insurancePct) / 100)
+      laborBase: M.dollars(laborBase),
+      fringes: M.dollars(M.pctOfCents(laborBase, sheet.fringesPct)),
+      bond: M.dollars(M.pctOfCents(sub, sheet.bondPct)),
+      insurance: M.dollars(M.pctOfCents(sub, sheet.insurancePct))
     };
   }
 
@@ -105,7 +126,7 @@
     '5000': [3, 10], '6000': [3, 9], '7000': [1, 3.5], '8000': [3, 9],
     '9000': [3, 12], '10000': [1, 4], '11000': [0.5, 3], '12000': [2, 7],
     '13000': [3, 11], '14000': [0.3, 2.5], '15000': [7, 18], '16000': [2, 7],
-    '17000': [0.3, 2], '18000': [2, 7] };
+    '17000': [0.3, 2], '18000': [2, 7], '20000': [8, 25] };
   function norms(sheet) {
     var tot = sheetTotals(sheet);
     if (!(tot.grand > 0)) return [];
@@ -124,24 +145,32 @@
     '7000': [.1, .85, .05], '8000': [.1, .85, .05], '9000': [.5, .45, .05],
     '10000': [.6, .35, .05], '11000': [.1, .85, .05], '12000': [.2, .7, .1],
     '13000': [.4, .5, .1], '14000': [.2, .6, .2], '15000': [0, .05, .95],
-    '16000': [.7, .2, .1], '17000': [.2, .3, .5], '18000': [.3, .4, .3] };
+    '16000': [.7, .2, .1], '17000': [.2, .3, .5], '18000': [.3, .4, .3],
+    '20000': [.15, .7, .15] };   /* fringes follow the labour they sit on */
+  /* Cash needed by phase, in cents: the three buckets must add back to the
+     grand total exactly, or the producer's cashflow plan is short by the
+     rounding. The last bucket absorbs the remainder for that reason. */
   function cashflow(sheet) {
-    var out = { prep: 0, shoot: 0, post: 0 };
-    sheet.categories.forEach(function (c) {
-      var est = catTotals(c).est;
+    var M = MM(), S = SHEET();
+    var prep = 0, shoot = 0, post = 0;
+    (sheet.categories || []).forEach(function (c) {
+      var est = S.catCents(c).est;
       var ph = PHASE[c.acct] || [.33, .34, .33];
-      out.prep += est * ph[0]; out.shoot += est * ph[1]; out.post += est * ph[2];
+      prep += M.mulCents(est, ph[0]);
+      shoot += M.mulCents(est, ph[1]);
+      post += M.mulCents(est, ph[2]);
     });
-    var tot = sheetTotals(sheet);
-    var overhead = tot.grand - (out.prep + out.shoot + out.post); // contingency + extras ride shoot/post
-    out.shoot += overhead * 0.5; out.post += overhead * 0.5;
-    out.prep = Math.round(out.prep); out.shoot = Math.round(out.shoot); out.post = Math.round(out.post);
-    return out;
+    var overhead = M.cents(sheetTotals(sheet).grand) - (prep + shoot + post);
+    var half = M.mulCents(overhead, 0.5);            // contingency + extras ride shoot/post
+    shoot += half;
+    post += overhead - half;                         // remainder here, so the three foot
+    return { prep: M.dollars(prep), shoot: M.dollars(shoot), post: M.dollars(post) };
   }
 
   /* Seed the estimated column from SBBudget's script-driven estimate
    * (midpoint of each line's low–high range). */
   function seedFromEstimate(sheet, prod) {
+    var M = MM();
     var byAcct = {};
     sheet.categories.forEach(function (c) { byAcct[c.acct] = c; });
     sheet.categories.forEach(function (c) { c.items = []; });
@@ -152,15 +181,20 @@
         if (!range || range[1] <= 0) return;
         var m = label.match(/^(\d{4,5})\s*·\s*(.+)$/);
         var acct = m ? m[1] : null, desc = m ? m[2] : label;
-        if (acct === '19000' || acct === '9900') return; // contingency is auto-computed
-        var target = byAcct[SEED_MAP[acct] || acct] || byAcct['18000'];
+        /* Only contingency is skipped — it is computed from the subtotal below.
+           9900 (Stunts, SFX & special units) used to be dropped here too, so a
+           script with fire, water, animals or a fight lost the entire special
+           units line out of its seeded budget; it rolls into 9000 like any
+           other detail account. */
+        if (acct === '19000') return;
+        var target = byAcct[seedTarget(acct)] || byAcct[acct] || byAcct['18000'];
         var it = blankItem(desc);
-        it.est = Math.round((range[0] + range[1]) / 2);
+        it.est = M.dollars(M.mulCents(M.cents(range[0]) + M.cents(range[1]), 0.5));
         it.notes = 'est. range ' + SBBudget.fmtMoney(range[0]) + ' – ' + SBBudget.fmtMoney(range[1]);
         // learning loop: past actuals on this account correct the estimate
         var cal = (root.CLearn && root.CLearn.calibration) ? root.CLearn.calibration(target.acct) : null;
         if (cal && cal.n >= 2 && cal.mult !== 1) {
-          it.est = Math.round(it.est * cal.mult);
+          it.est = M.mul(it.est, cal.mult);
           it.notes += ' · calibrated ' + (cal.mult > 1 ? '+' : '') + Math.round((cal.mult - 1) * 100) + '% from ' + cal.n + ' past actuals';
         }
         target.items.push(it);
@@ -179,19 +213,30 @@
     if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
+  /* Money columns are fixed 2-decimal strings, never raw JS floats — an
+     `amt × units × rate` of 3 × 5 × 1061.64 is 15924.6, and a raw float writes
+     `15924.599999999999` into the cell the producer then sums. */
   function sheetToCsv(sheet) {
+    var M = MM();
+    var $$ = function (v) { return M.csvNum(v); };
+    var opt = function (v) { return M.cents(v) ? M.csvNum(v) : ''; };
     var rows = [['Account', 'Category', 'Line item', 'Amt', 'Units', 'Rate', 'Estimated', 'Actual', 'Notes']];
     sheet.categories.forEach(function (c) {
-      c.items.forEach(function (it) {
-        rows.push([c.acct, c.name, it.desc, it.amt, it.units, it.rate, Math.round(itemEst(it)), num(it.actual) || '', it.notes]);
+      (c.items || []).forEach(function (it) {
+        rows.push([c.acct, c.name, it.desc, it.amt, it.units, it.rate, $$(itemEst(it)), opt(it.actual), it.notes]);
       });
       var t = catTotals(c);
-      if (t.est || t.actual) rows.push([c.acct, c.name, 'SUBTOTAL', '', '', '', Math.round(t.est), Math.round(t.actual) || '', '']);
+      if (M.cents(t.est) || M.cents(t.actual)) {
+        rows.push([c.acct, c.name, 'SUBTOTAL', '', '', '', $$(t.est), opt(t.actual), '']);
+      }
     });
     var tot = sheetTotals(sheet);
-    rows.push(['', '', 'SUBTOTAL (all categories)', '', '', '', Math.round(tot.subtotal), Math.round(tot.actual) || '', '']);
-    rows.push(['19000', 'Contingency', sheet.contingencyPct + '%', '', '', '', Math.round(tot.contingency), '', '']);
-    rows.push(['', '', 'GRAND TOTAL', '', '', '', Math.round(tot.grand), '', '']);
+    rows.push(['', '', 'SUBTOTAL (all categories)', '', '', '', $$(tot.subtotal), opt(tot.actual), '']);
+    if (M.cents(tot.fringes)) rows.push(['20000', 'Payroll Fringes', sheet.fringesPct + '% on labor', '', '', '', $$(tot.fringes), '', '']);
+    if (M.cents(tot.bond)) rows.push(['16800', 'Completion bond', sheet.bondPct + '%', '', '', '', $$(tot.bond), '', '']);
+    if (M.cents(tot.insurance)) rows.push(['16000', 'Insurance', sheet.insurancePct + '%', '', '', '', $$(tot.insurance), '', '']);
+    rows.push(['19000', 'Contingency', sheet.contingencyPct + '%', '', '', '', $$(tot.contingency), '', '']);
+    rows.push(['', '', 'GRAND TOTAL', '', '', '', $$(tot.grand), '', '']);
     return rows.map(function (r) { return r.map(csvCell).join(','); }).join('\n');
   }
 
@@ -205,6 +250,10 @@
     return blankSheet();
   }
   function persist() {
+    /* Store the number the calculator computed, not just the inputs. The sheet
+       on disk then says what it means to any reader — including one written
+       before js/lib-money-sheet.js existed. */
+    try { SHEET().syncEst(sheet); } catch (e) {}
     if (root.CLearn && root.CLearn.learnBudget) { try { root.CLearn.learnBudget(sheet); } catch (e) {} }
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(function () {
@@ -396,6 +445,7 @@
   function init() {
     if (!$('bsTopSheet')) return;
     sheet = load();
+    try { SHEET().syncEst(sheet); } catch (e) {}   // heal sheets saved before est was stored
     if (root.CLearn && root.CLearn.learnBudget) { try { root.CLearn.learnBudget(sheet); } catch (e) {} }
     renderTopSheet();
     renderDetail();

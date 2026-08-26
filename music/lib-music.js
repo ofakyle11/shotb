@@ -10,6 +10,13 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (root) {
   'use strict';
+  /* The one scene model — js/lib-scenes.js. Every module used to carry its
+     own screenplay splitter; they disagreed on preambles, printed scene
+     numbers and A/B scenes, so they now all read from here. Loaded by a
+     <script> tag before this file, and by the node suites. */
+  var CS = root.CScenes;
+  if (!CS) throw new Error('lib-music.js requires js/lib-scenes.js to be loaded first');
+
 
   /* ── 1 · vocabulary ───────────────────────────────────────────────────── */
   var USES = ['background', 'featured', 'main title', 'end credits'];
@@ -30,18 +37,7 @@
   TIERS.forEach(function (t) { TIER_BY_ID[t.id] = t; });
 
   /* ── 2 · script scan ──────────────────────────────────────────────────── */
-  function splitScenes(text) {
-    var lines = String(text || '').split(/\r?\n/);
-    var scenes = [], cur = { n: 0, slug: '', body: [] };
-    lines.forEach(function (ln) {
-      if (/^\s*(?:\d+[\s.]*)?(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(ln)) {
-        if (cur.body.length || cur.slug) scenes.push(cur);
-        cur = { n: scenes.length + 1, slug: ln.trim(), body: [] };
-      } else cur.body.push(ln);
-    });
-    if (cur.body.length || cur.slug) scenes.push(cur);
-    return scenes.filter(function (s) { return s.slug || s.body.join('').trim(); });
-  }
+  var splitScenes = CS.split;
 
   /* Ordered — first hit decides the suggested use. Performance words
      (sings, karaoke, band plays) suggest featured; source/ambient words
@@ -75,7 +71,7 @@
         }
         if (!use) return;
         var qm = line.match(QUOTED_RE);
-        hits.push({ scene: sc.n, excerpt: line.length > 160 ? line.slice(0, 157) + '…' : line,
+        hits.push({ scene: sc.n, sceneLabel: sc.label, excerpt: line.length > 160 ? line.slice(0, 157) + '…' : line,
                     suggestedUse: use, title: qm ? qm[1].trim() : '', term: term });
       });
     });

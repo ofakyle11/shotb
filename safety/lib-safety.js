@@ -9,6 +9,13 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (root) {
   'use strict';
+  /* The one scene model — js/lib-scenes.js. Every module used to carry its
+     own screenplay splitter; they disagreed on preambles, printed scene
+     numbers and A/B scenes, so they now all read from here. Loaded by a
+     <script> tag before this file, and by the node suites. */
+  var CS = root.CScenes;
+  if (!CS) throw new Error('lib-safety.js requires js/lib-scenes.js to be loaded first');
+
 
   /* severity: 3 = stop-and-plan, 2 = supervised, 1 = note-and-brief */
   var HAZARDS = [
@@ -85,28 +92,22 @@
         'Spotter separate from operator'] }
   ];
 
-  function splitScenes(text) {
-    var lines = String(text || '').split(/\r?\n/);
-    var scenes = [], cur = null;
-    lines.forEach(function (ln) {
-      if (/^\s*(?:\d+[\s.]*)?(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(ln)) {
-        if (cur) scenes.push(cur);
-        cur = { n: scenes.length + 1, slug: ln.trim(), body: [] };
-      } else if (cur) cur.body.push(ln);
-    });
-    if (cur) scenes.push(cur);
-    return scenes;
-  }
+  /* Safety scans real scenes only — the title page is not a scene, and the
+     private copy here silently dropped everything before the first slugline
+     rather than keeping it as a preamble. CScenes.parse().scenes preserves
+     exactly that behaviour, deliberately. */
+  var splitScenes = CS.split;
+  function realScenes(text) { return CS.parse(text).scenes; }
 
   /* analyze(scriptText) → per-scene hazard findings */
   function analyze(scriptText) {
-    var scenes = splitScenes(scriptText);
+    var scenes = realScenes(scriptText);
     var out = [];
     scenes.forEach(function (sc) {
       var text = sc.slug + '\n' + sc.body.join('\n');
       var hits = HAZARDS.filter(function (h) { return h.re.test(text); });
       if (hits.length) {
-        out.push({ scene: sc.n, slug: sc.slug,
+        out.push({ scene: sc.n, label: sc.label, slug: sc.slug,
           hazards: hits.map(function (h) {
             return { id: h.id, label: h.label, sev: h.sev, personnel: h.personnel, controls: h.controls };
           }),
@@ -151,7 +152,7 @@
     analysis.flagged.forEach(function (s) {
       if (sceneNumbers && sceneNumbers.length && !want[s.scene]) return;
       s.hazards.forEach(function (h) {
-        items.push('Sc ' + s.scene + ' · ' + h.label + ' — ' + h.personnel + ' confirms controls in place');
+        items.push('Sc ' + (s.label || s.scene) + ' · ' + h.label + ' — ' + h.personnel + ' confirms controls in place');
       });
     });
     return unique(items);
@@ -253,10 +254,10 @@
   ];
   function animalsInScript(scriptText) {
     var out = [];
-    splitScenes(scriptText).forEach(function (sc) {
+    realScenes(scriptText).forEach(function (sc) {
       var text = sc.slug + '\n' + sc.body.join('\n');
       SPECIES_RE.forEach(function (pair) {
-        if (pair[1].test(text)) out.push({ scene: sc.n, species: pair[0] });
+        if (pair[1].test(text)) out.push({ scene: sc.n, label: sc.label, species: pair[0] });
       });
     });
     return out;

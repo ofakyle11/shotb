@@ -9,6 +9,13 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (root) {
   'use strict';
+  /* The one scene model — js/lib-scenes.js. Every module used to carry its
+     own screenplay splitter; they disagreed on preambles, printed scene
+     numbers and A/B scenes, so they now all read from here. Loaded by a
+     <script> tag before this file, and by the node suites. */
+  var CS = root.CScenes;
+  if (!CS) throw new Error('lib-clear.js requires js/lib-scenes.js to be loaded first');
+
 
   /* well-known marks — presence in action/dialogue is a clearance flag */
   var BRANDS = ('Coca-Cola Coke Pepsi Sprite Fanta Red Bull Budweiser Heineken Corona ' +
@@ -43,19 +50,7 @@
       re: /\b(billboard|neon sign|storefront sign|marquee)\b[^\n]*/gi }
   ];
 
-  function splitScenes(text) {
-    var lines = String(text || '').split(/\r?\n/);
-    var scenes = [], cur = null;
-    lines.forEach(function (ln) {
-      if (/^\s*(?:\d+[\s.]*)?(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(ln)) {
-        if (cur) scenes.push(cur);
-        cur = { n: scenes.length + 1, slug: ln.trim(), body: [] };
-      } else if (cur) cur.body.push(ln);
-      else { cur = { n: 1, slug: '', body: [ln] }; }
-    });
-    if (cur) scenes.push(cur);
-    return scenes;
-  }
+  var splitScenes = CS.split;
 
   function excerpt(text, index, len) {
     var start = Math.max(0, index - 30);
@@ -73,7 +68,7 @@
       while ((m = BRAND_RE.exec(text)) !== null) {
         var key = 'brand|' + sc.n + '|' + m[0].toLowerCase();
         if (seen[key]) continue; seen[key] = 1;
-        findings.push({ id: 'c' + findings.length, scene: sc.n, cat: 'brand', term: m[0],
+        findings.push({ id: 'c' + findings.length, scene: sc.n, sceneLabel: sc.label, cat: 'brand', term: m[0],
           risk: 'medium', excerpt: excerpt(text, m.index, m[0].length),
           action: 'Product-placement agreement, greek the mark, or swap for a cleared fictional brand',
           status: 'pending' });
@@ -84,7 +79,7 @@
           if (d.keep && !d.keep(m[0])) continue;
           var key2 = d.cat + '|' + sc.n + '|' + m[0].slice(0, 40).toLowerCase();
           if (seen[key2]) continue; seen[key2] = 1;
-          findings.push({ id: 'c' + findings.length, scene: sc.n, cat: d.cat,
+          findings.push({ id: 'c' + findings.length, scene: sc.n, sceneLabel: sc.label, cat: d.cat,
             term: m[0].slice(0, 60), risk: d.risk,
             excerpt: excerpt(text, m.index, Math.min(m[0].length, 60)),
             action: d.action, status: 'pending' });

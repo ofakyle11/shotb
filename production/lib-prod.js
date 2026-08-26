@@ -10,6 +10,13 @@
  */
 (function (root) {
   'use strict';
+  /* The one scene model — js/lib-scenes.js. Every module used to carry its
+     own screenplay splitter; they disagreed on preambles, printed scene
+     numbers and A/B scenes, so they now all read from here. Loaded by a
+     <script> tag before this file, and by the node suites. */
+  var CS = root.CScenes;
+  if (!CS) throw new Error('lib-prod.js requires js/lib-scenes.js to be loaded first');
+
 
   /* ── Daily Production Report ────────────────────────────────────── */
   /* stores: {takes: SB_TakeLog_v1 rows, timecards: SB_Timecards_v1 rows,
@@ -102,17 +109,23 @@
     return rows.map(function (r) { return r.map(csvCell).join(','); }).join('\n');
   }
 
-  /* ── Audition sides from the screenplay ─────────────────────────── */
+  /* ── Audition sides from the screenplay ───────────────────────────
+     This split on /\n(?=(?:INT|EXT|...)[.\s])/ — no allowance for a scene
+     number and none for a leading indent. A numbered shooting script
+     ("1   INT. KITCHEN - DAY") therefore never split at all: the whole
+     screenplay came back as one block, and if the actor's name appeared
+     anywhere in it, the entire script was emailed out as that actor's
+     "sides". Scene breaks now come from the one scene model, which reads
+     the printed number as well, so a side is labelled with the number the
+     production will actually call on the day. */
   function sidesFor(scriptText, charName) {
     var out = [];
     if (!scriptText || !charName) return out;
     var name = String(charName).toUpperCase();
-    var blocks = String(scriptText).split(/\n(?=(?:INT|EXT|INT\/EXT|I\/E|EST)[.\s])/);
-    blocks.forEach(function (b) {
-      var up = b.toUpperCase();
-      if (up.indexOf(name) < 0) return;
-      var slug = (b.split('\n')[0] || '').trim();
-      out.push({ slug: slug.slice(0, 70), text: b.trim() });
+    CS.parse(scriptText).scenes.forEach(function (sc) {
+      var text = (sc.slug + '\n' + sc.text).replace(/^\n+|\n+$/g, '');
+      if (text.toUpperCase().indexOf(name) < 0) return;
+      out.push({ scene: sc.label, number: sc.number, slug: sc.slug.slice(0, 70), text: text });
     });
     return out;
   }

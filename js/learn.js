@@ -51,13 +51,22 @@
   /* ── 1 · budget calibration ─────────────────────────────────────── */
   /* Learn from every line item that has both an estimate and a real
    * actual. Idempotent: each row is fingerprinted so re-opening the
-   * sheet never double-learns. */
+   * sheet never double-learns.
+   *
+   * What a line item is worth is decided in one place — js/lib-money-sheet.js
+   * — because the Producer Suite writes Amt x Units x Rate and leaves `est`
+   * at 0, so reading `est` alone learned from none of those lines. Pages that
+   * load learn.js only for render stats need not carry the reader; a caller
+   * that hands over its own {est, actual} rows (props does) still works. */
+  function lineEst(it) {
+    return root.CBudgetSheet ? root.CBudgetSheet.itemEst(it) : parseFloat(it.est);
+  }
   function learnBudget(sheet) {
     if (!sheet || !Array.isArray(sheet.categories)) return 0;
     var learned = 0;
     sheet.categories.forEach(function (c) {
       (c.items || []).forEach(function (it) {
-        var est = parseFloat(it.est), act = parseFloat(it.actual);
+        var est = lineEst(it), act = parseFloat(it.actual);
         if (!(est > 0) || !(act > 0)) return;
         var fp = (c.acct || '?') + '|' + (it.desc || '') + '|' + est + '|' + act;
         if (state.seen.indexOf(fp) >= 0) return;

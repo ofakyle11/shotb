@@ -5,6 +5,8 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+/* the one scene model — lib-dailies.js reads its scenes from here */
+(0, eval)(readFileSync(join(ROOT, 'js/lib-scenes.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'dailies/lib-dailies.js'), 'utf8'));
 const D = globalThis.CDailies;
 
@@ -29,7 +31,12 @@ The current takes the letter away.`;
 /* ── scenes ── */
 const scenes = D.sceneList(SCRIPT);
 t('sceneList finds 4 sluglined scenes', scenes.length === 4);
-t('scene numbering is sequential', scenes[0].n === 1 && scenes[3].n === 4);
+/* The script prints "12" on the last slugline, so that scene IS 12 — the
+   retired sceneList renumbered it 4 by position, which is why a take slated
+   12A could never be matched back to the scene it covers. Unnumbered
+   sluglines still fall back to their position. */
+t('unnumbered scenes number by position', scenes[0].n === 1 && scenes[2].n === 3);
+t('a printed scene number wins over the position', scenes[3].n === 12 && scenes[3].number === '12');
 t('numbered slugline recognised', /RIVER BANK/.test(scenes[3].slug));
 t('splitScenes ignores blank input', D.splitScenes('').length === 0);
 
@@ -72,9 +79,9 @@ t('circleRate empty log → zero, no NaN', (() => { const z = D.circleRate([]); 
 /* ── coverage ── */
 const cov = D.coverageByScene([D.makeTake({ scene: '1', slate: '1A', take: 1 }), D.makeTake({ scene: '3', slate: '3A', take: 1, circled: true })], SCRIPT);
 t('coverage counts per scene', cov.total === 4 && cov.covered === 2);
-t('coverage lists exact gaps', cov.gaps.map(g => g.n).join(',') === '2,4');
+t('coverage lists exact gaps', cov.gaps.map(g => g.n).join(',') === '2,12');
 t('coverage carries circled count', cov.scenes[2].circled === 1 && cov.scenes[0].circled === 0);
-t('coverage falls back to slate scene number', D.coverageByScene([D.makeTake({ scene: '', slate: '2A', take: 1 })], SCRIPT).gaps.map(g => g.n).join(',') === '1,3,4');
+t('coverage falls back to slate scene number', D.coverageByScene([D.makeTake({ scene: '', slate: '2A', take: 1 })], SCRIPT).gaps.map(g => g.n).join(',') === '1,3,12');
 t('coverage with no script → no scenes', D.coverageByScene(takes, '').total === 0);
 
 /* ── camera report ── */

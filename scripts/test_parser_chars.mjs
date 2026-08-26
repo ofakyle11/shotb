@@ -7,6 +7,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const parserPath = join(__dirname, '..', 'timeline', 'parser.js');
 const code = readFileSync(parserPath, 'utf8');
 const sandbox = { window: {}, console };
+/* parser.js reads its sluglines from the one scene model */
+vm.runInNewContext(readFileSync(join(__dirname, '..', 'js', 'lib-scenes.js'), 'utf8'), sandbox);
 vm.runInNewContext(code, sandbox);
 const SBParser = sandbox.window.SBParser;
 

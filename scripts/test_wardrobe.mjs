@@ -5,6 +5,8 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+/* the one scene model — lib-ward.js reads its scenes from here */
+(0, eval)(readFileSync(join(ROOT, 'js/lib-scenes.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'wardrobe/lib-ward.js'), 'utf8'));
 const W = globalThis.CWard;
 

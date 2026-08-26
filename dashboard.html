@@ -1829,7 +1829,17 @@ select.prod-field__input {
 
 <!-- Auth FIRST; the guard runs before any content script executes. -->
 <script src="js/cinamate-auth.js"></script>
-<script src="js/budget-engine.js"></script>
+<script src="js/lib-money-math.js"></script>
+<script src="js/lib-money-accounts.js"></script>
+<script src="js/lib-money-sheet.js"></script>
+<!-- One budget engine. js/budget-engine.js was a 95.9%-identical fork of this
+     file that did not know documentaries exist, so the dashboard and the
+     Timeline priced the same treatment 9.8x apart. It is deleted; both
+     surfaces now run timeline/timeline-budget.js, and timeline-doc.js has to
+     load beside it or documentary mode silently falls back to the feature
+     model — which is exactly how the fork diverged in the first place. -->
+<script src="timeline/timeline-doc.js"></script>
+<script src="timeline/timeline-budget.js"></script>
 <script src="js/learn.js"></script>
 <script>
   /* Session gate — unauthorized visitors are redirected to index.html
@@ -2381,7 +2391,7 @@ select.prod-field__input {
      -------------------------------------------------------------- */
 
   /* Tier selects are built from the engine's own tables, so adding a
-     tier in js/budget-engine.js surfaces here with no markup change. */
+     tier in timeline/timeline-budget.js surfaces here with no markup change. */
   var EST_TIER_FIELDS = [
     { key: 'scale',     label: 'Scale' },
     { key: 'director',  label: 'Director' },
@@ -2603,6 +2613,21 @@ select.prod-field__input {
     var k;
     for (k in EST_DEFAULTS) {
       if (Object.prototype.hasOwnProperty.call(EST_DEFAULTS, k)) { estSel[k] = EST_DEFAULTS[k]; }
+    }
+
+    /* Project type and the documentary tiers live in the engine's own prefs
+       (SB_Budget_v1), set from the Timeline's Feature/Documentary switch. The
+       dashboard reads them so both surfaces price the same picture the same
+       way — a documentary priced here as a feature is the 9.8x gap that the
+       two forked engines used to produce. */
+    var shared = null;
+    try { shared = JSON.parse(window.localStorage.getItem('SB_Budget_v1') || 'null'); } catch (err) { shared = null; }
+    if (shared && typeof shared === 'object') {
+      var SHARED_KEYS = ['mode', 'docScale', 'docArchival', 'docMusic', 'docCrewBasis'];
+      var s;
+      for (s = 0; s < SHARED_KEYS.length; s++) {
+        if (shared[SHARED_KEYS[s]]) { estSel[SHARED_KEYS[s]] = shared[SHARED_KEYS[s]]; }
+      }
     }
 
     var saved = readStore(KEYS.estimate, null);

@@ -203,13 +203,16 @@
       (n.notes ? '\n\nNotes: ' + n.notes : '');
   }
 
-  /* Budget grand total from an SB_BudgetSheet_v1-shaped sheet. */
+  /* Budget grand total from an SB_BudgetSheet_v1-shaped sheet.
+     Read through the one line-item reader (js/lib-money-sheet.js): summing the
+     stored `est` alone missed every line the Producer Suite's Amt x Units x
+     Rate calculator wrote, which returned 0 for a fully built budget — and the
+     quarterly letter then told the investors the picture was over budget by
+     its entire spend, because variance is budget minus EFC. */
   function budgetTotal(sheet) {
-    var t = 0;
-    ((sheet && sheet.categories) || []).forEach(function (c) {
-      (c.items || []).forEach(function (it) { t += num(it.est); });
-    });
-    return r2(t);
+    var S = root.CBudgetSheet;
+    if (!S) throw new Error('investors/lib-invest.js requires js/lib-money-sheet.js');
+    return r2(S.subtotal(sheet));
   }
 
   /* ── quarterly update letter ────────────────────────────────────────────

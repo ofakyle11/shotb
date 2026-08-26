@@ -5,6 +5,8 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+/* the one scene model — lib-castdesk.js reads its scenes from here */
+(0, eval)(readFileSync(join(ROOT, 'js/lib-scenes.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'casting/lib-castdesk.js'), 'utf8'));
 const C = globalThis.CCastDesk;
 
@@ -50,7 +52,12 @@ THE END`;
 /* ── scenes ── */
 const scenes = C.splitScenes(SCRIPT);
 t('splitScenes: preamble + 3 scenes (house pattern)', scenes.length === 4 && scenes[0].n === 0);
-t('slug preserved', /FARMHOUSE/.test(scenes[1].slug) && scenes[1].n === 2);
+/* The first real scene is 1, not 2. This fixture opens on a FADE IN:
+   preamble; the retired splitter pushed the preamble as scene 0 and then
+   took `n = scenes.length + 1` = 2 for the scene after it, so the whole
+   platform numbered a screenplay's opening scene 2. This assertion used to
+   require that. See js/lib-scenes.js and scripts/test_scenes.mjs. */
+t('slug preserved', /FARMHOUSE/.test(scenes[1].slug) && scenes[1].n === 1);
 
 /* ── cue detection ── */
 t('cueName plain', C.cueName('  MAGGIE  ') === 'MAGGIE');
@@ -71,9 +78,9 @@ t('finds exactly 3 speaking roles', chars.length === 3);
 const byName = {};
 chars.forEach(c => { byName[c.name] = c; });
 t('TOM has 3 dialogue cues', byName.TOM && byName.TOM.lines === 3);
-t('TOM speaks in 3 scenes', byName.TOM.scenes === 3 && byName.TOM.sceneList.join(',') === '2,3,4');
+t('TOM speaks in 3 scenes', byName.TOM.scenes === 3 && byName.TOM.sceneList.join(',') === '1,2,3');
 t('MAGGIE has 2 cues in one scene', byName.MAGGIE && byName.MAGGIE.lines === 2 && byName.MAGGIE.scenes === 1);
-t('SHERIFF DANE 1 cue, last scene', byName['SHERIFF DANE'] && byName['SHERIFF DANE'].lines === 1 && byName['SHERIFF DANE'].sceneList.join(',') === '4');
+t('SHERIFF DANE 1 cue, last scene', byName['SHERIFF DANE'] && byName['SHERIFF DANE'].lines === 1 && byName['SHERIFF DANE'].sceneList.join(',') === '3');
 t('sorted by lines desc', chars[0].name === 'TOM' && chars[chars.length - 1].name === 'SHERIFF DANE');
 t('THE END not a character', !byName['THE END']);
 t('shouted action line not a character', !byName['A DOOR SLAMS SOMEWHERE UPSTAIRS.']);
@@ -106,10 +113,10 @@ const sidesM = C.sidesFor(SCRIPT, 'maggie');
 t('sides found case-insensitively', /AUDITION SIDES — MAGGIE/.test(sidesM));
 t('sides include slugline + dialogue', /FARMHOUSE KITCHEN/.test(sidesM) && /Dinner's getting cold/.test(sidesM));
 t('sides exclude scenes without the role', !/COUNTRY ROAD/.test(sidesM) && !/STUDY/.test(sidesM));
-t('sides carry scene numbers', /SCENE 2/.test(sidesM));
+t('sides carry scene numbers', /SCENE 1/.test(sidesM));
 t('sides carry verify note', /verify against the current draft/i.test(sidesM));
 const sidesT = C.sidesFor(SCRIPT, 'TOM');
-t('TOM sides span all 3 scenes', /SCENE 2/.test(sidesT) && /SCENE 3/.test(sidesT) && /SCENE 4/.test(sidesT));
+t('TOM sides span all 3 scenes', /SCENE 1/.test(sidesT) && /SCENE 2/.test(sidesT) && /SCENE 3/.test(sidesT));
 t('unknown character → empty sides', C.sidesFor(SCRIPT, 'NOBODY') === '');
 t('blank character → empty sides', C.sidesFor(SCRIPT, '') === '');
 

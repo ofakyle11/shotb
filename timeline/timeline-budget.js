@@ -697,7 +697,11 @@
     btl['9000 · Art department'] = addR(laborPct(0.12), [art[0] * 0.55, art[1] * 0.55]);
     btl['10000 · Wardrobe'] = addR(laborPct(0.05), [art[0] * 0.30, art[1] * 0.30]);
     btl['11000 · Makeup & hair'] = addR(laborPct(0.04), [art[0] * 0.15, art[1] * 0.15]);
-    btl['Payroll fringes (' + Math.round(crew.fringe * 100) + '%)'] = fringes;
+    /* The account prefix is load-bearing: the Producer Suite routes a seeded
+       line by matching `^(\d{4,5}) ·` on this label. Without it the match
+       failed and the whole fringe line — $397k-$709k on an indie — fell into
+       18000 General Expenses, an account budgeted at ~4% of BTL. */
+    btl['20000 · Payroll fringes (' + Math.round(crew.fringe * 100) + '%)'] = fringes;
     btl['4500 · Background & extras (~' + extrasDays + ' person-days)'] = extras;
     btl['9900 · Stunts, SFX & special units'] = specialUnits;
     btl['12000 · Transportation'] = transport;

@@ -9,6 +9,13 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (root) {
   'use strict';
+  /* The one scene model — js/lib-scenes.js. Every module used to carry its
+     own screenplay splitter; they disagreed on preambles, printed scene
+     numbers and A/B scenes, so they now all read from here. Loaded by a
+     <script> tag before this file, and by the node suites. */
+  var CS = root.CScenes;
+  if (!CS) throw new Error('lib-vfx.js requires js/lib-scenes.js to be loaded first');
+
 
   var STATUSES = ['briefed', 'bid', 'awarded', 'plates', 'temp', 'final', 'approved'];
   var COMPLEXITIES = ['simple', 'medium', 'complex', 'hero'];
@@ -50,19 +57,7 @@
     CUES.push({ re: new RegExp('\\b(?:' + d[0] + ')\\b', 'i'), hint: d[1], complexity: d[2] });
   });
 
-  /* Split a screenplay into scenes on sluglines; scene 0 catches preamble. */
-  function splitScenes(text) {
-    var lines = String(text || '').split(/\r?\n/);
-    var scenes = [], cur = { n: 0, slug: '', body: [] };
-    lines.forEach(function (ln) {
-      if (/^\s*(?:\d+[\s.]*)?(INT|EXT|INT\/EXT|I\/E)[.\s]/i.test(ln)) {
-        if (cur.body.length || cur.slug) scenes.push(cur);
-        cur = { n: scenes.length + 1, slug: ln.trim(), body: [] };
-      } else cur.body.push(ln);
-    });
-    if (cur.body.length || cur.slug) scenes.push(cur);
-    return scenes.filter(function (s) { return s.slug || s.body.join('').trim(); });
-  }
+  var splitScenes = CS.split;
 
   /* detectShots(scriptText) → [{scene, slug, hint, complexity, cue}] — one
      suggestion per cue per scene, ordered by scene then cue severity.      */
@@ -74,7 +69,7 @@
       CUES.forEach(function (c) {
         var m = body.match(c.re);
         if (!m) return;
-        out.push({ scene: sc.n, slug: sc.slug, hint: c.hint,
+        out.push({ scene: sc.n, sceneLabel: sc.label, slug: sc.slug, hint: c.hint,
                    complexity: c.complexity, cue: m[0].toLowerCase() });
       });
     });
