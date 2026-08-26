@@ -106,7 +106,11 @@ t('dateForIndex with no plan is empty', SD.dateForIndex({}, 3) === '');
   t('build carries the strips', days[0].sceneIds.join() === 'sc1,sc2' && days[1].sceneIds.join() === 'sc3');
   t('build leaves the boneyard out', days.every((d) => !d.sceneIds.includes('sc4')));
   t('build defaults the unit and the wrap flag', days[0].unit === 'MAIN' && days[0].wrapped === false);
-  t('blankDay is the same shape', Object.keys(SD.blankDay(3)).sort().join() === 'date,dayIdx,sceneIds,unit,wrapped');
+  /* `pinned` marks a date a human set, so build() stops overwriting it with
+     the plan's derived date — a rebuild used to silently move a day Dailies
+     had already logged takes against, stranding every one of them. */
+  t('blankDay is the same shape', Object.keys(SD.blankDay(3)).sort().join() === 'date,dayIdx,pinned,sceneIds,unit,wrapped');
+  t('blankDay starts unpinned', SD.blankDay(3).pinned === false);
 
   const withUnits = SD.build(PLAN, BOARD, { dailies: DAILIES });
   t('build takes the unit from the day Dailies logged', withUnits[0].unit === '2ND' && withUnits[1].unit === 'MAIN');
@@ -166,10 +170,21 @@ t('dateForIndex with no plan is empty', SD.dateForIndex({}, 3) === '');
   const after = SD.upsertDate(ls, '2026-10-05', { unit: 'SPLINTER' });
   t('upsertDate adds an unscheduled day', after.length === 3 && after[2].date === '2026-10-05');
   t('upsertDate gives it its own index', after[2].dayIdx === 2 && after[2].unit === 'SPLINTER');
-  const again = SD.upsertDate(ls, '2026-10-05', { unit: '2ND' });
-  t('upsertDate on the same date updates, not duplicates', again.length === 3 && again[2].unit === '2ND');
-  t('upsertDate persists', SD.load(ls).length === 3);
-  t('load sorts by day index', SD.load(ls).map((d) => d.dayIdx).join() === '0,1,2');
+  /* The key is date AND unit. Same date, same unit updates in place; same
+     date, DIFFERENT unit is a different day — a main unit and a splinter
+     shooting the same calendar date used to collapse into one record, so
+     whichever wrote second silently erased the other's unit. */
+  const again = SD.upsertDate(ls, '2026-10-05', { unit: 'SPLINTER', wrapped: true });
+  t('upsertDate on the same date AND unit updates, not duplicates',
+    again.length === 3 && again[2].unit === 'SPLINTER' && again[2].wrapped === true);
+  const splinter = SD.upsertDate(ls, '2026-10-05', { unit: '2ND' });
+  t('a second unit on the same date is its own day',
+    splinter.length === 4 && splinter.filter((d) => d.date === '2026-10-05').length === 2);
+  t('the two units on that date are distinguishable',
+    splinter.filter((d) => d.date === '2026-10-05').map((d) => d.unit).sort().join() === '2ND,SPLINTER');
+  t('a date a human set is pinned against a rebuild', again[2].pinned === true);
+  t('upsertDate persists', SD.load(ls).length === 4);
+  t('load sorts by day index', SD.load(ls).map((d) => d.dayIdx).join() === '0,1,2,3');
   t('save with no store still answers', SD.save(null, [{ dayIdx: 0 }]).length === 1);
 }
 
@@ -220,6 +235,32 @@ t('dateForIndex with no plan is empty', SD.dateForIndex({}, 3) === '');
     SD.TAKELOG_KEY === 'SB_TakeLog_v1' && SD.DAILIES_KEY === 'SB_Dailies_v1' &&
     SD.PLAN_KEY === 'SB_ShootPlan_v1' && SD.BOARD_KEY === 'SB_ScheduleBoard_v1' &&
     SD.DEFAULT_UNIT === 'MAIN');
+}
+
+
+/* ── the two entry points the schedule-learning loop depends on ───────────
+   wrapDay is the reason that loop can run at all: paceRowsModel gates on
+   `wrapped`, and before this existed NOTHING in the shipped tree ever set it,
+   so the board shipped its hardcoded 4.5 pages/day forever while the UI told
+   the user to wrap a day. unitsOnDate is what lets a main unit and a splinter
+   share one calendar date instead of silently overwriting each other. */
+{
+  const ls = fakeStore();
+  SD.save(ls, [
+    { dayIdx: 0, date: '2026-09-14', unit: 'MAIN' },
+    { dayIdx: 1, date: '2026-09-14', unit: 'SPLINTER' },
+    { dayIdx: 2, date: '2026-09-15', unit: 'MAIN' },
+  ]);
+  t('unitsOnDate lists both units sharing a date',
+    SD.unitsOnDate(SD.load(ls), '2026-09-14').sort().join() === 'MAIN,SPLINTER');
+  t('unitsOnDate does not repeat a unit', SD.unitsOnDate(SD.load(ls), '2026-09-15').join() === 'MAIN');
+  t('unitsOnDate on an unknown date is empty', SD.unitsOnDate(SD.load(ls), '2099-01-01').length === 0);
+
+  t('wrapDay sets the flag the learning loop reads', SD.wrapDay(ls, 0, true)[0].wrapped === true);
+  t('wrapDay persists through the store', SD.load(ls)[0].wrapped === true);
+  t('wrapDay un-wraps too', SD.wrapDay(ls, 0, false)[0].wrapped === false);
+  t('wrapDay on a day that does not exist changes nothing',
+    SD.wrapDay(ls, 99, true).length === 3 && SD.load(ls).every((d) => d.wrapped === false));
 }
 
 console.log(`test_shootdays: ${pass} passed, ${fail} failed`);

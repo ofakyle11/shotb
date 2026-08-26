@@ -69,9 +69,40 @@ function t(name, cond, detail) {
 
 /* ── declared divergences ────────────────────────────────────────────────
    directive → { onlyInShell:[src], onlyInGate:[src], why:'...' }
-   Empty, and it should stay empty. An entry without a real `why` is refused
-   below, so "silence the test" is not a one-line move. */
+   Empty, and it should stay empty.
+
+   An entry here is CHECKED, not merely counted — this used to be a claim the
+   file made about itself and did not enforce, and the gap was wide enough to
+   drive the whole suite through:
+
+     · it waives exactly ONE directive — the one it is filed under — and only
+       the exact source strings it names. Every other directive, and every
+       other token inside this one, still has to match token for token. (The
+       old code turned the global comparison off for ALL directives the moment
+       any entry existed, so an entry filed under `script-src` hid a change to
+       `media-src`.)
+     · `why` has to be prose with a citation in it — a repo file, optionally
+       with a line, or an origin. (The old check was `why.length > 20`, so 25
+       characters of "aaaa…" was a valid reason.)
+     · it has to waive a divergence that is actually there. A stale entry
+       fails rather than sitting in the file quietly pre-authorising the next
+       change to the same directive.
+
+   That is what makes "silence the test" more than a one-line move, and each
+   of those three sentences has a failing case behind it below. */
 const EXCEPTIONS = new Map();
+
+/* Is this `why` a reason, or is it 25 characters of noise? Prose of some
+   length, built from real distinct words, naming something concrete a reader
+   can go and check. */
+function reasoned(why) {
+  const s = String(why || '');
+  const words = s.toLowerCase().match(/[a-z][a-z'-]{2,}/g) || [];
+  return {
+    prose: s.length >= 60 && new Set(words).size >= 10,
+    cites: /[\w.\/-]+\.(?:js|mjs|html|toml)(?::\d+)?|https?:\/\/[a-z0-9.-]+/i.test(s),
+  };
+}
 
 /* Every remote origin either policy is allowed to name, and what pays for it.
    Anything else — in either copy — fails, so no origin can be slipped into
@@ -84,6 +115,73 @@ const ALLOWED_REMOTE = new Map([
   ['https://api.open-meteo.com', { directives: ['connect-src'], why: 'weather planner — tools/lib-sun.js:159 via tools/sched-weather.js, runs on /producer/ and /locations/' }],
   ['http://127.0.0.1:*', { directives: ['img-src', 'media-src', 'connect-src'], why: 'the generation bridge on the operator\'s own machine, and the frames/clips it serves back' }],
   ['http://localhost:*', { directives: ['img-src', 'media-src', 'connect-src'], why: 'same bridge, hostname form' }],
+]);
+
+/* A CSP source has four shapes and only ONE of them contains `://`, so a check
+   written around a host pattern is blind to the other three:
+
+     'strict-dynamic'      a KEYWORD — a capability, not an origin
+     https:   http:        a SCHEME-ONLY source: no host at all, therefore
+                           EVERY host on that scheme
+     cdn.example.com       a bare HOST source, no scheme
+     https://x.example     an absolute origin — the only shape ALLOWED_REMOTE
+                           was ever consulted for
+
+   `connect-src 'self' https:` used to pass this suite in both copies with a
+   clean 316/0, and `http:` sailed past the check literally named "plaintext
+   http: source is loopback only", because both of them are one token with no
+   `//` in it. Every token is therefore classified first and judged second,
+   and a token matching none of the four shapes fails rather than falling
+   through the bottom of the `if`. */
+const ALLOWED_KEYWORDS = new Map([
+  ["'self'", 'the origin itself — the whole point of the policy'],
+  ["'unsafe-inline'", 'every page still ships inline <script> and inline handlers'],
+  ["'wasm-unsafe-eval'", 'ffmpeg.wasm compiles a WebAssembly module'],
+  ["'none'", 'the hardening pins below'],
+]);
+const ALLOWED_SCHEME_SOURCES = new Map([
+  ['blob:', 'ObjectURLs: the ffmpeg worker source, and every preview <video>/<img>'],
+  ['data:', 'inline fonts, inline images, data: audio — never script-src, asserted separately'],
+]);
+const KEYWORD_SRC = /^'/;
+const SCHEME_ONLY_SRC = /^[a-z][a-z0-9+.-]*:$/i;
+const ABSOLUTE_SRC = /^[a-z][a-z0-9+.-]*:\/\//i;
+
+/* Capability floors: what each directive must CONTAIN, and what dies without
+   it. Parity only compares the two copies with each other, and the token
+   checks only judge tokens that are present — so a directive deleted from
+   BOTH copies, or a source dropped from both, is perfect parity and a broken
+   product. `worker-src` deleted from both copies passed everything. */
+const REQUIRED_SOURCES = new Map([
+  ['script-src', [
+    ["'self'", 'every module ships as <script src="lib-x.js">'],
+    ["'wasm-unsafe-eval'", 'ffmpeg.wasm compiles a module; without it the editor and Studio exports die'],
+    ['blob:', 'timeline/timeline-export.js:124 runs the ffmpeg core from a Blob URL'],
+  ]],
+  ['worker-src', [
+    ["'self'", 'the worker sources under /static/ffmpeg'],
+    ['blob:', 'the ffmpeg core worker IS a blob: URL. Delete this directive and worker creation ' +
+      "falls back through child-src to default-src 'self', which blocks it — the Studio's " +
+      'stitch/export stops starting, with no other directive changing'],
+  ]],
+  ['style-src', [["'self'", 'every page stylesheet'],
+    ['https://fonts.googleapis.com', 'the Google Fonts stylesheet each shell links']]],
+  ['font-src', [["'self'", 'local faces'],
+    ['https://fonts.gstatic.com', 'the files that stylesheet pulls — without it every page falls back to system fonts']]],
+  ['img-src', [["'self'", 'shipped art'], ['data:', 'inline SVG/PNG data URLs'],
+    ['blob:', 'canvas snapshots and generated stills held as ObjectURLs']]],
+  ['media-src', [["'self'", 'shipped media'],
+    ['blob:', 'EVERY preview <video>/<audio> in the editor and the Studio plays from a blob: ' +
+      'ObjectURL. Drop it from one copy and all 28 gated pages lose preview while the shell ' +
+      'still works, which is the exact shape of the Open-Meteo failure'],
+    ['data:', 'short generated tones and test media']]],
+  ['connect-src', [["'self'", 'the site functions'], ['blob:', 'fetch() of an ObjectURL'],
+    ['data:', 'fetch() of a data: URL'],
+    ['https://api.themoviedb.org', 'cast/title research'],
+    ['https://query.wikidata.org', 'cast/title research'],
+    ['https://api.open-meteo.com', 'the weather planner — the origin this suite exists because of'],
+    ['http://127.0.0.1:*', 'the generation bridge'],
+    ['http://localhost:*', 'the same bridge, hostname form']]],
 ]);
 
 /* The /app.html-only additions, and nothing else may appear there. */
@@ -221,12 +319,28 @@ for (const [label, csp] of [['_headers', shell], ['gate.js', gate]]) {
   for (const [dir, srcs] of csp) {
     for (const s of srcs) {
       t(label + ': ' + dir + ' names no wildcard host (' + s + ')',
-        !/^\*/.test(s) && !/^(https?|ws|wss):\/\/\*/.test(s), s);
-      if (/^http:\/\//.test(s)) {
+        !/^\*/.test(s) && !/^[a-z][a-z0-9+.-]*:\/\/\*/i.test(s), s);
+      /* Deliberately NOT gated on `://`: a bare `http:` is a plaintext source
+         too, and this is the check whose name already covers it. */
+      if (/^http:/i.test(s)) {
         t(label + ': ' + dir + ' plaintext http: source is loopback only (' + s + ')',
-          /^http:\/\/(127\.0\.0\.1|localhost)(:(\*|\d+))?$/.test(s), s);
+          /^http:\/\/(127\.0\.0\.1|localhost)(:(\*|\d+))?$/.test(s), s +
+          ' — a bare `http:` names no host, so it is every plaintext origin on the web');
       }
-      if (/^https?:\/\//.test(s)) {
+      if (KEYWORD_SRC.test(s)) {
+        t(label + ': ' + dir + ' names no keyword outside the documented set (' + s + ')',
+          ALLOWED_KEYWORDS.has(s),
+          "a keyword is a capability, not an origin: 'strict-dynamic' hands every allowlist " +
+          'decision to whatever a trusted script injects, and a nonce or hash silently switches ' +
+          "'unsafe-inline' off in every CSP3 browser — which blanks the inline handlers on all " +
+          '28 gated pages. Neither contains a host, so no origin check ever sees them');
+      } else if (SCHEME_ONLY_SRC.test(s)) {
+        t(label + ': ' + dir + ' names no open scheme (' + s + ')',
+          ALLOWED_SCHEME_SOURCES.has(s),
+          'a scheme-only source has no host in it, so it allows EVERY origin on that scheme ' +
+          'and defeats ALLOWED_REMOTE entirely. Documented scheme sources: ' +
+          [...ALLOWED_SCHEME_SOURCES.keys()].join(' '));
+      } else if (ABSOLUTE_SRC.test(s)) {
         const entry = ALLOWED_REMOTE.get(s);
         t(label + ': ' + s + ' is a documented origin',
           !!entry, 'unlisted origin in ' + dir + ' — add it to ALLOWED_REMOTE with a reason, or drop it');
@@ -235,9 +349,31 @@ for (const [label, csp] of [['_headers', shell], ['gate.js', gate]]) {
             entry.directives.includes(dir), dir + ' not in [' + entry.directives.join(', ') + ']');
           t(label + ': ' + s + ' carries a reason', !!entry.why && entry.why.length > 10);
         }
+      } else {
+        t(label + ': ' + dir + ' names a source of a recognised shape (' + s + ')', false,
+          'not a keyword, not blob:/data:, not an absolute origin — a bare host source like ' +
+          'this is never looked up in ALLOWED_REMOTE, so it would ship entirely undocumented');
       }
     }
   }
+
+  /* The floors: a directive can be emptied or deleted outright in BOTH copies
+     and every check above still passes, because they all judge what is there. */
+  for (const [dir, needs] of REQUIRED_SOURCES) {
+    const got = csp.get(dir);
+    t(label + ': ' + dir + ' is declared', !!got,
+      'directive missing entirely — deleting it from both copies is perfect parity and a ' +
+      'broken product; it falls back to default-src and quietly loses ' +
+      needs.map(([s]) => s).join(' '));
+    if (!got) continue;
+    for (const [src, why] of needs) {
+      t(label + ': ' + dir + ' still allows ' + src, got.has(src), why);
+    }
+  }
+}
+for (const dir of PINS.keys()) {
+  t('the pinned directive ' + dir + ' is not also a capability list',
+    !REQUIRED_SOURCES.has(dir), 'PINS and REQUIRED_SOURCES both claim ' + dir);
 }
 
 /* ── 3. parity — the whole point ─────────────────────────────────────── */
@@ -254,7 +390,22 @@ for (const [label, csp] of [['_headers', shell], ['gate.js', gate]]) {
     const b = gate.get(dir) || new Set();
     const ex = EXCEPTIONS.get(dir) || {};
     if (EXCEPTIONS.has(dir)) {
-      t('the declared divergence on ' + dir + ' states why', !!ex.why && ex.why.length > 20, ex.why || '(none)');
+      const declared = [...(ex.onlyInShell || []), ...(ex.onlyInGate || [])];
+      const r = reasoned(ex.why);
+      t('the declared divergence on ' + dir + ' states why in prose', r.prose,
+        JSON.stringify(ex.why || '(none)') + ' — 60+ characters and 10+ distinct words, ' +
+        'because `length > 20` accepted 25 characters of "aaaa…" and made this whole ' +
+        'mechanism a one-line move');
+      t('the declared divergence on ' + dir + ' cites something checkable', r.cites,
+        'name the file:line or the origin that pays for it, the way ALLOWED_REMOTE does');
+      t('the declared divergence on ' + dir + ' names the sources it waives', declared.length > 0,
+        'an entry with no onlyInShell/onlyInGate waives nothing and exists only to be ' +
+        'widened later — delete it');
+      t('the declared divergence on ' + dir + ' is still real',
+        declared.every((s) => only(a, b).includes(s) || only(b, a).includes(s)),
+        'listed but not diverging: ' +
+        declared.filter((s) => !only(a, b).includes(s) && !only(b, a).includes(s)).join(', ') +
+        ' — a stale exception is a pre-authorisation for the next change to this directive');
     }
     const missingInGate = only(a, b).filter((s) => !(ex.onlyInShell || []).includes(s));
     const missingInShell = only(b, a).filter((s) => !(ex.onlyInGate || []).includes(s));
@@ -269,11 +420,25 @@ for (const [label, csp] of [['_headers', shell], ['gate.js', gate]]) {
 
   /* Belt and braces: the assembled strings, normalised, must match. Catches a
      duplicated directive or stray token that the per-directive sets would
-     quietly absorb. */
-  const norm = (csp) => [...csp.entries()].map(([d, s]) => d + ' ' + [...s].sort().join(' '))
+     quietly absorb.
+
+     An EXCEPTIONS entry subtracts only the sources it named, and only from
+     the directive it was filed under. It used to short-circuit this comparison
+     for EVERY directive the moment `EXCEPTIONS.size > 0` — so one entry filed
+     against any directive at all, with 25 characters of nonsense for a
+     reason, turned the last global check in the file off and let `blob:`
+     disappear from the gate's media-src at 314 passed / 0 failed. */
+  const waived = (dir, side) => {
+    const ex = EXCEPTIONS.get(dir);
+    if (!ex) return [];
+    return (side === 'shell' ? ex.onlyInShell : ex.onlyInGate) || [];
+  };
+  const norm = (csp, side) => [...csp.entries()]
+    .map(([d, s]) => d + ' ' + [...s].filter((x) => !waived(d, side).includes(x)).sort().join(' '))
     .sort().join('; ');
-  t('the two policies are token-for-token identical',
-    EXCEPTIONS.size > 0 || norm(shell) === norm(gate));
+  t('the two policies are token-for-token identical outside what their own EXCEPTIONS entry waives',
+    norm(shell, 'shell') === norm(gate, 'gate'),
+    '_headers: ' + norm(shell, 'shell') + '\n      gate.js:  ' + norm(gate, 'gate'));
 }
 
 /* ── 4. the research origins the code actually calls ─────────────────── */

@@ -138,6 +138,114 @@ t('rollupByCharacter sums per character', roll.length === 2 &&
   roll[0].character === 'MAGGIE' && roll[0].cost === 300 &&
   roll[1].character === 'TOM' && roll[1].looks === 2 && roll[1].cost === 235.5);
 
+/* ── calibration: the loop from a real invoice back onto the next estimate ──
+   The template is props/lib-props.js (priceItem + recordQuote): learn from the
+   RAW estimate, suppress below the evidence threshold, and always show the
+   count. Deliberately NOT js/learn.js's budgetSummary, which reports the mean
+   size of its own corrections and rises as the system gets more wrong. */
+delete globalThis.CLearn;
+const uncal = W.pricePiece({ item: 'Chore coat', source: 'buy', cost: 120.45 });
+t('with no learning layer at all the estimate is the estimate',
+  uncal.raw === 120.45 && uncal.est === 120.45 && uncal.mult === 1 &&
+  uncal.learnedN === 0 && uncal.n === 0 && uncal.calibrated === false);
+t('recordActual is safe without a learning layer',
+  W.recordActual({ item: 'Boots', source: 'rent', cost: 35.5 }, 40) === 0);
+
+/* N = 0: nothing learned, nothing claimed. */
+let history = { 'wardrobe:buy': { n: 0 }, 'wardrobe:rent': { n: 1, mult: 1.9 },
+                'wardrobe:build': { n: 4, mult: 1.35 }, 'wardrobe:cast-own': { n: 0 } };
+let learned = [];
+globalThis.CLearn = {
+  calibration: (acct) => {
+    const h = history[acct] || { n: 0 };
+    return h.n >= 2 ? { mult: h.mult, n: h.n } : { mult: 1, n: h.n };
+  },
+  learnBudget: (sheet) => { learned.push(sheet); return 1; }
+};
+t('at N=0 the multiplier is 1, the count is 0 and nothing says calibrated', (() => {
+  const c = W.calibrationFor('buy');
+  return c.mult === 1 && c.learnedN === 0 && c.n === 0 && c.ready === false;
+})());
+t('at N=1 the evidence exists, is reported, and is NOT applied', (() => {
+  const c = W.calibrationFor('rent');
+  return c.n === 1 && c.mult === 1 && c.learnedN === 0 && c.ready === false;
+})());
+t('the threshold is stated, not hidden in a comparison', W.LEARN_MIN === 2);
+t('at N=4 the multiplier applies and carries its count', (() => {
+  const p = W.pricePiece({ item: 'Dress', source: 'build', cost: 300 });
+  return p.mult === 1.35 && p.learnedN === 4 && p.calibrated === true &&
+    p.raw === 300 && p.est === 405;
+})());
+t('a suppressed source prices at raw with the count still visible', (() => {
+  const p = W.pricePiece({ item: 'Boots', source: 'rent', cost: 35.5 });
+  return p.est === p.raw && p.learnedN === 0 && p.n === 1;
+})());
+t('an unknown source is priced as buy rather than dropped',
+  W.pricePiece({ item: 'X', source: 'steal', cost: 10 }).source === 'buy');
+t('the account is the source, namespaced to this department',
+  W.learnAcct('build') === 'wardrobe:build' && W.learnAcct('nonsense') === 'wardrobe:buy');
+
+/* Learning takes the RAW estimate. Feeding the calibrated number back would
+   teach the multiplier from its own output. */
+learned = [];
+const built = W.makePiece({ item: 'Coat', source: 'build', cost: 300, actual: 0 });
+t('a piece carries an actual alongside its estimate, not instead of it',
+  built.cost === 300 && built.actual === 0);
+t('recordActual feeds learnBudget with the wardrobe account and the RAW estimate',
+  W.recordActual(built, 420) === 1 && learned.length === 1 &&
+  learned[0].categories[0].acct === 'wardrobe:build' &&
+  learned[0].categories[0].items[0].est === 300 &&
+  learned[0].categories[0].items[0].actual === 420);
+t('the calibrated estimate is never what gets learned from',
+  W.pricePiece(built).est === 405 && learned[0].categories[0].items[0].est !== 405);
+t('an invoice of zero teaches nothing', W.recordActual(built, 0) === 0);
+t('an estimate of zero has nothing to be wrong about',
+  W.recordActual({ item: 'Own jeans', source: 'cast-own', cost: 0 }, 90) === 0);
+learned = [];
+const invoiced = W.newLook({ character: 'TOM', lookName: 'Suit', sceneKeys: ['4A'] });
+invoiced.pieces.push(W.makePiece({ item: 'Suit', source: 'rent', cost: 80, actual: 96.5 }));
+invoiced.pieces.push(W.makePiece({ item: 'Tie', source: 'buy', cost: 22, actual: 0 }));
+t('recordLookActuals learns from every piece an invoice has landed on',
+  W.recordLookActuals(invoiced) === 1 && learned.length === 1 &&
+  learned[0].categories[0].items[0].actual === 96.5);
+t('lookEstimate carries raw, calibrated and invoiced side by side', (() => {
+  const e = W.lookEstimate(invoiced);
+  return e.raw === 102 && e.est === 102 && e.actual === 96.5 && e.calibrated === 0;
+})());
+
+/* The rollup: per source, the multiplier and the count behind it. */
+const calLooks = [
+  (() => { const a = W.newLook({ character: 'MAGGIE', lookName: 'Apron', sceneKeys: ['1'] });
+           a.pieces.push(W.makePiece({ item: 'Dress', source: 'build', cost: 300 }));
+           a.pieces.push(W.makePiece({ item: 'Boots', source: 'rent', cost: 35.5, actual: 41.25 }));
+           return a; })(),
+  (() => { const b = W.newLook({ character: 'TOM', lookName: 'Work', sceneKeys: ['2'] });
+           b.pieces.push(W.makePiece({ item: 'Coat', source: 'buy', cost: 120.45 }));
+           return b; })()
+];
+const ct = W.calibratedTotals(calLooks);
+t('the calibrated total moves only where there is evidence',
+  ct.raw === 455.95 && ct.est === 455.95 + 105 && ct.calibrated === 1 && ct.pieces === 3);
+t('every source reports its own multiplier and count, including the empty ones',
+  ct.bySource.build.mult === 1.35 && ct.bySource.build.learnedN === 4 &&
+  ct.bySource.buy.mult === 1 && ct.bySource.buy.n === 0 &&
+  ct.bySource.rent.n === 1 && ct.bySource.rent.mult === 1 &&
+  ct.bySource['cast-own'].pieces === 0);
+t('the invoiced total is carried through the rollup', ct.actual === 41.25);
+t('the department\'s own arithmetic is untouched by any history',
+  W.totalsBySource(calLooks).total === 455.95);
+delete globalThis.CLearn;
+t('and it prices identically once the learning layer goes away again',
+  W.calibratedTotals(calLooks).est === W.totalsBySource(calLooks).total);
+t('a broken learning layer degrades to the raw estimate rather than throwing', (() => {
+  globalThis.CLearn = { calibration: () => { throw new Error('nope'); },
+                        learnBudget: () => { throw new Error('nope'); } };
+  const p = W.pricePiece({ item: 'X', source: 'buy', cost: 50 });
+  const r = W.recordActual({ item: 'X', source: 'buy', cost: 50 }, 60);
+  delete globalThis.CLearn;
+  return p.est === 50 && p.learnedN === 0 && r === 0;
+})());
+
 /* ── change plot (the legacy numeric grid) ── */
 const plot = W.changePlot(looks, 4);
 t('plot covers all scenes and characters', plot.sceneCount === 4 && plot.characters.join(',') === 'MAGGIE,TOM');

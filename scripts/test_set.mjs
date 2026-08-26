@@ -63,9 +63,22 @@ for (const mm of [18, 25, 35, 50, 85, 100]) {
   t(`the plan and the sensor table agree at ${mm}mm`,
     Math.abs(S.fovDeg(mm) - M.lensCalc('super35', mm).hfov) < 0.05);
 }
+/* The fallback is a COPY of one row of the shared table — the row that table
+   calls default. The key was never pinned and sensorOf() spelled 'super35' out
+   by hand, so moving TMedia.DEFAULT_SENSOR would have left this module on a
+   format nobody chose, silently, with every suite still green. */
 t('the fallback sensor is a copy of the shared table, not a fourth opinion',
-  S.FALLBACK_SENSOR.w === M.SENSORS.super35.w && S.FALLBACK_SENSOR.h === M.SENSORS.super35.h &&
-  S.FALLBACK_SENSOR.label === M.SENSORS.super35.label);
+  S.FALLBACK_SENSOR.w === M.SENSORS[M.DEFAULT_SENSOR].w &&
+  S.FALLBACK_SENSOR.h === M.SENSORS[M.DEFAULT_SENSOR].h &&
+  S.FALLBACK_SENSOR.label === M.SENSORS[M.DEFAULT_SENSOR].label);
+t('and it copies the row the shared table calls DEFAULT',
+  S.FALLBACK_SENSOR.key === M.DEFAULT_SENSOR, `${S.FALLBACK_SENSOR.key} vs ${M.DEFAULT_SENSOR}`);
+t('the 2D plan and the 3D engine fall back to the same row',
+  S.FALLBACK_SENSOR.key === S3.FALLBACK_SENSOR.key &&
+  S.FALLBACK_SENSOR.w === S3.FALLBACK_SENSOR.w && S.FALLBACK_SENSOR.h === S3.FALLBACK_SENSOR.h);
+t('sensorOf falls back to the shared default, not to a hardcoded key',
+  S.sensorOf('nope').key === M.DEFAULT_SENSOR && S3.sensorFor('nope').key === M.DEFAULT_SENSOR,
+  `${S.sensorOf('nope').key} / ${S3.sensorFor('nope').key}`);
 t('every format in the table is answerable', M.sensorList().every((s) => S.fovDeg(35, s.key) > 0));
 t('a bigger sensor is a wider view at the same focal length',
   S.fovDeg(35, 'alexa-65') > S.fovDeg(35, 'super35') && S.fovDeg(35, 'super35') > S.fovDeg(35, 's16'));

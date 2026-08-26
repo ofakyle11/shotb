@@ -92,32 +92,74 @@
   /* ── E&O readiness ─────────────────────────────────────────────────────
      "E&O-ready" is a representation made to an insurer, so it is computed
      from the state of the clearance work — not from whether anybody typed
-     anything. The old rule was `open === 0` where open counted only findings
-     still marked `pending`: set every finding to "accepted risk" and the page
-     turned green with ZERO items actually cleared, and an empty chain of
-     title, no music licences and no certificate of insurance still read
-     CLEAR because those stores were never consulted.
+     anything.
 
-     A finding is RESOLVED only when it is cleared or rewritten. "Accepted
-     risk" is a decision to carry it — a disclosure the underwriter must see,
-     never a clearance. Everything else is a blocker with a name. */
+     The rule has now failed twice the same way, so it is stated once here and
+     the code below does exactly this and nothing looser:
+
+       READY means every script finding is CLEARED or REWRITTEN, and each of
+       the four files has been READ and says yes. Anything else is a blocker
+       with a name. An UNKNOWN — a store nobody opened, a policy with no
+       expiry, a scan that never ran — is a blocker too, because absence of
+       evidence is not clearance.
+
+     What went wrong before, both times computed from `pending` alone:
+       · flip every finding to "accepted risk" → open=2, resolved=0, READY.
+         "Accepted risk" is a decision to CARRY a finding, a disclosure the
+         underwriter must see. It is not a clearance and never turns the
+         banner green.
+       · zero findings because nobody ever scanned + one E&O row with no
+         carrier, no policy number and no expiry (a blank expiry read as
+         "live") + no music store at all → READY, over the words "every cue
+         licensed, policy live". Every one of those is now named. */
   var RESOLVED = ['cleared', 'rewritten'];
   var STATUSES = ['pending', 'cleared', 'rewritten', 'accepted risk'];
   var CHAIN_KINDS = ['Underlying rights', 'Option', 'Purchase', 'Life rights', 'Writer agreement'];
 
   function isResolved(f) { return RESOLVED.indexOf(f && f.status) >= 0; }
 
+  function isArr(v) { return Object.prototype.toString.call(v) === '[object Array]'; }
+  function isObj(v) { return !!v && typeof v === 'object' && !isArr(v); }
+  /* rowsIn(v, keys) — "was this store read, and what is in it?"
+       {checked:false}            nothing was passed: the store was never read
+       {checked:true, rows:[…]}   read; the list may legitimately be empty
+       {checked:true, bad:true}   read, but the value is not a list of rows —
+                                  e.g. SB_Rights_v1 holding an object, which
+                                  used to throw `rights.filter is not a
+                                  function` and take the whole page with it.
+     "Checked and empty" and "never checked" are different facts and the
+     caller must be able to tell them apart. */
+  function rowsIn(v, keys) {
+    if (v == null) return { checked: false, rows: [] };
+    if (isArr(v)) return { checked: true, rows: v.filter(isObj) };
+    if (isObj(v)) {
+      for (var i = 0; i < keys.length; i++) {
+        if (isArr(v[keys[i]])) return { checked: true, rows: v[keys[i]].filter(isObj) };
+      }
+      return { checked: true, rows: [], bad: true };
+    }
+    return { checked: true, rows: [], bad: true };
+  }
+
   /* summary(findings, ctx?) — ctx is the rest of the E&O file, read from the
-     stores that already hold it:
+     stores that already hold it. Pass the STORE VALUE, null and all: this
+     function distinguishes "not read" from "read and empty", and a caller
+     that substitutes [] or {cues:[]} for a missing store is lying to it.
        ctx.rights     SB_Rights_v1 rows   [{material,kind,party,termEnd,status}]
-       ctx.music      SB_Music_v1 store   {cues:[{title,status,scope}]}
+                      (an object with .rows is accepted; anything else is
+                      reported as unreadable rather than thrown over)
+       ctx.music      SB_Music_v1 store   {cues:[{title,status,scope}], noMusic?}
        ctx.insurance  SB_Insurance_v1 rows[{kind,carrier,policy,expiry}]
+       ctx.scannedAt  SB_ClearScan_v1.scannedAt — '' means never scanned, and
+                      zero findings then means nobody looked, not "clean"
        ctx.todayISO   the caller's date — this module never calls Date.now()
-     With no ctx the finding maths still runs and the three file blockers are
-     reported as UNKNOWN rather than silently passing. */
+     `findings` may also be the SB_ClearScan_v1 store itself ({findings,
+     scannedAt}); the scan date is taken from it when ctx does not carry one. */
   function summary(findings, ctx) {
-    var list = findings || [];
     var c = ctx || {};
+    var list = isArr(findings) ? findings.filter(isObj)
+      : (isObj(findings) && isArr(findings.findings) ? findings.findings.filter(isObj) : []);
+    var scannedAt = c.scannedAt || (isObj(findings) && findings.scannedAt) || '';
     var by = {};
     list.forEach(function (f) {
       by[f.cat] = by[f.cat] || { total: 0, cleared: 0, high: 0 };
@@ -127,22 +169,37 @@
     });
     var pending = list.filter(function (f) { return f.status === 'pending'; }).length;
     var accepted = list.filter(function (f) { return f.status === 'accepted risk'; }).length;
+    var other = list.filter(function (f) {
+      return !isResolved(f) && f.status !== 'pending' && f.status !== 'accepted risk'; }).length;
     var open = list.filter(function (f) { return !isResolved(f); }).length;
 
     var blockers = [];
     var disclosures = [];
     if (pending) blockers.push({ id: 'findings', label: pending + ' script finding' + (pending === 1 ? '' : 's') +
       ' still pending', detail: 'Clear, rewrite, or record an accepted risk against every one.' });
-    if (accepted) disclosures.push({ id: 'accepted-risk', label: accepted + ' finding' + (accepted === 1 ? '' : 's') +
-      ' carried as accepted risk', detail: 'Not cleared — list each one on the application; the underwriter decides, not the production.' });
+    if (other) blockers.push({ id: 'findings-open', label: other + ' script finding' + (other === 1 ? '' : 's') +
+      ' neither cleared nor rewritten', detail: 'Only "cleared" and "rewritten" resolve a finding.' });
+    /* The one that shipped green: carried is not cleared. It blocks readiness
+       AND it goes on the application, because the underwriter decides. */
+    if (accepted) {
+      blockers.push({ id: 'accepted-risk', label: accepted + ' finding' + (accepted === 1 ? '' : 's') +
+        ' carried as accepted risk', detail: 'Carried, not cleared. The production does not get to call this ready — disclose each one and let the underwriter answer.' });
+      disclosures.push({ id: 'accepted-risk', label: accepted + ' finding' + (accepted === 1 ? '' : 's') +
+        ' carried as accepted risk', detail: 'Not cleared — list each one on the application; the underwriter decides, not the production.' });
+    }
+    /* Nobody ever ran the scan. Zero findings is not a clean script. */
+    if (!scannedAt && !list.length) blockers.push({ id: 'scan', label: 'Screenplay never scanned',
+      detail: 'No clearance scan on record. Run the scan above; an empty list is only meaningful after one.', unknown: true });
 
     /* chain of title */
-    var rights = c.rights;
-    if (!rights) blockers.push({ id: 'chain', label: 'Chain of title not checked',
+    var rights = rowsIn(c.rights, ['rows', 'rights', 'list', 'items']);
+    if (!rights.checked) blockers.push({ id: 'chain', label: 'Chain of title not checked',
       detail: 'Rights register (Tools › Rights & chain of title) was not read.', unknown: true });
+    else if (rights.bad) blockers.push({ id: 'chain', label: 'Chain of title unreadable',
+      detail: 'SB_Rights_v1 does not hold a list of agreements. Open Tools › Rights & chain of title and re-enter the chain.', unknown: true });
     else {
-      var executed = rights.filter(function (r) { return r.status === 'Executed'; });
-      var gaps = rights.filter(function (r) { return r.status && r.status !== 'Executed'; });
+      var executed = rights.rows.filter(function (r) { return r.status === 'Executed'; });
+      var gaps = rights.rows.filter(function (r) { return r.status && r.status !== 'Executed'; });
       var hasUnderlying = executed.some(function (r) { return CHAIN_KINDS.indexOf(r.kind) >= 0; });
       if (!hasUnderlying) blockers.push({ id: 'chain', label: 'No executed underlying-rights agreement',
         detail: 'The chain starts with an executed option, purchase, life-rights or writer agreement. Nothing on file.' });
@@ -152,11 +209,16 @@
     }
 
     /* music licences */
-    var music = c.music;
-    if (!music) blockers.push({ id: 'music', label: 'Music licences not checked',
-      detail: 'SB_Music_v1 (Music Rights & Score) was not read.', unknown: true });
+    var music = rowsIn(c.music, ['cues', 'rows', 'list']);
+    var musicFree = isObj(c.music) && c.music.noMusic === true;   // written by music/index.html
+    if (!music.checked) blockers.push({ id: 'music', label: 'Music licences not checked',
+      detail: 'SB_Music_v1 (Music Rights & Score) was not read — nobody has opened the cue sheet.', unknown: true });
+    else if (music.bad) blockers.push({ id: 'music', label: 'Cue sheet unreadable',
+      detail: 'SB_Music_v1 does not hold a list of cues.', unknown: true });
+    else if (!music.rows.length && !musicFree) blockers.push({ id: 'music', label: 'No cues on file',
+      detail: 'The cue sheet is empty. Spot the picture in Music — or tick "no third-party music" there to say so on the record.', unknown: true });
     else {
-      var cues = (music.cues || music || []).filter(function (q) { return q && q.status !== 'replaced'; });
+      var cues = music.rows.filter(function (q) { return q.status !== 'replaced'; });
       var unlicensed = cues.filter(function (q) { return q.status !== 'licensed'; });
       var festivalOnly = cues.filter(function (q) { return q.status === 'licensed' && q.scope === 'festival'; });
       if (unlicensed.length) blockers.push({ id: 'music', label: unlicensed.length + ' music cue' +
@@ -167,23 +229,44 @@
         detail: 'A festival-only sync does not cover distribution — exercise the step-up before delivery.' });
     }
 
-    /* certificate of insurance */
-    var ins = c.insurance;
-    if (!ins) blockers.push({ id: 'eo-policy', label: 'E&O policy not checked',
+    /* certificate of insurance — a policy is a carrier, a number and a date.
+       A row with none of them is a note to self, and a blank expiry is not a
+       policy that never expires. */
+    var ins = rowsIn(c.insurance, ['rows', 'policies', 'list', 'items']);
+    if (!ins.checked) blockers.push({ id: 'eo-policy', label: 'E&O policy not checked',
       detail: 'Insurance register (Tools › Insurance & certificates) was not read.', unknown: true });
+    else if (ins.bad) blockers.push({ id: 'eo-policy', label: 'Insurance register unreadable',
+      detail: 'SB_Insurance_v1 does not hold a list of policies.', unknown: true });
     else {
-      var eo = ins.filter(function (r) { return r.kind === 'E&O'; });
-      var live = eo.filter(function (r) { return !c.todayISO || !r.expiry || r.expiry >= c.todayISO; });
+      var eo = ins.rows.filter(function (r) { return r.kind === 'E&O'; });
+      var vague = eo.filter(function (r) { return !(r.carrier && r.policy && r.expiry); });
+      var full = eo.filter(function (r) { return r.carrier && r.policy && r.expiry; });
+      var live = full.filter(function (r) { return !c.todayISO || r.expiry >= c.todayISO; });
       if (!eo.length) blockers.push({ id: 'eo-policy', label: 'No E&O policy on file',
         detail: 'Log the policy or the broker submission in the insurance register.' });
-      else if (!live.length) blockers.push({ id: 'eo-policy', label: 'E&O policy expired',
-        detail: eo.map(function (r) { return (r.carrier || 'carrier unknown') + ' expired ' + (r.expiry || '—'); }).join('; ') });
+      else {
+        if (vague.length) blockers.push({ id: 'eo-policy-detail', label: vague.length + ' E&O row' +
+          (vague.length === 1 ? '' : 's') + ' incomplete',
+          detail: vague.map(function (r) {
+            var missing = [];
+            if (!r.carrier) missing.push('carrier');
+            if (!r.policy) missing.push('policy number');
+            if (!r.expiry) missing.push('expiry');
+            return (r.carrier || r.policy || 'unnamed row') + ' — no ' + missing.join(', ');
+          }).join('; ') + '. A certificate the insurer will recognise carries all three.', unknown: true });
+        if (full.length && !live.length) blockers.push({ id: 'eo-policy', label: 'E&O policy expired',
+          detail: full.map(function (r) { return (r.carrier || 'carrier unknown') + ' expired ' + r.expiry; }).join('; ') });
+      }
     }
 
+    var unknown = blockers.filter(function (b) { return b.unknown; }).length;
     return { byCategory: by, open: open, pending: pending, acceptedRisk: accepted,
              resolved: list.length - open, total: list.length,
-             blockers: blockers, disclosures: disclosures,
-             checked: !!(c.rights && c.music && c.insurance),
+             scannedAt: scannedAt,
+             blockers: blockers, disclosures: disclosures, unknown: unknown,
+             /* every file actually read — not "the caller handed me a default" */
+             checked: !!(rights.checked && !rights.bad && music.checked && !music.bad &&
+                         ins.checked && !ins.bad && (scannedAt || list.length)),
              eoReady: blockers.length === 0 };
   }
 

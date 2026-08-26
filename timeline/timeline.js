@@ -14,9 +14,17 @@ const JUNK_CHAR_WORDS=new Set([
   'LAUNCHES','SCREAMS','STRAIGHTENS','JACKET','TURNS','AROUND','LEAVES','SHAKES','WALKS','ALONE','ATOP','CLIFF','WARRIORS','CHIEF','SWORN'
 ]);
 
+/* The master frame rate lives on the state, not on the <select> and not on the
+   exporter's default. Both turnover artifacts this module produces — the EDL
+   and the project JSON — are read by a machine that cannot infer the rate, so
+   an unstated rate is not "unknown", it is 24: SBExport.normFps() substitutes
+   the default and the file says `* FRAME RATE: 24` with total confidence. That
+   is how a 30 fps master ships with 24 fps timecode. The rate is threaded from
+   here to every export call below, and nothing reads $('tlFps') except the one
+   handler that writes it back to this field. */
 let state={
   projectName:'Untitled Film',clips:[],characters:{},locationBible:[],selectedId:null,selectedChar:null,selectedLoc:null,
-  scriptText:'',
+  scriptText:'',fps:24,
   global:{filmStyle:'Cinematic',colorGrade:'Natural',aspectRatio:'16:9',quality:'1080p',audioProfile:'Cinematic',model:'local-comfy',clipDuration:5,language:'English'},
   assembly:{titleText:'',creditsText:'',musicHint:'',sfxHint:''},
   parseResult:null,queue:{running:false}

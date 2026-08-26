@@ -59,13 +59,60 @@ const s3 = F.newSub({ festival: 'Slamdance', deadline: '2026-07-01', fee: 45, su
 const s4 = F.newSub({ festival: 'Tribeca', deadline: '2026-12-01', fee: 60, result: 'withdrawn' });
 const s5 = F.newSub({ festival: 'Mystery Fest', fee: 'not a number', result: 'bogus' });
 t('newSub defaults result to pending', s2.result === 'pending' && s5.result === 'pending');
-t('newSub coerces fee to number', s1.fee === 85 && s5.fee === 0);
+t('newSub keeps the fee TEXT and reads an amount off it',
+  s1.fee === '85' && F.feeOf(s1.fee) === 85 && s5.fee === 'not a number' && F.feeOf(s5.fee) === null);
 t('newSub ids are unique', s1.id !== s2.id && s2.id !== s3.id);
 const subs = [s2, s1, s3, s4, s5];
 const fees = F.feesTotal(subs);
 t('fees split paid vs planned', fees.paid === 85 + 45 && fees.planned === 70 + 60);
 t('fees total adds up', fees.total === fees.paid + fees.planned);
+t('an unreadable fee is reported, never counted as $0',
+  fees.unknown === 1 && fees.unknownFees[0].festival === 'Mystery Fest' &&
+  fees.unknownFees[0].fee === 'not a number');
 t('feesTotal safe on empty', F.feesTotal([]).total === 0 && F.feesTotal(null).total === 0);
+
+/* ── THE FEE COLUMN IS A TEXT INPUT ──
+   tools/tools-registers.js renders the fee as a plain text field, so these are
+   the values that actually arrive. A bare parseFloat read them as 0, 1, 2 and
+   0 — a submissions register that quietly loses $1,200 of real spend. Every
+   case below is one an owner types. */
+const FEE_CASES = [
+  ['$1,200', 1200], ['1,200', 1200], ['2 500', 2500], ['2\u00a0500', 2500],
+  ['CAD 95', 95], ['95 USD', 95], ['€50', 50], ['£75.50', 75.5],
+  ['65.50', 65.5], ['41,25', 41.25], ['1.200,50', 1200.5], ['1,200.50', 1200.5],
+  ['~85', 85], ['$95+', 95], ['(50)', -50], ['free', 0], ['waived', 0],
+  ['85', 85], [85, 85], ['  110  ', 110]
+];
+FEE_CASES.forEach(([raw, want]) => t('feeOf ' + JSON.stringify(raw) + ' → ' + want, F.feeOf(raw) === want));
+const FEE_UNKNOWN = ['tbd', 'TBD', 'ask', 'n/a', '65–110', '', '   ', null, undefined, 'two for one'];
+FEE_UNKNOWN.forEach((raw) => t('feeOf ' + JSON.stringify(raw) + ' is unknown, not 0', F.feeOf(raw) === null));
+t('the typed text is never replaced by a number', (() => {
+  const s = F.normSub({ festival: 'Sundance', fee: '$1,200' });
+  const back = F.normSub(s);                       // a second pass must not erode it
+  return s.fee === '$1,200' && back.fee === '$1,200' && F.feeOf(back.fee) === 1200;
+})());
+t('an unparseable fee survives a round trip through the store', (() => {
+  const store = F.setSubs(F.blank(), [{ name: 'Locarno', fee: 'tbd' }]);
+  const back = F.migrate(JSON.parse(JSON.stringify(store)));
+  return back.subs[0].fee === 'tbd' && F.feesTotal(back.subs).unknown === 1 &&
+    F.feesTotal(back.subs).total === 0;
+})());
+t('feeText normalises for storage without inventing', F.feeText(85) === '85' &&
+  F.feeText('  $1,200 ') === '$1,200' && F.feeText(null) === '' && F.feeText(NaN) === '');
+/* Festival fees are almost never whole dollars — the totals must add cents. */
+t('fees add in cents, exactly', (() => {
+  const f = F.feesTotal([{ fee: '$65.50', submittedOn: '2026-08-01' },
+                         { fee: '41,25', submittedOn: '2026-08-02' },
+                         { fee: '$1,200.10' }]);
+  return f.paid === 106.75 && f.planned === 1200.1 && f.total === 1306.85;
+})());
+t('hostile fees reach the totals through migrate', (() => {
+  const st = F.migrate([{ name: 'A', fee: '$1,200', submitted: '2026-08-01' },
+                        { name: 'B', fee: '1,200' }, { name: 'C', fee: '2 500' },
+                        { name: 'D', fee: 'tbd' }]);
+  const f = F.feesTotal(st.subs);
+  return f.paid === 1200 && f.planned === 3700 && f.unknown === 1;
+})());
 const up = F.upcoming(subs, '2026-08-23');
 t('upcoming excludes withdrawn and no-deadline', up.length === 3 &&
   up.every(s => s.result === 'pending' && s.deadline));
@@ -105,7 +152,8 @@ t('legacy name→festival, submitted→submittedOn, premiere→premiereReq', (()
   return s.festival === 'Sundance' && s.submittedOn === '2026-08-01' &&
     s.premiereReq === 'World' && s.tier === 'A-list' && s.notes === 'shorts programmer likes it';
 })());
-t('legacy fee string becomes a number', fromArray.subs[0].fee === 85);
+t('legacy fee text is kept and reads as an amount',
+  fromArray.subs[0].fee === '85' && F.feeOf(fromArray.subs[0].fee) === 85);
 t('legacy row ids are kept, not reminted', fromArray.subs.map(s => s.id).join() === 't1,t2,t3');
 t('legacy status maps to a result', fromArray.subs[0].result === 'pending' &&
   fromArray.subs[1].result === 'rejected' && fromArray.subs[2].result === 'accepted');
@@ -135,11 +183,54 @@ t('bogus premiereStatus falls back', F.migrate({ premiereStatus: 'zap' }).premie
   F.PREMIERE_STATUSES.length === 3);
 t('migrate is idempotent', JSON.stringify(F.migrate(fromArray).subs) === JSON.stringify(fromArray.subs));
 t('migrate survives junk rows', F.migrate([null, 7, 'x', { name: 'Real' }]).subs.length === 1);
-t('duplicate ids are separated, not merged away',
-  F.migrate([{ id: 'dup', name: 'A' }, { id: 'dup', name: 'B' }]).subs.length === 2);
+
+/* ── a row that is an ARRAY is rows, not a row ──
+   [[rowA, rowB]] passes `typeof r === 'object'`, so two real submissions used
+   to collapse into ONE blank row with a fresh id — the owner's festivals gone
+   with no error anywhere. */
+t('a nested array of rows is flattened, not swallowed', (() => {
+  const a = { id: 'n1', name: 'Venice', fee: '$1,200' };
+  const b = { id: 'n2', name: 'Locarno', fee: '55' };
+  const viaObj = F.migrate({ subs: [[a, b]] });
+  const viaArr = F.migrate([[a, b], { id: 'n3', name: 'TIFF' }]);
+  return viaObj.subs.length === 2 && viaObj.subs.map(s => s.festival).join() === 'Venice,Locarno' &&
+    F.feesTotal(viaObj.subs).planned === 1255 &&
+    viaArr.subs.length === 3 && viaArr.subs[2].festival === 'TIFF';
+})());
+t('setSubs flattens arrays too', F.setSubs(F.blank(), [[{ name: 'A' }, { name: 'B' }]]).subs.length === 2);
+t('a deeply nested paste still yields its rows',
+  F.migrate([[[{ name: 'Deep' }]]]).subs.length === 1);
+
+/* ── ids are stable across reloads ──
+   A row with no id was minted a NEW random id on every load(), and duplicate
+   ids were re-minted the same way, so nothing could refer to a submission
+   twice. Both cases must answer the same on the second read. */
+t('an id-less row keeps the same id on every load', (() => {
+  const rows = [{ name: 'Rotterdam', deadline: '2026-10-01', fee: '$1,200' }];
+  const one = F.migrate(rows).subs[0].id, two = F.migrate(rows).subs[0].id;
+  return !!one && one === two && F.migrate([{ name: 'Other' }]).subs[0].id !== one;
+})());
+t('duplicate ids are separated deterministically, not re-minted', (() => {
+  const rows = [{ id: 'dup', name: 'A' }, { id: 'dup', name: 'B' }, { id: 'dup', name: 'C' }];
+  const a = F.migrate(rows).subs.map(s => s.id).join();
+  const b = F.migrate(rows).subs.map(s => s.id).join();
+  return a === 'dup,dup-2,dup-3' && a === b;
+})());
 t('normSub defaults a bare row', (() => {
   const s = F.normSub({});
-  return s.result === 'pending' && s.fee === 0 && s.festival === '' && !!s.id;
+  return s.result === 'pending' && s.fee === '' && s.festival === '' && !!s.id;
+})());
+
+/* ── a status this module has no mapping for is still the owner's word ── */
+t('an unmapped status keeps the word AND stays pending', (() => {
+  const s = F.normSub({ name: 'Sundance', status: 'Shortlisted' });
+  return s.result === 'pending' && s.stage === 'Shortlisted';
+})());
+t('a status that is already a result carries no duplicate stage chip',
+  F.normSub({ status: 'pending' }).stage === '' && F.normSub({ status: 'Rejected' }).result === 'rejected');
+t('an unmapped status survives the store round trip', (() => {
+  const st = F.migrate([{ id: 'w1', name: 'Cannes', status: 'Waitlisted' }]);
+  return F.migrate(JSON.parse(JSON.stringify(st))).subs[0].stage === 'Waitlisted';
 })());
 t('normBuyer keeps an existing id', F.normBuyer({ id: 'keepme', name: 'X' }).id === 'keepme');
 
@@ -156,8 +247,10 @@ t('setSubs re-points the store at a caller-owned array', (() => {
   F.setSubs(store, store.subs.filter(s => s.festival !== 'SXSW'));  // a delete
   return kept && store.subs.length === 1 && store.subs[0].festival === 'Locarno';
 })());
-t('setSubs normalises what a text input typed', F.setSubs(F.blank(),
-  [{ name: 'Venice', fee: '120', submitted: '2026-06-01' }]).subs[0].fee === 120);
+t('setSubs normalises what a text input typed', (() => {
+  const s = F.setSubs(F.blank(), [{ name: 'Venice', fee: '$120', submitted: '2026-06-01' }]).subs[0];
+  return s.fee === '$120' && s.submittedOn === '2026-06-01' && F.feeOf(s.fee) === 120;
+})());
 
 /* load()/save() round-trip through whatever localStorage is there */
 t('load without localStorage is a blank store', F.load().subs.length === 0);

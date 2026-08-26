@@ -172,12 +172,28 @@ t('the legs reach the floor', near(legBottom, 0), legBottom);
     t(`the 3D frustum and the sensor table agree at ${mm}mm`,
       Math.abs(S3.lensFov(mm, false) - M.lensCalc('super35', mm).hfov) < 0.05);
   }
+  /* The fallback exists for props/index.html, which loads this module without
+     the tools bundle. It is a COPY of one row of the shared table, and the
+     row it copies has to be the row the shared table calls default — key
+     included. Nothing asserted the key before, and sensorFor() spelled
+     'super35' out by hand, so moving TMedia.DEFAULT_SENSOR would have put the
+     two halves of the app back on two different formats without a single test
+     going red. It is now pinned from both ends. */
   t('the fallback sensor is a copy of the shared table, not a second opinion',
-    S3.FALLBACK_SENSOR.w === M.SENSORS.super35.w && S3.FALLBACK_SENSOR.h === M.SENSORS.super35.h &&
-    S3.FALLBACK_SENSOR.label === M.SENSORS.super35.label);
+    S3.FALLBACK_SENSOR.w === M.SENSORS[M.DEFAULT_SENSOR].w &&
+    S3.FALLBACK_SENSOR.h === M.SENSORS[M.DEFAULT_SENSOR].h &&
+    S3.FALLBACK_SENSOR.label === M.SENSORS[M.DEFAULT_SENSOR].label);
+  t('and it copies the row the shared table calls DEFAULT',
+    S3.FALLBACK_SENSOR.key === M.DEFAULT_SENSOR,
+    `${S3.FALLBACK_SENSOR.key} vs ${M.DEFAULT_SENSOR}`);
+  t('the two set modules fall back to the same row',
+    S.FALLBACK_SENSOR.key === S3.FALLBACK_SENSOR.key &&
+    S.FALLBACK_SENSOR.w === S3.FALLBACK_SENSOR.w && S.FALLBACK_SENSOR.h === S3.FALLBACK_SENSOR.h);
   t('sensorFor resolves a key against the shared table',
     S3.sensorFor('s16').w === M.SENSORS.s16.w && S3.sensorFor('s16').key === 's16');
-  t('sensorFor falls back rather than returning nothing', S3.sensorFor('nope').key === 'super35');
+  t('sensorFor falls back to the shared default, not to a hardcoded key',
+    S3.sensorFor('nope').key === M.DEFAULT_SENSOR && S.sensorOf('nope').key === M.DEFAULT_SENSOR,
+    `${S3.sensorFor('nope').key} / ${S.sensorOf('nope').key}`);
   t('a named format is honoured', Math.abs(S3.lensFov(35, false, 'fullframe') - 54.4) < 0.1,
     S3.lensFov(35, false, 'fullframe'));
   t('an unknown format falls back to the default',
@@ -226,7 +242,7 @@ t('the legs reach the floor', near(legBottom, 0), legBottom);
     const mid = centre(mesh.quads.flat());
     return mesh.quads.every((q) => {
       const n = triNormal(q);
-      if (!n[0] && !n[1] && !n[2]) return true;          // degenerate cap corner
+      if (!n[0] && !n[1] && !n[2]) return false;         // no face may be degenerate
       return S3.dot(n, S3.sub(centre(q), mid)) > 0;
     });
   };
@@ -249,7 +265,7 @@ t('the legs reach the floor', near(legBottom, 0), legBottom);
      the same volume negated. That holds for a union of closed solids too,
      which is what every composite shape here is. */
   const signedVolume = (mesh) => mesh.quads.reduce((sum, q) =>
-    sum + [[q[0], q[1], q[2]], [q[0], q[2], q[3]]].reduce((s, tr) =>
+    sum + S3.faceTris(q).reduce((s, tr) =>
       s + S3.dot(tr[0], S3.cross(S3.sub(tr[1], tr[0]), S3.sub(tr[2], tr[0]))) / 6, 0), 0);
   const catalog = Object.keys(S3.PROFILES);
   const inverted = catalog.filter((type) =>
@@ -336,8 +352,22 @@ t('the legs reach the floor', near(legBottom, 0), legBottom);
 /* ── triangulation for the renderer ── */
 {
   const tri = S3.triangulate(scene.meshes);
-  t('every quad becomes two triangles',
-    tri.count === scene.meshes.reduce((n, m) => n + m.quads.length * 6, 0), tri.count);
+  /* A face is a fan: a quad gives two triangles, a cap wedge gives one. The
+     renderer computes each mesh's vertex range from meshTriCount(), so the
+     two have to agree exactly or every highlight is drawn against the wrong
+     slice of the buffer. */
+  t('every face becomes its own fan of triangles',
+    tri.count === scene.meshes.reduce((n, m) => n + S3.meshTriCount(m) * 3, 0), tri.count);
+  t('meshTriCount matches what triangulate actually emitted',
+    scene.meshes.every((m) => S3.triangulate([m]).count === S3.meshTriCount(m) * 3));
+  t('a quad still becomes exactly two triangles',
+    S3.faceTris([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).length === 2);
+  t('a triangle face becomes exactly one',
+    S3.faceTris([[0, 0, 0], [1, 0, 0], [1, 1, 0]]).length === 1);
+  t('a face with a repeated corner loses the repeat rather than the area',
+    S3.faceTris([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 0, 0]]).length === 1);
+  t('a face that is not a face produces no triangles',
+    S3.faceTris([[0, 0, 0], [1, 0, 0]]).length === 0 && S3.faceTris([]).length === 0);
   t('positions and normals line up', tri.normals.length === tri.positions.length);
   t('every vertex has a colour', tri.colors.length === tri.count * 4);
   t('all normals are unit length', (() => {
@@ -365,8 +395,11 @@ t('the legs reach the floor', near(legBottom, 0), legBottom);
   t('OBJ face indices are 1-based', /^f 1 2 3 4$/m.test(obj));
   t('OBJ says what the units are', /units: feet/.test(obj));
   const vCount = (obj.match(/^v /gm) || []).length;
-  const fCount = (obj.match(/^f /gm) || []).length;
-  t('OBJ has four vertices per face', vCount === fCount * 4, `${vCount} v / ${fCount} f`);
+  const faces = obj.split('\n').filter((l) => l.startsWith('f ')).map((l) => l.slice(2).trim().split(/\s+/));
+  t('OBJ writes one vertex per face corner, three or four of them',
+    vCount === faces.reduce((n, f) => n + f.length, 0) &&
+    faces.every((f) => f.length === 3 || f.length === 4),
+    `${vCount} v / ${faces.length} f`);
 
   const stl = S3.toSTL(plan, 'Test Set');
   t('STL is a well-formed solid', /^solid /.test(stl) && /endsolid\s*$/.test(stl));
@@ -382,6 +415,74 @@ t('the legs reach the floor', near(legBottom, 0), legBottom);
     !/^v 0 0 0$/m.test(nasty.split('\n').slice(0, 4).join('\n')));
 }
 
+/* ── the exported geometry has to be a solid a tool will accept ────────────
+   A box is the one shape that cannot show this defect, and a box was all the
+   export tests measured — so the cap fans went out as degenerate quads
+   [c, p1, p0, c] and nothing noticed. Invisible on screen, because the second
+   triangle of that quad has no area and rasterises to nothing; not invisible
+   at all in a file, where one plant produced 24 of 72 STL facets reading
+   `facet normal 0 0 0` and 24 of 36 OBJ faces carrying a repeated vertex.
+   That is non-manifold, and a slicer or a DCC tool either rejects it or
+   silently "repairs" it into something the art department did not draw.
+
+   So: measure a CYLINDER, and measure the file rather than the mesh. */
+{
+  const cylPlan = { w: 10, h: 10, items: [
+    { id: 'pl', type: 'plant', x: 5, y: 5, w: 3, h: 3, rot: 0 }] };
+  const stl = S3.toSTL(cylPlan, 'plant');
+  const normals = stl.match(/^facet normal .*$/gm) || [];
+  const zero = normals.filter((n) => /^facet normal (-?0(\.0+)?\s+){2}-?0(\.0+)?$/.test(n));
+  t('a cylinder exports facets at all', normals.length > 0, normals.length);
+  t('NOT ONE exported STL facet has a zero normal', zero.length === 0,
+    `${zero.length} of ${normals.length}`);
+  t('every STL facet normal is a unit direction', (() => {
+    for (const n of normals) {
+      const v = n.split(/\s+/).slice(2).map(Number);
+      if (!v.every(isFinite) || Math.abs(Math.hypot(...v) - 1) > 1e-3) return false;
+    }
+    return true;
+  })());
+  /* Zero-area triangles are the thing being removed, so the count has to drop
+     to exactly the real surface: 12 side quads (2 triangles each) + 12 top
+     wedges + 12 bottom wedges = 48, not the 72 it used to write. */
+  t('the facet count is the real surface, with no zero-area padding',
+    normals.length === 48, normals.length);
+  t('no STL facet repeats one of its own vertices', (() => {
+    const blocks = stl.split('facet normal').slice(1);
+    return blocks.every((b) => {
+      const vs = (b.match(/vertex [^\n]*/g) || []).map((s) => s.trim());
+      return vs.length === 3 && new Set(vs).size === 3;
+    });
+  })());
+
+  const obj = S3.toOBJ(cylPlan, 'plant');
+  const objFaces = obj.split('\n').filter((l) => l.startsWith('f '))
+    .map((l) => l.slice(2).trim().split(/\s+/));
+  t('a cylinder exports OBJ faces at all', objFaces.length > 0, objFaces.length);
+  t('NOT ONE exported OBJ face repeats a vertex',
+    objFaces.every((f) => new Set(f).size === f.length),
+    `${objFaces.filter((f) => new Set(f).size !== f.length).length} of ${objFaces.length}`);
+  t('the cap fans are written as triangles, the sides as quads',
+    objFaces.filter((f) => f.length === 3).length === 24 &&
+    objFaces.filter((f) => f.length === 4).length === 12,
+    objFaces.map((f) => f.length).join(''));
+  t('every OBJ face index points at a vertex the file declares', (() => {
+    const nv = (obj.match(/^v /gm) || []).length;
+    return objFaces.every((f) => f.every((i) => +i >= 1 && +i <= nv));
+  })());
+
+  /* And the whole catalog, not just the one shape that showed the bug. */
+  const bad = Object.keys(S3.PROFILES).filter((type) => {
+    const p = { w: 20, h: 20, items: [{ id: 'x', type, x: 10, y: 10, w: 4, h: 3, rot: 23 }] };
+    const s = S3.toSTL(p, type), o = S3.toOBJ(p, type);
+    const zeroN = (s.match(/facet normal (-?0(\.0+)?\s+){2}-?0(\.0+)?$/gm) || []).length;
+    const dupF = o.split('\n').filter((l) => l.startsWith('f '))
+      .filter((l) => { const f = l.slice(2).trim().split(/\s+/); return new Set(f).size !== f.length; }).length;
+    return zeroN > 0 || dupF > 0;
+  });
+  t('nothing in the catalog exports degenerate geometry', bad.length === 0, bad.join(','));
+}
+
 /* ── an empty or malformed plan must not throw ── */
 {
   t('an empty plan builds nothing, safely', S3.buildScene({ items: [] }).meshes.length === 0);
@@ -389,6 +490,21 @@ t('the legs reach the floor', near(legBottom, 0), legBottom);
   const junk = S3.itemMesh({ id: 'j', type: 'nope', x: 'x', y: null, w: 0, h: undefined, rot: 'r' }, 10);
   t('a junk item still produces finite geometry',
     junk.quads.flat().every((p) => p.every((v) => isFinite(v))));
+}
+
+
+/* cleanFace drops the repeated vertices that made the cylinder cap fans
+   degenerate: they were invisible on screen but exported 24 of 72 STL facets
+   as `facet normal 0 0 0` and 24 of 36 OBJ faces with a duplicated vertex —
+   non-manifold, and rejected or silently "repaired" by slicers. */
+{
+  const A = [0, 0, 0], B = [1, 0, 0], C = [1, 1, 0];
+  t('cleanFace leaves a real triangle alone', (S3.cleanFace([A, B, C]) || []).length === 3);
+  t('cleanFace collapses an adjacent repeat', (S3.cleanFace([A, A, B, C]) || []).length === 3);
+  t('cleanFace closes the wrap-around repeat', (S3.cleanFace([A, B, C, A]) || []).length === 3);
+  t('a degenerate cap fan is refused, not emitted', S3.cleanFace([A, B, B, A]) === null);
+  t('cleanFace refuses anything under three points', S3.cleanFace([A, B]) === null && S3.cleanFace([]) === null);
+  t('cleanFace refuses a null face', S3.cleanFace(null) === null);
 }
 
 console.log(`test_set3d: ${pass} passed, ${fail} failed`);

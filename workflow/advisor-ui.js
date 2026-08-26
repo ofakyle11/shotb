@@ -114,7 +114,7 @@
       var w = R.walk;
       var tone = !w.enough ? 'var(--dim)' : (w.verdict === 'worse' ? '#A65D5D' : (w.verdict === 'better' ? '#4A8B7A' : 'var(--dim)'));
       h += '<p class="wf-adv-foot wf-dim" style="font-size:10px;color:var(--dim);display:block;line-height:1.7">' +
-        '<span style="color:' + tone + '">' + esc(R.headline) + '</span><br>' +
+        '<span style="color:' + esc(tone) + '">' + esc(R.headline) + '</span><br>' +
         esc(R.gate) + '<br>' + esc(R.activity) + '<br>' +
         (S.renders ? esc(S.renders + ' renders timed — your machine averages ' + S.wallPerClip + 's/clip (' + S.trend + ')')
                    : 'Render speed not measured yet.') +

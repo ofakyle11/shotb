@@ -233,6 +233,22 @@
           <div class="panel-pad">
             <p class="panel-desc" id="outputStats">0 approved</p>
             <div id="queuePanel"></div>
+            <!-- The master frame rate. An EDL carries no rate of its own beyond
+                 FCM, and a project JSON is read back by a machine, so a wrong
+                 rate here conforms silently: a 30 fps master turned over with
+                 24 fps timecode lands 25% long with no error anywhere. This
+                 picker is the ONE place the rate is set, and both exporters
+                 read it — they used to be called with no rate at all and
+                 stamped 24 unconditionally. -->
+            <label class="panel-desc" for="tlFps">Master frame rate
+              <select id="tlFps">
+                <option value="23.976">23.976 fps</option>
+                <option value="24" selected>24 fps</option>
+                <option value="25">25 fps (PAL)</option>
+                <option value="29.97">29.97 fps</option>
+                <option value="30">30 fps</option>
+              </select>
+            </label>
             <div class="output-btns">
               <button class="tb-btn gold" id="btnFinal">Final Export (MP4)</button>
               <button class="tb-btn" id="btnEDL">Export EDL</button>

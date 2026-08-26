@@ -21,7 +21,7 @@
  },
  "app.html::ex(t)": {
   "n": 1,
-  "why": "ex() (app.html:2358) already escapes all five of & < > \" ' — verified character by character. The scanner just does not know the name. Output is XML written into a .docx zip via JSZip, never into the DOM."
+  "why": "ex() (app.html:2358) already escapes all five of & < > \" ' \u2014 verified character by character. The scanner just does not know the name. Output is XML written into a .docx zip via JSZip, never into the DOM."
  },
  "app.html::i": {
   "n": 12,
@@ -65,19 +65,19 @@
  },
  "app.html::o": {
   "n": 4,
-  "why": "An element of CINE.<group>.o — the hard-coded cinematography option table declared at app.html:2071 (lens names, film stocks, camera moves). Every member is a literal in that table; nothing user-supplied enters it."
+  "why": "An element of CINE.<group>.o \u2014 the hard-coded cinematography option table declared at app.html:2071 (lens names, film stocks, camera moves). Every member is a literal in that table; nothing user-supplied enters it."
  },
  "app.html::pi": {
   "n": 1,
-  "why": "The array index from a forEach callback — a number."
+  "why": "The array index from a forEach callback \u2014 a number."
  },
  "app.html::prov": {
   "n": 1,
   "why": "sbProviderBadge(...) output (app.html:1584). It escapes the tip and the label, and the only unescaped part is a colour taken from the SB_PROVIDER_LABELS constant or the literal '#888' fallback."
  },
- "app.html::reasonList.join(' · ')": {
+ "app.html::reasonList.join(' \u00b7 ')": {
   "n": 1,
-  "why": "reasonList is built on the line immediately above as '<strong>'+esc(f)+'</strong>: '+esc(sugR[f]) — both interpolated values are already esc()'d and the <strong> tags are intentional markup. Escaping the join would print the tags as text."
+  "why": "reasonList is built on the line immediately above as '<strong>'+esc(f)+'</strong>: '+esc(sugR[f]) \u2014 both interpolated values are already esc()'d and the <strong> tags are intentional markup. Escaping the join would print the tags as text."
  },
  "app.html::relTime(p.updated_at)": {
   "n": 1,
@@ -97,7 +97,7 @@
  },
  "app.html::shotLabel": {
   "n": 1,
-  "why": "`S${si+1}.${shi+1}` from the same loop indices — digits and a dot. Rendered as text."
+  "why": "`S${si+1}.${shi+1}` from the same loop indices \u2014 digits and a dot. Rendered as text."
  },
  "app.html::si": {
   "n": 18,
@@ -145,23 +145,27 @@
  },
  "boards/boards.js::opts(S.SIZES, sh.size)": {
   "n": 1,
-  "why": "opts() is a local function defined at boards/boards.js:43. After my edit its body is `'<option' + (o === cur ? ' selected' : '') + '>' + esc(o) + '</option>'` — every fragment it emits is either a string literal in this same file or esc(o), so its return value cannot carry markup regardless of what is passed in. The second argument (sh.size, from localStorage SB_Boards_v1) is used ONLY in the `o === cur` comparison and is never interpolated into the output. Wrapping the call site in esc() would escape opts' own <option> tags and break the selects."
+  "why": "opts() is a local function defined at boards/boards.js:43. After my edit its body is `'<option' + (o === cur ? ' selected' : '') + '>' + esc(o) + '</option>'` \u2014 every fragment it emits is either a string literal in this same file or esc(o), so its return value cannot carry markup regardless of what is passed in. The second argument (sh.size, from localStorage SB_Boards_v1) is used ONLY in the `o === cur` comparison and is never interpolated into the output. Wrapping the call site in esc() would escape opts' own <option> tags and break the selects."
  },
  "casting/index.html::roleStatusTag(r)": {
   "n": 1,
-  "why": "roleStatusTag is defined 11 lines above the sink in casting/index.html and deliberately returns markup, so escaping it would print literal <span> tags in the Status column. All three of its return paths are literal HTML built in that same function: (1) '<span class=\"co-tag booked\">booked · ' + esc(booked.name) + '</span>' — the only variable is already esc()'d; (2) '<span class=\"co-tag\">' + esc(offers) + ' in play</span>' — offers is Array.prototype.filter().length over r.candidates, and I additionally wrapped it in esc() as part of this pass so the claim holds even if that value is ever poisoned; (3) '<span class=\"co-tag\">open</span>' — a bare literal. No caller-supplied or localStorage-supplied string reaches the output unescaped."
+  "why": "roleStatusTag is defined 11 lines above the sink in casting/index.html and deliberately returns markup, so escaping it would print literal <span> tags in the Status column. All three of its return paths are literal HTML built in that same function: (1) '<span class=\"co-tag booked\">booked \u00b7 ' + esc(booked.name) + '</span>' \u2014 the only variable is already esc()'d; (2) '<span class=\"co-tag\">' + esc(offers) + ' in play</span>' \u2014 offers is Array.prototype.filter().length over r.candidates, and I additionally wrapped it in esc() as part of this pass so the claim holds even if that value is ever poisoned; (3) '<span class=\"co-tag\">open</span>' \u2014 a bare literal. No caller-supplied or localStorage-supplied string reaches the output unescaped."
  },
  "editor/cut-ui.js::inner": {
   "n": 1,
   "why": "clipEl(cls, id, left, width, inner, track) at /home/user/shotb/editor/cut-ui.js:213 takes `inner` as an already-composed HTML fragment (it intentionally contains <b>, <span class=\"ed-clipmeta\"> and <canvas class=\"ed-wave\">), so escaping it would render the clip chrome as literal text and change what the UI displays. It has exactly three call sites, all in this same file, and after my edits every attacker-reachable value inside each of them is escaped: line 225-228 (esc(c.label || 'Clip'), C.effDur(c).toFixed(1) which is a number, esc(c.speed), esc(c.srcId)); line 231 (esc(ti.text.slice(0,22))); line 234-235 (esc(a.label.slice(0,20)), esc(a.srcId)). The only other content is literal markup written in this file. Verified by grepping every clipEl( call site."
  },
+ "festivals/index.html::feeCell(s.fee)": {
+  "n": 1,
+  "why": "Both branches escape: a parsed amount goes through esc(amt.toLocaleString()), and text that will not parse goes through esc(txt) inside a flagged span. It exists because the migration used to turn \"$1,200\" into 0 \u2014 now an unreadable fee shows the owner's own words and says so, rather than silently becoming a wrong number."
+ },
  "finance/index.html::fm(r.budget)": {
   "n": 1,
-  "why": "fm is defined in this same file (finance/index.html:99) as `return '$' + Math.round(n).toLocaleString();`. Math.round always evaluates to a Number primitive (NaN at worst) no matter what object or string is passed, and Number.prototype.toLocaleString emits only digits, group/decimal separators and a sign — it can never emit & < > \" or '. A hostile r.budget from a shared archive is destroyed by the Math.round coercion before it reaches the string."
+  "why": "fm is defined in this same file (finance/index.html:99) as `return '$' + Math.round(n).toLocaleString();`. Math.round always evaluates to a Number primitive (NaN at worst) no matter what object or string is passed, and Number.prototype.toLocaleString emits only digits, group/decimal separators and a sign \u2014 it can never emit & < > \" or '. A hostile r.budget from a shared archive is destroyed by the Math.round coercion before it reaches the string."
  },
  "finance/index.html::fm(r.committed)": {
   "n": 1,
-  "why": "Same fm() helper (finance/index.html:99): '$' + Math.round(n).toLocaleString(). The Math.round coercion guarantees a Number primitive, so the result contains only digits, separators and a sign — no markup character can survive, whatever r.committed holds."
+  "why": "Same fm() helper (finance/index.html:99): '$' + Math.round(n).toLocaleString(). The Math.round coercion guarantees a Number primitive, so the result contains only digits, separators and a sign \u2014 no markup character can survive, whatever r.committed holds."
  },
  "finance/index.html::fm(r.efc)": {
   "n": 1,
@@ -173,7 +177,7 @@
  },
  "finance/index.html::fm(rep.totals.committed)": {
   "n": 1,
-  "why": "Same fm() helper (finance/index.html:99): the Math.round coercion reduces any value to a Number primitive, so toLocaleString can only emit digits, separators and a sign — never a markup character."
+  "why": "Same fm() helper (finance/index.html:99): the Math.round coercion reduces any value to a Number primitive, so toLocaleString can only emit digits, separators and a sign \u2014 never a markup character."
  },
  "finance/index.html::fm(rep.totals.efc)": {
   "n": 1,
@@ -215,25 +219,41 @@
   "n": 1,
   "why": "Same in-file numeric formatter: fmtMoney() (js/budget-engine.js:775-781) rounds its argument first, and every return path is '$' plus a number or a .toFixed() string plus a literal suffix."
  },
+ "js/ui-table.js::chipCls(x.cls)": {
+  "n": 1,
+  "why": "chipCls (js/ui-table.js:99) strips everything outside [\\w\\s-], so a flag class lands as a class token and cannot end the attribute. test_ui_chrome asserts the emitted value matches /class=\"tk-chip [\\w\\s-]*\"/ and that no attribute named on* is created."
+ },
+ "js/ui-table.js::cols": {
+  "n": 1,
+  "why": "s.fields.length + (s.flags ? 2 : 1) \u2014 arithmetic on an array length, used as a colspan."
+ },
+ "js/ui-table.js::h": {
+  "n": 1,
+  "why": "An accumulator of markup this file just built: every chip is esc(x.label) inside a chipCls()-filtered class, and every cell is esc()'d where it is appended. Nothing enters h unescaped."
+ },
+ "js/ui-table.js::s.summary(this.rows)": {
+  "n": 1,
+  "why": "DELIBERATE raw HTML, and the one entry here that is a trust decision rather than an escape. `summary` is a function from the PAGE's own schema, not from any stored or fetched value \u2014 the same trust level as the page's inline script, and the Register this replaced behaved identically. A schema built from user input would be a defect in the caller; if that becomes possible, revisit this entry."
+ },
  "locations/index.html::apply": {
   "n": 1,
-  "why": "apply is a local HTML fragment built four lines above (locations/index.html lines 285-287) from string literals in this same file; both branches are '<a class=\"tb-btn gold\" target=\"_blank\" rel=\"noopener\" href=\"' + esc(...) + '\">…</a>', so the only interpolated values (p.applyUrl and S.searchLink(...)) are already run through esc(). Escaping the fragment again would render the anchor tag as literal text instead of a link."
+  "why": "apply is a local HTML fragment built four lines above (locations/index.html lines 285-287) from string literals in this same file; both branches are '<a class=\"tb-btn gold\" target=\"_blank\" rel=\"noopener\" href=\"' + esc(...) + '\">\u2026</a>', so the only interpolated values (p.applyUrl and S.searchLink(...)) are already run through esc(). Escaping the fragment again would render the anchor tag as literal text instead of a link."
  },
  "locations/index.html::fee": {
   "n": 1,
-  "why": "Not an HTML sink. Line 261 is $('skLocs').querySelector('input[data-fee=\"' + fee + '\"]') — a CSS attribute selector, never assigned to innerHTML; the matched element is only read for .value (line 262). fee is the decoded value of the data-feego attribute, and the matching data-fee attribute is written with esc() at line 196, so HTML-escaping fee here would make the selector stop matching. Verified by reading the click handler at lines 258-270."
+  "why": "Not an HTML sink. Line 261 is $('skLocs').querySelector('input[data-fee=\"' + fee + '\"]') \u2014 a CSS attribute selector, never assigned to innerHTML; the matched element is only read for .value (line 262). fee is the decoded value of the data-feego attribute, and the matching data-fee attribute is written with esc() at line 196, so HTML-escaping fee here would make the selector stop matching. Verified by reading the click handler at lines 258-270."
  },
  "music/index.html::opts(M.SCOPES, c.scope)": {
   "n": 1,
-  "why": "Same helper: opts() at music/index.html:142-146 escapes every value it emits with esc() (which covers all five of & < > \" '), and c.scope is only compared with === to decide the literal ' selected' — never interpolated. The return value is finished HTML, so wrapping it again would break the scope select."
+  "why": "Same helper: opts() at music/index.html:142-146 escapes every value it emits with esc() (which covers all five of & < > \" '), and c.scope is only compared with === to decide the literal ' selected' \u2014 never interpolated. The return value is finished HTML, so wrapping it again would break the scope select."
  },
  "music/index.html::opts(M.STATUSES, c.status)": {
   "n": 1,
-  "why": "Same helper: opts() at music/index.html:142-146 escapes every emitted value with esc(), and c.status is only used in a === comparison for the literal ' selected' — never printed. The return value is already-escaped markup; re-escaping would render literal <option> tags in the status select."
+  "why": "Same helper: opts() at music/index.html:142-146 escapes every emitted value with esc(), and c.status is only used in a === comparison for the literal ' selected' \u2014 never printed. The return value is already-escaped markup; re-escaping would render literal <option> tags in the status select."
  },
  "music/index.html::opts(M.USES, c.use)": {
   "n": 1,
-  "why": "opts() is defined at music/index.html:142-146 and returns already-escaped markup: it emits <option value=\"' + esc(v) + '\">' + esc(v) + '</option> for each v in the list, and its second argument (c.use) is only used in a `v === cur` comparison to append the literal ' selected' — it is never printed. Escaping the return value would double-encode the tags and render literal <option> text inside the select."
+  "why": "opts() is defined at music/index.html:142-146 and returns already-escaped markup: it emits <option value=\"' + esc(v) + '\">' + esc(v) + '</option> for each v in the list, and its second argument (c.use) is only used in a `v === cur` comparison to append the literal ' selected' \u2014 it is never printed. Escaping the return value would double-encode the tags and render literal <option> text inside the select."
  },
  "netlify/functions/auth.js::new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })": {
   "n": 1,
@@ -241,15 +261,15 @@
  },
  "post/index.html::(r.blockedBy.length ? r.blockedBy.map(function (b) { return esc(names[b] || b); }).join('": {
   "n": 1,
-  "why": "Scanner artifact of the line-based concat matcher — the expression it clipped is a ternary whose only non-literal part is r.blockedBy.map(...), and every element is already passed through the file's esc() (line 118, escapes all five of & < > \" ') before .join(' + '). The alternate branch is the literal '—'. Double-wrapping would double-escape and change what the UI displays."
+  "why": "Scanner artifact of the line-based concat matcher \u2014 the expression it clipped is a ternary whose only non-literal part is r.blockedBy.map(...), and every element is already passed through the file's esc() (line 118, escapes all five of & < > \" ') before .join(' + '). The alternate branch is the literal '\u2014'. Double-wrapping would double-escape and change what the UI displays."
  },
  "post/index.html::act2": {
   "n": 1,
-  "why": "One of two constant markup literals — the link to /distribution/ shown when a deliverable is recorded done, or the dim note shown when it is not. Nothing is interpolated into either branch."
+  "why": "One of two constant markup literals \u2014 the link to /distribution/ shown when a deliverable is recorded done, or the dim note shown when it is not. Nothing is interpolated into either branch."
  },
- "post/index.html::s.path.map(function (id) { return esc(names[id] || id); }).join(' → ')": {
+ "post/index.html::s.path.map(function (id) { return esc(names[id] || id); }).join(' \u2192 ')": {
   "n": 1,
-  "why": "Every array element is already wrapped in the file's complete esc() (line 118) before joining; the separator ' → ' and nothing else is unescaped. names[] is built from s.rows in this file and even a prototype-chain key (e.g. 'constructor') is stringified through esc(). Escaping again would render &amp; etc. literally."
+  "why": "Every array element is already wrapped in the file's complete esc() (line 118) before joining; the separator ' \u2192 ' and nothing else is unescaped. names[] is built from s.rows in this file and even a prototype-chain key (e.g. 'constructor') is stringified through esc(). Escaping again would render &amp; etc. literally."
  },
  "post/index.html::slipCell(r)": {
   "n": 1,
@@ -261,7 +281,7 @@
  },
  "producer/budget-sheet.js::fm(itemEst(it))": {
   "n": 1,
-  "why": "Same wrapper: fm(n) = SBBudget.fmtMoney(n) (js/budget-engine.js:775-781). itemEst() (producer/budget-sheet.js:59-63) also returns only num()-derived arithmetic, and num() returns isFinite(n) ? n : 0 — a number in every case."
+  "why": "Same wrapper: fm(n) = SBBudget.fmtMoney(n) (js/budget-engine.js:775-781). itemEst() (producer/budget-sheet.js:59-63) also returns only num()-derived arithmetic, and num() returns isFinite(n) ? n : 0 \u2014 a number in every case."
  },
  "producer/budget-sheet.js::fm(repM.totals.efc)": {
   "n": 1,
@@ -285,15 +305,15 @@
  },
  "producer/schedule-board.js::cells.join('</td><td>')": {
   "n": 1,
-  "why": "SAFE. row() is a <tr>/<td> shell over cells its callers have already escaped: every cell handed to it in callSheetHtml is esc(...) output, a string literal typed in this file, or a concatenation of both. The helper itself introduces no value. Held at 1 — a second occurrence means somebody wrote a second row builder, which is the event worth failing on. Verified by reading all five call sites in producer/schedule-board.js."
+  "why": "SAFE. row() is a <tr>/<td> shell over cells its callers have already escaped: every cell handed to it in callSheetHtml is esc(...) output, a string literal typed in this file, or a concatenation of both. The helper itself introduces no value. Held at 1 \u2014 a second occurrence means somebody wrote a second row builder, which is the event worth failing on. Verified by reading all five call sites in producer/schedule-board.js."
  },
  "producer/schedule-board.js::k": {
   "n": 1,
-  "why": "The one remaining hit (schedule-board.js:291) is wrap.querySelector('input[data-tag=\"' + k + '\"]') — a CSS selector passed to querySelector, not an HTML sink. k iterates TAG_KEYS, the module-level literal array ['stunts','sfx','vfx','water','animals','vehicles'] defined at line 39 of this same file, so it can never be attacker-controlled. HTML-escaping a selector would be the wrong encoding anyway. The genuine HTML use of the same k (line 257, data-tag attribute) is now wrapped in esc()."
+  "why": "The one remaining hit (schedule-board.js:291) is wrap.querySelector('input[data-tag=\"' + k + '\"]') \u2014 a CSS selector passed to querySelector, not an HTML sink. k iterates TAG_KEYS, the module-level literal array ['stunts','sfx','vfx','water','animals','vehicles'] defined at line 39 of this same file, so it can never be attacker-controlled. HTML-escaping a selector would be the wrong encoding anyway. The genuine HTML use of the same k (line 257, data-tag attribute) is now wrapped in esc()."
  },
  "producer/schedule-board.js::tagBoxes": {
   "n": 1,
-  "why": "tagBoxes is an HTML fragment assembled 14 lines above (schedule-board.js:256-259) from string literals plus esc(k), a literal-picked ' checked', and k.charAt(0).toUpperCase()+k.slice(1) where k iterates TAG_KEYS — a module-level array of literal strings defined at line 39 of this same file. It is intentional <label>/<input> markup; escaping it would double-escape the checkboxes and break the breakdown editor. Every attacker-reachable value inside it is already escaped."
+  "why": "tagBoxes is an HTML fragment assembled 14 lines above (schedule-board.js:256-259) from string literals plus esc(k), a literal-picked ' checked', and k.charAt(0).toUpperCase()+k.slice(1) where k iterates TAG_KEYS \u2014 a module-level array of literal strings defined at line 39 of this same file. It is intentional <label>/<input> markup; escaping it would double-escape the checkboxes and break the breakdown editor. Every attacker-reachable value inside it is already escaped."
  },
  "taxcredit/index.html::deltaCls": {
   "n": 1,
@@ -301,7 +321,7 @@
  },
  "taxcredit/index.html::fm(model.advisorModel)": {
   "n": 1,
-  "why": "Same fm() numeric formatter defined at line 105 of this file — Math.round() forces a Number primitive and toLocaleString() cannot emit markup characters. model.advisorModel is Math.round(bt * qp * mid) in lib-taxcred.js line 120."
+  "why": "Same fm() numeric formatter defined at line 105 of this file \u2014 Math.round() forces a Number primitive and toLocaleString() cannot emit markup characters. model.advisorModel is Math.round(bt * qp * mid) in lib-taxcred.js line 120."
  },
  "taxcredit/index.html::fm(model.budgetCap)": {
   "n": 1,
@@ -309,7 +329,7 @@
  },
  "taxcredit/index.html::fm(model.estCredit)": {
   "n": 1,
-  "why": "Same fm() numeric formatter defined at line 105 of this file — sole return path is '$' + Math.round(n).toLocaleString(), which cannot emit < > & \" '. model.estCredit is itself computed as 0 or Math.round(rawCredit) in lib-taxcred.js line 119."
+  "why": "Same fm() numeric formatter defined at line 105 of this file \u2014 sole return path is '$' + Math.round(n).toLocaleString(), which cannot emit < > & \" '. model.estCredit is itself computed as 0 or Math.round(rawCredit) in lib-taxcred.js line 119."
  },
  "taxcredit/index.html::fm(model.qualifiedSpend)": {
   "n": 1,
@@ -317,11 +337,11 @@
  },
  "taxcredit/index.html::fm(model.totalSpend)": {
   "n": 1,
-  "why": "Same fm() numeric formatter defined at line 105 of this file — '$' + Math.round(n).toLocaleString() cannot carry markup for any input. model.totalSpend is Math.round(totalSpend) in lib-taxcred.js line 124."
+  "why": "Same fm() numeric formatter defined at line 105 of this file \u2014 '$' + Math.round(n).toLocaleString() cannot carry markup for any input. model.totalSpend is Math.round(totalSpend) in lib-taxcred.js line 124."
  },
  "taxcredit/index.html::fm(r.amount)": {
   "n": 1,
-  "why": "fm() is defined in this same file (line 105) as \"'$' + Math.round(n).toLocaleString()\". Math.round always returns a Number primitive regardless of input, and Number.prototype.toLocaleString can only emit digits, group/decimal separators, a sign, 'NaN' or '∞' — never < > & \" '. Verified empirically against markup strings, objects, arrays, null and Infinity: output was always $-prefixed numeric text."
+  "why": "fm() is defined in this same file (line 105) as \"'$' + Math.round(n).toLocaleString()\". Math.round always returns a Number primitive regardless of input, and Number.prototype.toLocaleString can only emit digits, group/decimal separators, a sign, 'NaN' or '\u221e' \u2014 never < > & \" '. Verified empirically against markup strings, objects, arrays, null and Infinity: output was always $-prefixed numeric text."
  },
  "timeline/timeline-budget.js::fmtMins(r.wallMinutes)": {
   "n": 1,
@@ -369,7 +389,7 @@
  },
  "timeline/timeline-characters.js::thumb": {
   "n": 1,
-  "why": "thumb is deliberate markup built at line 390 in the same function: `c.refUrl ? '<img src=\"' + esc(c.refUrl) + '\" alt=\"\">' : '<span class=\"ph\">👤</span>'`. Its only variable part, c.refUrl, is already inside a double-quoted src and passed through esc(), which I fixed to escape both quote characters. Escaping thumb itself would render the tags as visible text and break the card layout."
+  "why": "thumb is deliberate markup built at line 390 in the same function: `c.refUrl ? '<img src=\"' + esc(c.refUrl) + '\" alt=\"\">' : '<span class=\"ph\">\ud83d\udc64</span>'`. Its only variable part, c.refUrl, is already inside a double-quoted src and passed through esc(), which I fixed to escape both quote characters. Escaping thumb itself would render the tags as visible text and break the card layout."
  },
  "timeline/timeline-locations.js::sel": {
   "n": 1,
@@ -377,15 +397,15 @@
  },
  "timeline/timeline-locations.js::thumb": {
   "n": 1,
-  "why": "thumb is deliberate markup built at lines 212-214 of the same function: `loc.plateUrl ? '<img src=\"' + esc(loc.plateUrl) + '\" alt=\"\">' : '<span class=\"ph\">📍</span>'`. The only variable part is inside a double-quoted src and already escaped by esc(), which I fixed to cover both quote characters. Escaping thumb would print the tags as literal text."
+  "why": "thumb is deliberate markup built at lines 212-214 of the same function: `loc.plateUrl ? '<img src=\"' + esc(loc.plateUrl) + '\" alt=\"\">' : '<span class=\"ph\">\ud83d\udccd</span>'`. The only variable part is inside a double-quoted src and already escaped by esc(), which I fixed to cover both quote characters. Escaping thumb would print the tags as literal text."
  },
  "timeline/timeline.js::label": {
   "n": 1,
   "why": "label is the third parameter of mkTog() (line 1187). mkTog() has exactly twelve call sites, all on lines 1178-1180 of this same file, and every one passes a string literal ('Location', 'Time', 'Weather', 'Season', 'Angle', 'Film grade', 'Color', 'Saturation', 'Lighting', 'Mood', 'FX', 'Sound')."
  },
- "today/index.html::castNames.map(esc).join(' · ')": {
+ "today/index.html::castNames.map(esc).join(' \u00b7 ')": {
   "n": 1,
-  "why": "Every element is already passed through this file's own esc() (today/index.html line 62, which escapes all five of & < > \" '); .map(esc) applies it per name and the ' · ' separator is a literal in this file. The scanner only fails to see it because the escaping call is not the head of the expression. Wrapping the joined string again would double-escape (a name containing & would render as &amp;), which the brief forbids."
+  "why": "Every element is already passed through this file's own esc() (today/index.html line 62, which escapes all five of & < > \" '); .map(esc) applies it per name and the ' \u00b7 ' separator is a literal in this file. The scanner only fails to see it because the escaping call is not the head of the expression. Wrapping the joined string again would double-escape (a name containing & would render as &amp;), which the brief forbids."
  },
  "today/index.html::locs.map(esc).join('<br>')": {
   "n": 1,
@@ -393,7 +413,7 @@
  },
  "tools/lib-media.js::xmlEsc(e.path)": {
   "n": 1,
-  "why": "Already wrapped by xmlEsc (now all five); unrecognised name only. Verified with a hostile path containing \" > < script tags and an apostrophe — fully entity-encoded on write and byte-identical after parseManifest/xmlUnesc."
+  "why": "Already wrapped by xmlEsc (now all five); unrecognised name only. Verified with a hostile path containing \" > < script tags and an apostrophe \u2014 fully entity-encoded on write and byte-identical after parseManifest/xmlUnesc."
  },
  "tools/lib-media.js::xmlEsc(e.sha256)": {
   "n": 1,
@@ -405,7 +425,7 @@
  },
  "tools/lib-media.js::xmlEsc(meta.created || new Date().toISOString())": {
   "n": 1,
-  "why": "Wrapped by this file's xmlEsc, which I fixed to escape all five of & < > \" '. The scanner's SAFE_CALL regex only knows the names esc/escAttr/escape/escapeHtml/htmlEsc/encodeURIComponent/csvSafe, so it does not recognise xmlEsc — the value itself is escaped."
+  "why": "Wrapped by this file's xmlEsc, which I fixed to escape all five of & < > \" '. The scanner's SAFE_CALL regex only knows the names esc/escAttr/escape/escapeHtml/htmlEsc/encodeURIComponent/csvSafe, so it does not recognise xmlEsc \u2014 the value itself is escaped."
  },
  "tools/lib-media.js::xmlEsc(meta.project)": {
   "n": 1,
@@ -413,11 +433,11 @@
  },
  "tools/sched-weather.js::(w ? esc(S.wmoLabel(w.code))": {
   "n": 1,
-  "why": "Scanner truncates the expression at the first '+'; the real cell is (w ? esc(S.wmoLabel(w.code)) + ' · ' + esc(w.tmin) + '–' + esc(w.tmax) + '° · ' + esc(w.precipProb || 0) + '% rain' : '<span style=\"color:var(--dim)\">beyond forecast</span>'). Every interpolated value is now wrapped in this file's new esc(); the else branch is a string literal in this file. Nothing unescaped remains in it."
+  "why": "Scanner truncates the expression at the first '+'; the real cell is (w ? esc(S.wmoLabel(w.code)) + ' \u00b7 ' + esc(w.tmin) + '\u2013' + esc(w.tmax) + '\u00b0 \u00b7 ' + esc(w.precipProb || 0) + '% rain' : '<span style=\"color:var(--dim)\">beyond forecast</span>'). Every interpolated value is now wrapped in this file's new esc(); the else branch is a string literal in this file. Nothing unescaped remains in it."
  },
  "tools/tools-core.js::s.summary(this.rows)": {
   "n": 1,
-  "why": "Deliberate HTML producer. The register engine renders each section's own summary(), and those functions emit markup on purpose (<b> counts, <span class=\"tk-chip bad\"> warnings), so escaping here would print tags as text. Verified against all 17 summary providers in the repo — not 13, as an earlier note claimed: every value any of them interpolates is either a code-computed count (rows.filter(...).length, an incremented tally) or already wrapped in esc()/escAttr() inside the provider. Re-check this entry if a provider is ever added that interpolates a row field directly."
+  "why": "Deliberate HTML producer. The register engine renders each section's own summary(), and those functions emit markup on purpose (<b> counts, <span class=\"tk-chip bad\"> warnings), so escaping here would print tags as text. Verified against all 17 summary providers in the repo \u2014 not 13, as an earlier note claimed: every value any of them interpolates is either a code-computed count (rows.filter(...).length, an incremented tally) or already wrapped in esc()/escAttr() inside the provider. Re-check this entry if a provider is ever added that interpolates a row field directly."
  },
  "tools/tools-media-ui.js::opts": {
   "n": 1,
@@ -429,11 +449,11 @@
  },
  "vfx/index.html::fin": {
   "n": 1,
-  "why": "`fin` is a local var declared 4 lines above the sink and assigned only from a 3-branch ternary whose branches are literal HTML written in this file: `<span class=\"vx-note\">—</span>` when the shot has no joined PO, a `<span title=...>` carrying esc(money(poRow.amount)) once that PO is paid, and an `<input data-final=\"' + esc(sh.id) + '\" type=\"number\">` while it is open. It is intentionally markup — escaping it would render a visible <input> tag instead of an input. Both interpolations inside it are esc()'d at the point of use: sh.id is generated by CVfx.makeShot's uid(), and poRow.amount goes through money() -> CMoneyMath.fmt, which builds its output from digits and separators only. Neither branch interpolates a vendor, description or any other free-text field."
+  "why": "`fin` is a local var declared 4 lines above the sink and assigned only from a 3-branch ternary whose branches are literal HTML written in this file: `<span class=\"vx-note\">\u2014</span>` when the shot has no joined PO, a `<span title=...>` carrying esc(money(poRow.amount)) once that PO is paid, and an `<input data-final=\"' + esc(sh.id) + '\" type=\"number\">` while it is open. It is intentionally markup \u2014 escaping it would render a visible <input> tag instead of an input. Both interpolations inside it are esc()'d at the point of use: sh.id is generated by CVfx.makeShot's uid(), and poRow.amount goes through money() -> CMoneyMath.fmt, which builds its output from digits and separators only. Neither branch interpolates a vendor, description or any other free-text field."
  },
  "vfx/index.html::verdict": {
   "n": 1,
-  "why": "`verdict` is a local var declared 3 lines above the sink and assigned only from a 4-branch ternary whose every branch is a literal HTML string written in this file (`<span class=\"vx-tag\">no bid yet</span>`, `<span class=\"vx-under\">within range</span>`, and two `<span class=\"vx-over\">/<span class=\"vx-under\">` branches). It is intentionally markup, so escaping it would render visible tags. Its only interpolations are money(c.delta) and money(-c.delta), which are wrapped in esc(); money() now delegates to CMoneyMath.fmt (it was `'$' + (+n || 0).toLocaleString()` when this entry was written, and printed a $12,000.50 bid as `$12,000.5`), which coerces through CMoneyMath.cents and emits digits, commas, a dot and a leading -$ only — never attacker text. No branch reads localStorage or shot fields."
+  "why": "`verdict` is a local var declared 3 lines above the sink and assigned only from a 4-branch ternary whose every branch is a literal HTML string written in this file (`<span class=\"vx-tag\">no bid yet</span>`, `<span class=\"vx-under\">within range</span>`, and two `<span class=\"vx-over\">/<span class=\"vx-under\">` branches). It is intentionally markup, so escaping it would render visible tags. Its only interpolations are money(c.delta) and money(-c.delta), which are wrapped in esc(); money() now delegates to CMoneyMath.fmt (it was `'$' + (+n || 0).toLocaleString()` when this entry was written, and printed a $12,000.50 bid as `$12,000.5`), which coerces through CMoneyMath.cents and emits digits, commas, a dot and a leading -$ only \u2014 never attacker text. No branch reads localStorage or shot fields."
  },
  "wardrobe/index.html::pieceRows(l)": {
   "n": 1,
@@ -441,15 +461,15 @@
  },
  "workflow/advisor-ui.js::s[0]": {
   "n": 1,
-  "why": "s is `SEV[x.sev] || SEV.low` (line 58). SEV is a module-level constant defined literally at advisor-ui.js:21 with four entries whose values are literal arrays of the form ['#RRGGBB','LABEL']; nothing in the file ever writes to SEV. So s[0] is one of four literal hex colours — and if x.sev happens to name an inherited Object.prototype member, s[0] is undefined and stringifies to \"undefined\". Neither can carry markup into the style attribute. (x.sev itself is only used as a lookup key and is never interpolated.)"
+  "why": "s is `SEV[x.sev] || SEV.low` (line 58). SEV is a module-level constant defined literally at advisor-ui.js:21 with four entries whose values are literal arrays of the form ['#RRGGBB','LABEL']; nothing in the file ever writes to SEV. So s[0] is one of four literal hex colours \u2014 and if x.sev happens to name an inherited Object.prototype member, s[0] is undefined and stringifies to \"undefined\". Neither can carry markup into the style attribute. (x.sev itself is only used as a lookup key and is never interpolated.)"
  },
  "workflow/workflow.js::c.status": {
   "n": 1,
-  "why": "c iterates a.clips, which assess() builds in this same file (lines 176-181). Each element's status is `c.status === 'approved' ? 'approved' : c.status === 'generating' ? 'generating' : (c.videoUrl ? 'rendered' : 'queued')` — the stored clip status is only compared, never passed through, so the rendered value is always one of four in-file literals."
+  "why": "c iterates a.clips, which assess() builds in this same file (lines 176-181). Each element's status is `c.status === 'approved' ? 'approved' : c.status === 'generating' ? 'generating' : (c.videoUrl ? 'rendered' : 'queued')` \u2014 the stored clip status is only compared, never passed through, so the rendered value is always one of four in-file literals."
  },
  "workflow/workflow.js::k": {
   "n": 1,
-  "why": "k is the loop variable of `['generating', 'queued', 'rendered', 'approved'].map(function (k) {...})` — an array literal written inline at workflow.js:258. It can only ever be one of those four literal strings from this file."
+  "why": "k is the loop variable of `['generating', 'queued', 'rendered', 'approved'].map(function (k) {...})` \u2014 an array literal written inline at workflow.js:258. It can only ever be one of those four literal strings from this file."
  },
  "workflow/workflow.js::st.status": {
   "n": 2,

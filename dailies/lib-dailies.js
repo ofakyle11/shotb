@@ -408,7 +408,7 @@
           } else {
             row.note = 'Scene ' + sc.label + ' — ' + (sc.slug || '(no heading)') + ' — was scheduled on ' +
               dayName(rec) + ' and NO take was logged, on that day or any other. ' +
-              eighthsLabel(sc.eighths) + ' unshot: reschedule it or drop it on the record.';
+              eighthsLabel(row.eighths) + ' unshot: reschedule it or drop it on the record.';
             missed.push(row);
             missedHere.push(row);
           }

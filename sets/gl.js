@@ -211,8 +211,9 @@
       var cw = canvas.width || 1, ch = canvas.height || 1;
       var v = lensView();
       /* The panel's shape is only ever the frame when we are NOT a lens.
-         lensView() guarantees that by clearing a stale lock; the assertion
-         below is what makes a future regression loud instead of a fake lens. */
+         lensView() has already dropped a stale lock, so this cannot be
+         reached while locked; if some later change finds a way, the lock
+         goes here too rather than the panel becoming the format. */
       if (!v || !(v.aspect > 0)) {
         if (lockedCamera) releaseLock();
         return { x: 0, y: 0, w: cw, h: ch, aspect: cw / ch, letterboxed: false };
@@ -283,16 +284,22 @@
 
     function setPlan(plan) {
       currentPlan = plan;
+      /* The plan is the only thing that can invalidate the lock, so this is
+         where a deleted camera is noticed — before a single frame is drawn
+         through a lens that no longer exists. */
+      syncLock();
       var scene = S3.buildScene(plan);
       meshes = scene.meshes;
       tri = S3.triangulate(meshes);
 
       /* Where each mesh's vertices live, so one can be highlighted without
-         rebuilding anything. */
+         rebuilding anything. A face is three corners or four — cap fans are
+         triangles — so the count comes from the same fan the triangulator
+         used rather than from an assumed six vertices per face. */
       meshRanges = [];
       var at = 0;
       meshes.forEach(function (m) {
-        var n = m.quads.length * 6;
+        var n = S3.meshTriCount(m) * 3;
         meshRanges.push({ id: m.id, start: at, count: n });
         at += n;
       });
@@ -500,8 +507,16 @@
       pickAt: pickAt,
       select: function (id) { selectedId = id; frame(); },
       selected: function () { return selectedId; },
-      lookThrough: function (id) { lockedCamera = id || null; frame(); },
-      lockedCamera: function () { return lockedCamera; },
+      /* Locking onto an id that is not a camera on this plan is the same
+         stale-lock state by another route, so it is refused rather than
+         entered. */
+      lookThrough: function (id) {
+        lockedCamera = id || null;
+        if (lockedCamera && !lockValid()) lockedCamera = null;
+        frame();
+        return lockedCamera;
+      },
+      lockedCamera: function () { syncLock(); return lockedCamera; },
       /* What the viewport is currently showing, so the caption can state the
          format instead of guessing at it. */
       lensFrame: function () {

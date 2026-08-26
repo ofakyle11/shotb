@@ -284,60 +284,121 @@
      eighths ONCE, however many takes it took — counting per take would
      measure coverage, not pages. Scenes are matched against the WHOLE board,
      not just the day's own strips: a day that picks up a scene scheduled
-     elsewhere really did shoot those pages. */
-  function achievedEighths(scenes, takes) {
+     elsewhere really did shoot those pages.
+
+     ONCE MEANS ONCE FOR THE PRODUCTION, not once per day. Deduplicating
+     inside a single call and then matching against the whole board is a
+     contradiction, and it inflated without bound: a scene re-shot on three
+     days was counted three times, so three days holding 40 real eighths
+     reported achieved 16/40/40 and the median learned 5 pages/day for a show
+     running 1.67. A pure pick-up day — no strips of its own, takes on scenes
+     already in the can — reported the entire board.
+
+     `credited` is the running set of strip ids the production has already
+     been paid for, in day order. It is READ AND WRITTEN by this function, so
+     the caller (paceRowsModel) hands the same object down the days and each
+     scene's pages land on the first wrapped day that shot them. Scenes seen
+     again come back as `pickupIds`: real work, reported, worth zero NEW
+     pages, because pace answers "how many days to cover the script". */
+  function achievedEighths(scenes, takes, credited) {
     var byKey = {};
     (scenes || []).forEach(function (sc) {
       byKey[String(sc.num).trim().toUpperCase()] = sc;
       if (sc.id) byKey[String(sc.id).trim().toUpperCase()] = sc;
     });
-    var hit = {}, total = 0, ids = [];
+    var already = credited || {};
+    var hit = {}, total = 0, ids = [], pickupIds = [], matched = 0;
     (takes || []).forEach(function (t) {
       var key = String((t && t.scene) || '').trim().toUpperCase();
       if (!key) return;
       var sc = byKey[key];
       if (!sc) return;
+      matched++;
       var id = String(sc.id || sc.num);
       if (hit[id]) return;
       hit[id] = 1;
+      if (already[id]) { pickupIds.push(id); return; }
+      already[id] = 1;
       ids.push(id);
       total += Math.max(0, +sc.eighths || 0);
     });
-    return { eighths: total, sceneIds: ids };
+    return { eighths: total, sceneIds: ids, pickupIds: pickupIds,
+             takes: (takes || []).length, matchedTakes: matched };
   }
 
   /* One row per WRAPPED day. A mid-shoot partial day looks like catastrophic
      underperformance — half the pages, because half the day is still ahead —
      and would drag the median down for the rest of the show. Only a day the
-     production has marked wrapped is evidence.
+     production has marked wrapped is evidence, and marking it is a control
+     that ships: /today/ wraps the day, and the board's day header toggles it.
+
+     Days are walked in INDEX ORDER, carrying one `credited` set, so a scene's
+     pages are counted on the first wrapped day that shot them and a later
+     re-shoot of the same scene reports 0 new pages and its pick-ups instead.
      input {board, shootDays, takesFor(dayRecord) → [take]} */
   function paceRowsModel(input) {
     input = input || {};
     var board = input.board || {};
     var scenes = board.scenes || [];
     var takesFor = typeof input.takesFor === 'function' ? input.takesFor : function () { return []; };
-    var out = [];
-    (input.shootDays || []).forEach(function (rec) {
-      if (!rec || !rec.wrapped) return;
+    var wrapped = (input.shootDays || []).filter(function (rec) { return rec && rec.wrapped; })
+      .slice().sort(function (x, y) { return int(x.dayIdx) - int(y.dayIdx); });
+    var credited = {};
+    var out = wrapped.map(function (rec) {
       var d = int(rec.dayIdx);
       var planned = scenes.filter(function (s) { return s.day === d; })
         .reduce(function (a, s) { return a + Math.max(0, +s.eighths || 0); }, 0);
-      var a = achievedEighths(scenes, takesFor(rec));
-      out.push({ dayIdx: d, date: rec.date || '', plannedEighths: planned,
-                 achievedEighths: a.eighths, sceneIds: a.sceneIds });
+      var a = achievedEighths(scenes, takesFor(rec), credited);
+      return { dayIdx: d, date: rec.date || '', plannedEighths: planned,
+               achievedEighths: a.eighths, sceneIds: a.sceneIds,
+               pickupIds: a.pickupIds, takeCount: a.takes };
     });
-    return out.sort(function (x, y) { return x.dayIdx - y.dayIdx; });
+    return out;
   }
 
   /* Idempotent by dayIdx: re-opening the page never double-counts a day, and
      re-wrapping a day with more takes replaces its row rather than adding a
-     second one. */
-  function mergePaceLog(log, rows) {
+     second one.
+
+     `seenIdx` is every day index this pass actually examined — the days that
+     have a record right now. A day inside it with no row was examined and is
+     NOT wrapped, so its old row is retracted: without that, un-wrapping a day
+     marked by mistake left its numbers in the log forever and the learned
+     pace could never be walked back. A day outside seenIdx was not examined
+     at all (its record is gone), and its row is left alone rather than
+     deleted on the strength of a question nobody asked. Omit seenIdx and
+     nothing is pruned, which is the old behaviour. */
+  function mergePaceLog(log, rows, seenIdx) {
+    var seen = null;
+    if (seenIdx != null) {
+      seen = {};
+      (Array.isArray(seenIdx) ? seenIdx : []).forEach(function (v) { seen[int(v)] = 1; });
+    }
+    var keep = {};
+    (rows || []).forEach(function (r) { if (r && r.dayIdx != null) keep[int(r.dayIdx)] = 1; });
     var by = {};
-    (Array.isArray(log) ? log : []).forEach(function (r) { if (r && r.dayIdx != null) by[int(r.dayIdx)] = r; });
+    (Array.isArray(log) ? log : []).forEach(function (r) {
+      if (!r || r.dayIdx == null) return;
+      var d = int(r.dayIdx);
+      if (seen && seen[d] && !keep[d]) return;      // examined, no longer wrapped
+      by[d] = r;
+    });
     (rows || []).forEach(function (r) { if (r && r.dayIdx != null) by[int(r.dayIdx)] = r; });
     return Object.keys(by).map(function (k) { return by[k]; })
       .sort(function (a, b) { return int(a.dayIdx) - int(b.dayIdx); });
+  }
+
+  /* Is this row evidence about the pace? A wrapped day whose take log is
+     EMPTY is not — nobody recorded what happened, and reading that as "zero
+     pages" would teach the board that a production which does not log takes
+     shoots nothing. A wrapped day that logged takes and achieved no NEW pages
+     IS evidence: it is a pick-up or re-shoot day, it consumed a shoot day,
+     and it covered none of the remaining script. Rows written before
+     takeCount existed fall back to the old test. */
+  function paceRowIsEvidence(r) {
+    if (!r) return false;
+    if (r.takeCount != null) return int(r.takeCount) > 0;
+    return r.achievedEighths > 0;
   }
 
   /* The learned pace, and the count it stands on. At learnedN below minN the
@@ -347,8 +408,8 @@
     opts = opts || {};
     var fallback = numOr(opts.fallback, DEFAULT_PACE);
     var minN = opts.minN > 0 ? Math.round(opts.minN) : MIN_PACE_EVIDENCE;
-    var vals = (rows || []).filter(function (r) { return r && r.achievedEighths > 0; })
-      .map(function (r) { return r.achievedEighths; });
+    var vals = (rows || []).filter(paceRowIsEvidence)
+      .map(function (r) { return Math.max(0, +r.achievedEighths || 0); });
     var n = vals.length;
     var med = n ? round2(medianOf(vals) / 8) : null;
     if (n < minN) {

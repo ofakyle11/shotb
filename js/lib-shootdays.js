@@ -17,11 +17,14 @@
    takes on a field no writer emits, reporting every take ever logged on every
    date. One record fixes all of it:
 
-       { dayIdx, date:'YYYY-MM-DD', unit, sceneIds:[], wrapped:bool }
+       { dayIdx, date:'YYYY-MM-DD', unit, sceneIds:[], wrapped:bool, pinned:bool }
 
    dayIdx is the stripboard's index, date is the calendar date derived from
    SB_ShootPlan_v1, unit is Dailies' unit, sceneIds are the strips scheduled on
-   that day. Look it up by either identity and the other one comes back.
+   that day. Look it up by either identity and the other one comes back — and
+   the identity is (date, unit), not the date: two units shoot one date.
+   `pinned` says the date/unit were stated by a writer rather than derived, so
+   a rebuild leaves them alone.
 
    THE TAKE LOG
    Two take stores exist and neither reads the other. SB_Dailies_v1 takes
@@ -107,9 +110,16 @@
     return addShootDays(first, idx, skipsWeekends(plan));
   }
 
-  /* ── 2 · the record ────────────────────────────────────────────────── */
+  /* ── 2 · the record ──────────────────────────────────────────────────
+     `pinned` marks a record whose date and unit were NAMED by a writer
+     (/dailies/ through upsertDate) rather than derived from the plan. It
+     exists because build() used to recompute the date of every index from
+     the plan, including indices /dailies/ had just created for a date the
+     stripboard has never heard of: a take dated 09-14 resolved to
+     indexForDate → -1 the moment anything rebuilt. A derived half may be
+     recomputed; a half a writer stated may not. */
   function blankDay(idx) {
-    return { dayIdx: int(idx), date: '', unit: DEFAULT_UNIT, sceneIds: [], wrapped: false };
+    return { dayIdx: int(idx), date: '', unit: DEFAULT_UNIT, sceneIds: [], wrapped: false, pinned: false };
   }
   function normDay(rec) {
     var r = rec || {};
@@ -118,7 +128,8 @@
       date: isIso(r.date) ? str(r.date) : '',
       unit: str(r.unit) || DEFAULT_UNIT,
       sceneIds: Array.isArray(r.sceneIds) ? r.sceneIds.map(str) : [],
-      wrapped: !!r.wrapped
+      wrapped: !!r.wrapped,
+      pinned: !!r.pinned
     };
   }
   function list(days) { return Array.isArray(days) ? days.map(normDay) : []; }
@@ -128,15 +139,30 @@
     var hit = list(days).filter(function (d) { return d.dayIdx === idx; });
     return hit.length ? hit[0] : null;
   }
-  function byDate(days, date) {
-    var want = str(date);
+  /* A date alone is NOT a shoot day: MAIN and a SPLINTER unit both shoot
+     2026-09-14 and they are two days' work, two call sheets and two rows on
+     the DPR. `unit` is therefore part of the key wherever a caller knows it;
+     omitted, this answers with the first record on the date (the main unit,
+     since indices sort ascending) exactly as it always did. */
+  function byDate(days, date, unit) {
+    var want = str(date), u = str(unit);
     if (!isIso(want)) return null;
-    var hit = list(days).filter(function (d) { return d.date === want; });
+    var hit = list(days).filter(function (d) {
+      return d.date === want && (!u || d.unit === u);
+    });
     return hit.length ? hit[0] : null;
   }
-  function indexForDate(days, date) {
-    var hit = byDate(days, date);
+  function indexForDate(days, date, unit) {
+    var hit = byDate(days, date, unit);
     return hit ? hit.dayIdx : -1;
+  }
+  function unitsOnDate(days, date) {
+    var want = str(date), seen = {}, out = [];
+    list(days).forEach(function (d) {
+      if (d.date !== want || seen[d.unit]) return;
+      seen[d.unit] = 1; out.push(d.unit);
+    });
+    return out;
   }
   function dateForDay(days, idx) {
     var hit = byIndex(days, idx);
@@ -157,7 +183,9 @@
   }
   function setWrapped(days, idx, wrapped) {
     return list(days).map(function (d) {
-      return d.dayIdx === int(idx) ? normDay({ dayIdx: d.dayIdx, date: d.date, unit: d.unit, sceneIds: d.sceneIds, wrapped: !!wrapped }) : d;
+      if (d.dayIdx !== int(idx)) return d;
+      return normDay({ dayIdx: d.dayIdx, date: d.date, unit: d.unit,
+                       sceneIds: d.sceneIds, wrapped: !!wrapped, pinned: d.pinned });
     });
   }
 
@@ -198,24 +226,32 @@
     var out = [];
     for (var i = 0; i < n; i++) {
       var was = prev[i] || blankDay(i);
-      var date = dateForIndex(plan, i) || was.date;
+      /* A pinned record's date and unit came from a writer that knew them —
+         /dailies/ naming the day it is shooting. Recomputing them from the
+         plan's index arithmetic is how a take dated 09-14 stopped resolving
+         to any shoot day at all after a rebuild. */
+      var date = was.pinned && was.date ? was.date : (dateForIndex(plan, i) || was.date);
+      var unit = was.pinned ? was.unit : (units[date] || was.unit);
       out.push(normDay({
         dayIdx: i,
         date: date,
-        unit: units[date] || was.unit,
+        unit: unit,
         sceneIds: scheduledOn(board, i).map(function (s) { return str(s.id || s.num); }),
-        wrapped: was.wrapped
+        wrapped: was.wrapped,
+        pinned: was.pinned
       }));
     }
     return out;
   }
 
   /* ── 4 · storage ──────────────────────────────────────────────────────
-     Every entry point takes the storage object. Defaulting to the browser's
-     localStorage inside the function bodies is what makes a module untestable
-     in node, and untested is how the DPR shipped reading three fields nobody
-     wrote. */
-  function store(ls) { return ls || (typeof localStorage !== 'undefined' ? localStorage : null); }
+     Every entry point takes the storage object, and there is NO fallback to a
+     global localStorage. A fallback makes the claim above a lie: a caller that
+     forgets the argument still works in a browser and silently reads a store
+     no test ever sees, which is exactly how a module drifts away from the
+     suite that is supposed to pin it. No store, no read — say so by answering
+     empty rather than by reaching for one. */
+  function store(ls) { return ls || null; }
   function readKey(ls, key) {
     var s = store(ls);
     if (!s) return null;
@@ -241,22 +277,41 @@
     return save(ls, days);
   }
   /* Dailies names a date and a unit before any board exists — that day is
-     still a shoot day and still needs a record. */
+     still a shoot day and still needs a record. The key is date AND unit: it
+     used to be the date alone, so a second unit shooting the same date
+     OVERWROTE the main unit's record instead of getting its own, and one of
+     the two days vanished from every consumer that joins on this store.
+     /dailies/ already keys its own st.days on {date, unit}; this now matches.
+     The record is pinned, because the caller stated the date — see build(). */
   function upsertDate(ls, date, fields) {
     var f = fields || {};
     var days = load(ls);
-    var hit = byDate(days, date);
+    var unit = str(f.unit) || DEFAULT_UNIT;
+    var hit = byDate(days, date, unit);
     var rec;
     if (hit) {
-      rec = normDay({ dayIdx: hit.dayIdx, date: hit.date, unit: str(f.unit) || hit.unit,
+      rec = normDay({ dayIdx: hit.dayIdx, date: hit.date, unit: unit,
                       sceneIds: f.sceneIds || hit.sceneIds,
-                      wrapped: f.wrapped == null ? hit.wrapped : !!f.wrapped });
+                      wrapped: f.wrapped == null ? hit.wrapped : !!f.wrapped,
+                      pinned: true });
     } else {
       var idx = 0;
       days.forEach(function (d) { if (d.dayIdx >= idx) idx = d.dayIdx + 1; });
-      rec = normDay({ dayIdx: idx, date: date, unit: f.unit, sceneIds: f.sceneIds, wrapped: f.wrapped });
+      rec = normDay({ dayIdx: idx, date: date, unit: unit, sceneIds: f.sceneIds,
+                      wrapped: f.wrapped, pinned: true });
     }
     return save(ls, upsert(days, rec));
+  }
+  /* Wrap / un-wrap one day, through the store, in one call. The pure
+     setWrapped is the arithmetic; this is the entry point a PAGE can use, and
+     its absence is why nothing in the shipped tree ever set wrapped:true —
+     the flag the whole schedule-learning loop gates on. Un-wrapping is the
+     same call with false, because a day marked wrapped by mistake has to be
+     retractable or the learned pace is stuck with it. */
+  function wrapDay(ls, idx, wrapped) {
+    var days = load(ls);
+    if (!byIndex(days, idx)) return days;
+    return save(ls, setWrapped(days, idx, wrapped));
   }
   /* Which shoot day is today? A lookup, not a string match. todayISO comes
      from the CALLER — a library that reads the clock cannot be tested. */
@@ -370,10 +425,11 @@
 
     blankDay: blankDay, build: build, upsert: upsert, setWrapped: setWrapped,
     byIndex: byIndex, byDate: byDate, indexForDate: indexForDate,
+    unitsOnDate: unitsOnDate,
     dateForDay: dateForDay, scheduledOn: scheduledOn, boardDayCount: boardDayCount,
     todayIndex: todayIndex, currentDay: currentDay, label: label,
 
-    load: load, save: save, sync: sync, upsertDate: upsertDate,
+    load: load, save: save, sync: sync, upsertDate: upsertDate, wrapDay: wrapDay,
 
     isCircledGrade: isCircledGrade,
     normTakeLogRow: normTakeLogRow, normDailiesTake: normDailiesTake,

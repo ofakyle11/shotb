@@ -279,12 +279,210 @@ const exports_ = await page.evaluate(() => {
     objGroups: (obj.match(/^g /gm) || []).length,
     stlFacets: (stl.match(/facet normal/g) || []).length,
     objNaN: /NaN/.test(obj), stlNaN: /NaN/.test(stl),
+    /* The page ships cylinders — the person marker and the camera's lens —
+       so this is the shape that showed the degenerate-cap defect, measured
+       in the file the button actually downloads. */
+    stlZeroNormals: (stl.match(/^facet normal (-?0(\.0+)?\s+){2}-?0(\.0+)?$/gm) || []).length,
+    objDupVertexFaces: obj.split('\n').filter((l) => l.startsWith('f ')).filter((l) => {
+      const f = l.slice(2).trim().split(/\s+/);
+      return new Set(f).size !== f.length;
+    }).length,
   };
 });
 t('OBJ export has geometry', exports_.objV > 100 && exports_.objF > 20, JSON.stringify(exports_));
 t('OBJ keeps one group per piece', exports_.objGroups === 8, exports_.objGroups);
 t('STL export has facets', exports_.stlFacets > 40, exports_.stlFacets);
 t('no NaN reached either export', !exports_.objNaN && !exports_.stlNaN);
+t('not one STL facet in the downloaded file has a zero normal',
+  exports_.stlZeroNormals === 0, `${exports_.stlZeroNormals} of ${exports_.stlFacets}`);
+t('not one OBJ face in the downloaded file repeats a vertex',
+  exports_.objDupVertexFaces === 0, `${exports_.objDupVertexFaces} of ${exports_.objF}`);
+
+/* ── delete the camera you are looking THROUGH ─────────────────────────────
+   The lock is a bare item id, and nothing cleared it. Delete the camera and
+   the viewport went on reporting itself locked while lensView() returned
+   null — so fovY() fell through to the ORBIT fov and frameRect() to the
+   CANVAS aspect, and the rendered horizontal coverage became the panel's
+   shape again: measured at 39.6° in a 1024×768 window, 60.5° at 1280×720 and
+   93.1° at 1680×620, on the same "35 mm". The letterbox switched off, the
+   caption degraded to a bare "Through camera", and orbit input stayed
+   blocked, so there was no way out of it. That is precisely the defect the
+   sensor work removed, standing behind one delete — and none of the four
+   suites deleted a locked camera, which is why all four stayed green.
+
+   Measured here, in a real browser, at three panel aspects. */
+{
+  const dctx = await browser.newContext({ viewport: { width: 1024, height: 768 } });
+  const dp = await dctx.newPage();
+  const derr = [];
+  dp.on('pageerror', (e) => derr.push(String(e.message)));
+  dp.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    if (/net::ERR_|Failed to load resource/i.test(m.text())) return;
+    derr.push('console: ' + m.text());
+  });
+  await dp.route('**/*', (r) => (r.request().url().startsWith(`http://127.0.0.1:${PORT}`)
+    ? r.continue() : r.abort()));
+  await dp.addInitScript(() => {
+    localStorage.setItem('SB_SetDesign_v1', JSON.stringify({
+      v: 1, active: 'dp1',
+      plans: [{
+        id: 'dp1', name: 'Stage B', w: 24, h: 18, scenes: '', items: [
+          { id: 'w1', type: 'wall', x: 12, y: 0.5, w: 24, h: 0.5, rot: 0, label: 'Back wall' },
+          { id: 't1', type: 'table', x: 12, y: 9, w: 5, h: 3, rot: 0, label: 'Table' },
+          { id: 'pm', type: 'person', x: 12, y: 8, w: 1.2, h: 1.2, rot: 0, label: 'Mark' },
+          { id: 'ca', type: 'camera', x: 12, y: 16, w: 1.6, h: 1.6, rot: 0, lens: 35, label: 'A cam' },
+          { id: 'cb', type: 'camera', x: 4, y: 14, w: 1.6, h: 1.6, rot: 30, lens: 50, label: 'B cam' },
+        ],
+      }],
+    }));
+  });
+  await dp.goto(`http://127.0.0.1:${PORT}/sets/`, { waitUntil: 'domcontentloaded' });
+  await dp.waitForTimeout(600);
+
+  /* What the projection matrix is actually built from: fovY paired with the
+     aspect of the rectangle being rendered into. Deriving the horizontal
+     coverage from those two is the same arithmetic perspective() does, so
+     this is the rendered field of view and not a restatement of an input. */
+  const hFov = (f) => 2 * Math.atan(Math.tan(f.fovY * Math.PI / 360) * f.aspect) * 180 / Math.PI;
+  const PANELS = [[1024, 768], [1280, 720], [1680, 620]];
+  const sweep = async () => {
+    const out = [];
+    for (const [w, h] of PANELS) {
+      await dp.setViewportSize({ width: w, height: h });
+      await dp.waitForTimeout(320);
+      await dp.evaluate(() => window.CSetApp.gl().render());
+      const f = await dp.evaluate(() => window.CSetApp.gl().lensFrame());
+      out.push({ panel: `${w}x${h}`, hFov: hFov(f), frame: f,
+        locked: await dp.evaluate(() => window.CSetApp.gl().lockedCamera()),
+        note: await dp.textContent('#sdGLNote'),
+        gold: await dp.evaluate(() => document.getElementById('sdLook').classList.contains('gold')) });
+    }
+    return out;
+  };
+  const selectInPlan = async (id) => {
+    await dp.click('#sdView2d');
+    await dp.waitForTimeout(200);
+    await dp.evaluate((wanted) => {
+      const svg = document.querySelector('#sdCanvas svg');
+      const g = svg.querySelector(`[data-id="${wanted}"] rect`);
+      const b = g.getBoundingClientRect();
+      svg.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true, clientX: b.left + b.width / 2, clientY: b.top + b.height / 2 }));
+    }, id);
+    await dp.waitForTimeout(150);
+  };
+
+  await selectInPlan('ca');
+  await dp.click('#sdLook');
+  await dp.waitForTimeout(400);
+
+  const locked = await sweep();
+  t('locked on A cam, the 35mm reads the same at every panel aspect',
+    locked.every((r) => Math.abs(r.hFov - 39.16) < 0.05),
+    locked.map((r) => `${r.panel} ${r.hFov.toFixed(2)}°`).join(' · '));
+  t('and it is letterboxed at every one of them',
+    locked.every((r) => r.frame.letterboxed && /Super 35/.test(r.frame.sensor || '')));
+
+  /* Delete it, through the same button the inspector offers. */
+  await dp.setViewportSize({ width: 1024, height: 768 });
+  await dp.waitForTimeout(250);
+  await dp.click('#sdDel');
+  await dp.waitForTimeout(400);
+
+  const gone = await dp.evaluate(() =>
+    (JSON.parse(localStorage.getItem('SB_SetDesign_v1')).plans[0].items || [])
+      .some((i) => i.id === 'ca'));
+  t('the camera really was deleted', gone === false);
+
+  const freed = await sweep();
+  console.log('    after deleting the locked camera: ' +
+    freed.map((r) => `${r.panel} → ${r.hFov.toFixed(1)}° H, fovY ${r.frame.fovY}, ` +
+      `letterboxed ${r.frame.letterboxed}, sensor ${r.frame.sensor}`).join(' | '));
+
+  t('deleting the locked camera drops the lock, at every panel aspect',
+    freed.every((r) => r.locked === null), JSON.stringify(freed.map((r) => r.locked)));
+  t('the viewport stops claiming a lens it no longer has',
+    freed.every((r) => r.frame.sensor === null && r.frame.lens === null &&
+      r.frame.fovX === null && r.frame.letterboxed === false),
+    JSON.stringify(freed[0].frame));
+  /* The orbit fov is a constant of the orbit camera. A lens's fovY is not —
+     so this is the assertion that the viewport is now an honest free-orbit
+     view rather than a window-shaped fake lens with a lens's caption on it. */
+  t('what it renders is the orbit view, whose fov does not move with the panel',
+    freed.every((r) => r.frame.fovY === 52),
+    freed.map((r) => `${r.panel} fovY ${r.frame.fovY}`).join(' · '));
+  t('and its horizontal coverage is the panel\'s, as free orbit\'s always was',
+    freed.every((r, i) => Math.abs(r.hFov - hFov({ fovY: 52, aspect: r.frame.aspect })) < 1e-9) &&
+    freed[0].hFov < freed[2].hFov,
+    freed.map((r) => `${r.panel} ${r.hFov.toFixed(1)}°`).join(' · '));
+
+  t('the caption no longer says "Through" anything',
+    freed.every((r) => !/Through/.test(r.note || '')), JSON.stringify(freed[0].note));
+  t('the caption says look-through ended and names the camera that went',
+    /A cam.*deleted.*look-through ended/i.test(freed[0].note || ''), freed[0].note);
+  t('and it goes on to say what the controls now do',
+    /Drag to orbit/.test(freed[0].note || ''), freed[0].note);
+  t('the Look through button is no longer lit', freed.every((r) => r.gold === false));
+
+  /* Input was the part with no way out: onDown and onWheel return early while
+     locked, so a stuck lock is a viewport you cannot move. */
+  const yaw0 = await dp.evaluate(() => window.CSetApp.gl().view.yaw);
+  await dp.mouse.move(700, 380);
+  await dp.mouse.down();
+  await dp.mouse.move(880, 430, { steps: 8 });
+  await dp.mouse.up();
+  await dp.waitForTimeout(250);
+  const yaw1 = await dp.evaluate(() => window.CSetApp.gl().view.yaw);
+  t('orbit input works again — the viewport is not stuck', Math.abs(yaw1 - yaw0) > 1,
+    `${yaw0} -> ${yaw1}`);
+
+  /* And the feature still works: look through the camera that is left. */
+  await selectInPlan('cb');
+  await dp.click('#sdLook');
+  await dp.waitForTimeout(400);
+  const relocked = await dp.evaluate(() => ({
+    frame: window.CSetApp.gl().lensFrame(),
+    locked: window.CSetApp.gl().lockedCamera(),
+    note: document.getElementById('sdGLNote').textContent,
+  }));
+  t('a surviving camera can still be looked through', relocked.locked === 'cb', relocked.locked);
+  t('and the 50mm on Super 35 measures 28.0° H, not the panel',
+    Math.abs(hFov(relocked.frame) - 27.97) < 0.06, hFov(relocked.frame).toFixed(2));
+  t('the caption is a full lens caption again',
+    /Through B cam · 50mm · Super 35/.test(relocked.note || ''), relocked.note);
+
+  /* The Delete key is the other route to the same state. */
+  await dp.evaluate(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));
+  });
+  await dp.waitForTimeout(400);
+  const afterKey = await dp.evaluate(() => ({
+    locked: window.CSetApp.gl().lockedCamera(),
+    frame: window.CSetApp.gl().lensFrame(),
+    note: document.getElementById('sdGLNote').textContent,
+    gold: document.getElementById('sdLook').classList.contains('gold'),
+    left: (JSON.parse(localStorage.getItem('SB_SetDesign_v1')).plans[0].items || [])
+      .filter((i) => i.type === 'camera').length,
+  }));
+  t('the Delete key on the locked camera removes it', afterKey.left === 0, afterKey.left);
+  t('and the Delete key leaves look-through too', afterKey.locked === null, afterKey.locked);
+  t('the Delete key path also leaves it visibly',
+    afterKey.gold === false && !/Through/.test(afterKey.note || ''), afterKey.note);
+  t('with no lens claimed behind it',
+    afterKey.frame.sensor === null && afterKey.frame.letterboxed === false,
+    JSON.stringify(afterKey.frame));
+  /* Nothing to look through now, and the page says so rather than locking
+     onto nothing. */
+  await dp.click('#sdLook');
+  await dp.waitForTimeout(250);
+  t('with every camera gone, Look through refuses rather than locking onto nothing',
+    await dp.evaluate(() => window.CSetApp.gl().lockedCamera()) === null);
+
+  t('the delete-the-locked-camera run produced no script errors',
+    derr.length === 0, derr.slice(0, 3).join(' | '));
+  await dctx.close();
+}
 
 /* ── the props half: size, scale preview, and placement onto the set ── */
 {

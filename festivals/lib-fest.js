@@ -10,7 +10,77 @@
   'use strict';
 
   function uid() { return 'f' + Math.random().toString(36).slice(2, 9); }
-  function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
+  function isArr(v) { return Object.prototype.toString.call(v) === '[object Array]'; }
+  function r2(n) { return Math.round(n * 100) / 100; }
+
+  /* ── FEES ARRIVE AS TEXT ────────────────────────────────────────────────
+     The Tools register's fee column is a plain TEXT input
+     (tools/tools-registers.js), so what reaches this module is whatever the
+     owner typed: "$1,200", "1,200", "2 500", "CAD 95", "65.50", "tbd".
+     A bare parseFloat read those as 0, 1, 2, 0 and 0 — and the store kept the
+     wrong number while the typed text was gone. A submission-fee register
+     that silently turns $1,200 into $0 is worse than no register at all.
+
+     Two rules follow, and both matter:
+       1  parseAmount() understands the way people actually write money —
+          currency symbols and codes, comma OR period grouping, spaces as
+          thousands separators, an accounting negative, an approximate "~"
+          or a trailing "+".
+       2  the STORED `fee` is the owner's text, verbatim. Nothing here ever
+          overwrites what was typed with a number, so a fee this module
+          cannot read ("tbd", "65–110") is reported as UNKNOWN and stays on
+          the row for a human to fix. Totals parse on the way out. */
+  var CURRENCY_WORDS = /\b(?:usd|cad|eur|gbp|aud|nzd|chf|sek|nok|dkk|jpy|inr|brl|mxn|zar|dollars?|euros?|pounds?)\b/g;
+  var FREE = /^(?:free|no fee|none|nil|waived|waiver|comp|complimentary)$/;
+
+  /* parseAmount(v) → Number, or null when the text is not one amount.
+     null means "unknown", which is never the same fact as zero. */
+  function parseAmount(v) {
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    var s = String(v == null ? '' : v).trim();
+    if (!s) return null;
+    var neg = /^\(.*\)$/.test(s);                       // (50) — accounting negative
+    s = s.replace(/^\(|\)$/g, '').toLowerCase();
+    if (FREE.test(s)) return 0;                         // an explicit waiver IS zero
+    s = s.replace(CURRENCY_WORDS, ' ')
+         .replace(/[$€£¥₹]/g, ' ')
+         .replace(/^(?:~|≈|about|approx\.?|around|circa|ca\.)\s*/, '')
+         .replace(/\+$/, '')                            // "$95+" — a floor is still a number
+         .replace(/[\s\u00a0\u2007\u2009\u202f]/g, '')      // "2 500" — space as a separator
+         .trim();
+    if (!s || !/\d/.test(s)) return null;               // "tbd", "ask", "n/a"
+    var lastComma = s.lastIndexOf(','), lastDot = s.lastIndexOf('.');
+    if (lastComma >= 0 && lastDot >= 0) {
+      /* both present: the LAST one is the decimal mark, the other groups. */
+      var dec = lastComma > lastDot ? ',' : '.';
+      s = s.split(dec === ',' ? '.' : ',').join('').replace(dec, '.');
+    } else {
+      var at = Math.max(lastComma, lastDot);
+      if (at >= 0) {
+        var ch = s.charAt(at);
+        var many = s.split(ch).length - 1;
+        /* 1,200 and 1.200.000 group; 65,50 and 65.50 are decimals. */
+        if (many > 1 || s.length - at - 1 === 3) s = s.split(ch).join('');
+        else s = s.replace(ch, '.');
+      }
+    }
+    if (!/^-?\d+(?:\.\d+)?$/.test(s)) return null;      // "65–110", "2 for 1", junk
+    var n = parseFloat(s);
+    if (!isFinite(n)) return null;
+    return r2(neg ? -n : n);
+  }
+  /* feeOf(v) → the amount, or null when it cannot be read. The public name;
+     pages and registers should ask this rather than coercing with +. */
+  function feeOf(v) { return parseAmount(v); }
+  /* feeText(v) → what to store: the owner's words, trimmed, never a guess. */
+  function feeText(v) {
+    if (typeof v === 'number') return isFinite(v) ? String(v) : '';
+    return String(v == null ? '' : v).trim();
+  }
+  /* There is deliberately no bare num()-that-returns-0 any more. Every caller
+     inside this file asks parseAmount() and decides what an unknown fee means
+     for the number it is about to show; a helper that answers 0 for "tbd" is
+     exactly how $1,200 became $0. */
 
   /* ── 0 · THE STORE — one shape for SB_Festivals_v1 ──────────────────────
      Two pages used to write this key with incompatible top-level types: the
@@ -44,25 +114,46 @@
     return { v: STORE_VERSION, premiereStatus: 'unpremiered', subs: [], buyers: [] };
   }
 
-  /* One submission record, whichever shape it arrived in. */
+  /* An id that survives a reload. A row with no id used to be given a FRESH
+     random one on every load(), so nothing downstream — a selection, a note,
+     a link from another module — could refer to a submission twice. The id is
+     therefore derived from the row's own content when it has none, which is
+     stable as long as the row is. */
+  function hashId(s) {
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+    return 'f' + h.toString(36);
+  }
+
+  /* One submission record, whichever shape it arrived in.
+     `status` is the Tools register's vocabulary. A word this module has no
+     mapping for — "Shortlisted", "Waitlisted", anything an owner invents —
+     maps to result 'pending' AND is kept verbatim in `stage`. The owner's
+     word is data, not noise. */
   function normSub(raw) {
     var r = raw || {};
     var result = RESULTS.indexOf(r.result) >= 0 ? r.result : null;
-    var stage = r.stage || (LEGACY_STAGES[r.status] ? r.status : '');
-    if (!result) result = LEGACY_STAGES[r.status] || 'pending';
-    return {
-      id: r.id || uid(),
+    var word = String(r.stage || r.status || '').trim();
+    var mapped = LEGACY_STAGES[word] ||
+      (RESULTS.indexOf(word.toLowerCase()) >= 0 ? word.toLowerCase() : null);
+    if (!result) result = mapped || 'pending';
+    var s = {
+      id: String(r.id || ''),
       festival: String(r.festival || r.name || ''),
       category: String(r.category || ''),
       tier: String(r.tier || ''),
       deadline: String(r.deadline || ''),
-      fee: num(r.fee),
+      fee: feeText(r.fee),
       submittedOn: String(r.submittedOn || r.submitted || ''),
       result: result,
-      stage: String(stage || ''),
+      /* an exact echo of the result carries nothing — a different word does */
+      stage: word && word.toLowerCase() !== result ? word : '',
       premiereReq: String(r.premiereReq || r.premiere || ''),
       notes: String(r.notes || '')
     };
+    if (!s.id) s.id = hashId([s.festival, s.category, s.deadline, s.fee,
+                              s.submittedOn, s.premiereReq, s.notes].join('|'));
+    return s;
   }
   function normBuyer(raw) {
     var b = newBuyer(raw || {});
@@ -70,30 +161,52 @@
     return b;
   }
 
+  /* rowsOf(list) — the row filter, and the reason it is not one `typeof`
+     test: an ARRAY passes `typeof r === 'object'`, so a store holding
+     [[rowA, rowB]] (one bad write, one nested paste) collapsed two real
+     submissions into ONE blank row with a freshly minted id. Arrays are
+     flattened into the rows they contain, never normalised as a record.
+     Nothing else — a string, a number, null — is a submission. */
+  function rowsOf(list, depth) {
+    var out = [];
+    (list || []).forEach(function (r) {
+      if (isArr(r)) {
+        if ((depth || 0) < 6) out = out.concat(rowsOf(r, (depth || 0) + 1));
+        return;
+      }
+      if (!r || typeof r !== 'object') return;
+      out.push(r);
+    });
+    return out;
+  }
+
+  /* Two rows carrying the same id are two rows; the second is suffixed rather
+     than given a random id, so it is the SAME id on the next load. */
+  function dedupe(rows) {
+    var seen = {}, out = [];
+    rows.forEach(function (s) {
+      var base = s.id, n = 2;
+      while (seen[s.id]) s.id = base + '-' + (n++);
+      seen[s.id] = 1;
+      out.push(s);
+    });
+    return out;
+  }
+
   /* migrate(raw) → the canonical store. Accepts the legacy ARRAY, the legacy
      OBJECT, null, and anything else without throwing. Pure. */
   function migrate(raw) {
     var store = blank();
     var subs = [], buyers = [];
-    if (raw && Object.prototype.toString.call(raw) === '[object Array]') {
+    if (isArr(raw)) {
       subs = raw;                                   // legacy: bare Register rows
     } else if (raw && typeof raw === 'object') {
       subs = [].concat(raw.subs || [], raw.rows || []);
       buyers = raw.buyers || [];
       if (PREMIERE_STATUSES.indexOf(raw.premiereStatus) >= 0) store.premiereStatus = raw.premiereStatus;
     }
-    var seen = {};
-    subs.forEach(function (r) {
-      if (!r || typeof r !== 'object') return;
-      var s = normSub(r);
-      while (seen[s.id]) s.id = uid();
-      seen[s.id] = 1;
-      store.subs.push(s);
-    });
-    (buyers || []).forEach(function (b) {
-      if (!b || typeof b !== 'object') return;
-      store.buyers.push(normBuyer(b));
-    });
+    store.subs = dedupe(rowsOf(subs, 0).map(normSub));
+    rowsOf(buyers, 0).forEach(function (b) { store.buyers.push(normBuyer(b)); });
     return store;
   }
 
@@ -103,7 +216,7 @@
      normalised on the way in, which is also what keeps a text input's "85"
      from becoming the stored fee. */
   function setSubs(store, rows) {
-    store.subs = (rows || []).filter(function (r) { return r && typeof r === 'object'; }).map(normSub);
+    store.subs = dedupe(rowsOf(rows, 0).map(normSub));
     return store;
   }
 
@@ -243,14 +356,21 @@
     (subs || []).forEach(function (s) { if (s.id === id) { s.result = result; hit = s; } });
     return hit;
   }
-  /* paid = a submittedOn date is on record; planned = logged but not yet sent */
+  /* paid = a submittedOn date is on record; planned = logged but not yet sent.
+     A fee whose text is not an amount is counted in NEITHER — it is reported
+     as unknown, by name, so the total is never quietly short by $1,200. */
   function feesTotal(subs) {
-    var paid = 0, planned = 0;
+    var paid = 0, planned = 0, unknown = [];
     (subs || []).forEach(function (s) {
-      var f = num(s.fee);
+      var f = parseAmount(s.fee);
+      if (f == null) {
+        if (feeText(s.fee)) unknown.push({ festival: String(s.festival || '') || 'untitled', fee: feeText(s.fee) });
+        return;
+      }
       if (s.submittedOn) paid += f; else planned += f;
     });
-    return { paid: paid, planned: planned, total: paid + planned };
+    return { paid: r2(paid), planned: r2(planned), total: r2(paid + planned),
+             unknown: unknown.length, unknownFees: unknown };
   }
   /* Pending submissions sorted by user-entered deadline (ISO yyyy-mm-dd sorts
      lexicographically); entries whose deadline already passed are flagged.   */
@@ -261,8 +381,10 @@
       .slice()
       .sort(function (a, b) { return a.deadline < b.deadline ? -1 : a.deadline > b.deadline ? 1 : 0; })
       .map(function (s) {
+        var amt = parseAmount(s.fee);
         return { id: s.id, festival: s.festival, category: s.category, deadline: s.deadline,
-                 fee: num(s.fee), submittedOn: s.submittedOn, result: s.result,
+                 fee: amt == null ? 0 : amt, feeText: feeText(s.fee), feeKnown: amt != null,
+                 submittedOn: s.submittedOn, result: s.result,
                  past: !!(today && s.deadline < today) };
       });
   }
@@ -310,7 +432,7 @@
     KEY: KEY, STORE_VERSION: STORE_VERSION, PREMIERE_STATUSES: PREMIERE_STATUSES,
     LEGACY_STAGES: LEGACY_STAGES,
     blank: blank, normSub: normSub, normBuyer: normBuyer, migrate: migrate, setSubs: setSubs,
-    load: load, save: save,
+    feeOf: feeOf, feeText: feeText, load: load, save: save,
     searchLink: searchLink, byTier: byTier, strategy: strategy,
     newSub: newSub, setResult: setResult, feesTotal: feesTotal, upcoming: upcoming,
     resultCounts: resultCounts,

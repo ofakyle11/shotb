@@ -67,6 +67,10 @@
 .wd-sd td.k{font-family:var(--mono);color:var(--gold);white-space:nowrap}
 .wd-sd select,.wd-sd input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 6px;font-size:11px}
 .wd-sd tr.unc td.k{color:#8fb0c9}
+.wd-cal{font-family:var(--mono);font-size:10px;color:#6fbf8a;white-space:nowrap}
+.wd-act{font-family:var(--mono);font-size:10px;color:#8fb0c9;white-space:nowrap}
+.wd-learn{font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.8;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:10px}
+.wd-learn b{color:#6fbf8a}
 .wd-scan{font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.7;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:10px}
 .wd-scan b{color:var(--text)}
 .wd-scan .bad{color:#e8b34b}
@@ -114,6 +118,8 @@
 
     <h2>4 · Budget rollup</h2>
     <div class="wd-total" id="wdTotals"></div>
+    <p class="wd-note" style="margin-top:10px">Type the invoice into <b>Actual&nbsp;$</b> when it lands and it teaches the estimate for that <i>source</i> — buy, rent, build and cast-own overrun for different reasons, so they are learned apart. Below <span style="font-family:var(--mono)">2</span> invoices a source is left exactly as you typed it: one invoice is an anecdote, and a multiplier drawn from it would be arithmetic dressed as evidence. What is learned is always shown with the count behind it.</p>
+    <div class="wd-learn" id="wdLearn"></div>
     <div id="wdRollup" style="margin-top:10px"></div>
     <div class="wd-bar" style="margin-top:10px">
       <button class="tb-btn gold" id="wdCommit" title="Record the wardrobe total as an open purchase order in the Money Room">Commit total to Money Room (acct 10000)</button>
@@ -140,10 +146,11 @@
 
 <div class="toast" id="wdToast" aria-live="polite"></div>
 <script src="/js/project-badge.js?v=20260823a"></script>
+<script src="/js/learn.js?v=20260823a"></script>
 <script src="/finance/lib-money.js?v=20260823a"></script>
 <script src="/js/lib-scenes.js?v=20260826a"></script>
 <script src="/js/lib-storyday.js?v=20260826a"></script>
-<script src="lib-ward.js?v=20260826a"></script>
+<script src="lib-ward.js?v=20260826b"></script>
 <script>
 (function () {
   'use strict';
@@ -267,27 +274,41 @@
     }).join('') : '<span class="wd-note">No characters yet — seed from the script, or just add a look and type a name.</span>';
   }
   function pieceRows(l) {
+    var priced = W.lookEstimate(l).pieces;
     return l.pieces.map(function (p, i) {
+      var r = priced[i] || { est: 0, learnedN: 0, calibrated: false };
+      /* The calibrated estimate is shown BESIDE the typed one with the number
+         of past invoices behind it — never in place of it. A number the
+         department cannot weigh is a number it cannot argue with. */
+      var cal = r.calibrated
+        ? ' <span class="wd-cal" title="Calibrated from ' + esc(r.learnedN) + ' past ' + esc(p.source) +
+          ' invoice(s) — ×' + esc(r.mult) + '">→ $' + esc(r.est.toLocaleString()) + ' ·cal</span>'
+        : '';
       return '<tr><td><input data-p="item" data-i="' + esc(i) + '" value="' + esc(p.item) + '" style="min-width:150px"></td>' +
         '<td><select data-p="source" data-i="' + esc(i) + '">' + W.SOURCES.map(function (s) {
           return '<option' + (s === p.source ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></td>' +
-        '<td><input data-p="cost" data-i="' + esc(i) + '" type="number" min="0" step="1" value="' + esc(p.cost || 0) + '" style="width:80px"></td>' +
+        '<td><input data-p="cost" data-i="' + esc(i) + '" type="number" min="0" step="1" value="' + esc(p.cost || 0) + '" style="width:80px">' + cal + '</td>' +
+        '<td><input data-p="actual" data-i="' + esc(i) + '" type="number" min="0" step="1" value="' + esc(p.actual || '') + '" placeholder="invoice" style="width:80px" title="What it really cost. Typing it here teaches the next estimate for this source."></td>' +
         '<td><button class="tb-btn" data-delpiece="' + esc(i) + '">✕</button></td></tr>';
     }).join('');
   }
   function renderLooks() {
     $('wdLooks').innerHTML = st.looks.map(function (l) {
       var adv = W.multiplesFor(l, hazards);
+      var e = W.lookEstimate(l);
       return '<div class="wd-look" data-id="' + esc(l.id) + '">' +
         '<div class="wd-look-head">' +
         '<input class="wd-char" data-f="character" value="' + esc(l.character) + '" placeholder="Character">' +
         '<input class="wd-lname" data-f="lookName" value="' + esc(l.lookName) + '" placeholder="Look name">' +
         '<input class="wd-scenes" data-f="sceneKeys" value="' + esc(W.lookSceneKeys(l).join(', ')) + '" placeholder="Scenes 1, 4A, 6-9">' +
         '<input class="wd-sizes" data-f="sizes" value="' + esc(l.sizes) + '" placeholder="Sizes / fittings">' +
-        '<span class="wd-cost">$' + W.lookCost(l).toLocaleString() + '</span>' +
+        '<span class="wd-cost">$' + W.lookCost(l).toLocaleString() +
+          (e.calibrated ? ' <span class="wd-cal" title="' + esc(e.calibrated) + ' piece(s) calibrated on past invoices">→ $' + esc(e.est.toLocaleString()) + '</span>' : '') +
+          (e.actual > 0 ? ' <span class="wd-act" title="Invoiced">inv $' + esc(e.actual.toLocaleString()) + '</span>' : '') +
+        '</span>' +
         '<button class="tb-btn" data-dellook="' + esc(l.id) + '" title="Remove this look (and its photos)">✕</button>' +
         '</div>' +
-        '<table class="wd-table"><thead><tr><th>Piece</th><th>Source</th><th>Cost $</th><th></th></tr></thead>' +
+        '<table class="wd-table"><thead><tr><th>Piece</th><th>Source</th><th>Cost $</th><th>Actual $</th><th></th></tr></thead>' +
         '<tbody>' + pieceRows(l) + '</tbody></table>' +
         '<div class="wd-bar" style="margin-top:6px;margin-bottom:0">' +
         '<button class="tb-btn" data-addpiece="' + esc(l.id) + '">+ Piece</button>' +
@@ -332,7 +353,18 @@
     } else if (f) l[f] = e.target.value;
     else if (p) {
       var pc = l.pieces[+e.target.getAttribute('data-i')];
-      if (pc) { if (p === 'cost') pc.cost = +e.target.value || 0; else pc[p] = e.target.value; }
+      if (pc) {
+        if (p === 'cost') pc.cost = +e.target.value || 0;
+        else if (p === 'actual') {
+          /* The loop closes here: a real invoice against a real estimate
+             teaches the multiplier for this SOURCE, and the estimate itself is
+             left alone so there is still a record of what was thought. */
+          pc.actual = +e.target.value || 0;
+          if (pc.actual > 0 && W.recordActual(pc, pc.actual)) {
+            toast('Invoice learned — future ' + pc.source + ' estimates calibrate on it');
+          }
+        } else pc[p] = e.target.value;
+      }
     }
     save(); renderAll();
   });
@@ -483,12 +515,27 @@
   /* ── 3 · budget rollup ── */
   function renderBudget() {
     var t = W.totalsBySource(st.looks);
+    var ct = W.calibratedTotals(st.looks);
     $('wdTotals').innerHTML =
       '<span>Buy <b>$' + esc(t.buy.toLocaleString()) + '</b></span>' +
       '<span>Rent <b>$' + esc(t.rent.toLocaleString()) + '</b></span>' +
       '<span>Build <b>$' + esc(t.build.toLocaleString()) + '</b></span>' +
       '<span>Cast-own <b>$' + esc(t['cast-own'].toLocaleString()) + '</b></span>' +
-      '<span>Wardrobe total <b>$' + esc(t.total.toLocaleString()) + '</b></span>';
+      '<span>Wardrobe total <b>$' + esc(t.total.toLocaleString()) + '</b></span>' +
+      (ct.est !== ct.raw ? '<span>Calibrated <b>$' + esc(ct.est.toLocaleString()) + '</b></span>' : '') +
+      (ct.actual > 0 ? '<span>Invoiced so far <b>$' + esc(ct.actual.toLocaleString()) + '</b></span>' : '');
+    /* What the platform knows, and how much of it — including the sources it
+       knows nothing about. A multiplier with no count beside it is a number
+       nobody can weigh, and a count of zero has to be said out loud rather
+       than left as a blank that reads like agreement. */
+    $('wdLearn').innerHTML = W.SOURCES.map(function (s) {
+      var b = ct.bySource[s];
+      return '<div>' + esc(s) + ' — ' + (b.calibrated
+        ? '<b>×' + esc(b.mult) + '</b> from ' + esc(b.learnedN) + ' past invoice(s)'
+        : 'not calibrated · ' + esc(b.n) + ' of ' + esc(W.LEARN_MIN) +
+          ' invoice(s) needed — estimates for this source are exactly what you typed') +
+        '</div>';
+    }).join('');
     var roll = W.rollupByCharacter(st.looks);
     $('wdRollup').innerHTML = roll.length ?
       '<table class="wd-table"><thead><tr><th>Character</th><th>Looks</th><th>Cost $</th></tr></thead><tbody>' +
@@ -497,13 +544,18 @@
       }).join('') + '</tbody></table>' : '<p class="wd-note">Add pieces with costs and the rollup builds itself.</p>';
   }
   $('wdCommit').addEventListener('click', function () {
-    var t = W.totalsBySource(st.looks);
-    if (!(t.total > 0)) return toast('Nothing to commit — add piece costs first');
+    var ct = W.calibratedTotals(st.looks);
+    if (!(ct.raw > 0)) return toast('Nothing to commit — add piece costs first');
+    /* The calibrated figure is the one committed when there IS evidence for it,
+       and it equals the typed total when there is not — so the Money Room gets
+       the best estimate available and the description says which it is. */
     var money = JSON.parse(localStorage.getItem('SB_Money_v1') || 'null') || CMoney.blank();
-    var po = CMoney.addPO(money, { vendor: 'Wardrobe dept', desc: 'Wardrobe — ' + st.looks.length + ' look(s), ' + W.rollupByCharacter(st.looks).length + ' character(s)',
-      acct: '10000', amount: t.total, date: new Date().toISOString().slice(0, 10) });
+    var how = ct.calibrated ? ', calibrated on past invoices' : ', uncalibrated estimate';
+    var po = CMoney.addPO(money, { vendor: 'Wardrobe dept', desc: 'Wardrobe — ' + st.looks.length + ' look(s), ' + W.rollupByCharacter(st.looks).length + ' character(s)' + how,
+      acct: '10000', amount: ct.est, date: new Date().toISOString().slice(0, 10) });
     localStorage.setItem('SB_Money_v1', JSON.stringify(money));
-    toast('Committed $' + t.total.toLocaleString() + ' to Money Room acct 10000 (' + po.num + ')');
+    toast('Committed $' + ct.est.toLocaleString() + ' to Money Room acct 10000 (' + po.num + ')' +
+      (ct.est !== ct.raw ? ' — typed total was $' + ct.raw.toLocaleString() : ''));
   });
 
   /* ── 5 · photo continuity ── */

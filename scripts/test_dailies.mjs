@@ -7,8 +7,12 @@ import { fileURLToPath } from 'url';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 /* the one scene model — lib-dailies.js reads its scenes from here */
 (0, eval)(readFileSync(join(ROOT, 'js/lib-scenes.js'), 'utf8'));
+/* the shoot day — the join key, and the one place the OTHER take store's
+   circle ('Circled ⭕' in a `grade` field) is turned into a boolean */
+(0, eval)(readFileSync(join(ROOT, 'js/lib-shootdays.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'dailies/lib-dailies.js'), 'utf8'));
 const D = globalThis.CDailies;
+const SD = globalThis.CShootDays;
 
 let pass = 0, fail = 0;
 function t(name, cond) {
@@ -84,6 +88,91 @@ t('coverage carries circled count', cov.scenes[2].circled === 1 && cov.scenes[0]
 t('coverage falls back to slate scene number', D.coverageByScene([D.makeTake({ scene: '', slate: '2A', take: 1 })], SCRIPT).gaps.map(g => g.n).join(',') === '1,3,12');
 t('coverage with no script → no scenes', D.coverageByScene(takes, '').total === 0);
 
+/* A revised shooting script: a FADE IN: preamble and an A-scene, the two
+   inputs a coverage report has to survive. 4A is not 4 — on a revision the
+   A-scenes are exactly the new material, so crediting a take on 4A to scene 4
+   reports the newest pages as covered when nothing has been shot on them. */
+const SHOOTING = `FADE IN:
+
+1  INT. FARMHOUSE KITCHEN - NIGHT
+
+Maggie sets the table.
+
+4  INT. STUDY - NIGHT
+
+Tom loads the shotgun.
+
+4A  EXT. PORCH - NIGHT
+
+Headlights swing across the boards.`;
+const shot4A = D.coverageByScene([D.makeTake({ scene: '4A', slate: '4AA', take: 1, circled: true })], SHOOTING);
+t('coverage keeps A-scenes apart from the scene they insert into',
+  shot4A.total === 3 && shot4A.covered === 1 &&
+  shot4A.scenes.filter(s => s.key === '4A')[0].takes === 1 &&
+  shot4A.scenes.filter(s => s.key === '4')[0].takes === 0);
+t('the scene 4 gap survives a take on 4A', shot4A.gaps.map(g => g.key).join(',') === '1,4');
+t('coverage rows carry the printed label as well as the numeric base',
+  shot4A.scenes.map(s => s.label).join(',') === '1,4,4A' &&
+  shot4A.scenes.map(s => s.n).join(',') === '1,4,4');
+
+/* ── the circle, across both take stores ─────────────────────────────────
+   SB_TakeLog_v1 (tools/tools-media-ui.js) says "circled" with the display
+   string 'Circled ⭕' in `grade`. Reading `t.circled` off those rows returned
+   undefined, so a take circled on the phone counted as a take and never as a
+   circle — invisible to the rate, to both reports and to the pull list. */
+const toolsRow = { id: 'r1', day: '2026-08-23', time: '11:02', scene: '7', take: '3',
+                   roll: 'A001', grade: 'Circled ⭕', note: 'from the phone' };
+const toolsRows = SD.allTakes({ takeLog: [toolsRow] });
+t('isCircled reads this module\'s own boolean', D.isCircled({ circled: true }) === true &&
+  D.isCircled({ circled: false }) === false && D.isCircled(null) === false);
+t('isCircled reads the other store\'s grade string through CShootDays',
+  D.isCircled(toolsRow) === true && D.isCircled({ grade: 'Good' }) === false &&
+  D.isCircled({ grade: '—' }) === false);
+t('the grade rule is not restated here — it is CShootDays\'s',
+  D.isCircled({ grade: SD.CIRCLED_GRADE }) === true);
+const fromLog = D.fromLogRow(toolsRows[0]);
+t('fromLogRow lands a take-log row in this module\'s shape',
+  fromLog.id === 'r1' && fromLog.scene === '7' && fromLog.take === 3 &&
+  fromLog.circled === true && fromLog.soundRoll === 'A001' && fromLog.notes === 'from the phone');
+t('fromLogRow marks where the take came from', fromLog.source === SD.TAKELOG_KEY);
+t('a take-log row with no slate is given one rather than sorting as scene 0',
+  D.fromLogRow({ scene: '7', take: '1' }).slate === '7A');
+const merged = D.mergeTakes(takes, toolsRows);
+t('mergeTakes adds the other store\'s takes', merged.length === takes.length + 1);
+t('mergeTakes is idempotent on id', D.mergeTakes(merged, toolsRows).length === merged.length);
+t('the circle rate counts a circle made in Tools', (() => {
+  const a = D.circleRate(takes).overall.circled;
+  const b = D.circleRate(merged).overall.circled;
+  return b === a + 1;
+})());
+t('the camera report marks a take circled in Tools', /● from the phone/.test(
+  D.cameraReport(merged, '2026-08-23', {})));
+t('the sound report marks it too', /● from the phone/.test(D.soundReport(merged, '2026-08-23', {})));
+t('the editor pull list carries it', D.editorPicks(merged).some(p => p.notes === 'from the phone'));
+t('coverage counts it as a circle', (() => {
+  const c = D.coverageByScene(merged, SCRIPT);
+  return c.scenes.filter(s => s.key === '3')[0].circled === 0 && D.isCircled(toolsRows[0]);
+})());
+
+/* ── what date a take is stamped with ───────────────────────────────────
+   THE CONVENTION: the shoot day is the production's LOCAL calendar date. A
+   take logged at 23:50 belongs to the day the crew worked. tools/tools-core.js
+   stamps SB_TakeLog_v1 in UTC while carrying a LOCAL 'HH:MM' in the same row;
+   until that is aligned, this page can at least SEE the disagreement. */
+const late = new Date(2026, 8, 7, 23, 50, 0);        /* 23:50 local on the 7th */
+t('the day stamp is the local calendar date, not the UTC one',
+  D.localDayISO(late) === '2026-09-07');
+t('utcDayISO is the other writer\'s convention, kept only to compare against',
+  /^\d{4}-\d{2}-\d{2}$/.test(D.utcDayISO(late)));
+t('dayStamp reports whether the two conventions agree right now', (() => {
+  const s = D.dayStamp(late);
+  return s.local === '2026-09-07' && s.differ === (s.local !== s.utc);
+})());
+t('a fixed instant west of Greenwich stamps differently in each convention', (() => {
+  const utcMorning = new Date(Date.UTC(2026, 8, 8, 3, 50));   /* 20:50 on the 7th at UTC-07:00 */
+  return D.utcDayISO(utcMorning) === '2026-09-08';
+})());
+
 /* ── camera report ── */
 const cam = D.cameraReport(takes, '2026-08-23', { unit: 'MAIN', production: 'Night Harvest' });
 t('camera report headed with day+unit+production', /CAMERA REPORT — 2026-08-23/.test(cam) && /MAIN unit/.test(cam) && /Night Harvest/.test(cam));
@@ -111,6 +200,8 @@ const pt = D.picksText(picks);
 t('picksText groups by scene with notes', /Scene 2/.test(pt) && /Scene 7/.test(pt) && /the keeper/.test(pt));
 t('picksText honest about circles', /not bound/.test(pt));
 t('picksText empty log', /no circled takes yet/.test(D.picksText([])));
+
+
 
 console.log(`test_dailies: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

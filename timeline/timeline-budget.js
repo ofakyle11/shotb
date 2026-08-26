@@ -243,18 +243,40 @@
    *               call sheet can print the date;
    *   minWeeks    the weekly minimum guarantee that starts again on every
    *               re-engagement — which is why two 1-day blocks cost two
-   *               weeks and not two days.
+   *               weeks and not two days;
+   *   asOfDay     the first shoot day that has NOT happened yet. It is the
+   *               only thing here that knows about the passage of time, and
+   *               it still is not a clock: the CALLER derives it (the board
+   *               derives it from the wrapped days). Default null = nothing
+   *               has happened yet, i.e. pure planning.
    *
    * Every one of them is a parameter because they are agreement terms, and
    * the production's own contract governs. Nothing here reads a clock or a
    * store: it takes the worked-day list and hands back the arithmetic.
+   *
+   * NOTICE FEASIBILITY. A drop is not free: the performer is owed written
+   * notice noticeDays before it. The gap width alone used to decide, and the
+   * notice index was CLAMPED at 0 — so a mid-shoot re-board could delete
+   * weeks that were already billed and report the notice as due on a day that
+   * was over. Two different things were being clamped together, and they are
+   * now separated:
+   *
+   *   · notice that lands before day 1 is served AT ENGAGEMENT. That is a
+   *     real thing an AD does — you tell a performer at hire that they are a
+   *     one-day player — so the drop stands and carries atEngagement:true.
+   *   · notice that lands before asOfDay cannot be served at all, because
+   *     that day is already shot. The drop is REFUSED: the idle days stay
+   *     billed as holds, and the refusal is reported in refusedDrops so the
+   *     board can say why rather than silently quoting a saving nobody can
+   *     legally take.
    */
   var CAST_RULES = {
     daysPerWeek: 5,
     minDropGap: 10,
     maxDrops: 1,
     noticeDays: 1,
-    minWeeks: 1
+    minWeeks: 1,
+    asOfDay: null
   };
 
   function castRules(over) {
@@ -264,13 +286,16 @@
     r.daysPerWeek = Math.max(1, Math.round(r.daysPerWeek));
     r.minDropGap = Math.max(0, Math.round(r.minDropGap));
     r.maxDrops = Math.max(0, Math.round(r.maxDrops));
+    r.noticeDays = Math.max(0, Math.round(r.noticeDays));
+    r.asOfDay = (r.asOfDay == null || !isFinite(r.asOfDay)) ? null : Math.max(0, Math.round(r.asOfDay));
     return r;
   }
 
   /* days: 0-based shoot-day indices the performer actually works.
      → { workDays, spanDays, spanWeeks, contWeeks, savedWeeks, billedDays,
          holdDays, droppedDays, segments:[{first,last,days,weeks}],
-         drops:[{after,pickUp,freeDays,noticeBy}], rules } */
+         drops:[{after,pickUp,freeDays,noticeBy,noticeDays,atEngagement}],
+         refusedDrops:[{after,pickUp,freeDays,noticeBy,reason}], rules } */
   function castWeeks(days, rules) {
     var R = castRules(rules);
     var seen = {}, list = [];
@@ -282,20 +307,42 @@
     list.sort(function (a, b) { return a - b; });
     if (!list.length) {
       return { workDays: 0, spanDays: 0, spanWeeks: 0, contWeeks: 0, savedWeeks: 0,
-               billedDays: 0, holdDays: 0, droppedDays: 0, segments: [], drops: [], rules: R };
+               billedDays: 0, holdDays: 0, droppedDays: 0, segments: [], drops: [],
+               refusedDrops: [], rules: R };
     }
     var spanDays = list[list.length - 1] - list[0] + 1;
     /* Every gap wide enough to be a legal drop, biggest first — dropping the
        longest idle stretch is what saves the most, and the agreement limits
-       how many drops one performer may carry. */
-    var gaps = [];
+       how many drops one performer may carry. A gap whose notice date is
+       already behind asOfDay is not a candidate at all: it is refused here,
+       before maxDrops is spent on it, so a refused drop never crowds out a
+       later one the production could still legally take. */
+    var gaps = [], refusedDrops = [];
     for (var i = 0; i < list.length - 1; i++) {
       var free = list[i + 1] - list[i] - 1;
-      if (free >= R.minDropGap && R.minDropGap > 0) gaps.push({ at: i, free: free });
+      if (!(free >= R.minDropGap && R.minDropGap > 0)) continue;
+      var rawNotice = list[i] - R.noticeDays;
+      var noticeBy = Math.max(0, rawNotice);
+      if (R.asOfDay != null && noticeBy < R.asOfDay) {
+        refusedDrops.push({ after: list[i], pickUp: list[i + 1], freeDays: free,
+                            noticeBy: noticeBy, noticeDays: R.noticeDays,
+                            atEngagement: rawNotice < 0, asOfDay: R.asOfDay,
+                            reason: 'notice was due on day ' + (noticeBy + 1) +
+                                    ', which is already shot — the days stay billed' });
+        continue;
+      }
+      gaps.push({ at: i, free: free, noticeBy: noticeBy, atEngagement: rawNotice < 0 });
     }
     gaps.sort(function (a, b) { return b.free - a.free || a.at - b.at; });
     var cut = {};
-    gaps.slice(0, R.maxDrops).forEach(function (g) { cut[g.at] = g.free; });
+    gaps.slice(0, R.maxDrops).forEach(function (g) { cut[g.at] = g; });
+    gaps.slice(R.maxDrops).forEach(function (g) {
+      refusedDrops.push({ after: list[g.at], pickUp: list[g.at + 1], freeDays: g.free,
+                          noticeBy: g.noticeBy, noticeDays: R.noticeDays,
+                          atEngagement: g.atEngagement, asOfDay: R.asOfDay,
+                          reason: 'the agreement allows ' + R.maxDrops + ' drop' +
+                                  (R.maxDrops === 1 ? '' : 's') + ' and a wider gap took it' });
+    });
 
     var segments = [], drops = [], start = 0;
     for (var j = 0; j < list.length; j++) {
@@ -304,17 +351,19 @@
         segments.push({ first: first, last: last, days: d,
                         weeks: Math.max(R.minWeeks, Math.ceil(d / R.daysPerWeek)) });
         if (cut[j] != null) {
-          /* Notice is owed noticeDays before the drop. It cannot fall before
-             day 1 of the shoot — a drop on the performer's first day means
-             the notice goes out at engagement, not on a day that does not
-             exist — so the index is clamped rather than allowed to go
-             negative and print as "Day 0". */
-          drops.push({ after: last, pickUp: list[j + 1], freeDays: cut[j],
-                       noticeBy: Math.max(0, last - R.noticeDays) });
+          /* Notice is owed noticeDays before the drop. Landing before day 1
+             is not an error — that notice goes out at engagement, and says so
+             — but landing before asOfDay is, and such a gap never reached
+             `cut` at all. noticeBy is therefore an index that can actually be
+             served, not a clamp hiding one that cannot. */
+          drops.push({ after: last, pickUp: list[j + 1], freeDays: cut[j].free,
+                       noticeBy: cut[j].noticeBy, noticeDays: R.noticeDays,
+                       atEngagement: cut[j].atEngagement });
           start = j + 1;
         }
       }
     }
+    refusedDrops.sort(function (a, b) { return a.after - b.after; });
     var spanWeeks = segments.reduce(function (a, s) { return a + s.weeks; }, 0);
     var billedDays = segments.reduce(function (a, s) { return a + s.days; }, 0);
     var contWeeks = Math.max(R.minWeeks, Math.ceil(spanDays / R.daysPerWeek));
@@ -323,7 +372,7 @@
       spanWeeks: spanWeeks, contWeeks: contWeeks, savedWeeks: contWeeks - spanWeeks,
       billedDays: billedDays, holdDays: billedDays - list.length,
       droppedDays: spanDays - billedDays,
-      segments: segments, drops: drops, rules: R
+      segments: segments, drops: drops, refusedDrops: refusedDrops, rules: R
     };
   }
 

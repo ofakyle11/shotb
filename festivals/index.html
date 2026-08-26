@@ -159,7 +159,17 @@
     toast('Strategy updated for ' + this.value.replace('-', ' '));
   });
 
-  /* ── 2 · submissions ── */
+  /* ── 2 · submissions ──
+     The fee is stored as the owner TYPED it, because the Tools › Festivals
+     column is a free-text input and "$1,200" must not come back as 0. So the
+     cell shows the parsed amount when the text is an amount, and the text
+     itself, flagged, when it is not. */
+  function feeCell(raw) {
+    var amt = F.feeOf(raw);
+    if (amt != null) return esc(amt.toLocaleString());
+    var txt = F.feeText(raw);
+    return txt ? '<span class="fs-tag past" title="Not a readable amount — fix it here or in Tools › Festivals">' + esc(txt) + '</span>' : '—';
+  }
   function renderSubs() {
     var up = F.upcoming(st.subs, todayISO());
     var order = {}; up.forEach(function (s, i) { order[s.id] = i; });
@@ -175,7 +185,7 @@
           ? ' <span class="fs-tag">' + esc(s.premiereReq) + ' premiere</span>' : '') + '</td>' +
         '<td class="fs-num">' + esc(s.deadline || '—') +
           (pastById[s.id] ? ' <span class="fs-tag past">past</span>' : '') + '</td>' +
-        '<td class="fs-num">' + (+s.fee || 0).toLocaleString() + '</td>' +
+        '<td class="fs-num">' + feeCell(s.fee) + '</td>' +
         '<td><input data-f="submittedOn" type="date" value="' + esc(s.submittedOn) + '"></td>' +
         '<td><select data-f="result">' + F.RESULTS.map(function (r) {
           return '<option' + (r === s.result ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>' +
@@ -189,7 +199,10 @@
       '<span>Planned <b>$' + esc(fees.planned.toLocaleString()) + '</b></span>' +
       '<span>All-in <b>$' + esc(fees.total.toLocaleString()) + '</b></span>' +
       '<span>Pending <b>' + esc(counts.pending) + '</b></span>' +
-      '<span>Accepted <b>' + esc(counts.accepted) + '</b></span>';
+      '<span>Accepted <b>' + esc(counts.accepted) + '</b></span>' +
+      (fees.unknown ? '<span style="color:#e07b6a">Not in the total: <b>' + esc(fees.unknown) +
+        '</b> fee' + (fees.unknown === 1 ? '' : 's') + ' unreadable — ' +
+        esc(fees.unknownFees.map(function (u) { return u.festival + ' "' + u.fee + '"'; }).join(', ')) + '</span>' : '');
   }
   $('fsSubAdd').addEventListener('click', function () {
     var fest = $('fsSubFest').value.trim();

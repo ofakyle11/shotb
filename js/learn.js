@@ -144,6 +144,13 @@
            to this moment — and `n` is how much evidence that stood on. Recorded
            here and nowhere else, because one instant later the observation is
            inside the multiplier and the prediction can never be reconstructed. */
+        /* One caveat, stated rather than hidden: `est` is whatever the caller
+           hands over. props/lib-props.js passes priceItem().raw, which is the
+           genuinely uncalibrated figure; a Producer Suite line seeded while a
+           multiplier was already in force carries that older correction inside
+           it. For those rows the comparison is "apply today's correction or
+           leave the stored estimate alone", which is still the right A/B for
+           the owner and still cannot be gamed by correcting harder. */
         var b = state.budget[c.acct] || { r: 1, n: 0 };
         var nPrior = b.n;
         var pred = est * calibration(c.acct).mult;
@@ -365,7 +372,7 @@
        now travels as `walk`, which can come back negative. */
     return {
       budgetLines: b.lines, budgetAccounts: b.accounts, avgCorrection: b.avgCorrection,
-      walk: walkForward(), gate: gate(), report: learningReport(),
+      walk: walkForward(), gate: gate(),
       renders: r.n, wallPerClip: r.wallPerClip, trend: r.trend,
       cached: Object.keys(state.cache).length
     };

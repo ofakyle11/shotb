@@ -127,7 +127,7 @@ L.reset();
 /* ── persistence shape ── */
 {
   const snap = JSON.parse(JSON.stringify(L._state()));
-  ok(snap.render && snap.cache && snap.budget, 'state: serializes clean');
+  ok(snap.render && snap.cache && snap.budget && snap.pw, 'state: serializes clean');
   ok(L.KEY === 'CIN_Learn_v1', 'state: global key outside the per-project namespace');
 }
 

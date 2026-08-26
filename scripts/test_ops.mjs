@@ -105,10 +105,13 @@ let sum = C.summary(finds);
 t('clear: summary counts open', sum.open === finds.length && !sum.eoReady);
 
 /* ── E&O readiness is a representation made to an insurer ──
-   The old rule was `open === 0` counting only `pending`, so marking every
-   finding "accepted risk" turned the banner green having cleared NOTHING,
-   and the chain of title, the music licences and the certificate of insurance
-   were never consulted at all. */
+   The rule failed twice the same way. First it was `open === 0` counting only
+   `pending`, so the chain of title, the music licences and the certificate of
+   insurance were never consulted at all. Then, with those wired in, it STILL
+   counted only `pending` — so marking every finding "accepted risk" turned the
+   banner green having cleared NOTHING, and this suite asserted that as
+   intended. Ready means cleared or rewritten, every file read, nothing
+   unknown. Carried is not cleared. */
 const EO_FILE = {
   rights: [{ material: 'Night Harvest (novel)', kind: 'Option', party: 'A. Sayer', status: 'Executed' },
            { material: 'Screenplay', kind: 'Writer agreement', party: 'K. Francis', status: 'Executed' }],
@@ -121,8 +124,9 @@ finds.forEach(f => { f.status = 'accepted risk'; });
 const risky = C.summary(finds, EO_FILE);
 t('clear: accepted risk is NOT cleared', risky.acceptedRisk === finds.length &&
   risky.open === finds.length && risky.resolved === 0);
-t('clear: accepted risk still blocks nothing but is disclosed',
-  risky.eoReady === true && risky.disclosures.some(d => d.id === 'accepted-risk'));
+t('clear: every finding "accepted risk" BLOCKS, and is disclosed',
+  risky.eoReady === false && idsOf(risky).includes('accepted-risk') &&
+  risky.disclosures.some(d => d.id === 'accepted-risk'));
 finds[0].status = 'pending';
 t('clear: one pending finding blocks E&O', !C.summary(finds, EO_FILE).eoReady);
 finds.forEach(f => { f.status = 'cleared'; });
@@ -160,8 +164,20 @@ t('clear: no E&O certificate blocks', (() => {
 })());
 t('clear: an expired E&O policy blocks', (() => {
   const s = C.summary(finds, Object.assign({}, EO_FILE, {
-    insurance: [{ kind: 'E&O', carrier: 'Chubb', expiry: '2026-01-01' }] }));
+    insurance: [{ kind: 'E&O', carrier: 'Chubb', policy: 'EO-1', expiry: '2026-01-01' }] }));
   return !s.eoReady && s.blockers.some(b => /expired/i.test(b.label));
+})());
+/* A row with no carrier, no policy number and no expiry is a note to self.
+   The blank expiry used to read as "never expires" and passed. */
+t('clear: an E&O row with no carrier, number or expiry blocks as unknown', (() => {
+  const s = C.summary(finds, Object.assign({}, EO_FILE, { insurance: [{ kind: 'E&O' }] }));
+  const b = s.blockers.filter(x => x.id === 'eo-policy-detail')[0];
+  return !s.eoReady && !!b && b.unknown === true && /carrier, policy number, expiry/.test(b.detail);
+})());
+t('clear: a policy with a carrier and number but no expiry is still unknown', (() => {
+  const s = C.summary(finds, Object.assign({}, EO_FILE, {
+    insurance: [{ kind: 'E&O', carrier: 'Chubb', policy: 'EO-1' }] }));
+  return !s.eoReady && s.blockers.some(x => x.id === 'eo-policy-detail' && /no expiry/.test(x.detail));
 })());
 t('clear: expiry is judged against the caller\'s date, never Date.now()', (() => {
   const late = C.summary(finds, Object.assign({}, EO_FILE, { todayISO: '2027-12-01' }));
@@ -316,12 +332,41 @@ t('gate: blocked is blocked', gate.level === 'blocked' && gate.ok === false && /
 const festGate = X.rightsGate({ cues: [MUSIC.cues[1], MUSIC.cues[2]] }, [], { scope: 'festival' });
 t('gate: a festival licence covers a festival screener',
   festGate.ok && festGate.level === 'caution' && festGate.cautions.length === 1);
-t('gate: an accepted risk is a caution, not a block', X.rightsGate({ cues: [] },
+t('gate: an accepted risk is a caution, not a block', X.rightsGate({ cues: [], noMusic: true },
   [{ id: 'f9', risk: 'high', status: 'accepted risk', cat: 'brand', term: 'Nike', sceneLabel: '3' }], {}).ok);
-t('gate: nothing to check is clear', X.rightsGate(null, null, {}).level === 'clear');
+/* ── absence of evidence is not clearance ──
+   rightsGate(null, null, {}) answered ok:true, level:'clear' and the page
+   painted a green CLEAR, so a project that never opened /music/ walked
+   through the door that exists to stop exactly that. */
+t('gate: nothing to check is UNKNOWN and not ok', (() => {
+  const g = X.rightsGate(null, null, {});
+  return g.level === 'unknown' && g.ok === false && g.checked === false && g.unknown === 2 &&
+    /never been answered/.test(g.summary) && /not cleared to leave/.test(g.summary);
+})());
+t('gate: a missing music store alone is unknown', (() => {
+  const g = X.rightsGate(null, { findings: [], scannedAt: '2026-08-23' }, {});
+  return !g.ok && g.level === 'unknown' && g.blockers.length === 1 &&
+    /Music rights never checked/.test(g.blockers[0].label);
+})());
+t('gate: an unscanned screenplay is unknown, not clean', (() => {
+  const g = X.rightsGate({ cues: [], noMusic: true }, { findings: [], scannedAt: '' }, {});
+  return !g.ok && g.level === 'unknown' && /never scanned/i.test(g.blockers[0].label);
+})());
+t('gate: read-and-empty is not the same fact as never-read', (() => {
+  const empty = X.rightsGate({ cues: [] }, { findings: [], scannedAt: '2026-08-23' }, {});
+  const declared = X.rightsGate({ cues: [], noMusic: true }, { findings: [], scannedAt: '2026-08-23' }, {});
+  return !empty.ok && /empty/i.test(empty.blockers[0].label) &&
+    declared.ok && declared.level === 'clear' && declared.checked === true &&
+    /no third-party music/.test(declared.summary);
+})());
+t('gate: a store of the wrong shape is unknown, never a throw', (() => {
+  const g = X.rightsGate({ cues: { a: 1 } }, { findings: { a: 1 } }, {});
+  return !g.ok && g.level === 'unknown' && g.blockers.length === 2;
+})());
 t('gate: a bare cue array is accepted too', X.rightsGate([{ title: 'x', status: 'identified' }], [], {}).blockers.length === 1);
 t('gate: scope defaults to all-media, bogus scope too',
-  X.rightsGate(null, null, { scope: 'zap' }).scope === 'all-media' && X.SCOPES.length === 2);
+  X.rightsGate(null, null, { scope: 'zap' }).scope === 'all-media' && X.SCOPES.length === 2 &&
+  X.LEVELS.length === 4);
 
 /* ── the door ── */
 const blocked = X.sendScreener(dsx, { recipient: 'A. Buyer', company: 'Festco', sentAt: '2026-08-23',

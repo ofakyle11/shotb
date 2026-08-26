@@ -164,9 +164,12 @@
     var t = Date.parse(iso + 'T00:00:00Z');
     return isFinite(t) ? t / 86400000 : null;
   }
-  /* windowRange(w) → {start, end, dated} in whole days. `dated` is false when
-     the grant does not say when it ends — which is a fact worth reporting,
-     not a licence to guess. */
+  /* windowRange(w) → {start, end, dated, startKnown, endKnown} in whole days.
+     `dated` is false when the grant does not pin both edges of its term —
+     which is a fact worth reporting, not a licence to guess. startKnown and
+     endKnown say WHICH edge is missing, because "record the end date" is
+     unhelpful advice to somebody who has recorded the end date and left the
+     start blank. */
   function windowRange(w) {
     var start = dayNum(w && w.start);
     var end = dayNum(w && w.end);
@@ -175,7 +178,15 @@
       if (term != null && start != null) end = term === Infinity ? Infinity : start + term;
       else if (term === Infinity) end = Infinity;
     }
-    return { start: start, end: end, dated: start != null && end != null };
+    return { start: start, end: end, startKnown: start != null, endKnown: end != null,
+             dated: start != null && end != null };
+  }
+  /* What is missing from this pair, in the words of the fields on the form. */
+  function missingDates(ra, rb) {
+    var miss = [];
+    if (!ra.startKnown || !rb.startKnown) miss.push('start date');
+    if (!ra.endKnown || !rb.endKnown) miss.push('end date (or a term like "90 days")');
+    return miss;
   }
   function termsOverlap(a, b) {
     var aStart = a.start == null ? -Infinity : a.start;
@@ -185,12 +196,17 @@
     return aStart <= bEnd && bStart <= aEnd;
   }
 
-  /* windows planner — the release sequence by territory */
+  /* windows planner — the release sequence by territory.
+     `exclusive` defaults TRUE because most licences are, but it is a real
+     field an owner sets: a non-exclusive grant is a legitimate deal and must
+     be recordable as one, or the planner reports a clash that is not a clash.
+     distribution/index.html carries the checkbox. */
   function addWindow(store, fields) {
-    var w = { id: uid(), territory: fields.territory || 'Worldwide',
-      channel: fields.channel || 'SVOD', window: fields.window || '',
-      start: fields.start || '', end: fields.end || '',
-      licensee: fields.licensee || '', exclusive: fields.exclusive !== false };
+    var f = fields || {};
+    var w = { id: uid(), territory: f.territory || 'Worldwide',
+      channel: f.channel || 'SVOD', window: f.window || '',
+      start: f.start || '', end: f.end || '',
+      licensee: f.licensee || '', exclusive: f.exclusive !== false };
     store.windows.push(w);
     return w;
   }
@@ -212,9 +228,10 @@
         if (!ra.dated || !rb.dated) {
           if (!termsOverlap(ra, rb)) continue;
           out.push({ a: a.id, b: b.id, key: key, kind: 'undated',
-            detail: 'Same territory and channel, and no term on record for ' +
-              (!ra.dated && !rb.dated ? 'either grant' : 'one of them') +
-              ' — record the end date (or "90 days" in the window field) to know whether these collide.' });
+            missing: missingDates(ra, rb),
+            detail: 'Same territory and channel, and ' +
+              (!ra.dated && !rb.dated ? 'neither grant states its whole term' : 'one grant does not state its whole term') +
+              ' — record the ' + missingDates(ra, rb).join(' and the ') + ' to know whether these collide.' });
           continue;
         }
         if (!termsOverlap(ra, rb)) continue;
@@ -234,26 +251,70 @@
      This is the join, not a new capability.
 
      rightsGate(music, clearance, opts) → {ok, level, blockers, cautions, ...}
-       music      SB_Music_v1 store {cues:[…]} (a bare array is accepted too)
-       clearance  SB_ClearScan_v1 findings array, or {findings:[…]}
+       music      SB_Music_v1 store {cues:[…], noMusic?} (a bare array too)
+       clearance  SB_ClearScan_v1 store {findings:[…], scannedAt}, or a bare
+                  findings array from a caller asserting it checked
        opts.scope 'festival' (a festival screener) | 'all-media' (delivery)
-       opts.checkedAt  the caller's date — this module never asks the clock. */
-  var SCOPES = ['festival', 'all-media'];
+       opts.checkedAt  the caller's date — this module never asks the clock.
 
+     PASS THE STORE VALUE, null and all. rightsGate(null, null, {}) used to
+     answer ok:true, level:'clear' and the page painted a green CLEAR — so a
+     project that never once opened /music/ walked straight through the door
+     that exists to stop exactly that. Absence of evidence is not clearance:
+     a store nobody has read is an UNKNOWN, the gate is not ok, and the send
+     needs a recorded reason like any other refusal. "Read and empty" is a
+     different fact and is treated differently. */
+  var SCOPES = ['festival', 'all-media'];
+  var LEVELS = ['clear', 'caution', 'unknown', 'blocked'];
+
+  function isArr(v) { return Object.prototype.toString.call(v) === '[object Array]'; }
+  function isObj(v) { return !!v && typeof v === 'object' && !isArr(v); }
+
+  /* cuesOf(music) → {checked, cues, empty, musicFree}. `cues` drops replaced
+     cues (a cue cut from the picture needs no licence); `empty` is about the
+     RAW list, because a store holding one replaced cue has been worked on. */
   function cuesOf(music) {
-    var list = (music && music.cues) || (music && music.length ? music : []) || [];
-    return list.filter(function (c) { return c && c.status !== 'replaced'; });
+    if (music == null) return { checked: false, cues: [], empty: true };
+    var raw = isArr(music) ? music : (isObj(music) && isArr(music.cues) ? music.cues : null);
+    if (!raw) return { checked: true, cues: [], empty: true, bad: true };
+    var rows = raw.filter(function (c) { return c && typeof c === 'object'; });
+    return { checked: true, empty: rows.length === 0,
+             musicFree: isObj(music) && music.noMusic === true,
+             cues: rows.filter(function (c) { return c.status !== 'replaced'; }) };
   }
+  /* findingsOf(clearance) → {checked, findings}. An SB_ClearScan_v1 store with
+     no scannedAt has never been scanned, and its empty findings list means
+     nobody looked — not that the script is clean. */
   function findingsOf(clearance) {
-    return (clearance && clearance.findings) || (clearance && clearance.length ? clearance : []) || [];
+    if (clearance == null) return { checked: false, findings: [], scannedAt: '' };
+    if (isArr(clearance)) return { checked: true, scannedAt: '',
+      findings: clearance.filter(function (f) { return f && typeof f === 'object'; }) };
+    if (isObj(clearance) && isArr(clearance.findings)) {
+      var rows = clearance.findings.filter(function (f) { return f && typeof f === 'object'; });
+      return { checked: !!clearance.scannedAt || rows.length > 0,
+               scannedAt: clearance.scannedAt || '', findings: rows };
+    }
+    return { checked: true, findings: [], scannedAt: '', bad: true };
   }
 
   function rightsGate(music, clearance, opts) {
     var o = opts || {};
     var scope = SCOPES.indexOf(o.scope) >= 0 ? o.scope : 'all-media';
     var blockers = [], cautions = [];
-    var cues = cuesOf(music);
-    var findings = findingsOf(clearance);
+    var m = cuesOf(music), cl = findingsOf(clearance);
+    var cues = m.cues;
+    var findings = cl.findings;
+
+    if (!m.checked) blockers.push({ kind: 'unknown', ref: 'music', label: 'Music rights never checked',
+      detail: 'No cue sheet on record (SB_Music_v1). Nobody can say what is on this soundtrack, so nobody can say it is licensed. Spot the picture in Music.' });
+    else if (m.bad) blockers.push({ kind: 'unknown', ref: 'music', label: 'Cue sheet unreadable',
+      detail: 'SB_Music_v1 does not hold a list of cues.' });
+    else if (m.empty && !m.musicFree) blockers.push({ kind: 'unknown', ref: 'music', label: 'Cue sheet is empty',
+      detail: 'No cues logged. Spot the picture in Music, or tick "no third-party music" there to put that on the record.' });
+    if (!cl.checked) blockers.push({ kind: 'unknown', ref: 'clearance', label: 'Screenplay never scanned',
+      detail: 'No clearance scan on record (SB_ClearScan_v1). Run the scan in Clearance before this cut leaves.' });
+    else if (cl.bad) blockers.push({ kind: 'unknown', ref: 'clearance', label: 'Clearance findings unreadable',
+      detail: 'SB_ClearScan_v1 does not hold a list of findings.' });
 
     cues.forEach(function (c) {
       var name = c.title || 'untitled cue';
@@ -281,51 +342,90 @@
       }
     });
 
-    var level = blockers.length ? 'blocked' : cautions.length ? 'caution' : 'clear';
+    /* 'unknown' when nothing is actually WRONG and the only thing standing in
+       the way is that nobody looked. It is still not ok — the difference is
+       what the page says and what the owner has to do about it. */
+    var unknowns = blockers.filter(function (b) { return b.kind === 'unknown'; }).length;
+    var level = blockers.length ? (unknowns === blockers.length ? 'unknown' : 'blocked')
+      : cautions.length ? 'caution' : 'clear';
+    var licensed = cues.filter(function (c) { return c.status === 'licensed'; }).length;
     return {
       ok: blockers.length === 0, level: level, scope: scope,
-      blockers: blockers, cautions: cautions,
-      cues: cues.length, licensed: cues.filter(function (c) { return c.status === 'licensed'; }).length,
+      blockers: blockers, cautions: cautions, unknown: unknowns,
+      checked: !!(m.checked && !m.bad && cl.checked && !cl.bad),
+      cues: cues.length, licensed: licensed,
+      findings: findings.length, scannedAt: cl.scannedAt || '',
       checkedAt: o.checkedAt || '',
-      summary: blockers.length
+      summary: unknowns && unknowns === blockers.length
+        ? unknowns + ' rights ' + (unknowns === 1 ? 'question has' : 'questions have') +
+          ' never been answered — this cut has not been checked, so it is not cleared to leave'
+        : blockers.length
         ? blockers.length + ' rights blocker' + (blockers.length === 1 ? '' : 's') + ' — this cut is not cleared to leave'
-        : cues.length + ' cue' + (cues.length === 1 ? '' : 's') + ' licensed, no open high-risk findings' +
+        : (m.musicFree && !cues.length ? 'no third-party music on the record'
+            : cues.length + ' cue' + (cues.length === 1 ? '' : 's') + ' licensed') +
+          ', no open high-risk findings' +
           (cautions.length ? ' · ' + cautions.length + ' caution' + (cautions.length === 1 ? '' : 's') : '')
     };
   }
 
-  /* screener registry — who has the picture, WHICH CUT, and what was in it */
+  /* screener registry — who has the picture, WHICH CUT, and what was in it.
+
+     addScreener is the RAW log line: it records what it is given and gates
+     NOTHING. Anything leaving the building goes through sendScreener; this
+     exists for backfilling a send that already happened outside the app.
+     A row written here carries gated:false, so the registry can never imply
+     a rights check that never ran. */
   function addScreener(store, fields) {
     var f = fields || {};
     var s = { id: uid(), recipient: f.recipient || '', company: f.company || '',
       link: f.link || '', sentAt: f.sentAt || '', expires: f.expires || '',
       cutId: f.cutId || '', cutLabel: f.cutLabel || '', scope: SCOPES.indexOf(f.scope) >= 0 ? f.scope : 'all-media',
-      rights: f.rights || null, overrideReason: f.overrideReason || '',
+      rights: f.rights || null, gated: !!f.rights, overrideReason: overrideReason(f.overrideReason),
       watched: false, notes: f.notes || '' };
     store.screeners.push(s);
     return s;
   }
 
-  /* sendScreener(store, fields, gate) — the door. A blocked gate refuses the
-     send; an owner who sends anyway must say why, and the reason and the
-     blockers are recorded ON the screener, so "who had the picture, and what
-     was wrong with it at the time" is answerable a year later. */
+  /* The override guarantee lives HERE, not in the page's prompt(): `" "` and
+     `"\t\n"` used to pass `!f.overrideReason` and were then recorded as the
+     audit reason — a signature made of whitespace. A reason has to be words
+     somebody can read back a year later. */
+  var MIN_REASON = 3;
+  function overrideReason(v) {
+    var s = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    return s.length >= MIN_REASON && /[A-Za-z0-9]/.test(s) ? s : '';
+  }
+  function gateRecord(gate) {
+    return { level: gate.level, ok: gate.ok, checkedAt: gate.checkedAt, summary: gate.summary,
+             blockers: gate.blockers.map(function (b) { return b.label; }),
+             cautions: gate.cautions.map(function (b) { return b.label; }) };
+  }
+
+  /* sendScreener(store, fields, gate) — the door. A gate that is not ok
+     refuses the send; an owner who sends anyway must say why, and the reason
+     and the blockers are recorded ON the screener, so "who had the picture,
+     and what was wrong with it at the time" is answerable a year later.
+
+     No gate argument is NOT an open door. It used to write rights:null and
+     let the send through, which is the same "nobody checked, so it must be
+     fine" the gate exists to refuse — so a missing gate becomes an unchecked
+     one (rightsGate(null, null)) and is refused and recorded like any other. */
   function sendScreener(store, fields, gate) {
     var f = fields || {};
-    if (gate && !gate.ok && !f.overrideReason) {
-      return { ok: false, refused: true, gate: gate, screener: null };
+    var g = gate || rightsGate(null, null, { scope: f.scope, checkedAt: f.sentAt || '' });
+    var reason = overrideReason(f.overrideReason);
+    if (!g.ok && !reason) {
+      return { ok: false, refused: true, gate: g, screener: null,
+               reason: f.overrideReason
+                 ? 'An override reason must be words, not blank space — say why this cut is going out anyway.'
+                 : g.summary };
     }
     var s = addScreener(store, {
       recipient: f.recipient, company: f.company, link: f.link, sentAt: f.sentAt,
       expires: f.expires, cutId: f.cutId, cutLabel: f.cutLabel, notes: f.notes,
-      scope: (gate && gate.scope) || f.scope, overrideReason: f.overrideReason,
-      rights: gate ? { level: gate.level, ok: gate.ok, checkedAt: gate.checkedAt,
-                       summary: gate.summary,
-                       blockers: gate.blockers.map(function (b) { return b.label; }),
-                       cautions: gate.cautions.map(function (b) { return b.label; }) } : null
+      scope: g.scope || f.scope, overrideReason: reason, rights: gateRecord(g)
     });
-    return { ok: true, refused: false, gate: gate || null, screener: s,
-             overridden: !!(gate && !gate.ok && f.overrideReason) };
+    return { ok: true, refused: false, gate: g, screener: s, overridden: !g.ok && !!reason };
   }
   function removeRow(store, id) {
     var n = store.windows.length + store.screeners.length;
@@ -335,7 +435,7 @@
   }
 
   root.CDist = {
-    DELIVERABLES: DELIVERABLES, BUYER_PRESETS: BUYER_PRESETS, SCOPES: SCOPES,
+    DELIVERABLES: DELIVERABLES, BUYER_PRESETS: BUYER_PRESETS, SCOPES: SCOPES, LEVELS: LEVELS,
     TERRITORY_ALIASES: TERRITORY_ALIASES, TERRITORY_GROUPS: TERRITORY_GROUPS,
     CHANNEL_GROUPS: CHANNEL_GROUPS,
     blank: blank, checklist: checklist, toggle: toggle,
@@ -344,6 +444,6 @@
     parseTerm: parseTerm, windowRange: windowRange, termsOverlap: termsOverlap,
     addWindow: addWindow, windowConflicts: windowConflicts,
     rightsGate: rightsGate, addScreener: addScreener, sendScreener: sendScreener,
-    removeRow: removeRow
+    overrideReason: overrideReason, removeRow: removeRow
   };
 })(typeof window !== 'undefined' ? window : globalThis);

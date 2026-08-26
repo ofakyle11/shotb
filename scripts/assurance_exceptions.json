@@ -264,7 +264,7 @@
   "why": "DEFECT. 263 lines, 4 document. references, no suite; it is the script tool's controller and carries its own dl() copy. Owner: wave 1.1's tools consumer, and the pre-cut split of scripts/test_tools.mjs into per-lib suites that PROGRAM.md already schedules for Gate-0 R3b is the natural place to add it."
  },
  "coverage::workflow/advisor-ui.js": {
-  "n": 1,
+  "n": 0,
   "why": "DEFECT, and not a mitigated one. 166 lines, 5 document. references, no suite — and this is the file that prints js/learn.js's budgetSummary() to the owner as 'Self-learning' (finding 44), a number that goes UP as the system gets MORE wrong. The untested file is the one presenting the misleading label. PROGRAM.md assigns advisor-ui.js to Phase 4. Owner: Phase 4 (the learning layer replacement), which must not ship without a test that pins what this string claims."
  },
  "coverage::writer/writer.js": {
@@ -276,7 +276,7 @@
   "why": "DEFECT against a standing rule. PROGRAM.md's standing rules say money fixtures use cents; this suite executes six money modules including js/lib-money-math.js and js/lib-money-sheet.js and every amount in it is a round number, so the rounding behaviour finding 42 is about is never exercised. It is a CSV-injection suite, so the money modules are incidental — but a raw float reaching a CSV cell IS one of finding 42's three defects, which makes cents relevant here rather than noise. Owner: the money-suites agent working now (Gate-0 R1). Expected to clear this wave."
  },
  "inputs::cents:scripts/test_festivals.mjs": {
-  "n": 1,
+  "n": 0,
   "why": "DEFECT, same standing rule. festivals/lib-fest.js sums submission fees; every fee in the fixture is round, so feesTotal is never asked to add 65.50 to 41.25. Festival fees in the real world are almost never whole dollars, which makes this the input class the bug would live in. Owner: the festivals slice."
  },
  "inputs::cents:scripts/test_locations.mjs": {
@@ -292,7 +292,7 @@
   "why": "DEFECT. Has a preamble, no A-scene. casting/lib-castdesk.js builds audition sides per scene (finding 40's area), so a scene number it cannot express is a side it cannot cut. Owner: wave 1.1."
  },
  "inputs::script:scripts/test_dailies.mjs": {
-  "n": 1,
+  "n": 0,
   "why": "DEFECT. Has an A-scene, no FADE IN: preamble. The preamble is the input that makes eight of the nine splitScenes copies count a title card as scene 1 and number the first real scene 2 — see agreement::splitScenes:answers. Owner: wave 1.1."
  },
  "inputs::script:scripts/test_locations.mjs": {

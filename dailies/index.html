@@ -48,6 +48,10 @@
 .dl-stat b{color:var(--gold);font-size:15px}
 .dl-gap{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:6px;font-size:12px;display:flex;gap:10px;align-items:center}
 .dl-gap .dl-n{font-family:var(--mono);color:var(--gold);min-width:32px}
+.dl-miss{background:var(--surface);border:1px solid #e8735a;border-left-width:4px;border-radius:9px;padding:10px 12px;margin-bottom:8px;font-size:12.5px;line-height:1.55}
+.dl-miss .dl-n{font-family:var(--mono);color:#e8735a;font-weight:700;margin-right:8px}
+.dl-soft{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:6px;font-size:12px;line-height:1.55;color:var(--dim)}
+.dl-warn{font-family:var(--mono);font-size:10.5px;color:#e8b34b;line-height:1.6}
 .dl-sticky{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:10px;z-index:40}
 .dl-sticky .dl-big{flex:1}
 @media(min-width:900px){.dl-sticky{display:none}.dl-main{padding-bottom:60px}}
@@ -75,6 +79,7 @@
       </label>
       <span class="dl-note" id="dlDayLabel" title="The shoot-day record this date resolves to — the same day the stripboard, the call sheet and the daily production report use"></span>
       <span class="dl-note" id="dlDayStat"></span>
+      <span class="dl-warn" id="dlTz" title="The two take logs stamp the shoot day in different timezones"></span>
     </div>
     <div class="dl-form">
       <label>Scene <input id="dlScene" inputmode="numeric" placeholder="12"></label>
@@ -117,7 +122,15 @@
     <textarea class="dl-export" id="dlReport" spellcheck="false" readonly></textarea>
     <p class="dl-note">These exports mirror the classic paper reports (circled takes marked ●) but they are your on-set log, not the deliverable of record — verify against the camera assistant's and sound mixer's own sheets before lab / DIT turnover.</p>
 
-    <h2>4 · Coverage &amp; circles</h2>
+    <h2>4 · Scheduled and not shot</h2>
+    <p class="dl-note">The stripboard says which scenes were scheduled on each day; the shoot-day record turns that day into a date; this log says what was shot on it. Those three have always been in this browser and nothing compared them — so a scene the day never got to simply did not appear anywhere. A day is checked once it is <b>wrapped</b>, or once its date has passed: a scene scheduled for next Tuesday is not a gap. A scene missed on its day and picked up later is listed separately, because that is a different fact.</p>
+    <div class="dl-bar">
+      <span class="dl-note" id="dlSchedStat"></span>
+      <button class="dl-big" id="dlMissedCopy" title="Copy the gap list for the production report">Copy the gap list</button>
+    </div>
+    <div id="dlMissed"></div>
+
+    <h2>5 · Coverage &amp; circles</h2>
     <div class="dl-stat" id="dlRate"></div>
     <div class="dl-bar">
       <button class="dl-big" id="dlPicks" title="Write the circled-take pull list for the Editor module">Send picks to Editor</button>
@@ -137,7 +150,7 @@
 <script src="/js/project-badge.js?v=20260823a"></script>
 <script src="/js/lib-scenes.js?v=20260826a"></script>
 <script src="/js/lib-shootdays.js?v=20260826a"></script>
-<script src="lib-dailies.js?v=20260823a"></script>
+<script src="lib-dailies.js?v=20260826a"></script>
 <script>
 (function () {
   'use strict';
@@ -156,7 +169,12 @@
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
   function scriptText() { return String((readLS('SB_Timeline_v1') || {}).scriptText || ''); }
   function prodName() { return (readLS('CIN_Projects_v1') || {}).active || ''; }
-  function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  /* THE SHOOT-DAY CONVENTION, in one place: the production's LOCAL calendar
+     date. A take logged at 23:50 belongs to the day the crew worked, which is
+     the day on the call sheet and the day the report is headed with. The rule
+     itself lives in lib-dailies.js so a suite can pin it; this page never
+     builds a date string by hand. */
+  function today() { return D.localDayISO(new Date()); }
   function curDay() { return $('dlDate').value || st.cur.date || today(); }
   function camVal() { return $('dlCamB').classList.contains('on') ? 'B' : 'A'; }
 
@@ -168,6 +186,14 @@
      /today/ and the call sheet all resolve the same day. */
   var SD = window.CShootDays;
   var shootDays = SD.sync(window.localStorage, { dailies: st });
+
+  /* Every read of the take log goes through the one accessor, so a take slated
+     on the phone in /tools/ is the same day's work as one logged here — in the
+     circle rate, in both on-set reports and in the editor's pull list. Rows
+     that came from the other store are not editable here; the log table below
+     stays this page's own takes. */
+  function stores() { return { takeLog: readLS('SB_TakeLog_v1'), dailies: st }; }
+  function allTakes() { return D.mergeTakes(st.takes, SD.allTakes({ takeLog: readLS('SB_TakeLog_v1') })); }
   function touchDay() {
     var d = curDay(), u = $('dlUnit').value;
     st.cur = { date: d, unit: u };
@@ -274,7 +300,7 @@
   /* ── reports ── */
   function dayOptions(sel, withAll) {
     var days = [];
-    st.takes.forEach(function (t) { if (t.day && days.indexOf(t.day) < 0) days.push(t.day); });
+    allTakes().forEach(function (t) { if (t.day && days.indexOf(t.day) < 0) days.push(t.day); });
     days.sort();
     var keep = sel.value;
     sel.innerHTML = (withAll ? '<option value="">All days</option>' : '') +
@@ -289,7 +315,8 @@
     var day = $('dlRepDay').value;
     if (!day) return toast('No shoot days logged yet');
     var opts = { unit: unitFor(day), production: prodName() || undefined };
-    $('dlReport').value = kind === 'snd' ? D.soundReport(st.takes, day, opts) : D.cameraReport(st.takes, day, opts);
+    var rows = allTakes();
+    $('dlReport').value = kind === 'snd' ? D.soundReport(rows, day, opts) : D.cameraReport(rows, day, opts);
   }
   $('dlRepCam').addEventListener('click', function () { showReport('cam'); });
   $('dlRepSnd').addEventListener('click', function () { showReport('snd'); });
@@ -298,9 +325,70 @@
     navigator.clipboard.writeText($('dlReport').value).then(function () { toast('Report copied'); });
   });
 
+  /* ── the loop: what was scheduled against what was shot ─────────────────
+     Both ends of this already existed. The stripboard knows the scenes on a
+     day index, the shoot-day record turns that index into a date, and the two
+     take logs know what was shot on it — and nothing joined them, so an unshot
+     scene was silently absent rather than reported. */
+  var missedCache = '';
+  function renderSchedule() {
+    var script = scriptText();
+    var board = readLS('SB_ScheduleBoard_v1');
+    if (!board || !(board.scenes || []).length) {
+      $('dlMissed').innerHTML = '<p class="dl-note">No stripboard in this browser — build one in the Producer suite and this page will tell you, at wrap, exactly which of the day\'s scenes were not shot.</p>';
+      $('dlSchedStat').textContent = '';
+      missedCache = '';
+      return;
+    }
+    if (script.trim().length < 40) {
+      $('dlMissed').innerHTML = '<p class="dl-note">No screenplay in this browser — the board can be read but its strips cannot be matched to scenes, so nothing here can be checked. Load the script in the Studio or Writer.</p>';
+      $('dlSchedStat').textContent = '';
+      missedCache = '';
+      return;
+    }
+    var cov = D.coverageAgainstSchedule({
+      board: board, shootDays: shootDays, scriptText: script,
+      stores: stores(), asOf: today()
+    });
+    missedCache = D.missedText(cov, { production: prodName() || undefined, asOf: today() });
+
+    var html = '';
+    cov.missed.forEach(function (r) {
+      html += '<div class="dl-miss"><span class="dl-n">SC ' + esc(r.label) + '</span>' + esc(r.note) + '</div>';
+    });
+    if (!cov.missed.length) {
+      html += '<p class="dl-note">' + (cov.totals.judgedDays
+        ? 'Nothing outstanding — every scene scheduled on the ' + esc(cov.totals.judgedDays) +
+          ' day(s) already shot has at least one take.'
+        : 'No shoot day has wrapped yet. Mark a day wrapped, or let its date pass, and it is checked here.') + '</p>';
+    }
+    cov.pickedUp.forEach(function (r) {
+      html += '<div class="dl-soft"><span class="dl-n">SC ' + esc(r.label) + '</span>' + esc(r.note) + '</div>';
+    });
+    cov.notInScript.forEach(function (r) {
+      html += '<div class="dl-soft">' + esc(r.note) + '</div>';
+    });
+    cov.unmatchedStrips.forEach(function (r) {
+      html += '<div class="dl-soft">Strip “' + esc(r.heading) + '” ' + esc(r.note) + '.</div>';
+    });
+    if (cov.undated.length) {
+      html += '<div class="dl-soft">' + esc(cov.undated.length) + ' take(s) carry no shoot day at all, so they count towards no day\'s coverage. Give them a date in the log they were written in.</div>';
+    }
+    $('dlMissed').innerHTML = html;
+    $('dlSchedStat').textContent = cov.totals.judgedDays + ' of ' + cov.totals.shootDays +
+      ' shoot day(s) checked · ' + cov.totals.scheduled + ' scene(s) scheduled on them, ' +
+      cov.totals.shot + ' shot on the day · ' + cov.missed.length + ' never shot (' +
+      D.eighthsLabel(cov.totals.missedEighths) + ')' +
+      (cov.neverScheduled.length ? ' · ' + cov.neverScheduled.length + ' script scene(s) are on no strip at all' : '');
+  }
+  $('dlMissedCopy').addEventListener('click', function () {
+    if (!missedCache) return toast('Nothing to copy yet — this needs a stripboard and a screenplay');
+    navigator.clipboard.writeText(missedCache).then(function () { toast('Gap list copied'); });
+  });
+
   /* ── coverage, circles, editor picks ── */
   function renderCoverage() {
-    var cr = D.circleRate(st.takes);
+    var cr = D.circleRate(allTakes());
     $('dlRate').innerHTML =
       '<span>Takes <b>' + esc(cr.overall.total) + '</b></span>' +
       '<span>Circled <b>' + esc(cr.overall.circled) + '</b> (' + esc(cr.overall.pct) + '%)</span>' +
@@ -310,15 +398,17 @@
       $('dlGaps').innerHTML = '<p class="dl-note">No screenplay in this browser — load one in the Studio or Writer and the coverage check lists every scene you have not shot yet.</p>';
       return;
     }
-    var cov = D.coverageByScene(st.takes, script);
+    var cov = D.coverageByScene(allTakes(), script);
     $('dlGaps').innerHTML =
       '<p class="dl-note">' + esc(cov.covered) + ' of ' + esc(cov.total) + ' script scenes have at least one take. Not yet covered:</p>' +
       (cov.gaps.map(function (g) {
-        return '<div class="dl-gap"><span class="dl-n">' + esc(g.n) + '</span><span>' + esc(g.slug) + '</span></div>';
+        /* The PRINTED number: 4A is its own scene, and a take on it is not
+           coverage of scene 4. */
+        return '<div class="dl-gap"><span class="dl-n">' + esc(g.label) + '</span><span>' + esc(g.slug) + '</span></div>';
       }).join('') || '<p class="dl-note">Nothing — every script scene has coverage. Check the circle rate before calling it a wrap.</p>');
   }
   function renderPicks() {
-    var picks = D.editorPicks(st.takes);
+    var picks = D.editorPicks(allTakes());
     $('dlPicksText').value = D.picksText(picks);
     return picks;
   }
@@ -335,16 +425,24 @@
     renderLog();
     dayOptions($('dlFilterDay'), true);
     dayOptions($('dlRepDay'), false);
+    renderSchedule();
     renderCoverage();
     renderPicks();
     /* Both take stores, through the one accessor: a take slated on the phone
        in /tools/ is the same day's work as one logged here, and the count on
        this page used to pretend the other store did not exist. */
-    var dayRows = SD.takesOn({ takeLog: readLS('SB_TakeLog_v1'), dailies: st }, curDay());
+    var dayRows = SD.takesOn(stores(), curDay());
     var mine = dayRows.filter(function (t) { return t.source === SD.DAILIES_KEY; }).length;
+    var stamp = D.dayStamp(new Date());
     $('dlDayStat').textContent = dayRows.length
       ? dayRows.length + ' takes today · ' + SD.circledTakes(dayRows).length + ' circled' +
         (dayRows.length > mine ? ' (' + (dayRows.length - mine) + ' from the Tools slate log)' : '')
+      : '';
+    /* The two writers do not stamp the day the same way, and at this hour they
+       disagree — so say so rather than losing half of tonight's takes off each
+       date. This page writes the LOCAL date; Tools → Slate writes UTC. */
+    $('dlTz').innerHTML = stamp.differ
+      ? '⚠ It is ' + esc(stamp.local) + ' here and ' + esc(stamp.utc) + ' in UTC. This page stamps a take with the local date (the day the crew worked); Tools → Slate stamps it in UTC, so takes logged there right now file under ' + esc(stamp.utc) + ' and will not join this day.'
       : '';
     stampDay();
   }

@@ -231,8 +231,15 @@ const DAY_SCALE_CENTS = 124_612;         // $1,246.12
     board, shootDays: days, takesFor: (rec) => takesByDate[rec.date] || []
   });
   check('only wrapped days are recorded', rows.length === 3 && rows.every(r => r.dayIdx !== 3), rows.map(r => r.dayIdx));
+  /* pickupIds and takeCount are the fix for unbounded inflation: a scene
+     already shot on an earlier day is real work and IS reported, but it earns
+     zero NEW eighths. Without that split, three days covering 40 eighths of
+     real pages measured as 16/40/40 — a median of 40, i.e. 5 pages a day for
+     a show actually running 1.67, and it got worse with every re-shoot. */
   check('row carries the required shape', Object.keys(rows[0]).sort().join(',') ===
-    'achievedEighths,date,dayIdx,plannedEighths,sceneIds', Object.keys(rows[0]).sort());
+    'achievedEighths,date,dayIdx,pickupIds,plannedEighths,sceneIds,takeCount', Object.keys(rows[0]).sort());
+  check('a row reports how many takes stand behind it', rows.every(r => typeof r.takeCount === 'number'), rows.map(r => r.takeCount));
+  check('pickups are reported, not silently dropped', rows.every(r => Array.isArray(r.pickupIds)), rows.map(r => r.pickupIds));
   check('planned eighths come from the board', rows[0].plannedEighths === 24 && rows[1].plannedEighths === 24, rows);
   check('achieved eighths come from the take log', rows.map(r => r.achievedEighths).join() === '24,24,16', rows);
 

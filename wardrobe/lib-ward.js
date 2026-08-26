@@ -127,7 +127,12 @@
     var f = fields || {};
     return { item: f.item || 'Garment',
              source: SOURCES.indexOf(f.source) >= 0 ? f.source : 'buy',
-             cost: num(f.cost) };
+             cost: num(f.cost),
+             /* What the piece really cost once the invoice landed. `cost` stays
+                the estimate it always was — overwriting the estimate with the
+                actual is how a department loses the only record of what it
+                thought, and with it any way to tell whether it was right. */
+             actual: num(f.actual) };
   }
 
   function lookCost(look) {
@@ -159,6 +164,130 @@
       by[c].cost = round2(by[c].cost + lookCost(l));
     });
     return Object.keys(by).sort().map(function (k) { return by[k]; });
+  }
+
+  /* ── 3b · calibration: what the last films actually cost ────────────────
+     The department types an estimate per piece and, weeks later, an invoice
+     arrives for a different number. Until now the second number had nowhere to
+     go, so the estimate for the next film was the same guess again — the loop
+     had both ends and no join.
+
+     This is the props loop (props/lib-props.js:priceItem/recordQuote) applied
+     to wardrobe, deliberately verbatim, and NOT the shape of js/learn.js's
+     budgetSummary, which reports the mean size of its own corrections and
+     therefore goes UP as the system gets more wrong.
+
+     Three rules make the difference between calibration and self-flattery:
+
+       1. Learn from the RAW estimate. Feeding the calibrated number back in
+          would teach the multiplier from its own output and compound it.
+       2. Suppress below the evidence threshold. One invoice is an anecdote:
+          below LEARN_MIN the multiplier is exactly 1 and the page says the
+          estimate is uncalibrated rather than dressing a guess in arithmetic.
+       3. Always expose the count. A number a user cannot weigh is a number
+          they cannot argue with, and `learnedN` is what makes it weighable.
+
+     The account is the SOURCE — buy / rent / build / cast-own. That is the
+     dimension wardrobe costs actually vary along: a built piece overruns for
+     different reasons than a rental does, and averaging them together would
+     learn nothing about either.                                             */
+  var LEARN_MIN = 2;
+  function learnAcct(source) {
+    return 'wardrobe:' + (SOURCES.indexOf(source) >= 0 ? source : 'buy');
+  }
+  /* calibrationFor(source) → {mult, learnedN, n, ready}
+       mult      what to multiply a raw estimate by (1 until there is evidence)
+       learnedN  the evidence BEING APPLIED — 0 while suppressed
+       n         the evidence that EXISTS, so "1 of 2 invoices" can be shown
+     Missing or broken CLearn is not an error: this module is useful without
+     any history at all, and it must never fail because a page did not load the
+     learning layer. */
+  function calibrationFor(source) {
+    var out = { mult: 1, learnedN: 0, n: 0, ready: false };
+    if (!root.CLearn || !root.CLearn.calibration) return out;
+    try {
+      var cal = root.CLearn.calibration(learnAcct(source));
+      if (!cal) return out;
+      out.n = Math.max(0, +cal.n || 0);
+      if (out.n >= LEARN_MIN) { out.mult = cal.mult; out.learnedN = out.n; out.ready = true; }
+    } catch (e) {}
+    return out;
+  }
+
+  /* pricePiece(piece) → the estimate with its calibration shown beside it.
+     `raw` is what the department typed and is never overwritten; `est` is what
+     the history says that kind of piece really costs. */
+  function pricePiece(piece) {
+    var p = piece || {};
+    var source = SOURCES.indexOf(p.source) >= 0 ? p.source : 'buy';
+    var raw = round2(num(p.cost));
+    var cal = calibrationFor(source);
+    return { item: p.item || 'Garment', source: source, raw: raw,
+             est: round2(raw * cal.mult), mult: cal.mult, learnedN: cal.learnedN,
+             n: cal.n, calibrated: cal.ready, actual: round2(num(p.actual)) };
+  }
+
+  function lookEstimate(look) {
+    var l = look || {};
+    var rows = ((l.pieces) || []).map(pricePiece);
+    return { id: l.id || '', character: l.character || '', lookName: l.lookName || '',
+             pieces: rows,
+             raw: round2(rows.reduce(function (a, r) { return a + r.raw; }, 0)),
+             est: round2(rows.reduce(function (a, r) { return a + r.est; }, 0)),
+             actual: round2(rows.reduce(function (a, r) { return a + r.actual; }, 0)),
+             calibrated: rows.filter(function (r) { return r.calibrated; }).length };
+  }
+
+  /* calibratedTotals(looks) → the raw total, the calibrated total, and per
+     source the multiplier with the count behind it. totalsBySource above stays
+     exactly as it was: it is the department's own arithmetic on its own
+     numbers, and no history should ever silently move it. */
+  function calibratedTotals(looks) {
+    var out = { bySource: {}, raw: 0, est: 0, actual: 0, calibrated: 0, pieces: 0 };
+    SOURCES.forEach(function (s) {
+      var cal = calibrationFor(s);
+      out.bySource[s] = { source: s, raw: 0, est: 0, actual: 0, pieces: 0,
+                          mult: cal.mult, learnedN: cal.learnedN, n: cal.n, calibrated: cal.ready };
+    });
+    (looks || []).forEach(function (l) {
+      lookEstimate(l).pieces.forEach(function (r) {
+        var b = out.bySource[r.source];
+        b.raw = round2(b.raw + r.raw);
+        b.est = round2(b.est + r.est);
+        b.actual = round2(b.actual + r.actual);
+        b.pieces++;
+        out.raw = round2(out.raw + r.raw);
+        out.est = round2(out.est + r.est);
+        out.actual = round2(out.actual + r.actual);
+        out.pieces++;
+        if (r.calibrated) out.calibrated++;
+      });
+    });
+    return out;
+  }
+
+  /* recordActual(piece, actual) → the number of line items the learning layer
+     took. Feeds the RAW estimate, never the calibrated one. Returns 0 — safely,
+     without throwing — when there is no learning layer, no estimate to compare
+     against, or no real invoice. */
+  function recordActual(piece, actual) {
+    var act = num(actual == null ? (piece && piece.actual) : actual);
+    if (!root.CLearn || !root.CLearn.learnBudget || !(act > 0)) return 0;
+    var p = piece || {};
+    var raw = round2(num(p.cost));
+    if (!(raw > 0)) return 0;
+    try {
+      return root.CLearn.learnBudget({ categories: [{ acct: learnAcct(p.source),
+        items: [{ desc: p.item || 'Garment', est: raw, actual: act }] }] });
+    } catch (e) { return 0; }
+  }
+  /* Every piece of a look that has both an estimate and an invoice. Idempotent
+     by way of CLearn's own fingerprinting — re-opening the page re-offers the
+     same rows and learns from none of them twice. */
+  function recordLookActuals(look) {
+    var n = 0;
+    (((look || {}).pieces) || []).forEach(function (p) { n += recordActual(p, p.actual); });
+    return n;
   }
 
   /* ── 4 · change plot ────────────────────────────────────────────────────
@@ -661,7 +790,10 @@
   }
 
   root.CWard = {
-    SOURCES: SOURCES, HAZARDS: HAZARDS, PACK_FORMAT: PACK_FORMAT,
+    SOURCES: SOURCES, HAZARDS: HAZARDS, PACK_FORMAT: PACK_FORMAT, LEARN_MIN: LEARN_MIN,
+    learnAcct: learnAcct, calibrationFor: calibrationFor, pricePiece: pricePiece,
+    lookEstimate: lookEstimate, calibratedTotals: calibratedTotals,
+    recordActual: recordActual, recordLookActuals: recordLookActuals,
     splitScenes: splitScenes, cueName: cueName, charactersFromScript: charactersFromScript,
     uniqScenes: uniqScenes, parseSceneNums: parseSceneNums,
     newLook: newLook, makePiece: makePiece, lookCost: lookCost,

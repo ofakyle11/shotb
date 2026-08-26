@@ -787,7 +787,15 @@ for (const f of SHIPPED) {
     if (!ns || typeof ns !== 'object') continue;
     for (const [k, v] of Object.entries(ns)) {
       if (typeof v !== 'function') continue;
-      if (!new RegExp('\\b' + k.replace(/[$]/g, '\\$') + '\\b').test(own)) continue;
+      /* Undotted, and that distinction is the whole of it. The word-boundary
+         test alone still matched a name reached THROUGH a dependency:
+         dailies/lib-dailies.js calls `CS.normNum(t.scene)`, so `\bnormNum\b`
+         hit, and the file was charged with an export it does not define, does
+         not expose on CDailies, and cannot fix — the same misattribution as
+         the comment above, one variant further down. A module's own export is
+         written `normNum:` or `function normNum`; a borrowed one always
+         arrives after a dot. */
+      if (!new RegExp('(?<![.\\w$])' + k.replace(/[$]/g, '\\$') + '\\b').test(own)) continue;
       names.add(k);
     }
   }

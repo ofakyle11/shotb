@@ -205,9 +205,20 @@
      other with no conversion step. */
   var mode = '2d', gl3d = null, glDead = false;
 
+  /* Set when look-through ends because the camera stopped existing, and
+     cleared by the next caption. Deleting the camera you are looking through
+     used to leave the viewport locked onto a dead id: the button stayed lit,
+     the caption fell back to a bare "Through camera", the frame quietly
+     became the panel's shape, and orbit input stayed blocked. Leaving is now
+     something the page says out loud.
+
+     `lookName` is remembered while the lock is live, because by the time it
+     breaks the item it names has already been removed from the plan. */
+  var lockLost = '', lookName = '';
+
   function ensureGL() {
     if (gl3d || glDead) return gl3d;
-    gl3d = window.CSetGL && CSetGL.create($('sdGL'));
+    gl3d = window.CSetGL && CSetGL.create($('sdGL'), { onLockLost: lookEnded });
     if (!gl3d) {
       glDead = true;
       $('sdGLFail').textContent =
@@ -232,24 +243,62 @@
     }
   }
 
+  /* The viewport dropped the lock on its own — its camera is gone. Say so,
+     put the button back, and let the next caption carry the reason. */
+  function lookEnded() {
+    $('sdLook').classList.remove('gold');
+    lockLost = (lookName ? '“' + lookName + '” was deleted' : 'That camera was deleted') +
+      ' — look-through ended, back to free orbit.';
+    lookName = '';
+    toast(lockLost);
+    /* In plan view nothing repaints the 3D caption, so the toast is the whole
+       message and the note must not be left holding a stale one. */
+    if (mode !== '3d') lockLost = '';
+  }
+
   function updateGLNote() {
     if (!gl3d) return;
     var locked = gl3d.lockedCamera();
-    if (locked) {
-      var cam = S.itemById(plan(), locked);
-      var f = gl3d.lensFrame();
-      if (!f.sensor) { $('sdGLNote').textContent = 'Through camera'; return; }
+    var cam = locked && S.itemById(plan(), locked);
+    var f = locked && gl3d.lensFrame();
+    /* A caption that says "Through camera" with no lens, no format and no
+       field of view is not a lens view — it is what the viewport printed
+       while it was locked onto a camera that had been deleted. There is no
+       such half-state to describe any more: either the frame has a format
+       behind it, or this is free orbit. */
+    if (locked && cam && f && f.sensor) {
       /* The caption states the sensor it is actually using. It used to print
          the 2D plan's full-frame number under a viewport rendering Super 35
          at whatever aspect the window happened to be. */
       var band = S.dofFor(plan(), cam);
-      $('sdGLNote').textContent = 'Through ' + ((cam && cam.label) || 'camera') +
+      $('sdGLNote').textContent = 'Through ' + (cam.label || 'camera') +
         ' · ' + (f.lens || 35) + 'mm · ' + f.sensor +
         ' · ' + f.fovX.toFixed(1) + '° H × ' + f.fovY.toFixed(1) + '° V' +
         (band ? ' · f/' + band.fstop + ' sharp ' + ft(band.near) + '–' + ft(band.far) : '');
-    } else {
-      $('sdGLNote').textContent = 'Drag to orbit · shift-drag or right-drag to pan · scroll to zoom';
+      return;
     }
+    if (locked) { gl3d.lookThrough(null); $('sdLook').classList.remove('gold'); }
+    $('sdGLNote').textContent = (lockLost ? lockLost + ' ' : '') +
+      'Drag to orbit · shift-drag or right-drag to pan · scroll to zoom';
+    lockLost = '';
+  }
+
+  /* A locked camera that has just been deleted — or that belonged to the plan
+     we have switched away from — names nothing. The viewport clears the lock
+     itself; this is the half the operator can see, and it has to run even in
+     plan view, where the 3D panel is not being redrawn at all. */
+  function syncLook() {
+    if (!gl3d) return;
+    /* Asking is enough for a deletion: the viewport validates its own lock
+       and calls back through lookEnded. This has to run even in plan view,
+       where refresh3d() returns early and nothing else would ever ask. */
+    var locked = gl3d.lockedCamera();
+    if (!locked || S.itemById(plan(), locked)) return;
+    /* Switching plans is the other way the lock goes stale, and the viewport
+       is still holding the plan it was last given, so it cannot see that one
+       on its own until the next setPlan. */
+    gl3d.lookThrough(null);
+    lookEnded();
   }
 
   function refresh3d() {
@@ -271,11 +320,17 @@
     if (!cams.length) { toast('Add a Camera to the plan first, then look through it.'); return; }
     if (mode !== '3d') setMode('3d');
     var g = ensureGL(); if (!g) return;
-    if (g.lockedCamera()) { g.lookThrough(null); $('sdLook').classList.remove('gold'); }
-    else {
+    if (g.lockedCamera()) {
+      g.lookThrough(null); lookName = ''; lockLost = '';
+      $('sdLook').classList.remove('gold');
+    } else {
       var pick = (sel && S.itemById(plan(), sel) && S.itemById(plan(), sel).type === 'camera')
         ? sel : cams[0].id;
-      g.lookThrough(pick);
+      /* lookThrough refuses an id that is not a camera on this plan, so the
+         button follows what the viewport actually did, not what we asked. */
+      if (!g.lookThrough(pick)) { toast('That camera is no longer on this plan.'); return; }
+      lookName = (S.itemById(plan(), pick) || {}).label || 'That camera';
+      lockLost = '';
       $('sdLook').classList.add('gold');
     }
     updateGLNote();
@@ -290,7 +345,11 @@
     renderSel();
   });
 
-  function renderAll() { renderPlans(); renderCanvas(); renderSel(); refresh3d(); }
+  /* syncLook runs BEFORE the viewport is redrawn: every path that can remove
+     the camera being looked through — Remove piece, the Delete key, deleting
+     or switching the plan — comes through here, and none of them used to tell
+     the viewport anything at all. */
+  function renderAll() { renderPlans(); renderCanvas(); renderSel(); syncLook(); refresh3d(); }
 
   /* palette */
   $('sdPal').innerHTML = Object.keys(S.STENCILS).map(function (k) {

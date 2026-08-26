@@ -132,6 +132,74 @@ input:focus, select:focus, textarea:focus {
   border-radius: 12px;
 }
 
+/* ══ shared components ═══════════════════════════════════════════════════
+   The chrome (js/ui-chrome.js) and the register table (js/ui-table.js) render
+   into every module page, so the classes they emit have to be styled on every
+   module page. `.topbar`, `.tb-btn`, `.tb-meta`, `.tb-spacer`, `.toast`,
+   `.bud-table` and `.uc-sel` already are — they live in timeline/timeline.css,
+   which all 28 pages link. The `.tk-*` register classes did NOT: they were in
+   tools/tools.css, which only /tools/ links, so the table engine could not be
+   used anywhere else. They are promoted here.
+
+   VALUES ARE CARRIED OVER BYTE-FOR-BYTE from tools/tools.css (which loads
+   BEFORE this sheet on /tools/, so these win with the identical declarations
+   and that page does not move by a pixel). The three rgba() chip tints are
+   pre-token literals brought across unchanged for the same reason —
+   tokenising them repaints the chip and is a separate, visual order.
+
+   P3-T2: once /tools/ is converted, its copies of the `.tk-bar`/`.tk-summary`/
+   `.tk-table .tk-in`/`.tk-empty`/`.tk-del`/`.tk-chip`/`.tk-note` rules in
+   tools/tools.css are dead and can be deleted.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* register toolbar + summary line */
+.tk-bar { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-px-10); }
+.tk-summary { margin: 0 0 var(--sp-px-10); font-size: var(--fs-12); color: var(--text-mid); }
+.tk-summary b { color: var(--cyan); }
+.tk-note { font-size: var(--fs-11); color: var(--text-faint); margin-top: var(--sp-2); max-width: 720px; line-height: 1.5; }
+
+/* register cells */
+.tk-table .tk-in {
+  width: 100%; min-width: 70px;
+  background: var(--surface-2); border: 1px solid transparent; color: var(--text-hi);
+  /* 5px and 18px below have no rung on the tokens.css radius/spacing ladders;
+     they are kept literal so /tools/ renders identically after the move. */
+  border-radius: 5px; padding: var(--sp-1) var(--sp-px-6);
+  font-size: var(--fs-11); font-family: var(--font-sans);
+}
+.tk-table .tk-in:hover { border-color: var(--line-soft-2); }
+.tk-table .tk-in:focus { outline: none; border-color: var(--cyan); }
+.tk-table select.tk-in { min-width: 100px; }
+/* type:'textarea' — a real multi-line cell, not the single-line input the
+   engine used to render for it. */
+.tk-table textarea.tk-area { min-width: 140px; resize: vertical; line-height: 1.45; }
+/* type:'money' / type:'number' — right-aligned mono, the way a figure reads. */
+.tk-table .tk-num { font-family: var(--font-code); text-align: right; }
+.tk-table .tk-num::-webkit-outer-spin-button,
+.tk-table .tk-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.tk-flags { white-space: nowrap; }
+.tk-empty { color: var(--text-faint); text-align: center; padding: 18px; }
+.tk-del { padding: var(--sp-px-2) var(--sp-2); }
+
+/* chips (expiry + schema flags) */
+.tk-chip {
+  display: inline-block; font-size: var(--fs-9); font-weight: 700;
+  border-radius: var(--radius-4); padding: 1px var(--sp-px-6);
+  margin-left: var(--sp-px-6); vertical-align: middle;
+}
+.tk-chip.warn { background: rgba(212, 168, 67, .18); color: var(--cyan); }
+.tk-chip.bad { background: rgba(248, 113, 113, .18); color: var(--error); }
+.tk-chip.good { background: rgba(34, 197, 94, .16); color: var(--ok); }
+
+/* topbar controls the chrome can describe but timeline.css never named */
+.tb-gap { flex: 0 0 var(--sp-px-14); }
+.tb-input {
+  background: var(--surface-2); border: 1px solid var(--line-soft); color: var(--text-hi);
+  border-radius: var(--radius-8); padding: var(--sp-px-6) var(--sp-px-10);
+  font-size: var(--fs-12); font-family: var(--font-sans); min-width: 140px;
+}
+.tb-input:hover { border-color: var(--line-soft-2); }
+
 /* ── module-specific refinements ────────────────────────────────── */
 /* editor timeline */
 .ed-clip { box-shadow: 0 2px 8px -5px rgba(0, 0, 0, .8); }
