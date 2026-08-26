@@ -61,15 +61,29 @@ const pages = [];
   }
 })('');
 
+/* Only real <script src=...> references count. A bare /budget-engine\.js/ over
+   the whole page also matched the HTML COMMENT at dashboard.html:1835 that
+   explains why the fork was deleted — the page was clean and the suite still
+   failed, and the only way to make it pass was to delete the explanation. */
+const scriptSrcs = (html) => {
+  const out = [];
+  const re = /<script\b[^>]*\bsrc\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/gi;
+  let m;
+  while ((m = re.exec(html))) out.push(m[2] ?? m[3] ?? m[4]);
+  return out;
+};
+const loadsScript = (html, file) =>
+  scriptSrcs(html).some(src => new RegExp('(^|/)' + file.replace('.', '\\.') + '(\\?|$)').test(src));
+
 for (const p of pages) {
   const html = readFileSync(join(ROOT, p), 'utf8');
   if (!/\bSBBudget\b/.test(html)) continue;
-  t(p + ' loads the one engine', /timeline-budget\.js/.test(html));
-  t(p + ' does not load a second engine', !/budget-engine\.js/.test(html));
+  t(p + ' loads the one engine', loadsScript(html, 'timeline-budget.js'));
+  t(p + ' does not load a second engine', !loadsScript(html, 'budget-engine.js'));
   /* The 4.5x came from documentary mode existing in one copy only. A page that
      loads the engine without timeline-doc.js gets the scripted number for a
      documentary and disagrees with the Timeline all over again. */
-  t(p + ' loads timeline-doc.js beside it', /timeline-doc\.js/.test(html));
+  t(p + ' loads timeline-doc.js beside it', loadsScript(html, 'timeline-doc.js'));
 }
 
 /* ── 3 · the survivor is a file the suites actually load ───────────────── */

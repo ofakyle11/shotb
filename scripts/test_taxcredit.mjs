@@ -5,6 +5,8 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+/* CMoneyMath first: the credit model carries integer cents when it is there. */
+(0, eval)(readFileSync(join(ROOT, 'js/lib-money-math.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'taxcredit/lib-taxcred.js'), 'utf8'));
 const T = globalThis.CTaxCred;
 
@@ -51,13 +53,13 @@ t('petty who field also scanned', T.qualifiedGuess({ who: 'Travel desk', desc: '
 /* ── rowsFromMoney ── */
 const money = {
   pos: [
-    { id: 'a', num: 'PO-1001', vendor: 'Grip Co', desc: 'lights', acct: '8000', amount: 100000, status: 'open', date: '2026-08-01' },
-    { id: 'b', num: 'PO-1002', vendor: 'Camera House', desc: 'camera package', acct: '6000', amount: 200000, status: 'paid', date: '2026-08-02' },
-    { id: 'c', num: 'PO-1003', vendor: 'Ghost', desc: 'cancelled', acct: '6000', amount: 999999, status: 'void', date: '2026-08-03' },
-    { id: 'd', num: 'PO-1004', vendor: 'Delta', desc: 'travel — crew flights', acct: '13500', amount: 50000, status: 'invoiced', date: '2026-08-04' }
+    { id: 'a', num: 'PO-1001', vendor: 'Grip Co', desc: 'lights', acct: '8000', amount: 100000.37, status: 'open', date: '2026-08-01' },
+    { id: 'b', num: 'PO-1002', vendor: 'Camera House', desc: 'camera package', acct: '6000', amount: 200000.45, status: 'paid', date: '2026-08-02' },
+    { id: 'c', num: 'PO-1003', vendor: 'Ghost', desc: 'cancelled', acct: '6000', amount: 999999.99, status: 'void', date: '2026-08-03' },
+    { id: 'd', num: 'PO-1004', vendor: 'Delta', desc: 'travel — crew flights', acct: '13500', amount: 50000.11, status: 'invoiced', date: '2026-08-04' }
   ],
   petty: [
-    { id: 'e', who: 'PA', desc: 'gaff tape', acct: '8500', amount: 500, date: '2026-08-05' }
+    { id: 'e', who: 'PA', desc: 'gaff tape', acct: '8500', amount: 500.49, date: '2026-08-05' }
   ]
 };
 const rows = T.rowsFromMoney(money);
@@ -73,29 +75,34 @@ t('tag true overrides guess-false', T.isQualified(rows.find(r => r.id === 'd'), 
 t('tag false overrides guess-true', T.isQualified(rows.find(r => r.id === 'a'), { a: false }, geo) === false);
 
 /* ── creditModel ── */
-// New Mexico (no minSpend): qualified = a+b+e = 300,500; travel row guessed out.
+/* New Mexico (no minSpend): qualified = a+b+e = 300,501.31; the travel row is
+   guessed out. qualPct belongs to the whole-budget advisorModel ONLY — the
+   ledger has already dropped each exempt row by name, so charging the same
+   haircut again against qualifiedSpend understates the credit by (1 − qualPct).
+   Pinned to the cent: NM mid rate = (0.25 + 0.40) / 2 = 0.325. */
 const nm = T.jurisById('newmexico');
-const cm = T.creditModel(nm, {}, money, 2e6);
-t('qualifiedSpend sums actual+committed qualified rows', cm.qualifiedSpend === 300500);
-t('totalSpend includes non-qualified rows', cm.totalSpend === 350500);
-t('estCredit = qs × qualPct × midpoint', cm.estCredit === Math.round(300500 * 0.70 * 0.325));
-t('advisorModel = budget × qualPct × midpoint', cm.advisorModel === Math.round(2e6 * 0.70 * 0.325));
-t('delta = est − advisor', cm.delta === cm.estCredit - cm.advisorModel);
+const BUDGET = 2000000.75;
+const cm = T.creditModel(nm, {}, money, BUDGET);
+t('qualifiedSpend sums actual+committed qualified rows, to the cent', cm.qualifiedSpend === 300501.31);
+t('totalSpend includes non-qualified rows, to the cent', cm.totalSpend === 350501.42);
+t('estCredit = qualifiedSpend × midpoint, no second qualPct haircut', cm.estCredit === 97662.93);
+t('advisorModel = budget × qualPct × midpoint', cm.advisorModel === 455000.17);
+t('delta = est − advisor, to the cent', cm.delta === -357337.24);
 t('counts: 4 rows, 3 qualified, 4 guessed', cm.rowCount === 4 && cm.qualifiedCount === 3 && cm.guessedCount === 4);
-const cmTag = T.creditModel(nm, { d: true, a: false }, money, 2e6);
-t('tags reshape qualified spend', cmTag.qualifiedSpend === 250500 && cmTag.guessedCount === 2);
+const cmTag = T.creditModel(nm, { d: true, a: false }, money, BUDGET);
+t('tags reshape qualified spend', cmTag.qualifiedSpend === 250501.05 && cmTag.guessedCount === 2);
 
-// Georgia minSpend: total 350,500 < 500,000 floor → warning, credit 0, raw kept.
-const cmGeo = T.creditModel(geo, {}, money, 2e6);
+// Georgia minSpend: total 350,501.42 < 500,000 floor → warning, credit 0, raw kept.
+const cmGeo = T.creditModel(geo, {}, money, BUDGET);
 t('below minSpend → belowMin + credit 0', cmGeo.belowMin === true && cmGeo.estCredit === 0);
-t('raw credit still reported for context', cmGeo.rawCredit === Math.round(300500 * 0.75 * 0.25));
-const bigMoney = { pos: [{ id: 'z', num: 'PO-1', vendor: 'Stage Co', desc: 'stage rental', acct: '13000', amount: 600000, status: 'open' }], petty: [] };
-t('above minSpend → credit flows', T.creditModel(geo, {}, bigMoney, 2e6).estCredit === Math.round(600000 * 0.75 * 0.25));
+t('raw credit still reported for context', cmGeo.rawCredit === 75125.33);
+const bigMoney = { pos: [{ id: 'z', num: 'PO-1', vendor: 'Stage Co', desc: 'stage rental', acct: '13000', amount: 600000.55, status: 'open' }], petty: [] };
+t('above minSpend → credit flows, to the cent', T.creditModel(geo, {}, bigMoney, BUDGET).estCredit === 150000.14);
 
 // ukiftc budgetCap: budget over ~$30M flags overCap.
 t('over budgetCap flagged', T.creditModel(T.jurisById('ukiftc'), {}, money, 40e6).overCap === true);
 t('under budgetCap not flagged', T.creditModel(T.jurisById('ukiftc'), {}, money, 20e6).overCap === false);
-t('none jurisdiction models zero', T.creditModel(T.jurisById('none'), {}, money, 2e6).estCredit === 0);
+t('none jurisdiction models zero', T.creditModel(T.jurisById('none'), {}, money, BUDGET).estCredit === 0);
 t('creditModel safe on null money/budget', T.creditModel(geo, null, null, null).rowCount === 0);
 
 /* ── checklist ── */

@@ -112,13 +112,24 @@ t('clear: location release carries address', /12 Harbor Lane/.test(C.locationRel
 const ds = D.blank();
 const deal = D.addDeal(ds, D.fromCrewRow({ name: 'J. Chen', role: 'Gaffer', union: 'IATSE', rate: 650 }, 'Night Harvest'));
 t('deal: crew defaults sane', deal.fields.rateBasis === 'day' && deal.fields.guaranteed === 5 && deal.status === 'draft');
-t('deal: value = rate×gtd + perdiem/kit', D.dealValue(deal.fields) === 650 * 5);
+/* A deal memo obligates the fringes too — an IATSE gaffer at $650/day for a
+   5-day guarantee costs $3,250 fee + $390 OT allowance (12%) + $1,456 fringes
+   (40% of fee+OT) = $5,096. Committing the bare $3,250 understated every crew
+   commitment in the Money Room by the whole employer burden. */
+const gCost = D.dealCost(deal.fields);
+t('deal: cost breaks out fee, OT allowance and fringes',
+  gCost.base === 3250 && gCost.overtime === 390 && gCost.fringes === 1456 && gCost.fringePct === 0.40);
+t('deal: value = fee + OT + fringes', D.dealValue(deal.fields) === 5096);
 deal.fields.kitFee = 200; deal.fields.perDiem = 40;
-t('deal: kit + per diem included', D.dealValue(deal.fields) === 650 * 5 + 200 + 40 * 5);
+/* Per diem is per WORKING day (5), and neither kit nor per diem is fringeable. */
+t('deal: kit + per diem included, unfringed', D.dealValue(deal.fields) === 5096 + 200 + 40 * 5);
 const cast = D.addDeal(ds, D.castDefaults('Night Harvest', 'MARA'));
 t('deal: cast starts at SAG scale', cast.fields.rate === D.SAG_SCALE.day && cast.fields.union === 'SAG-AFTRA');
 const com = D.toCommitment(deal);
-t('deal: gaffer commits to 3000, cast to 2000', com.acct === '3000' && D.toCommitment(cast).acct === '2000');
+/* The one chart (CAccounts.forRole): a gaffer is G&E (8000), not Direction,
+   and a cast agreement is Cast (4000), not Producers Unit — so a commitment
+   reconciles against the budget line that actually carries it. */
+t('deal: gaffer commits to 8000 G&E, cast to 4000 Cast', com.acct === '8000' && D.toCommitment(cast).acct === '4000');
 t('deal: commitment names the person', com.vendor === 'J. Chen' && /Gaffer/.test(com.desc));
 const memo = D.memoText(deal.fields);
 t('deal: memo carries rate + OT + kit', /\$650 per day/.test(memo) && /1\.5x after 12/.test(memo) && /Kit\/box rental: \$200/.test(memo));

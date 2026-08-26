@@ -110,33 +110,42 @@
      by (1 − qualPct): 25% in Georgia, 55% in British Columbia. On $2M of
      tagged BC labour that is $720,000 of credit reported as $324,000 —
      $396,000 the production would not have known it could finance against.
-     Row-level tagging is the more accurate answer; the ledger wins.        */
+     Row-level tagging is the more accurate answer; the ledger wins.
+
+     So qualPct is applied exactly ONCE, and only to the whole-budget model.
+     The ledger path carries integer cents and rounds once, at the rate
+     multiplication — a ledger of 300,500.49 does not become 300,500.        */
   function creditModel(juris, tags, money, budgetTotal) {
     juris = juris || jurisById('none');
     var rows = rowsFromMoney(money);
-    var totalSpend = 0, qualifiedSpend = 0, qualifiedCount = 0, guessedCount = 0;
+    /* Integer cents throughout; dollars only on the way out. Without
+       CMoneyMath the shapes still hold, one decimal place coarser. */
+    var M = root.CMoneyMath;
+    var toC = M ? M.cents : function (v) { return Math.round(num(v) * 100); };
+    var toD = M ? M.dollars : function (c) { return Math.round(c) / 100; };
+    var mulC = M ? M.mulCents : function (c, f) { return Math.round(c * f); };
+    var totalC = 0, qualC = 0, qualifiedCount = 0, guessedCount = 0;
     rows.forEach(function (r) {
-      totalSpend += r.amount;
+      var c = toC(r.amount);
+      totalC += c;
       var t = tags ? tags[r.id] : undefined;
       if (t !== true && t !== false) guessedCount++;
-      if (isQualified(r, tags, juris)) { qualifiedSpend += r.amount; qualifiedCount++; }
+      if (isQualified(r, tags, juris)) { qualC += c; qualifiedCount++; }
     });
-    var M = root.CMoneyMath;
-    var r2 = M ? function (v) { return M.dollars(M.cents(v)); }
-               : function (v) { return Math.round(v * 100) / 100; };
     var mid = midpoint(juris.rate);
     var qp = num(juris.qualPct);
-    var rawCredit = qualifiedSpend * mid;
-    var belowMin = !!(juris.minSpend && totalSpend < juris.minSpend);
+    var rawCredit = toD(mulC(qualC, mid));
+    var belowMin = !!(juris.minSpend && toD(totalC) < juris.minSpend);
     var bt = num(budgetTotal);
-    var estCredit = belowMin ? 0 : r2(rawCredit);
-    var advisorModel = r2(bt * qp * mid);
+    var estCredit = belowMin ? 0 : rawCredit;
+    /* One rounding, not two: qualPct and the rate collapse into one factor. */
+    var advisorModel = toD(mulC(toC(bt), qp * mid));
     return {
       juris: juris.id, midRate: mid, qualPct: qp,
       rowCount: rows.length, qualifiedCount: qualifiedCount, guessedCount: guessedCount,
-      totalSpend: r2(totalSpend), qualifiedSpend: r2(qualifiedSpend),
-      rawCredit: r2(rawCredit), estCredit: estCredit,
-      advisorModel: advisorModel, delta: r2(estCredit - advisorModel),
+      totalSpend: toD(totalC), qualifiedSpend: toD(qualC),
+      rawCredit: rawCredit, estCredit: estCredit,
+      advisorModel: advisorModel, delta: toD(toC(estCredit) - toC(advisorModel)),
       belowMin: belowMin, minSpend: juris.minSpend || 0,
       overCap: !!(juris.budgetCap && bt > juris.budgetCap), budgetCap: juris.budgetCap || 0,
       note: juris.note || ''
