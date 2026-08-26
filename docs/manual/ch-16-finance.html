@@ -150,11 +150,18 @@ or <code>po</code>), seeds its budget column from the saved top sheet, and marks
 an account <em>HOT</em> above 85% used and <em>OVER</em> past 100%.</p>
 
 <div class="note"><strong>Hot costs and the Money Room are two separate sets of
-books.</strong> Nothing joins <code>SB_HotCost_v1</code> to
-<code>SB_Money_v1</code>. A PO raised in the Money Room does not appear in Hot
-Costs, and a hot-cost posting does not appear in the cost report. The daily
-production report reads the hot-cost store only. Pick one as your register of
-record and use the other as a working view, or the two will disagree.</div>
+books, on purpose.</strong> Nothing merges <code>SB_HotCost_v1</code> into
+<code>SB_Money_v1</code>: a PO raised in the Money Room does not appear in Hot
+Costs, a hot-cost posting does not enter the cost report's columns, and the
+daily production report reads the hot-cost store only. They are kept apart
+because the same expense can legitimately exist in both — a PO raised in the
+office and its hot-cost line logged on set — and an automatic merge would
+double-count precisely the spends people track most carefully. What the cost
+report now does is <em>say so</em>: when the set register holds postings, a
+banner under the table reports how many, split actual against committed, and
+that the figures are not in the columns above. Reconcile the two at the weekly
+snapshot; treat the Money Room as the register of record and Hot Costs as the
+set's working view.</div>
 
 <h2>The cost report</h2>
 

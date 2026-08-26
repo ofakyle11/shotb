@@ -81,6 +81,21 @@ function fakeStore(init) {
 {
   const scenes = S.seedScenes({ clips: [{ num: 1, label: 'Opening' }, { num: 2, label: 'Chase' }] }, null);
   ok(scenes.length === 2 && scenes[0].slug.includes('SC01') && scenes[0].slug.includes('Opening'), 'boards: seed from studio clips');
+  /* The parser makes one clip per SHOT, so a multi-shot scene must seed ONE
+     board scene, named by its real slugline — which is where a printed number
+     like 4A lives. Before this, three shots of one scene seeded three board
+     "scenes" labelled by the running clip counter, the printed 4A could never
+     reach the board, and `desc` read c.prompt, a field no clip carries. */
+  const real = S.seedScenes({ clips: [
+    { num: 1, sceneIdx: 0, heading: 'INT. KITCHEN - NIGHT',    description: 'Maggie at the stove.' },
+    { num: 2, sceneIdx: 0, heading: 'INT. KITCHEN - NIGHT',    description: 'Close on the kettle.' },
+    { num: 3, sceneIdx: 1, heading: '4A EXT. BARN ROOF - DAY', description: 'Tom on the ridge.' },
+  ] }, null);
+  ok(real.length === 2, 'boards: a three-shot script seeds two SCENES, not three (' + real.length + ')');
+  ok(real[0].slug === 'INT. KITCHEN - NIGHT', 'boards: the slug is the real slugline (' + real[0].slug + ')');
+  ok(real[1].slug.indexOf('4A') === 0, 'boards: a printed scene number reaches the board (' + real[1].slug + ')');
+  ok(real[0].desc === 'Maggie at the stove.', 'boards: desc comes from the shot description, not the dead c.prompt');
+
   const fromWriter = S.seedScenes(null, { scenes: [{ slug: 'EXT. FLATS - DAY', body: 'x'.repeat(300) }] });
   ok(fromWriter.length === 1 && fromWriter[0].slug === 'EXT. FLATS - DAY' && fromWriter[0].desc.length === 200, 'boards: seed from writer beats');
   const cov = S.suggestCoverage({ id: 's1' }, ['MARA', 'HANK']);

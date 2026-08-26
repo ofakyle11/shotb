@@ -96,5 +96,47 @@ ok(st.scenes === 3 && st.words > 20, 'stats: scenes + words');
 ok(st.estScreenplayPages >= 3, 'stats: screenplay expansion');
 ok(st.characters.includes('MARA'), 'stats: cast list');
 
+
+/* ── the Writer's output must parse as the Writer's structure ─────────
+   The Writer's Fountain is the Timeline's input, and until now no suite
+   loaded both engines in one process, so their agreement was unpinned. The
+   cost was concrete: the card slugline field was free text, toFountain wrote
+   it verbatim, and a card renamed "Kitchen at dawn" — no INT./EXT. token —
+   became ordinary action in the export. Five cards parsed to three Timeline
+   scenes, no warning at either end. The UI now normalises a non-slug heading
+   through guessSlug on blur; this pins the whole contract underneath. */
+(0, eval)(readFileSync(join(ROOT, 'js/lib-scenes.js'), 'utf8'));
+{
+  const CS = globalThis.CScenes;
+  ok(!!CS, 'the scene model loads beside the Writer');
+
+  const scenes = [
+    { slug: 'INT. FARMHOUSE KITCHEN - NIGHT', body: 'Maggie sets the table.\n\nMAGGIE\nSupper is cold.', characters: ['MAGGIE'] },
+    { slug: 'EXT. COUNTRY ROAD - DAY',        body: 'Tom trudges through mud.', characters: [] },
+    { slug: 'INT. BARN - NIGHT',              body: 'Lantern light.\n\nTOM\nAnyone here?', characters: ['TOM'] },
+  ];
+  const fx = T.toFountain({ project: { title: 'AGREEMENT' }, scenes: scenes });
+  const parsed = CS.parse(fx);
+  ok(parsed.scenes.length === scenes.length,
+    'every Writer card is a Timeline scene (' + parsed.scenes.length + '/' + scenes.length + ')');
+  ok(parsed.scenes.every((sc, i) => sc.slug.indexOf(scenes[i].slug.split(' - ')[0]) === 0),
+    'the scenes arrive in order under their own sluglines');
+  ok(CS.speaksIn(parsed.scenes[0].body || parsed.scenes[0].text, 'MAGGIE'),
+    'dialogue cues survive the round trip');
+
+  /* THE FAILURE CASE, exactly as it shipped: a heading with no INT/EXT token.
+     Written verbatim it folds; through guessSlug it stays a scene. */
+  const broken = [scenes[0], { slug: 'Kitchen at dawn', body: 'Light through the window.', characters: [] }, scenes[2]];
+  const folded = CS.parse(T.toFountain({ project: { title: 'X' }, scenes: broken }));
+  ok(folded.scenes.length === 2,
+    'verbatim, the bare heading folds into the previous scene (the bug: ' + folded.scenes.length + '/3)');
+  const mended = [scenes[0], { slug: T.guessSlug('Kitchen at dawn', 'Light through the window.'), body: 'Light through the window.', characters: [] }, scenes[2]];
+  const kept = CS.parse(T.toFountain({ project: { title: 'X' }, scenes: mended }));
+  ok(kept.scenes.length === 3,
+    'through guessSlug — what the UI now does on blur — all three survive (' + kept.scenes.length + '/3)');
+  ok(T.isSlugline(T.guessSlug('Kitchen at dawn', 'Light through the window.')),
+    'guessSlug always yields something isSlugline accepts');
+}
+
 if (failed) { console.error('\nWriter checks FAILED'); process.exit(1); }
 console.log('\nAll writer checks passed.');

@@ -57,6 +57,7 @@
     <table class="mr-table"><thead><tr>
       <th>Acct</th><th>Category</th><th>Budget</th><th>Actual</th><th>Committed</th><th>ETC</th><th>EFC</th><th>Variance</th>
     </tr></thead><tbody id="mrRows"></tbody></table>
+    <p class="mr-note mr-over" id="mrHotNote"></p>
     <h2>Payroll <span class="mr-chip" id="mrPayChip"></span></h2>
     <p class="mr-note" id="mrPayroll"></p>
     <p class="mr-note mr-over" id="mrPayErr"></p>
@@ -190,6 +191,38 @@
         ' <button class="tb-btn" data-del="' + esc(p.id) + '">✕</button></div>';
     }).join('') || 'No petty cash logged.';
     renderPayroll(rep);
+
+    /* THE OTHER BOOK. SB_HotCost_v1 is the on-set register — postings logged
+       from /tools/ Hot Costs and read by the daily production report — and
+       this cost report never saw it. Two ledgers, no line between them: the
+       office's document of record was blind to what the set logged, and the
+       manual documented the divergence as a caution because the code offered
+       nothing better.
+
+       They are NOT merged into the columns above, deliberately. The same
+       expense can legitimately exist in both books — a PO raised here and its
+       hot-cost line logged on set — and an automatic merge would double-count
+       precisely the spends people track most carefully. What was wrong was the
+       SILENCE, so the divergence is now printed where the reconciler works:
+       what the set register holds, split actual/committed, with the reminder
+       that these figures are not in the columns. Empty register, no banner. */
+    (function () {
+      var el = $('mrHotNote');
+      if (!el) return;
+      var rows = readLS('SB_HotCost_v1');
+      rows = Array.isArray(rows) ? rows : (rows && Array.isArray(rows.rows)) ? rows.rows : [];
+      if (!rows.length) { el.textContent = ''; return; }
+      var act = 0, po = 0;
+      rows.forEach(function (r) {
+        var a = parseFloat(r.amount) || 0;
+        if (String(r.kind).toLowerCase() === 'po') po += a; else act += a;
+      });
+      el.innerHTML = 'The set register (Hot Costs, in Tools) holds <b>' + rows.length +
+        ' posting' + (rows.length === 1 ? '' : 's') + '</b> — ' + fm(act) + ' actual · ' + fm(po) +
+        ' committed — <b>not included in the columns above</b>. The two books are kept apart so a PO raised ' +
+        'here and its hot-cost line on set are never double-counted; reconcile them at the weekly snapshot.';
+    })();
+
     var fed = M.feedLearning(sheet(), st);
     $('mrLearn').textContent = fed ? fed + ' actuals fed to the estimator brain' : '';
   }

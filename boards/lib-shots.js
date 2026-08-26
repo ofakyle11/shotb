@@ -23,8 +23,35 @@
     mkId = mkId || function (i) { return 'sc' + (i + 1); };
     var clips = (timeline && Array.isArray(timeline.clips)) ? timeline.clips : [];
     if (clips.length) {
-      return clips.map(function (c, i) {
-        return { id: mkId(i), slug: 'SC' + String(c.num || i + 1).padStart(2, '0') + ' — ' + (c.label || 'Scene'), desc: c.prompt || '', shots: [] };
+      /* One board scene per SCREENPLAY SCENE, named by its real slugline.
+
+         This mapped clips 1:1 — but the parser makes one clip per SHOT
+         (timeline/parser.js walks sc.shots), so a three-shot scene seeded
+         three board "scenes", and every one was labelled by the clip's
+         RUNNING counter: SC07 on the board was the seventh shot of the film,
+         not scene 7, and a printed screenplay number like 4A could never
+         reach the board at all. It also read `c.prompt`, a field no Studio
+         clip has ever carried, so every seeded description was empty.
+
+         Clips are now grouped by the scene they belong to (sceneIdx when the
+         parser stamped it, else the heading text), the slug is the clip's
+         real HEADING — which is where a printed number lives — and the
+         description is the first shot's actual description. The old SC-number
+         prefix survives only for legacy clips that carry no heading. */
+      var groups = [], byScene = {};
+      clips.forEach(function (c, i) {
+        var key = c.sceneIdx != null ? 'i' + c.sceneIdx : 'h' + (c.heading || 'clip' + i);
+        if (!byScene[key]) { byScene[key] = { clips: [] }; groups.push(byScene[key]); }
+        byScene[key].clips.push(c);
+      });
+      return groups.map(function (g, i) {
+        var first = g.clips[0];
+        var slug = first.heading
+          ? String(first.heading).trim()
+          : 'SC' + String(first.num || i + 1).padStart(2, '0') + ' — ' + (first.label || 'Scene');
+        var desc = '';
+        for (var k = 0; k < g.clips.length && !desc; k++) desc = g.clips[k].description || '';
+        return { id: mkId(i), slug: slug, desc: desc, shots: [] };
       });
     }
     var beats = (writer && Array.isArray(writer.scenes)) ? writer.scenes : [];

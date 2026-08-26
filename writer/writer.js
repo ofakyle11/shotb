@@ -171,6 +171,37 @@
       renderStats();
       $('wrFountain').textContent = fountain();
     });
+
+    /* A card whose heading is not a slugline is not a scene — it is the tail
+       of the PREVIOUS scene, silently.
+
+       The slug field was free text, and toFountain writes it verbatim. Rename
+       a card to "Kitchen at dawn" — no INT./EXT. token — and the Fountain
+       export carries that line as ordinary action, so the Studio's parser
+       folds this card's whole body into the scene before it. Verified before
+       this fix: five cards became three Timeline scenes, with no warning at
+       either end. A writer loses a scene by renaming it.
+
+       So the state is made unrepresentable rather than warned about. On blur
+       — not on every keystroke, which would fight the writer mid-word — a
+       heading that is not a slugline goes through guessSlug, which normalises
+       a real one and BUILDS one from free text using the body's own cues
+       ("Kitchen at dawn" becomes an INT./EXT. heading, not a lost scene). The
+       toast says what happened, because a field that rewrites itself with no
+       explanation reads as a glitch. */
+    $('wrCards').addEventListener('change', function (e) {
+      var card = e.target.closest('.wr-card'); if (!card) return;
+      var i = +card.getAttribute('data-i');
+      if (e.target.getAttribute('data-f') !== 'slug' || !state.scenes[i]) return;
+      var raw = e.target.value;
+      if (!String(raw).trim() || TWriter.isSlugline(raw)) return;
+      var fixed = TWriter.guessSlug(raw, state.scenes[i].body);
+      state.scenes[i].slug = fixed;
+      e.target.value = fixed;
+      save();
+      $('wrFountain').textContent = fountain();
+      toast('Heading made a slugline — "' + raw.slice(0, 40) + '" would have folded this scene into the previous one');
+    });
     $('wrCards').addEventListener('click', function (e) {
       var act = e.target.getAttribute('data-act'); if (!act) return;
       var i = +e.target.closest('.wr-card').getAttribute('data-i');

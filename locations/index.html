@@ -451,7 +451,9 @@
       '<dt>Insurance</dt><dd>' + esc(p.insurance) + '</dd>' +
       '<dt>Police / traffic extras</dt><dd>' + esc(p.police) + '</dd>' +
       '</dl>' +
-      '<p class="sk-note">Sources: this build could not verify fees or application URLs against the official pages, so none are shown — fees and rules drift constantly. <b>Confirm everything on the official page before relying on it.</b></p>' +
+      (p.verified
+        ? '<p class="sk-note">The cost, lead time and application link above are long-standing institutional guidance recorded in this build — not a live lookup, and fees and rules drift constantly. <b>Confirm everything on the official page before relying on it.</b></p>'
+        : '<p class="sk-note">This hub is unverified guidance: no fee or application link is recorded for it, and the button above searches for the office rather than linking it. <b>Confirm everything on the official page before relying on it.</b></p>') +
       '</div>';
   }
   $('skPermitCity').addEventListener('change', function () { st.permitCity = this.value; save(); renderPermit(); });
