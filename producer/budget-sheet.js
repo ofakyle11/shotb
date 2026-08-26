@@ -214,8 +214,13 @@
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
   /* Money columns are fixed 2-decimal strings, never raw JS floats — an
-     `amt × units × rate` of 3 × 5 × 1061.64 is 15924.6, and a raw float writes
-     `15924.599999999999` into the cell the producer then sums. */
+     `amt × units × rate` of 3 × 5 × 1061.64 is 15924.6, and a raw float
+     writes `15924.600000000002` into the cell the producer then sums.
+     (The neighbouring `15924.599999999999` is a REAL failure too, but a
+     different one: it is what 15920.3 + 4.3 evaluates to, the two-item sum
+     pinned by test_ops_money.mjs:196. This comment used to attribute that
+     value to the multiplication, which does not produce it. Both are float
+     error; only one belongs to each expression.) */
   function sheetToCsv(sheet) {
     var M = MM();
     var $$ = function (v) { return M.csvNum(v); };

@@ -182,8 +182,11 @@ const byId = (a, id) => a.stages.find(s => s.id === id);
     categories: [{ acct: '2000', name: 'Camera', items: [
       /* Cents, and deliberately NOT round: 3 × 5 × $1061.64 is the exact case
          budget-sheet.js cites for the float bug — a raw float writes
-         15924.599999999999 into a cell the producer then sums. A fixture of
-         round hundreds would pass whether or not the arithmetic handles it. */
+         15924.600000000002 into a cell the producer then sums. (The addition
+         case, 15920.3 + 4.3, is the one that gives ...599999999999; I had the
+         two swapped. A chapter author ran both rather than trusting either.)
+         A fixture of round hundreds would pass whether or not the arithmetic
+         handles it. */
       { desc: 'Operator', amt: 3, units: 5, rate: 106164, actual: 1592461 },
     ] }],
   };

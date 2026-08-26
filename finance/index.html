@@ -138,7 +138,23 @@
   function acctOptions() {
     var accts = M.budgetByAcct(sheet());
     var keys = Object.keys(accts).sort();
-    if (!keys.length) keys = ['1100', '2000', '3000', '5000'];
+    if (!keys.length) {
+      /* The fallback for a production with no budget sheet yet. It was the
+         hand-typed list ['1100','2000','3000','5000'], and 1100 is not in the
+         chart — CAccounts.exists('1100') is false. So the very first purchase
+         order on a fresh production, raised before anyone has built a top
+         sheet, landed on the cost report as "Unbudgeted · 1100" against a
+         budget of zero: permanently over, reconciling to nothing.
+
+         Exactly the defect that had cast offers posting to 1400. A list of
+         account numbers written out by hand drifts from the chart, so this one
+         is DERIVED from it — whatever the chart says the majors are is what the
+         operator can pick, and a number that no longer exists cannot be
+         offered. */
+      keys = (window.CAccounts && Array.isArray(window.CAccounts.MAJOR))
+        ? window.CAccounts.MAJOR.slice(0, 6).map(function (c) { return c.acct; })
+        : ['1000', '2000', '3000', '5000'];
+    }
     var html = keys.map(function (a) {
       return '<option value="' + esc(a) + '">' + esc(a) + (accts[a] ? ' · ' + esc(accts[a].name) : '') + '</option>';
     }).join('');

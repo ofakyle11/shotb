@@ -3,14 +3,14 @@
 
 <p class="lede">Three modules that exist to keep a production legal and unhurt.
 They share one habit: read the screenplay you already have, name the thing that
-could go wrong, and put a person's title against it. None of them makes a
-decision for you. Each one produces paper that a professional — a coordinator,
-a lawyer, an underwriter — is meant to read next.</p>
+could go wrong, and put a person's title against it. None of them decides
+anything. Each produces paper a professional — a coordinator, a lawyer, an
+underwriter — is meant to read next.</p>
 
 <div class="note"><strong>On the accuracy of this chapter.</strong> Every
-behaviour described here was established by reading the files named on this
-page, not by operating the software. The platform is under active development;
-where this chapter and the running code disagree, the code is what runs.</div>
+behaviour described here was established by reading the files this page names,
+not by operating the software. The platform is under active development; where
+this chapter and the running code disagree, the code is what runs.</div>
 
 <div class="note"><strong>None of this is legal advice, and the platform says so
 itself.</strong> <span class="path">production/lib-prod.js</span> states in its
@@ -18,27 +18,27 @@ own header that its rates and lists "follow widely published conventions and are
 estimates, not legal or accounting advice", and the same standard governs this
 whole slice. A clearance report is a prompt for counsel, not a substitute for
 one. An E&amp;O readiness banner is a checklist the production filled in about
-itself, not a policy and not an underwriter's opinion. A deal memo is a
-plain-language template — <span class="path">contracts/lib-deal.js</span> says
-"counsel reviews before signature", and it means before, not after. Every rate,
-fee and percentage in these three modules is an editable planning figure. If you
-are about to shoot a stunt, licence a song, or ask someone to sign something,
-the output of these pages is the beginning of that conversation.</div>
+itself — not a policy, and not an underwriter's opinion. A deal memo is a
+plain-language template, and <span class="path">contracts/lib-deal.js</span> says
+counsel reviews it <em>before</em> signature. Every rate here is an editable
+planning figure. If you are about to shoot a stunt, licence a song, or ask
+someone to sign something, these pages are where that conversation begins, not
+where it ends.</div>
 
 <h2>Where hazards come from</h2>
 
 <p>Safety &amp; Risk is <span class="path">safety/index.html</span> over
-<span class="path">safety/lib-safety.js</span> (<code>CSafety</code>), with its
-own store in <code>SB_Safety_v1</code>. <em>Assess the script</em> reads the
-working screenplay from <code>SB_Timeline_v1.scriptText</code> — under about
-forty characters it declines and says so — and splits it through the one scene
-model, <span class="path">js/lib-scenes.js</span>. Safety scans real scenes
-only: a title page or a <code>FADE IN:</code> preamble is not a scene and is not
+<span class="path">safety/lib-safety.js</span> (<code>CSafety</code>), stored in
+<code>SB_Safety_v1</code>. <em>Assess the script</em> reads the working
+screenplay from <code>SB_Timeline_v1.scriptText</code> — under about forty
+characters it declines and says so — and splits it through the one scene model,
+<span class="path">js/lib-scenes.js</span>. Safety scans real scenes only: a
+title page or a <code>FADE IN:</code> preamble is not a scene and is not
 assessed.</p>
 
 <p>Each scene's slugline and body are then tested against a fixed table of
-<strong>eleven hazards</strong>. The table is closed. A danger it does not name
-is not found, and nothing in this page lets you add one.</p>
+<strong>eleven hazards</strong>. The table is closed: a danger it does not name
+is not found, and nothing on this page adds one.</p>
 
 <table>
   <tr><th>Hazard</th><th>Tier</th><th>Responsible</th></tr>
@@ -55,86 +55,72 @@ is not found, and nothing in this page lets you add one.</p>
   <tr><td>Crowd scenes / background</td><td>1</td><td>Extras marshals (1 per 20 background)</td></tr>
 </table>
 
-<p>The three tiers are described in the source as <strong>3 stop-and-plan,
-2 supervised, 1 note-and-brief</strong>, and they print on the document as
-<code>HIGH</code>, <code>MED</code> and <code>LOW</code>. A scene's score is the
-sum of its hazard severities; the production's risk score is the sum of the
-scene scores. Treat both as a way of sorting the schedule, not as a measurement
-of anything.</p>
+<p>The source describes the three tiers as <strong>3 stop-and-plan, 2
+supervised, 1 note-and-brief</strong>; they print as <code>HIGH</code>,
+<code>MED</code> and <code>LOW</code>. A scene's score is the sum of its hazard
+severities, the production's risk score the sum of the scene scores — a way of
+sorting the schedule, not a measurement of anything.</p>
 
 <p>Matching is by keyword over the scene text, which cuts both ways. A weapon
-somebody only talks about in dialogue is still flagged — the safe direction. But
-the night-exterior test looks for an <code>EXT</code> slugline carrying
-<code>NIGHT</code>, <code>DUSK</code> or <code>DAWN</code>, so a night exterior
-written any other way is missed. <strong>An empty hazard list means the words
-were not there, not that the day is safe.</strong></p>
+somebody only mentions in dialogue is still flagged — the safe direction — but
+the night-exterior test wants an <code>EXT</code> slugline carrying
+<code>NIGHT</code>, <code>DUSK</code> or <code>DAWN</code>, and misses one
+written any other way. <strong>An empty hazard list means the words were not
+there, not that the day is safe.</strong></p>
 
 <h2>The risk assessment document</h2>
 
-<p>Section 2 renders the printable assessment: production name, preparer, date,
-and one block per flagged scene — every hazard at its tier, the responsible
-person named against it, and the standard control measures beneath. Water work,
-for instance, carries the safety boat and throw lines in position before
-rehearsal, cast swim ability confirmed in writing, water temperature and current
-assessed daily, and a rewarming plan. The document closes with the deduplicated
-list of specialist personnel the whole schedule needs, and the line that all
-hazards are to be re-assessed on the day by the 1st AD at the safety meeting.
-<em>Copy</em> puts it on the clipboard; the download button writes
-<code>risk-assessment.txt</code> for the call-sheet pack.</p>
+<p>Section 2 renders the printable assessment: production, preparer, date, then
+one block per flagged scene — every hazard at its tier, the responsible person
+named against it, and the standard control measures beneath, down to the safety
+boat and throw lines in position before rehearsal for water work. It closes with
+the deduplicated list of specialist personnel the schedule needs, and the line
+that all hazards are to be re-assessed on the day by the 1st AD at the safety
+meeting, then downloads as <code>risk-assessment.txt</code> for the call-sheet
+pack.</p>
 
 <div class="note"><strong>The document regenerates over your edits.</strong> The
 textarea is writable, but re-running <em>Assess the script</em> replaces its
-whole contents — and so does typing in the <em>Prepared by</em> field, which
-re-runs the assessment on every keystroke. Set the name first, then edit, then
-copy out. Anything typed into the box is lost on the next scan.</div>
+contents — and so does typing in <em>Prepared by</em>, which re-runs the
+assessment on every keystroke. Set the name first, then edit, then copy out.</div>
 
-<h2>Paid duty police and the animal department</h2>
+<h2>Officers, and animals</h2>
 
-<p>Section 3 answers which scenes need officers and roughly what that costs.
-Four conditions trigger a requirement: an exterior driving scene (traffic
-control), weapons visible in a public exterior (police notification plus an
-on-set officer), any crowd scene, and street stunts (road closure supervision).
-The directory holds <strong>twelve production hubs</strong>, and it refuses to
-invent contact details — Toronto carries the Toronto Police Service paid-duty
-request page; every other entry names the service and its program with no URL
-at all, and the page offers a search instead. An unknown city returns nothing
-rather than a guess. Incentive jurisdictions map to their hub, so the
-<em>Use Advisor location</em> button reads <code>SB_Budget_v1.incentive</code>
-and resolves, for example, Ontario to Toronto.</p>
+<p>Section 3 names which scenes need police — an exterior driving scene,
+weapons visible in a public exterior, any crowd scene, or street stunts — and
+estimates officers &times; hours &times; rate &times; days plus an admin
+percentage, defaulting to one officer, a four-hour minimum call, $90 an hour and
+10% admin over a caption telling you to confirm real rates with the service. The
+directory of <strong>twelve production hubs</strong> refuses to invent contact
+details: Toronto carries the Toronto Police Service paid-duty request page,
+every other entry names the service and its program with no URL at all and
+offers a search instead, and an unknown city returns nothing rather than a
+guess.</p>
 
-<p>The estimate is officers &times; hours &times; rate &times; days, plus an
-admin percentage — defaults are one officer, a four-hour minimum call, $90 an
-hour and 10% admin, and the page's own caption says typical terms carry a three
-to four hour minimum and that you must confirm exact rates with the service. A
-short day is billed at the minimum call.</p>
-
-<p>Section 3b covers animals. Seven species bands carry day-rate ranges; the
-estimate takes midpoints for the animal across shoot days, a wrangler across
-shoot <em>and</em> prep days, and a vet across shoot days only. Exotic and big
-animals carry the note that they are heavily restricted or banned in many
-jurisdictions and need legal review before scheduling; venomous reptiles carry
-their own. The compliance checklist — nine items, following the certified
-animal-safety monitoring standard — requires that only the coordinator handles
-the animals, bans sedation and tripping devices, requires a current veterinary
-exam, agrees take limits before rolling, and puts the animal action on the call
-sheet. The coordinator directory names exactly one house it can stand behind
-and sends you to a search for the rest.</p>
+<p>Section 3b covers animals, costing seven species bands at the midpoint of a
+day-rate range plus a wrangler across shoot <em>and</em> prep days. Exotic and
+big animals carry the note that they are heavily restricted or banned in many
+jurisdictions and need legal review before scheduling. The nine-item compliance
+checklist, following the certified animal-safety monitoring standard, lets only
+the coordinator handle the animals, bans sedation and tripping devices, requires
+a current veterinary exam, agrees take limits before rolling, and puts the
+animal action on the call sheet.</p>
 
 <div class="note"><strong>Both commit buttons post every time you press
 them.</strong> <em>&rarr; Commit to Money Room</em> writes a fresh open purchase
 order into <code>SB_Money_v1</code> on each click, with no guard against
-duplicates — paid duty lands on account 3000, animals on 9000. Two clicks are
-two commitments. Correct a mistake in the Money Room, not here.</div>
+duplicates — paid duty to account 3000, animals to 9000. Two clicks are two
+commitments; correct a mistake in the Money Room, not here.</div>
 
-<h2>The meeting and the incident log</h2>
-
-<p>Section 4 builds the morning safety meeting from the same analysis. It always
-opens with exits, muster point and medic location, then adds one line per hazard
-naming who confirms the controls are in place. Give it today's scene numbers to
-scope it to the day; leave it blank for the whole schedule. Section 5 is the
-incident log, held in <code>SB_Safety_v1</code>: date, person, what happened,
-action taken and an injury flag, so a near-miss records as a near-miss. On
-logging, the page reminds you that injuries also need the insurer notified.</p>
+<p>Section 4 builds the morning safety meeting: exits, muster point and medic
+location first, then one line per hazard naming who confirms the controls are in
+place — scoped to today's scene numbers, or blank for the whole schedule.
+Section 5 is the incident log, with an injury flag so a near-miss records as a
+near-miss and a reminder that injuries need the insurer notified.
+<span class="path">scripts/test_safety.mjs</span> covers all of this and names
+one open gap rather than hiding it: hazards are reported by numeric scene, so a
+meeting scoped to scene 1 also returns scene 1A's hazards. Over-inclusive — the
+safe direction for a safety document, but wrong.</p>
 
 <h2>Clearance: the pre-E&amp;O script read</h2>
 
@@ -156,131 +142,111 @@ finding, each with a risk tier and the standard action:</p>
 </table>
 
 <p>Phone numbers are the one detector that filters itself: a 555 number is not
-reported, everything else is. Each finding carries its scene, an excerpt and a
+reported, everything else is. Each finding carries its scene, an excerpt, and a
 status you set — <code>pending</code>, <code>cleared</code>,
-<code>rewritten</code> or <code>accepted risk</code>. Re-scanning after a rewrite
-preserves statuses already set on a matching category, scene and term.</p>
+<code>rewritten</code> or <code>accepted risk</code>. Re-scanning after a
+rewrite preserves statuses already set against a matching category, scene and
+term.</p>
 
-<p>Read the findings knowing how they are made. The brand list is a single
-string split on spaces, so multi-word marks became separate one-word tokens:
+<p>Read the findings knowing how they are made. The brand list is one long
+string split on spaces, so multi-word marks became separate single-word tokens:
 <em>King</em>, <em>Louis</em>, <em>Red</em>, <em>Target</em>, <em>Apple</em>,
-<em>Camel</em> and <em>Express</em> are all in the list on their own, and any
-capitalised occurrence of them is flagged as a brand. Matching is
-case-sensitive, which suits a screenplay that writes marks in caps but also
-catches an ordinary word at the head of a sentence. The other detectors capture
-to the end of the line, so a finding's term often trails into the next sentence.
-And unlike safety, clearance scans the preamble too, reporting anything before
-the first slugline as scene 0. <strong>Expect false positives and clear them
-deliberately; the module is built to over-report rather than miss.</strong></p>
+<em>Camel</em> and <em>Express</em> all sit in the list alone, and any
+capitalised occurrence is flagged. Matching is case-sensitive, which suits a
+screenplay that writes marks in caps but also catches an ordinary word opening a
+sentence. The other detectors capture to the end of the line, so a term often
+trails into the next sentence. And unlike safety, clearance scans the preamble,
+reporting anything before the first slugline as scene 0. <strong>The module
+over-reports rather than misses: expect false positives and clear them
+deliberately.</strong></p>
 
 <h2>E&amp;O readiness, and what it is not</h2>
 
-<p>The banner above the findings answers one question: is this production ready
-to make representations to an insurer? The source is blunt about why the rule is
-strict — "E&amp;O-ready is a representation made to an insurer", and it has
-twice shipped green when it should not have. The rule now stated in the code, and
-implemented exactly: <strong>ready means every script finding is cleared or
-rewritten, and each of four files has been read and says yes</strong>. Those four
-are the clearance scan itself, the chain of title in <code>SB_Rights_v1</code>,
-the cue sheet in <code>SB_Music_v1</code>, and the E&amp;O certificate in
-<code>SB_Insurance_v1</code>. Anything else is a named blocker.</p>
+<p>The banner above the findings answers one question. The source is blunt about
+why its rule is strict — "E&amp;O-ready is a representation made to an insurer"
+— and about having twice shipped green when it should not have. As now
+implemented, <strong>ready means every script finding is cleared or rewritten,
+and each of four files has been read and says yes</strong>: the clearance scan
+itself, the chain of title in <code>SB_Rights_v1</code>, the cue sheet in
+<code>SB_Music_v1</code>, and the E&amp;O certificate in
+<code>SB_Insurance_v1</code>. Anything else is a blocker with a name.</p>
 
-<p>Three consequences worth knowing before you argue with the banner.
-<em>Accepted risk</em> is a decision to carry a finding, not to clear it: it
-blocks readiness and it is separately listed under "disclose on the
-application", because the underwriter decides, not the production. An
-<em>unknown</em> is a blocker in its own right — a store nobody opened, a policy
-row with no carrier, number or expiry, a scan that never ran — on the stated
-principle that absence of evidence is not clearance; a blank expiry is not a
-policy that never expires. And zero findings only means a clean read if a scan
-is on record. A chain of title needs an executed underlying-rights agreement:
-an option, a purchase, life rights or a writer agreement. Cues licensed for
-festivals only are allowed through as a disclosure with a reminder to exercise
-the step-up before delivery, and a picture with no third-party music can say so
-on the record in the Music module.</p>
+<p>Three consequences before you argue with the banner. <em>Accepted risk</em>
+is a decision to carry a finding, not to clear it: it blocks readiness and is
+listed separately under "disclose on the application", because the underwriter
+decides, not the production. An <em>unknown</em> is a blocker in its own right —
+a store nobody opened, a policy row missing carrier, number or expiry, a scan
+that never ran — on the stated principle that absence of evidence is not
+clearance, and that a blank expiry is not a policy that never expires. And zero
+findings is a clean read only if a scan is on record. The chain of title needs
+one executed underlying-rights agreement: an option, a purchase, life rights or
+a writer agreement. Cues licensed for festivals only pass as a disclosure with a
+reminder to exercise the step-up before delivery, and a picture with no
+third-party music can say so on the record in Music.
+<span class="path">scripts/test_ops_rights.mjs</span> pins that rule against the
+exact states which once reported ready.</p>
 
 <div class="note"><strong>A gap between the page and the engine.</strong> The
 engine deliberately distinguishes "read and empty" from "never read". The page,
 in its <code>eoContext</code>, substitutes an empty list for a missing rights or
-insurance store before handing it over. The result still blocks — an empty
-register produces "no executed underlying-rights agreement" and "no E&amp;O
-policy on file" — so the banner does not go green falsely. But those blockers are
-not counted as unknowns, and the summary's "everything was actually read" flag
-can read true when nothing was. Judge readiness from the named blockers, not
-from that flag.</div>
+insurance store. It still blocks — an empty register produces "no executed
+underlying-rights agreement" and "no E&amp;O policy on file" — so the banner
+does not go green falsely. But those blockers are not counted as unknowns, and
+the summary's "everything was actually read" flag can read true when nothing
+was. Judge readiness from the named blockers, not that flag.</div>
 
-<p>The second half of the page drafts the paper: a materials permission request,
-a synchronization licence request, a location release and an appearance release,
-each filled with the active production name. They are short-form plain-language
-drafts. Send them to counsel before you send them to a rights holder.</p>
+<p>The lower half of the page drafts paper: a materials permission request, a
+sync licence request, a location release and an appearance release, each filled
+with the active production name. All four are short-form plain-language drafts.
+Send them to counsel before you send them to a rights holder.</p>
 
 <h2>Deal memos</h2>
 
 <p>Deal Memos is <span class="path">contracts/index.html</span> over
 <span class="path">contracts/lib-deal.js</span> (<code>CDeal</code>), stored in
 <code>SB_Deals_v1</code>. <em>Draft from Crew register</em> reads
-<code>SB_Crew_v1</code> and creates a memo for every crew row that does not have
-one, defaulting to a day rate, five guaranteed days and 1.5&times; after twelve
-hours on set. Cast agreements start at the SAG-AFTRA theatrical basic scale the
-module holds in one place — <strong>$1,204 a day, $4,181 a week</strong> — with
-three guaranteed days and $60 per diem. There is also an NDA template.</p>
+<code>SB_Crew_v1</code> and creates a memo for every crew row that lacks one, at
+a day rate with five guaranteed days and 1.5&times; after twelve hours on set.
+Cast agreements start at the SAG-AFTRA theatrical basic scale the module holds in
+one place — <strong>$1,204 a day, $4,181 a week</strong> — with three guaranteed
+days and $60 per diem. An NDA template sits alongside.</p>
 
-<p>The memo states the production, name and role, union or guild, rate and
-basis, guarantee, start date, overtime terms, kit or box rental, per diem, and
-for cast the credit position. It closes on standard terms: safety compliance,
-confidentiality, and work-made-for-hire assignment of results and proceeds.</p>
+<p>The memo states production, name and role, union or guild, rate and basis,
+guarantee, start date, overtime terms, kit rental, per diem, and for cast the
+credit position, closing on standard terms: safety compliance, confidentiality,
+and work-made-for-hire assignment of results and proceeds. A SAG-AFTRA rate is
+checked against scale in the document itself — the old test passed anything at
+or below scale, so a $600 day rate, half the minimum, printed "(scale)". A rate
+under the minimum now prints in full that a signatory production may not pay it,
+and to confirm the applicable agreement.</p>
 
-<p>A rate on a SAG-AFTRA deal is checked against scale and annotated in the
-document itself. The source explains why the check is strict: the old test
-passed anything at or below scale, so a $600 day rate — half the minimum —
-printed "(scale)". A rate below the minimum now prints in full that a signatory
-production may not pay it and to confirm the applicable agreement.</p>
-
-<p>The value shown against each row is not the fee. It is what a signed deal
+<p>The value against each row is not the fee. It is what a signed deal
 obligates: fee, an overtime allowance of 12% unless the terms read flat or
 all-in, payroll fringes on both, plus kit and per diem, which are not fringed.
-Fringes follow the union — 40% for IATSE and Teamsters, 36% for DGA, WGA, 28%
+Fringes follow the union — 40% for IATSE and Teamsters, 36% for DGA and WGA, 28%
 for SAG-AFTRA and as the non-union default — and per diem is paid per working
 day, so a weekly guarantee pays five. A cast agreement at scale for three days
-comes to $5,358.16: $3,612 fee, $433.44 overtime allowance, $1,132.72 fringes
-and $180 per diem.</p>
+comes to $5,358.16: $3,612 fee, $433.44 overtime, $1,132.72 fringes, $180 per
+diem.</p>
 
 <p>Mark a deal <strong>signed</strong> and that full value posts to the Money
 Room as an open purchase order, on the account the platform's one chart gives
-the role — a gaffer to 8000, a lead performer to 4000 — with the breakdown
-written into the PO notes. The point of the exercise is that the cost report
-sees payroll the moment ink lands, at its true loaded cost rather than the
-headline rate.</p>
+the role — a gaffer to 8000, a performer to 4000 — with the breakdown in the PO
+notes. That is the point of the exercise: the cost report sees payroll the
+moment ink lands, at loaded cost rather than the headline rate.</p>
 
 <div class="note"><strong>What the memo is, and is not.</strong> It is a short
 form, not a long form, and it says of itself that it binds both parties on
 signature and is superseded by a long-form agreement if one is issued. Read that
 plainly: <strong>this template does not describe itself as non-binding</strong>,
-which is precisely why the module and the page both say counsel reviews before
-signature. It is not a guild agreement, it does not incorporate one, and the
-scale figures in it are a single stored pair of numbers, not a live schedule.
-Confirm the applicable agreement before anyone signs.</div>
+which is exactly why both the module and the page say counsel reviews before
+signature. It is not a guild agreement and does not incorporate one; the scale
+figures in it are a single stored pair of numbers, not a live schedule. Confirm
+the applicable agreement before anyone signs.</div>
 
 <div class="note"><strong>Deleting a deal does not undo its commitment.</strong>
-Removing a row asks for confirmation and then drops it from
+Removing a row asks for confirmation, then drops it from
 <code>SB_Deals_v1</code> — but the purchase order it raised stays open in
 <code>SB_Money_v1</code>. Reverting a signed deal to draft leaves it standing
 too, and editing the rate afterwards does not revise it. Void or correct the PO
 in the Money Room yourself.</div>
-
-<h2>Testing</h2>
-
-<p>Two node suites cover this ground and are worth knowing about, because they
-document the failures the modules are shaped around.
-<span class="path">scripts/test_safety.mjs</span> exercises the hazard table,
-the assessment, the meeting checklist, the police directory — including that an
-unknown city returns null rather than a guess and that no entry invents a phone
-number — the animal department and the incident log. Its fixture deliberately
-carries a preamble and an A-scene, and it names one open gap rather than hiding
-it: hazards are reported by numeric scene, so a meeting scoped to scene 1 also
-returns scene 1A's hazards. Over-inclusive, which is the safe direction for a
-safety document, but wrong.
-<span class="path">scripts/test_ops_rights.mjs</span> pins the readiness rule
-against the exact states that once reported ready: every finding flipped to
-accepted risk, an E&amp;O row with no carrier and no expiry, a music store
-nobody ever opened.</p>

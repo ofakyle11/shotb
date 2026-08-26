@@ -1,0 +1,309 @@
+<h1 class="ch">Post, VFX, Music &amp; Release</h1>
+<span class="mk">@@CH20@@</span>
+
+<p class="lede">Every chapter until now has been about making the picture. This
+one is about finishing it and getting it seen. Eight pages carry a production
+from the first assembly to the recoupment statement. Not one of them finishes a
+film. Each keeps the record that the people who do — the facility, the society,
+the programmer, the accountant — will ask you for.</p>
+
+<div class="note"><strong>On this chapter's accuracy.</strong> It was written by
+reading the eight modules' source, not by operating them. Cinamate is still being
+built, and where a page and this chapter disagree, the page is right and the
+chapter is the fault. This is a survey: what each module is for and where its
+edges are, not eight full tours.</div>
+
+<h2>The eight pages, and where each keeps its record</h2>
+
+<table>
+  <tr><th>Page</th><th>What it is for</th><th>Store</th></tr>
+  <tr><td><span class="path">/post/</span></td><td>Post calendar, cut versions, vendor bids, delivery readiness</td><td><code>SB_Post_v1</code> · <code>SB_PostActuals_v1</code></td></tr>
+  <tr><td><span class="path">/vfx/</span></td><td>Shot board, plate checklists, bids against planning bands, the PO commit</td><td><code>SB_VfxBoard_v1</code></td></tr>
+  <tr><td><span class="path">/music/</span></td><td>Cue list, licence estimates, the PRO cue sheet</td><td><code>SB_Music_v1</code></td></tr>
+  <tr><td><span class="path">/festivals/</span></td><td>Majors directory, premiere strategy, submissions, buyer CRM</td><td><code>SB_Festivals_v1</code></td></tr>
+  <tr><td><span class="path">/distribution/</span></td><td>Delivery schedule, release windows, screener registry</td><td><code>SB_Dist_v1</code></td></tr>
+  <tr><td><span class="path">/screening/</span></td><td>Timecoded review notes against a named cut</td><td><code>SB_Screening_v1</code></td></tr>
+  <tr><td><span class="path">/investors/</span></td><td>Cap table, recoupment waterfall, statements, quarterly letter</td><td><code>SB_Investors_v1</code></td></tr>
+  <tr><td><span class="path">/taxcredit/</span></td><td>Jurisdiction table, qualified-spend tagging, credit estimate</td><td><code>SB_TaxLedger_v1</code></td></tr>
+</table>
+
+<p>All eight are browser-local, and all read across at the Money Room's
+<code>SB_Money_v1</code>, the budget sheet <code>SB_BudgetSheet_v1</code>, the
+Editor's <code>SB_Cut_v1</code> and the clearance scan
+<code>SB_ClearScan_v1</code>.</p>
+
+<h2>The post schedule, and what actually happened</h2>
+
+<p><span class="path">post/lib-post.js</span> ships a fourteen-milestone template
+from assembly to delivery, each with a default working-day duration and a list of
+parents; one with several parents starts after the latest of them, so
+<code>qc</code> waits on the grade, the mix <em>and</em> the VFX finals. Dates are
+business days throughout and nothing reads the clock. The calendar solves
+<em>backward</em>, landing delivery on the date you name, or <em>forward</em> from
+an assembly start; the two agree exactly. On the shipped template the critical
+path is 51 working days, running through sound edit and mix rather than conform —
+which <span class="path">scripts/test_post.mjs</span> pins, along with the date
+arithmetic.</p>
+
+<p>The plan and the truth are held apart, and that is the module's point.
+<code>schedule()</code> is a pure function of the template and the anchor; what
+happened lives in <code>SB_PostActuals_v1</code>, and <code>overlay()</code> lays
+one over the other to produce slip in signed business days, a forecast, and
+whether the critical path has <em>moved</em> now that observed durations replace
+the estimates. One rule governs the actuals: a milestone marked done with no
+actual end date is not done. Readiness follows it — five deliverables (ProRes
+master, 5.1 printmaster, M&amp;E, QC report, DCP) turn from <em>planned</em> to
+<em>ready</em> only on a real end date, because reporting an estimate as ready is
+how a distributor is promised a date nobody verified. Section 3 tracks vendor bids
+in five services, and awarding one posts it to the Money Room as an open PO on
+account 15000, once.</p>
+
+<div class="note"><strong>Destructive, no confirmation.</strong> <em>↺ Clear
+actuals</em> replaces the actuals store with a blank one: every recorded status
+and actual date is gone and every deliverable returns to <em>planned</em>.
+<em>↺ Template days</em> drops your duration overrides. Neither asks first.</div>
+
+<h2>VFX: the bid, the award, and the PO number</h2>
+
+<p><span class="path">vfx/lib-vfx.js</span> scans the screenplay against fifteen
+cue patterns and proposes shots with a complexity tier attached. Shots are
+numbered <code>VFX-010</code>, <code>VFX-020</code>, always ten past the highest
+on the board, and run briefed → bid → awarded → plates → temp → final → approved.
+Planning bands are per shot and labelled <em>planning estimate</em> wherever they
+appear: simple $500–1,500, medium $1,500–6,000, complex $6,000–20,000, hero
+$20,000–80,000. The on-set plate checklist grows with the tier, from lens data and
+reference stills up to witness cam and a set survey.</p>
+
+<p><strong>The join.</strong> Awarding a shot writes a PO to the Money Room on
+account 15200 — the account the estimator budgets VFX to, so the budget line and
+the spend meet — and stores <em>the PO number</em> back on the shot as
+<code>committedPo</code>. That number is the only key matching the shot to its
+invoice. Entering the invoiced amount settles the PO and marks it paid; only then
+is an observation recorded, because an open PO is a commitment and not a cost. Two
+settled finals in a tier turn the correction on, and the band is multiplied by a
+weighted ratio of final to <em>raw</em> bid, clamped so no single overage can more
+than double a future band. Below that threshold the band is exactly as shipped and
+the page says how many shots it stands on, rather than a confident 1.00× over
+nothing.</p>
+
+<h3>"PO committed · unjoinable"</h3>
+
+<p>Boards written before that change stored <code>true</code>: the money was
+committed and the number thrown away. <code>migratePoRefs</code> runs on every
+render and tries to recover it, matching a non-void PO on account 15200 whose
+description begins with the shot's code, never claiming a number twice. What it
+cannot match is counted as <code>legacyPo</code> and tagged <strong>PO committed ·
+unjoinable</strong>. When you see it:</p>
+
+<ul>
+  <li><strong>Read it as bookkeeping, not an error.</strong> The commitment is real
+  and the bid still counts as awarded. What is lost is the chance to learn what
+  that shot cost, so its tier's band stands on less evidence than your work.</li>
+  <li><strong>Reconcile by hand.</strong> Compare the board's awarded total against
+  the VFX POs on 15200. A tag with a matching PO under a different description is
+  untidy; a tag with no PO at all is a commitment that never reached the
+  ledger.</li>
+  <li><strong>Do not delete the shot to clear the tag,</strong> and do not try to
+  re-award it. The board is the only record tying that money to that shot, and a
+  second award writes a second PO for the same work.</li>
+  <li><strong>The flag heals itself.</strong> Should a matching PO appear on 15200
+  later, the next render claims it and the join is live again. Shots awarded by
+  the current build are unaffected.</li>
+</ul>
+
+<h2>Music: the cue sheet is a deliverable, not a summary</h2>
+
+<p><span class="path">music/lib-music.js</span> scans for music moments — sings,
+karaoke, a band playing, a jukebox, a radio, humming, a quoted title — and
+proposes cues with a suggested use. Estimates run per side, sync and master both
+required except for library tracks and their one all-in fee: library $50–500,
+indie $500–5,000, known artist $5,000–25,000, famous $25,000–250,000, all-media.
+Featured use prices the top half of a tier's range, background the bottom half,
+main and end titles at 1.5× the midpoint; festival-only scope is roughly 15% of
+the all-media figure, with a standing note to negotiate the step-up before you
+need it. A commissioned score is compared at $100–$400 per finished minute. Every
+figure is labelled a planning estimate by the code producing it, and a real quote
+supersedes it; a cue set to <em>licensed</em> with an actual quote commits that
+amount to the Money Room on account 15000, once.</p>
+
+<p>The module exists because of what it replaced. The office register wrote a
+nine-column sheet with one <code>composer</code> and one <code>publisher</code>
+per cue, no shares, no ISWC and no ISRC — and no performing-rights society will
+process that. A society pays writers and publishers by name, in stated
+percentages, routed through their affiliations. Those rows are not discarded:
+<em>↧ Import the office cue register</em> reads <code>SB_CueSheet_v1</code> and
+turns each into a writer and a publisher with an unstated share, which the
+pre-submission check then asks you to fill in.</p>
+
+<h3>What <code>cueSheetIssues</code> flags, and why each is a rejection</h3>
+
+<ul>
+  <li><strong>No timing</strong> — no TC in/out and no duration. A cue with no
+  duration is not payable; the duration is what the royalty is calculated
+  against.</li>
+  <li><strong>No writers.</strong> A PRO pays writers, not a "composer" text
+  field. There is nobody to pay.</li>
+  <li><strong>No publishers.</strong> Enter <em>Unpublished</em> where the writer
+  self-publishes; the publisher's half is addressed either way.</li>
+  <li><strong>Shares not totalling 100% on either side</strong>, reported with the
+  actual total. A society cannot divide a payment among percentages that do not
+  close, and an unstated share is the commonest reason a writer is never paid for
+  a cue that aired.</li>
+  <li><strong>A writer row with no name</strong>, and <strong>any writer or named
+  publisher with no PRO affiliation</strong> — without the society the royalty has
+  nowhere to route.</li>
+  <li><strong>No ISWC</strong> for the composition, and <strong>no ISRC</strong>
+  where the cue names an artist. Blank is accepted but slows matching; the
+  publisher and the label hold them.</li>
+  <li><strong>No title</strong>, or a cue still called <em>Untitled cue</em>.</li>
+  <li><strong>A cue that is not licensed.</strong> Only licensed cues belong on a
+  delivered sheet. The check is waivable for a working draft; delivery is not.</li>
+</ul>
+
+<p>Replaced cues are excluded from sheet and issue list alike. The readable
+preview prints <em>NOT READY TO SUBMIT</em> above the itemised list rather than
+looking finished, and the CSV writes one line per writer and publisher share,
+which is how a society ingests it. A cell opening with <code>=</code>,
+<code>+</code>, <code>-</code> or <code>@</code> is prefixed with an apostrophe, so
+a cue title is never executed as a spreadsheet formula.</p>
+
+<div class="note"><strong>One gap, stated plainly.</strong> The rights gate in
+<span class="path">distribution/lib-dist.js</span> honours a <code>noMusic</code>
+flag on <code>SB_Music_v1</code> — a picture declaring it carries no third-party
+music. Nothing in <span class="path">music/index.html</span> writes that flag, so
+it could not be established from source how an operator sets it.</div>
+
+<h2>Festivals: a premiere you can only spend once</h2>
+
+<p><span class="path">festivals/lib-fest.js</span> carries fourteen curated majors
+across four tiers, each with an approximate season window, a premiere note and a
+fee hint, under a banner saying windows and fees drift every year and must be
+verified before planning. No festival URL is hard-coded; the directory offers a
+search link instead. Strategy turns on one question — where has the film
+premiered? Unpremiered keeps every tier open, with the standing warning not to
+burn the world premiere on a minor festival while an A-list answer is pending. A
+spent US premiere drops the A-list and points at the international-premiere
+sections; a spent world premiere pivots toward markets and buyers.</p>
+
+<p>Deadlines in the tracker are the ones you entered and verified yourself. Fees
+are stored as the text you typed, verbatim, and read on the way out: "$1,200",
+"2 500" and "CAD 95" all parse, while "tbd" or "65–110" is reported as
+<em>unknown</em> by name rather than silently counted as zero. A fee is paid once
+a submitted-on date is on record, planned spend before that.</p>
+
+<h2>Distribution: the schedule, the windows, and the door</h2>
+
+<p><span class="path">distribution/lib-dist.js</span> holds a 23-item delivery
+schedule in five groups — Picture, Audio, Accessibility, Marketing, Legal &amp;
+docs — and five buyer presets deciding which items are required: festival
+premiere, theatrical, streamer (everything), aggregator/TVOD, broadcast. The
+windows planner records territory, channel, term and licensee, and flags an
+exclusivity clash only where all three collide at once. Names are normalised —
+<em>USA</em> and <em>domestic</em> are one place, <em>DACH</em> and
+<em>Nordics</em> expand to their members — and a grant that does not state both
+ends of its term is reported as undated, naming the missing edge, rather than
+guessed at.</p>
+
+<p>Screeners go out through a gate. <code>rightsGate</code> reads the cue list
+from <code>SB_Music_v1</code> and the findings from <code>SB_ClearScan_v1</code>
+and answers clear, caution, unknown or blocked. An unlicensed cue blocks; a
+festival-only licence blocks an all-media send and cautions a festival one; an
+open high-risk finding blocks. A store nobody has ever opened is <em>unknown</em>,
+not clear — absence of evidence is not clearance, and a missing gate is treated as
+an unchecked one rather than an open door. Sending anyway is possible and is
+recorded: the override reason must be at least three characters and contain a
+letter or digit, so a signature made of whitespace is refused, and the reason, the
+level and the blockers are written onto the row beside the recipient and the cut
+they received.</p>
+
+<h2>Screening: notes against a named cut</h2>
+
+<p>The Screening Room hosts no video. Every viewer opens the same exported cut
+file on their own machine and only the notes travel. A note is a timecode, text
+capped at 500 characters, an author and an open/done status, belonging to a
+session that records <em>which cut</em> it was made against — id, label and a
+version parsed from the filename — so notes from a v3 review are never read
+against v5.</p>
+
+<div class="note"><strong>Overwrites without asking.</strong> <em>→ Send open
+notes to Editor</em> writes the open notes into <code>SB_Cut_v1</code> as
+<code>project.markers</code>, replacing whatever markers were there.</div>
+
+<h2>Investors: the waterfall, run exactly</h2>
+
+<p><span class="path">investors/lib-invest.js</span> runs the standard indie
+recoupment order and reconciles to the cent: sales fee (default 15%) and
+off-the-top expenses first, then debt principal plus simple interest, then gap,
+then equity principal plus premium (default 20%), then remaining profit split
+50/50 between producer and investor pool. That pool is shared by explicit backend
+percentages where any are set, otherwise pro-rata by amount, with the rounding
+residue landing on the largest share. Shortfalls inside a tier pay pro-rata by
+what each is owed; breakeven is solved directly. The quarterly letter pulls the
+budget total and the Money Room's estimated final cost live from this browser and
+says so — and where there is no data, says that instead of inventing a figure.
+Every output repeats the caution: this is a model, not an audited accounting.</p>
+
+<h2>The incentive decoder</h2>
+
+<p>The Tax Credit Ledger reads the Money Room, separates open POs (committed) from
+invoiced, paid and petty cash (actual), and tags each row qualified or not.
+Explicit tags always win; untagged rows fall to a labelled heuristic guessing
+travel, lodging, insurance, bond, legal, financing and out-of-jurisdiction spend
+non-qualifying and everything else qualifying. The estimated credit is qualified
+spend times the midpoint of the jurisdiction's rate band, shown beside the
+Advisor's whole-budget model — budget × <code>qualPct</code> × midpoint — and the
+delta between them. That <code>qualPct</code> haircut belongs to the model and is
+applied exactly once, never to the ledger, which has real rows to look at. Below a
+program's minimum spend the estimate is zero with the raw figure kept for context;
+above a program's budget cap the page flags it.</p>
+
+<div class="note"><strong>An estimate from a table, and nothing more.</strong>
+<span class="path">taxcredit/lib-taxcred.js</span> carries 21 jurisdiction entries
+mirrored verbatim from the Advisor's curated table of published program terms,
+2025-26 vintage: a label, an effective rate band, the fraction of a typical budget
+assumed to qualify, and sometimes a minimum spend or budget cap. Georgia reads
+there as a 20–30% band on 75% of a typical budget with a $500,000 floor; British
+Columbia as a flat 36% labour-only credit on 45%; the UK Independent Film entry
+carries a budget cap. Those are the figures the table held on the day it was
+written, and programs change rates, caps and definitions every legislative
+session. This page is not an application, not a filing and not advice: it produces
+a number to plan against and a checklist that defers, in its own words, to your
+accountant. Heritage Gold is the kit's accent for a tax-credit win, and the win is
+worth marking — but what is being marked is an estimate.</div>
+
+<h2>What the platform deliberately does not do</h2>
+
+<p>This is the last chapter, so it is the place to be plain about the edges.</p>
+
+<ul>
+  <li><strong>It does not master.</strong> There is no DCP writer, no IMF packager,
+  no conform, no printmaster and no QC engine anywhere in the platform. <em>DCP
+  mastering</em> is a milestone on a calendar and a line on a checklist — both
+  records of work a facility does.</li>
+  <li><strong>It does not file anything.</strong> The tax-credit checklist does not
+  register a production or submit a claim. The cue sheet is a CSV you deliver;
+  nothing is transmitted to a society. Submissions are logged here and entered on
+  the festival's own platform.</li>
+  <li><strong>It does not bank.</strong> No money moves. A PO is a row in
+  <code>SB_Money_v1</code>, a waterfall run is arithmetic, and an investor
+  statement is a document you send — not a distribution.</li>
+  <li><strong>It does not give legal advice.</strong> The rights gate reports what
+  your own records say and refuses a send on that basis. It does not clear a right,
+  read a contract, or know what your agreements permit.</li>
+  <li><strong>It does not make deals.</strong> No marketplace, no buyer
+  introductions, no sales agency. The windows planner records terms somebody else
+  negotiated and tells you when two of them collide.</li>
+</ul>
+
+<p>The hand-offs follow. A post facility and a sound house finish the picture and
+issue the masters. A society processes the cue sheet, and a music supervisor or
+clearance lawyer secures the licences behind it. A film accountant takes the
+qualified-spend ledger and files the incentive claim with a CPA's report attached.
+A sales agent or distributor takes the film to buyers, and an entertainment lawyer
+papers what they agree. Your collection-account manager, not this page, tells your
+investors what they have actually been paid.</p>
+
+<p>What Cinamate does is hold the record in one shape, in one place, so that when
+each of those professionals asks what you have, the answer is a document rather
+than a search of your inbox. That is the whole of its ambition here, and it is
+enough. Begin your next production.</p>

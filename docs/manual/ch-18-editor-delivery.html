@@ -1,0 +1,281 @@
+<h1 class="ch">The Editor II — Assist Tools &amp; Delivery</h1>
+<span class="mk">@@CH18@@</span>
+
+<p class="lede">A cut that only exists in a browser tab is not a cut. This
+chapter covers the four assisted-editing tools, the frame sizes the Editor will
+render into, the encode that produces a viewable file, and the two interchange
+formats that hand the sequence to somebody else's finishing suite. Chapter 17
+covered the cutting; this one covers getting out of the building.</p>
+
+<div class="note"><strong>How this chapter was made.</strong> Every statement
+below was established by reading the Editor's source. Nothing here was verified
+by operating the product, because the product is still being built. If the page
+in front of you contradicts this page, the page in front of you is right.</div>
+
+<h2>The assist suite</h2>
+
+<p>Three assist buttons sit under <em>Assistant</em> in the media bin; the fourth
+lives in the Inspector, on a selected clip. All four are deterministic signal
+processing running in your browser — arithmetic over an amplitude envelope or a
+luma histogram. Nothing is sent anywhere, no model is consulted, and the same
+input gives the same output every time.</p>
+
+<h3>Rough cut</h3>
+
+<p>Takes every <em>picture</em> row in the bin longer than 0.4 s whose media is
+present, in bin order, and lays them end to end on V1. Each clip is given a
+handle of 0.25 s off the head and the tail, or a quarter of the source's length
+if that is shorter. Scene numbers are read out of the bin row's <em>name</em>,
+not from any Studio metadata: the pattern is <code>sc</code> or
+<code>scene</code> followed by digits, case-insensitive, so <code>SC01
+Rooftop</code> and <code>Scene 4 wide</code> both parse and
+<code>Rooftop_take3</code> does not. Where the scene number changes between two
+consecutive clips the incoming clip gets a 0.75 s crossfade; everywhere else, a
+straight cut.</p>
+
+<h3>Tighten cut</h3>
+
+<p>Decodes each distinct source once, reduces channel 0 to an amplitude envelope
+at fifty samples per second, and looks for runs quieter than 0.04 lasting at
+least 0.35 s. Where such a run touches the head or tail of a clip's existing
+in/out points the trim is pulled past it, leaving a 0.12 s breath. Two limits
+matter: it only ever touches the ends of a clip, so silence in the middle of a
+take is found but never removed — that would be a cut the Editor did not make —
+and no clip is tightened below 0.4 s. The toast reports the seconds recovered,
+to a tenth.</p>
+
+<h3>Cut to beats</h3>
+
+<p>Requires a music block on A1; the first audio block is the one analysed. The
+same fifty-per-second envelope is scanned for rising peaks that exceed 1.5× the
+trailing one-second average, are above an absolute floor of 0.08, and are at
+least 0.25 s apart. Fewer than three beats and the tool declines. Otherwise the
+video track is re-sliced so that one clip occupies each beat interval, cycling
+through the clips already on the timeline; intervals shorter than 0.2 s are
+skipped, and each take is the shorter of the interval and the source's
+remaining length.</p>
+
+<div class="note"><strong>Destructive.</strong> Both <em>Rough cut</em> and
+<em>Cut to beats</em> discard the entire V1 track and rebuild it. Hand trims,
+splits, transitions and per-clip colour on the old clips are gone. Titles and
+audio are untouched. Both take an undo snapshot first, so
+<code>Ctrl</code>/<code>Cmd</code>+<code>Z</code> restores the previous track —
+but undo is held in memory only and does not survive a reload.</div>
+
+<h3>Auto colour</h3>
+
+<p>Select a clip and press <em>Auto</em> in the Inspector's Colour group. The
+current preview frame is drawn to a 160×90 scratch canvas, converted to
+luminance with the Rec. 709 weights and binned into a 256-bin histogram.
+Contrast is set from a 5th-to-95th-percentile stretch, clamped to the range 1 to
+1.6; exposure pulls the mean toward mid-grey (118), clamped to 0.7 to 1.5.
+Saturation and warmth are left where they are — this balances, it does not
+grade. Two failure modes are worth knowing: if no frame is loaded the tool asks
+you to scrub onto the clip first, and a source that refuses a pixel read (a
+cross-origin Studio render, typically) reports that it blocks pixel reads and
+suggests re-importing it as a local file.</p>
+
+<h2>Frame size and the social presets</h2>
+
+<p>The Picture menu offers 720p (1280×720), 1080p (1920×1080), 480p (854×480),
+Social 9:16 (1080×1920) and Social 1:1 (1080×1080). The fitting rule is decided
+by shape, not by preset name: where the target is at least as tall as it is
+wide, the source is scaled to <em>fill</em> and the overflow is cropped
+symmetrically; where it is wider than tall, the source is scaled to
+<em>fit</em> and letterboxed. So both social presets crop, and both landscape
+presets pad.</p>
+
+<div class="note"><strong>The crop is not previewed.</strong> The preview canvas
+is fixed at 1280×720 in <span class="path">editor/index.html</span> and nothing
+in <span class="path">editor/cut-ui.js</span> resizes it when the Picture menu
+changes. Choosing Social 9:16 therefore alters the exported file and not the
+picture you are watching. Anything you have composed near the left or right edge
+of the 16:9 frame — a title's descender, a face, a sign — will be outside a 9:16
+export and you will first see that in the finished MP4.</div>
+
+<h2>The export path</h2>
+
+<p>Pressing <em>Export MP4</em> writes the Picture and rate selections onto the
+project, then renders the cut one frame at a time. For each frame index the
+source video element is seeked to the exact source time, the frame is drawn into
+an offscreen canvas at the target size through the clip's colour filter, titles
+are drawn over it, and the result is handed to the browser's
+<code>VideoEncoder</code>. Three H.264 configurations are tried in order —
+High 4.0, Main 3.1, Baseline 3.1 — and the first the browser reports as
+supported is used. Bitrate is width × height × rate × 0.12, so 1080p at 24 fps
+asks for roughly 6 Mbit/s. A keyframe is forced every two seconds.</p>
+
+<p>Audio is mixed first and separately. Every video clip's own sound and every A1
+block are rendered into one offline stereo mix at 48 kHz — gains applied, speed
+changes applied as playback rate — and encoded as AAC-LC at 128 kbit/s. A
+browser with no <code>AudioEncoder</code>, or one that refuses that
+configuration, gets a silent export and a toast saying <em>video only</em>.</p>
+
+<p>The container is written by Cinamate's own MP4 writer,
+<span class="path">editor/lib-mp4.js</span>: <code>ftyp</code> declaring
+<code>isom</code>/<code>iso2</code>/<code>avc1</code>/<code>mp41</code>, then
+<code>moov</code>, then one <code>mdat</code>. The video sample entry carries a
+<code>colr</code> box in <code>nclx</code> form declaring Rec. 709 primaries,
+transfer and matrix at limited range, so QuickTime, Resolve and Chrome do not
+each guess differently. The audio track carries an edit list skipping AAC's 1024
+primed samples and trimming the tail the encoder rounded up, so the mix presents
+exactly as long as it was rendered.</p>
+
+<h3>What is and is not re-encoded</h3>
+
+<p>Everything is. There is no smart render, no stream copy, no passthrough: even a
+clip you neither trimmed nor graded is decoded, drawn to a canvas at the export
+size and compressed again. Every export is therefore a generation of loss, and
+each one starts from the file in the bin rather than from the last export, so
+exporting twice at two sizes gives two independent re-encodes rather than a
+master and a copy. The interchange files are the opposite case — an EDL or an
+OTIO re-encodes nothing, because neither contains picture. The MP4 is for
+viewing; turn over and finish elsewhere.</p>
+
+<h3>The compatibility export</h3>
+
+<p>A browser without <code>VideoEncoder</code>, or with no usable H.264
+configuration, falls back to recording the preview in real time. That path
+produces a silent <span class="path">.webm</span>, takes as long as the cut runs,
+and — because it captures the preview canvas — ignores the Picture menu and comes
+out at 1280×720.</p>
+
+<div class="note"><strong>Crossfades in an export.</strong> The outgoing frame a
+crossfade mixes against is cached only by the playback loop, from the preview
+canvas, at the moment the playhead crosses into a new clip. The export loop never
+refreshes it, so on the reading of the source a crossfade in an export mixes
+against an empty cache — effectively a hard cut — or, after playback, against a
+stale still. Fades to and from black are computed from the timeline alone and do
+render correctly.
+Treat crossfades as a preview convenience and place them in the finishing suite,
+where the interchange formats do not carry them either.</div>
+
+<h2>Turnover: the EDL</h2>
+
+<p>The Editor's <em>EDL</em> button writes a CMX-style list named from the cut.
+It opens with <code>TITLE:</code>, then <code>FCM: NON-DROP FRAME</code>, then a
+comment carrying the frame rate. Each clip becomes one event, numbered from
+<code>001</code>, on reel <code>AX</code>, with source in/out and record in/out;
+a <code>* FROM CLIP NAME:</code> comment follows, and a
+<code>* SPEED:</code> comment where the clip is not at 1×.</p>
+
+<div class="note"><strong>Line breaks in labels are folded, deliberately.</strong>
+Every field written into an EDL passes through <code>edlField</code> in
+<span class="path">js/safe-url.js</span>, which replaces newlines, carriage
+returns and U+2028/U+2029 with a single space, removes control characters, and
+truncates at 200 characters. An EDL is line-oriented: a newline inside a clip
+label does not make a long label, it ends the comment and begins a record, and a
+newline inside the cut's name emits a second <code>FCM:</code> line above the
+real one — CMX readers take the first, and the whole reel then conforms at the
+wrong timecode base. So a label whose line breaks reappear as spaces in the
+export, or a very long name that stops at 200 characters, is the guard working.
+Your project is not corrupted, and the text either side of a fold is
+preserved.</div>
+
+<h3>The stamped rate is an integer</h3>
+
+<p>The rate written into the file is <code>round(fps)</code>. A 29.97 master
+stamps <code>* FRAME RATE: 30</code> and a 23.976 master stamps
+<code>24</code>. That is the convention, not a rounding error: non-drop timecode
+counts whole frames, and the drop/non-drop distinction is what the
+<code>FCM:</code> line carries. What matters — and what the test suite pins — is
+that a 29.97 master is never silently stamped 24. An unreadable rate does fall
+back to 24, visibly, in one place.</p>
+
+<h3>The Studio's own EDL</h3>
+
+<p>The Studio at <span class="path">/timeline/</span> exports a second,
+differently shaped EDL through <span class="path">timeline/timeline-export.js</span>.
+Its title is fixed, its reels are named <code>CLIP_01</code> upward, and each
+event carries <code>* LABEL:</code>, <code>* SOURCE FILE:</code>,
+<code>* DESC:</code> and, where set, <code>* TRANSITION:</code> comments — all
+through the same <code>edlField</code> guard. It exports approved clips that have
+video if there are any and otherwise every clip, and floors a zero-length clip to
+one frame, because an event whose record in equals its record out is one no
+conform will accept.</p>
+
+<p>Its rate comes from the <em>Master frame rate</em> picker (<code>tlFps</code>),
+offering 23.976, 24, 25 (PAL), 29.97 and 30. <code>masterFps()</code> in
+<span class="path">timeline/timeline.js</span> reads that picker at the moment of
+export, writes it onto the Studio state, and passes the result to both export
+calls — the EDL and the project JSON, whose <code>fps</code> is written
+explicitly because a machine reads it back. This is a separate setting from the
+Editor's own rate menu, which offers 24 and 30; set both.</p>
+
+<h2>Turnover: OTIO</h2>
+
+<p>The <em>OTIO for Resolve</em> button writes OpenTimelineIO JSON —
+<code>Timeline.1</code> containing a <code>Stack.1</code>, a
+<code>Track.1</code> named V1, and one <code>Clip.2</code> per video clip with a
+<code>TimeRange.1</code> source range. A speed change becomes a
+<code>LinearTimeWarp.1</code> effect. Audio blocks are laid onto lanes named A1,
+A2 and upward: each lane keeps a cursor in <em>frames</em>, the gap before a cue
+is the distance from that cursor rather than the cue's absolute start, and a cue
+that would overlap the lane's cursor opens a new lane rather than being shoved
+late. Every time value is rounded once, into frames, at the project rate.</p>
+
+<p>Media references are the thing to check. A row that came from the Studio carries
+its render's address; a row imported from disk carries only the <em>file
+name</em>, with no path. Either way expect to relink, and keep the originals — an
+object URL from a previous session died with the tab. The EDL carries no source
+path at all, so an EDL alone can never relink; prefer the OTIO where the reader
+supports it.</p>
+
+<h2>What travels in which file</h2>
+
+<table>
+  <tr><th>Element</th><th>MP4</th><th>EDL</th><th>OTIO</th></tr>
+  <tr><td>Clip order, trims, record timecode</td><td>Baked in</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Speed change</td><td>Baked in</td><td>As a comment</td><td>LinearTimeWarp</td></tr>
+  <tr><td>Crossfade</td><td>See note above</td><td>No — every event is a cut</td><td>No</td></tr>
+  <tr><td>Fade to black</td><td>Baked in</td><td>No</td><td>No</td></tr>
+  <tr><td>Titles</td><td>Baked in</td><td>No</td><td>No</td></tr>
+  <tr><td>Per-clip colour</td><td>Baked in</td><td>No</td><td>No</td></tr>
+  <tr><td>Audio blocks and gains</td><td>Mixed in</td><td>No</td><td>A1, A2… lanes</td></tr>
+  <tr><td>Source path</td><td>n/a</td><td>No</td><td>target_url</td></tr>
+</table>
+
+<h2>What the Editor does not deliver</h2>
+
+<p>No DCP. No IMF. No conform to a camera master — there is no relink step and
+no concept of a camera original anywhere in the Editor; what it renders is what
+is in the bin. No log or wide-gamut pipeline, no LUT, no high dynamic range: the
+export is an 8-bit H.264 encode off a canvas, tagged Rec. 709 at limited range,
+and that tag is a truthful description of the pixels rather than an aspiration.
+No 5.1 printmaster, no M&amp;E split, no QC report — the mix is one stereo pair.
+The Post module's own deliverables list (DCP, 5.1 printmaster, M&amp;E, ProRes
+master, QC report) is a list of things that happen somewhere else; the Editor's
+contribution to it is the turnover.</p>
+
+<h2>The delivery checklist</h2>
+
+<ol>
+  <li>Set the frame rate before you trim, not after. Check the Editor's rate
+  menu and, if you are exporting from the Studio as well, the Master frame rate
+  picker — they are separate settings.</li>
+  <li>Open the bin and confirm nothing is marked <em>media missing</em>. A
+  missing source keeps its row and its place in the sequence, so the timeline
+  looks complete when it is not.</li>
+  <li>Play the cut through once at 1×. It is the only thing that populates the
+  crossfade cache, and it is when a failed audio decode shows itself as a blank
+  waveform strip.</li>
+  <li>Choose the Picture size last, remembering that a social preset crops a
+  frame you have been watching uncropped.</li>
+  <li>Export the MP4 for viewing, and read the toast — it gives the file size and
+  whether audio made it in.</li>
+  <li>Export both interchange files if anyone downstream will touch this cut:
+  the EDL for a legacy conform, the OTIO for Resolve or Premiere.</li>
+  <li>Open the EDL in a text editor before you send it. Confirm one
+  <code>FCM:</code> line, an event count that matches your clip count, and a
+  frame rate you recognise as the integer form of your master.</li>
+  <li>Send the media with the turnover. Neither file contains picture, and the
+  OTIO's references will not resolve on another machine.</li>
+  <li>Back the production up. The cut lives in local storage under
+  <code>SB_Cut_v1</code> and imported media in IndexedDB; Projects → Export
+  backup is what makes both travel.</li>
+</ol>
+
+<p>A successful export is recorded alongside the cut — timestamp, duration, frame
+size, rate and whether audio made it in. That record is not shown in the Editor;
+it is read elsewhere, which is why a production reads as mastered on the
+dashboard only once something has actually been exported.</p>

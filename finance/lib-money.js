@@ -189,7 +189,11 @@
   }
 
   /* Money columns are written with two fixed decimals. A raw JS float in a CSV
-     ships `15924.599999999999` into the cell the producer then sums. */
+     ships a float into the cell the producer then sums: the multiplication
+     3 × 5 × 1061.64 evaluates to 15924.600000000002, and the two-item sum
+     15920.3 + 4.3 to 15924.599999999999. Different expressions, different
+     error — the figures are not interchangeable, and this comment previously
+     used the addition's value for the multiplication. */
   function csv(report) {
     var M = MM();
     var COLS = ['budget', 'actual', 'committed', 'etc', 'efc', 'variance'];

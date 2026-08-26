@@ -34,16 +34,15 @@ accountant actually keeps.</p>
 <p>Everything the room owns lives in browser storage under
 <code>SB_Money_v1</code>, in the shape <code>CMoney.blank()</code> returns:
 <code>{ v, pos, petty, etc, labor, snapshots, nextPo }</code>. It is local to the
-browser you are sitting at — there is no server copy, and a second machine sees
-a different Money Room. Purchase orders are numbered from <code>nextPo</code>,
-which starts at 1001, so the first PO a production raises is <code>PO-1001</code>.</p>
+browser you are sitting at — there is no server copy, and a second machine sees a
+different Money Room. POs are numbered from <code>nextPo</code>, which starts at
+1001, so a production's first is <code>PO-1001</code>.</p>
 
 <h2>Purchase orders</h2>
 
 <p>Raise one from the Purchase orders bar: vendor, what for, an account from the
-dropdown, an amount. The page refuses to issue a PO with a non-positive amount.
-A new PO is created with status <code>open</code>, and the status select offers
-four values in a deliberate order:</p>
+dropdown, an amount. A non-positive amount is refused. A new PO opens at status
+<code>open</code>, and the status select offers four values:</p>
 
 <table>
   <tr><th>Status</th><th>Column on the cost report</th><th>Meaning</th></tr>
@@ -84,14 +83,14 @@ against its major account's budget line when only the major line is budgeted, so
 a department can be precise without becoming unbudgeted.</p>
 
 <p>An account the chart does not recognise rolls up to <em>itself</em>. It does
-not vanish into a neighbouring line and it is not silently dropped: it appears on
-the cost report as its own row, named <code>Unbudgeted · &lt;acct&gt;</code>, with
-a budget of zero. Because variance is budget minus estimated final cost, a zero
-budget makes that row permanently and unfixably over. Cast is <strong>4000</strong>.
-There was a period when the casting office committed offers to <strong>1400</strong>,
-which exists nowhere in the chart, and every cast offer therefore surfaced as a
-permanently over-budget <code>Unbudgeted · 1400</code> line that nothing could
-reconcile. That is the exact shape of the mistake this row exists to expose.</p>
+not vanish into a neighbouring line and it is not dropped: it appears as its own
+row, named <code>Unbudgeted · &lt;acct&gt;</code>, with a budget of zero. Because
+variance is budget minus estimated final cost, a zero budget makes that row
+permanently and unfixably over. Cast is <strong>4000</strong>. There was a period
+when the casting office committed offers to <strong>1400</strong>, which exists
+nowhere in the chart, so every cast offer surfaced as a permanently over-budget
+<code>Unbudgeted · 1400</code> line that nothing could reconcile. That is the
+exact shape of mistake this row exists to expose.</p>
 
 <p>How to tell: scan the Category column for the word <em>Unbudgeted</em>. A row
 carrying it is either an account you never budgeted, or a typo. Both are worth
@@ -144,11 +143,11 @@ than posted as a silent zero, and a bad call or wrap time behaves the same way.<
 
 <h2>Hot costs</h2>
 
-<p>Tools → Hot Costs is a daily actual-versus-budget view with its own posting
-register, keyed <code>SB_HotCost_v1</code>, reported by <code>TMoney.hotCost</code>.
-It groups by account, splits actual from committed (a posting is <code>actual</code>
-or <code>po</code>), seeds its budget column from the saved top sheet, and marks an
-account <em>HOT</em> above 85% used and <em>OVER</em> past 100%.</p>
+<p>Tools → Hot Costs is a daily actual-versus-budget view with its own register,
+keyed <code>SB_HotCost_v1</code> and reported by <code>TMoney.hotCost</code>. It
+groups by account, splits actual from committed (a posting is <code>actual</code>
+or <code>po</code>), seeds its budget column from the saved top sheet, and marks
+an account <em>HOT</em> above 85% used and <em>OVER</em> past 100%.</p>
 
 <div class="note"><strong>Hot costs and the Money Room are two separate sets of
 books.</strong> Nothing joins <code>SB_HotCost_v1</code> to
@@ -178,10 +177,9 @@ be flagged over on a day when it has spent almost nothing, because everything it
 will spend is already committed. That is the point: an overrun surfaces while
 there is still a week in which to act on it.</p>
 
-<p>The ETC cell is the one place on the report you can overrule the arithmetic.
-Type a number and it is stored per account. Clear it and the default returns.
-A non-numeric entry is read as zero, which will quietly flatter the account, so
-type figures.</p>
+<p>The ETC cell is the one place you can overrule the arithmetic. Type a number
+and it is stored per account; clear it and the default returns. A non-numeric
+entry is read as zero, which quietly flatters the account, so type figures.</p>
 
 <p>The TOTAL row is not a sum of the rows you can see. Totals are accumulated from
 the cents that were actually posted, and total EFC and total variance are derived
@@ -200,24 +198,23 @@ negative variance toward zero; that is why it is not used.</p>
 
 <p>The rule at the edge is the one that matters most to you: <strong>a money
 figure leaving the platform is written as a string with exactly two decimal
-places.</strong> A raw float is never put in a cell. Fifteen units of $1,061.64
-is $15,924.60, but the float multiplication evaluates to
-<code>15924.600000000002</code>; two budget lines of $15,920.30 and $4.30 evaluate
-to <code>15924.599999999999</code>. Either one, written straight into a CSV, is
+places.</strong> A raw float is never put in a cell. A line of 3 × 5 units at
+$1,061.64 is $15,924.60, but the float multiplication evaluates to
+<code>15924.600000000002</code>; two budget lines of $15,920.30 and $4.30 add to
+<code>15924.599999999999</code>. Either one, written straight into a CSV, is
 what a producer's spreadsheet then adds up — and a column of those does not foot.
 The CSV writes <code>15924.60</code>. Negative zero is written as
 <code>0.00</code>, not <code>-0.00</code>, because a credit that is not there
 reads as a credit.</p>
 
-<p>The CSV also defends the machine that opens it: any cell whose text begins
-<code>=</code>, <code>+</code>, <code>-</code>, <code>@</code>, a tab or a carriage
-return is prefixed with an apostrophe, so a vendor name typed on this site is read
-by Excel and Sheets as literal text rather than as a formula to run.</p>
+<p>The CSV also defends the machine that opens it: any cell beginning
+<code>=</code>, <code>+</code>, <code>-</code>, <code>@</code>, a tab or a
+carriage return is prefixed with an apostrophe, so a vendor name typed on this
+site is read as literal text rather than as a formula to run.</p>
 
 <div class="note"><strong>The screen rounds; the export does not.</strong> Cost
-report figures are displayed to the whole dollar. The CSV carries the cents. When
-the two appear to disagree by a few dollars across a column, the CSV is the one
-that is exact.</div>
+report figures are displayed to the whole dollar, while the CSV carries the cents.
+Where the two seem to disagree across a column, the CSV is the exact one.</div>
 
 <h2>Snapshots, and who reads this report</h2>
 
@@ -231,9 +228,9 @@ pass a year.</div>
 
 <p>Three things read this report without being asked. The Producer Suite's top
 sheet shows the Money Room's EFC and its over/under figure beneath the grand total
-once any PO exists. The investor update letter pulls EFC from it and says so, and
-says so honestly when there is no cost report to pull from. And every account with
-both a budget and an actual is fed to the estimator on each render, so this
-production's real costs calibrate the next one's estimates. Nothing about that is
-reversible from here — it is another reason to keep an account number correct
-before it becomes history.</p>
+once any PO exists. The investor update letter pulls EFC from it, names it as an
+estimate, and says plainly when there is no cost report to pull from. And every
+account carrying both a budget and an actual is fed to the estimator on each
+render, so this production's real costs calibrate the next one's. None of that is
+reversible from here — one more reason to correct an account number before it
+becomes history.</p>
