@@ -4,9 +4,41 @@
    below 768px the fixed multi-column workspaces stack, wide tables scroll
    inside themselves, and touch targets grow. Inputs use 16px so iOS Safari
    stops auto-zooming into fields.
+   ───────────────────────────────────────────────────────────────────────────
+   BREAKPOINT CONVENTION — the scale lives in css/tokens.css section 06.
+
+     --bp-xs   480px    --bp-sm   768px    --bp-md   820px
+     --bp-lg  1100px    --bp-xl  1440px
+
+   A media query cannot read a custom property — it is evaluated before
+   custom properties resolve — so the literal px is written in the query and
+   the token name is written in the trailing comment. That comment is the
+   contract: it makes the scale greppable, so renumbering is find-and-replace.
+   The tokens themselves are live for clamp(), container queries and JS.
+
+   Every rule here is max-width and additive. Desktop is the base layer and is
+   never touched by this file. That is why the desktop rendering has never
+   regressed through a mobile change, and it is not negotiable.
+
+   THE DEBT IN THIS FILE, AND HOW IT GETS PAID
+   The rules below hand-list per-module class names — .wr-layout, .pp-table,
+   .sd-side, .wf-stages, .pv-mods. That means a new module has no mobile
+   layout until someone remembers to add it here, and 28 modules are covered
+   by six of them. The target is a handful of layout hooks the markup opts
+   into, so this file stops knowing module names:
+
+     [data-stack]   multi-pane workspace → single column below --bp-md
+     [data-scroll]  wide table / board   → scrolls inside itself
+     [data-pad]     main content padding → tightens below --bp-sm
+
+   Those attributes go in the HTML, which the token order does not own. The
+   migration is per-module and reversible: add the hook to one module's
+   markup, confirm it renders identically, then delete that module's line from
+   this file. Never a big-bang rewrite — the old per-module rules and the new
+   hooks are additive and can coexist for as long as it takes.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-@media (max-width: 768px) {
+@media (max-width: 768px) {   /* --bp-sm */
 
   /* ── shared chrome ── */
   .topbar { flex-wrap: wrap; row-gap: 6px; padding: 8px 10px; height: auto; }
@@ -61,7 +93,7 @@
   pre { overflow-x: auto; }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 480px) {   /* --bp-xs */
   .topbar .logo { font-size: 15px; }
   .topbar .tb-btn { padding: 6px 8px; font-size: 10px; }
 }

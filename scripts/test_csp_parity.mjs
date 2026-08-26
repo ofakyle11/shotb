@@ -178,7 +178,7 @@ function stageFile(rel, body = '<html>staged</html>') {
 }
 stageFile('dashboard.html');
 stageFile('app.html');
-stageFile('js/learn.js', 'window.CLearn={}');
+stageFile('js/staged-fixture.js', 'window.CStaged={}');
 
 const { handler } = require_(join(stage, 'gate.js'));
 const payload = 'owner:hz465:' + (Date.now() + 3600000);
@@ -324,7 +324,7 @@ for (const origin of ['https://api.themoviedb.org', 'https://query.wikidata.org'
 
   /* Scoping: no other path may inherit the vendor origins. */
   const vendors = [...APP_OVERLAY.values()].flat();
-  for (const path of ['/dashboard.html', '/js/learn.js']) {
+  for (const path of ['/dashboard.html', '/js/staged-fixture.js']) {
     const r = await get(path);
     const raw = hdr(r.headers, 'content-security-policy') || '';
     t(path + ' does not carry the Firebase origins',

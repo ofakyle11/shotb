@@ -387,6 +387,12 @@ exports.handler = async (event) => {
         manifest = parsed.blobs.map(manifestEntry).filter(Boolean);
       }
       parsed.blobs = manifest;
+      /* Provenance the sending device wrote about itself. It is read by every
+         other owner, so it goes through the same shape check as the manifest
+         rather than being stored as whatever arrived. */
+      parsed.blobsMissing = Array.isArray(parsed.blobsMissing)
+        ? parsed.blobsMissing.map(manifestEntry).filter(Boolean).slice(0, 500)
+        : [];
       const blobCount = manifest.length;
       const blobBytes = manifest.reduce((a, r) => a + (Number(r.bytes) || 0), 0);
       const declared = Number(body.blobChunks);
@@ -556,11 +562,19 @@ exports.handler = async (event) => {
           restoredFrom: { savedAt: meta.savedAt || '', savedBy: meta.savedBy || '' },
           bytes: (meta.archive || '').length,
           ver: ((meta0 && typeof meta0.ver === 'number') ? meta0.ver : 0) + 2,
+          blobCount: Number(meta.blobCount) || 0,
+          blobBytes: Number(meta.blobBytes) || 0,
+          blobChunks: Number(meta.blobChunks) || 0,
         };
         await writeIndex(idx);
       }
       await blob('DELETE', 'tomb:' + name);
-      return respond(200, { ok: true, savedAt, savedBy: owner,
+      /* The version ring keeps the written record, not the media: eight copies
+         of every photograph is not a backup policy, it is a storage bill. Say
+         it in the response rather than let an operator infer that an older
+         version came back with the photographs it was taken with. */
+      return respond(200, { ok: true, savedAt, savedBy: owner, mediaVersioned: false,
+        blobCount: Number(meta.blobCount) || 0,
         restoredFrom: { savedAt: meta.savedAt || '', savedBy: meta.savedBy || '' } });
     }
 

@@ -14,8 +14,16 @@ function check(name, cond, extra) {
   else { failures++; console.error('FAIL  ' + name + (extra != null ? ' — got: ' + JSON.stringify(extra) : '')); }
 }
 
+/* A NUMBERED shooting script with a FADE IN: preamble and an A-scene. Those
+   two inputs are the ones that break most scene numbering in this codebase —
+   eight of the nine splitScenes copies count a title card as scene 1, and
+   several drop A-scenes entirely — so a fixture without them cannot catch the
+   defect. splitScenes here starts a scene only at a slugline, so the preamble
+   is correctly not a scene and 1A is correctly its own. */
 const SCRIPT = `
-INT. WAREHOUSE - NIGHT
+FADE IN:
+
+1  INT. WAREHOUSE - NIGHT
 
 RAIN hammers the skylights. JACK (40s, scarred) levels his PISTOL at the doorway.
 
@@ -24,7 +32,7 @@ Don't move.
 
 A CROWD of dockworkers scatters as an EXPLOSION rips through the far wall. Flames everywhere.
 
-EXT. HARBOR - NIGHT
+1A  EXT. HARBOR - NIGHT
 
 Jack sprints along the pier. A speedboat chase across the harbor. MAYA dives into the water, swimming under the burning boat.
 
@@ -32,7 +40,7 @@ MAYA
 (surfacing)
 Go! Go!
 
-INT. SAFEHOUSE - DAY
+2  INT. SAFEHOUSE - DAY
 
 Maya bandages Jack's arm. A dog sleeps by the door. Children laugh outside.
 
@@ -42,7 +50,7 @@ You should have told me about the money.
 JACK
 You never asked.
 
-EXT. CITY STREET - DAY
+3  EXT. CITY STREET - DAY
 
 A black SUV swerves through traffic. Jack fights two MEN on the hood. Gunshots. The car crashes into a fruit stand.
 `;
@@ -107,7 +115,9 @@ check('vfx auto-suggest returns valid tier', SBBudget.TIERS.vfx.some(t => t.id =
 
 // ── eighths-based scene measurement (CineSched convention) ──
 const scenes = SBBudget.splitScenes(SCRIPT);
-check('splitScenes finds 4 scenes', scenes.length === 4, scenes.length);
+check('splitScenes finds 4 scenes, not the FADE IN:', scenes.length === 4, scenes.map(s => s.heading));
+check('the A-scene survives as its own scene', scenes.some(s => /^1A\b/.test(s.heading)), scenes.map(s => s.heading));
+check('the preamble is not scene 1', !/FADE IN/i.test(scenes[0].heading), scenes[0].heading);
 check('every scene has >= 1 eighth', scenes.every(s => s.eighths >= 1), scenes.map(s => s.eighths));
 check('analysis carries eighths total', a.eighthsTotal > 0, a.eighthsTotal);
 check('sceneEighths length matches scenes', a.sceneEighths.length > 0, a.sceneEighths.length);

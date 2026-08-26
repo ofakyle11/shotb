@@ -89,7 +89,14 @@
 .dood-table .sw{color:var(--green);font-weight:700}
 .dood-table .wf{color:var(--red);font-weight:700}
 .dood-table .h{color:var(--dim)}
-.dood-legend{font-size:9px;color:var(--dim);margin-top:6px;font-family:var(--mono)}
+.dood-table .drop{color:var(--border2)}
+.dood-legend{font-size:9px;color:var(--dim);margin-top:6px;font-family:var(--mono);line-height:1.7}
+.dood-week{font-size:9px;color:var(--dim);font-family:var(--mono);letter-spacing:0;margin-left:6px}
+.dood-save{color:var(--green);font-weight:700}
+.ps-pacechip{font-size:10px;color:var(--dim);font-family:var(--mono);background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:3px 8px;white-space:nowrap}
+.ps-pacechip.learned{color:var(--green);border-color:rgba(74,139,122,.4)}
+.ps-day-date{font-family:var(--mono);font-size:9px;color:var(--dim);font-weight:400}
+.ps-wrapchip{font-size:8px;font-weight:700;letter-spacing:.06em;color:var(--green);background:rgba(74,139,122,.14);border-radius:4px;padding:1px 4px;vertical-align:1px}
 
 /* ── incentives ── */
 .in-table{width:100%;border-collapse:collapse;font-size:11px}
@@ -137,7 +144,18 @@
 .cs-table{width:100%;border-collapse:collapse;font-size:11px}
 .cs-table th{text-align:left;color:var(--dim);font-size:9px;text-transform:uppercase;padding:4px 6px;border-bottom:1px solid var(--border2)}
 .cs-table td{padding:4px 6px;border-bottom:1px solid var(--border);color:var(--text2)}
-.cs-locs{font-size:11px;color:var(--text2)}
+.cs-locs{font-size:11px;color:var(--text2);line-height:1.7}
+.cs-rev{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.cs-clock td{width:25%}
+.cs-clock td:nth-child(odd){color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+.cs-clock td:nth-child(even){font-family:var(--mono);color:var(--text)}
+.cs-dim{color:var(--dim)}
+.cs-warn{color:var(--red)}
+.cs-wrapped{color:var(--green)}
+.cs-hosp{font-size:12px;color:var(--text2);background:rgba(248,113,113,.07);border-left:2px solid var(--red);padding:7px 10px;border-radius:0 6px 6px 0}
+.cs-gaps{margin-top:12px;font-size:10px;color:var(--dim);border-top:1px dashed var(--border2);padding-top:8px}
+.cs-gaps ul{margin:4px 0 0 16px}
+.cs-gaps li{margin-bottom:2px}
 
 /* print only the call sheet when triggered from its Print button */
 body.cs-printing .app,body.cs-printing #sbEditModal,body.cs-printing #psScriptModal,body.cs-printing .toast{display:none!important}

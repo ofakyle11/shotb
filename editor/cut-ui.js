@@ -28,11 +28,19 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3200);
   }
 
-  /* ── IndexedDB media store (local files survive reloads) ────────── */
+  /* ── IndexedDB media store (local files survive reloads) ──────────
+     Store 'media', out-of-line keys, values are Blobs. The vault reads and
+     writes this store through the adapter in projects/index.html — see the
+     BLOB_DBS list in projects/lib-vault.js — so a bin source now travels in a
+     .cinamate archive instead of only existing on the machine that imported it.
+     The shape below is the contract: change the store name or the key style and
+     that list has to change with it. */
   function idb() {
     return new Promise(function (res, rej) {
       var r = indexedDB.open('cinamate_cut', 1);
-      r.onupgradeneeded = function () { r.result.createObjectStore('media'); };
+      r.onupgradeneeded = function () {
+        if (!r.result.objectStoreNames.contains('media')) r.result.createObjectStore('media');
+      };
       r.onsuccess = function () { res(r.result); };
       r.onerror = function () { rej(r.error); };
     });
@@ -170,11 +178,22 @@
 
   /* ── bin render ─────────────────────────────────────────────────── */
   function renderBin() {
+    /* A missing source keeps its row and says so. The cut is a list of
+       references; if a row vanished the timeline would still point at it and
+       the sequence would look shorter than it is. */
+    var gone = bin.filter(function (b) { return b.missing; }).length;
     $('edBinList').innerHTML = bin.map(function (b) {
-      return '<div class="ed-binitem' + (b.missing ? ' missing' : '') + '" draggable="true" data-bin="' + esc(b.id) + '" title="Double-click to add to the timeline">' +
-        (b.thumb ? '<img src="' + CinUrl.safe(b.thumb) + '" alt="">' : '<span class="ed-thumbph">' + (b.kind === 'audio' ? '🎵' : '🎬') + '</span>') +
-        '<div class="ed-binmeta"><b>' + esc(b.name) + '</b><span>' + (b.missing ? 're-import needed' : (b.dur ? b.dur.toFixed(1) + 's' : '…')) + (b.origin === 'studio' ? ' · studio' : '') + '</span></div></div>';
-    }).join('');
+      var why = b.idb
+        ? 'The bytes of this source are not in this browser. Projects → Import backup restores a production together with its media, or re-import the file from disk.'
+        : 'This source was a link, not a file — re-import it from disk.';
+      return '<div class="ed-binitem' + (b.missing ? ' missing' : '') + '" draggable="true" data-bin="' + esc(b.id) + '" title="' +
+        esc(b.missing ? why : 'Double-click to add to the timeline') + '">' +
+        (b.thumb ? '<img src="' + CinUrl.safe(b.thumb) + '" alt="">' : '<span class="ed-thumbph">' + (b.missing ? '⚠' : (b.kind === 'audio' ? '🎵' : '🎬')) + '</span>') +
+        '<div class="ed-binmeta"><b>' + esc(b.name) + '</b><span>' + (b.missing ? 'media missing' : (b.dur ? b.dur.toFixed(1) + 's' : '…')) + (b.origin === 'studio' ? ' · studio' : '') + '</span></div></div>';
+    }).join('') + (gone ? '<div style="border:1px dashed var(--bad,#e06c6c);border-radius:8px;padding:6px 8px;' +
+      'font-size:10px;line-height:1.5;color:var(--bad,#e06c6c)">⚠ ' + gone + ' source(s) have no media in this ' +
+      'browser. Restore this production from a backup that carries media (Projects → Import backup), or ' +
+      're-import from disk.</div>' : '');
     $('edBinHint').style.display = bin.length ? 'none' : 'block';
   }
 

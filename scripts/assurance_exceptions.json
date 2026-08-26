@@ -5,7 +5,7 @@
  },
  "agreement::drift:charactersFromScript": {
   "n": 1,
-  "why": "DEFECT, small and cheap. casting/lib-castdesk.js and wardrobe/lib-ward.js compute character lines identically \u2014 the bodies differ in exactly one line \u2014 but return DIFFERENT SHAPES for the same field name: casting returns {scenes: <count>, sceneList: [..]}, wardrobe returns {scenes: [..]}. `scenes` is a number in one module and an array in the other. Anything that ever consumes both gets a length where it expected a list, with no error. Owner: the dedup half of wave 1.1 / finding 9 (the correct implementation already exists elsewhere) \u2014 one implementation, one shape."
+  "why": "DEFECT, small and cheap. casting/lib-castdesk.js and wardrobe/lib-ward.js compute character lines identically — the bodies differ in exactly one line — but return DIFFERENT SHAPES for the same field name: casting returns {scenes: <count>, sceneList: [..]}, wardrobe returns {scenes: [..]}. `scenes` is a number in one module and an array in the other. Anything that ever consumes both gets a length where it expected a list, with no error. Owner: the dedup half of wave 1.1 / finding 9 (the correct implementation already exists elsewhere) — one implementation, one shape."
  },
  "agreement::drift:cleanLocName": {
   "n": 1,
@@ -13,7 +13,7 @@
  },
  "agreement::drift:countCueLines": {
   "n": 1,
-  "why": "DEFECT-IN-WAITING, listed rather than dismissed. timeline/timeline.js delegates to SBParser.countCueLines when it exists and otherwise runs a byte-identical inline copy of timeline/parser.js's regex. Today the two agree. The fallback is the hazard: parser.js is under active edit, and the moment its regex changes, the fallback path keeps the old behaviour with nothing to notice \u2014 a copy that is correct only for as long as nobody touches the original. Owner: timeline consolidation; delete the fallback and let a missing SBParser fail loudly."
+  "why": "DEFECT-IN-WAITING, listed rather than dismissed. timeline/timeline.js delegates to SBParser.countCueLines when it exists and otherwise runs a byte-identical inline copy of timeline/parser.js's regex. Today the two agree. The fallback is the hazard: parser.js is under active edit, and the moment its regex changes, the fallback path keeps the old behaviour with nothing to notice — a copy that is correct only for as long as nobody touches the original. Owner: timeline consolidation; delete the fallback and let a missing SBParser fail loudly."
  },
  "agreement::drift:csvCell": {
   "n": 1,
@@ -25,15 +25,15 @@
  },
  "agreement::drift:enrichViaAgent": {
   "n": 1,
-  "why": "SAFE as agreement, DEFECT as duplication \u2014 same two files and same reasoning as drift:buildEvidencePacks: one agent call specialised for characters, one for locations."
+  "why": "SAFE as agreement, DEFECT as duplication — same two files and same reasoning as drift:buildEvidencePacks: one agent call specialised for characters, one for locations."
  },
  "agreement::drift:esc": {
   "n": 1,
-  "why": "SAFE on the question that matters, DEFECT as duplication. All eight variants across all twenty files escape the identical character class & < > \" ' to the identical entities; I read boards/boards.js, js/safe-url.js, producer/budget-sheet.js and timeline/timeline-characters.js and diffed the rest by their normalised bodies. The eight 'versions' are null-handling and chained-replace-vs-table style, not coverage. One real difference: the String(s || '') variants render a literal 0 or false as an empty cell, which is a display bug and not an escaping hole. Nothing here is an XSS gap; scripts/scan_html_sinks.mjs is the check that would find one, and it is a separate gate. Owner as duplication: the shared-helper wave (finding 43's quantified-duplication note \u2014 esc appears in 38 files). Held at 8 versions: a ninth means somebody wrote a new escaper, which is the event worth failing on."
+  "why": "SAFE on the question that matters, DEFECT as duplication. All eight variants across all twenty files escape the identical character class & < > \" ' to the identical entities; I read boards/boards.js, js/safe-url.js, producer/budget-sheet.js and timeline/timeline-characters.js and diffed the rest by their normalised bodies. The eight 'versions' are null-handling and chained-replace-vs-table style, not coverage. One real difference: the String(s || '') variants render a literal 0 or false as an empty cell, which is a display bug and not an escaping hole. Nothing here is an XSS gap; scripts/scan_html_sinks.mjs is the check that would find one, and it is a separate gate. Owner as duplication: the shared-helper wave (finding 43's quantified-duplication note — esc appears in 38 files). Held at 8 versions: a ninth means somebody wrote a new escaper, which is the event worth failing on."
  },
  "agreement::drift:getClipLocationRaw": {
   "n": 1,
-  "why": "DEFECT, same pair and same path as drift:parseLocFromText \u2014 timeline/timeline-locations.js and timeline/timeline.js each read a clip's location field. Owner: timeline consolidation."
+  "why": "DEFECT, same pair and same path as drift:parseLocFromText — timeline/timeline-locations.js and timeline/timeline.js each read a clip's location field. Owner: timeline consolidation."
  },
  "agreement::drift:inferCastRole": {
   "n": 1,
@@ -41,7 +41,7 @@
  },
  "agreement::drift:init": {
   "n": 1,
-  "why": "SAFE, and the clearest false-positive class in this check. Nine page bootstraps named init(), each wiring its own page's DOM to its own store. They exceed the 0.55 token-overlap threshold because they share the repo's house idiom ($, addEventListener, readLS, render, toast) \u2014 the vocabulary is duplicated, the concept is not, and there is no single correct init() for two of them to disagree about. I did NOT raise the threshold to make this disappear: doing so would weaken the check for the real drift it does catch (parseSceneNums, cleanLocName), and a named entry with a count is the honest way to hold it."
+  "why": "SAFE, and the clearest false-positive class in this check. Nine page bootstraps named init(), each wiring its own page's DOM to its own store. They exceed the 0.55 token-overlap threshold because they share the repo's house idiom ($, addEventListener, readLS, render, toast) — the vocabulary is duplicated, the concept is not, and there is no single correct init() for two of them to disagree about. I did NOT raise the threshold to make this disappear: doing so would weaken the check for the real drift it does catch (parseSceneNums, cleanLocName), and a named entry with a count is the honest way to hold it."
  },
  "agreement::drift:load": {
   "n": 1,
@@ -53,7 +53,7 @@
  },
  "agreement::drift:parseHeading": {
   "n": 1,
-  "why": "DEFECT. timeline/timeline-continuity.js and timeline/timeline-locations.js each parse a scene heading into its parts. This is finding 1 (five modules parse scene numbers differently) inside one module directory. Owner: wave 1.1 \u2014 both should call js/lib-scenes.js."
+  "why": "DEFECT. timeline/timeline-continuity.js and timeline/timeline-locations.js each parse a scene heading into its parts. This is finding 1 (five modules parse scene numbers differently) inside one module directory. Owner: wave 1.1 — both should call js/lib-scenes.js."
  },
  "agreement::drift:parseLocFromText": {
   "n": 1,
@@ -69,11 +69,11 @@
  },
  "agreement::drift:removeRow": {
   "n": 1,
-  "why": "SAFE. distribution removes from {windows, screeners}; finance removes from {pos, petty}. Identical delete-and-compare-lengths idiom over different collections. This is one of the 4/8 modules finding 43 counts as repeating the delete idiom verbatim \u2014 a dedup item, not a defect."
+  "why": "SAFE. distribution removes from {windows, screeners}; finance removes from {pos, petty}. Identical delete-and-compare-lengths idiom over different collections. This is one of the 4/8 modules finding 43 counts as repeating the delete idiom verbatim — a dedup item, not a defect."
  },
  "agreement::drift:repairAllCharacterDescriptions": {
   "n": 1,
-  "why": "DEFECT, listed for the reviewer's attention. The name is character-specific, yet it exists in both timeline/timeline-enrich.js and timeline/timeline.js \u2014 that is a genuine second copy of one concept, not a domain split like buildEvidencePacks. Whichever the page calls wins and the other is dead or, worse, is called on a different path with different behaviour. Owner: timeline consolidation (teamA-01). UNSURE: I did not establish which of the two the live page actually reaches; a reviewer should."
+  "why": "DEFECT, listed for the reviewer's attention. The name is character-specific, yet it exists in both timeline/timeline-enrich.js and timeline/timeline.js — that is a genuine second copy of one concept, not a domain split like buildEvidencePacks. Whichever the page calls wins and the other is dead or, worse, is called on a different path with different behaviour. Owner: timeline consolidation (teamA-01). UNSURE: I did not establish which of the two the live page actually reaches; a reviewer should."
  },
  "agreement::drift:save": {
   "n": 1,
@@ -81,7 +81,7 @@
  },
  "agreement::drift:searchLink": {
   "n": 1,
-  "why": "SAFE. festivals, locations and props each build a Google search URL, and the three bodies differ only in the query they compose for their own domain \u2014 festival deadlines, a scouted location, a props house. There is no shared concept for them to disagree about; they share an idiom, which is what the token-overlap heuristic measures. All three satisfy the repo's rule that an unverified entry gets a search link rather than an invented phone or URL. Worth collapsing to one helper eventually, not a correctness risk."
+  "why": "SAFE. festivals, locations and props each build a Google search URL, and the three bodies differ only in the query they compose for their own domain — festival deadlines, a scouted location, a props house. There is no shared concept for them to disagree about; they share an idiom, which is what the token-overlap heuristic measures. All three satisfy the repo's rule that an unverified entry gets a search link rather than an invented phone or URL. Worth collapsing to one helper eventually, not a correctness risk."
  },
  "agreement::drift:setBudget": {
   "n": 1,
@@ -89,7 +89,7 @@
  },
  "agreement::drift:setStatus": {
   "n": 1,
-  "why": "SAFE. contracts (draft/sent/signed on a deal), music (cue statuses) and screening (open/done on a note) each validate against their own vocabulary and mutate their own store. Same three-line idiom, three unrelated state machines \u2014 nothing one could get 'wrong' relative to another. Coincidental name that the heuristic cannot separate from real drift, correctly reported and correctly accepted."
+  "why": "SAFE. contracts (draft/sent/signed on a deal), music (cue statuses) and screening (open/done on a note) each validate against their own vocabulary and mutate their own store. Same three-line idiom, three unrelated state machines — nothing one could get 'wrong' relative to another. Coincidental name that the heuristic cannot separate from real drift, correctly reported and correctly accepted."
  },
  "agreement::drift:toast": {
   "n": 1,
@@ -105,7 +105,7 @@
  },
  "agreement::splitScenes:answers": {
   "n": 1,
-  "why": "DEFECT, the highest-consequence entry on this list. Nine runnable splitScenes implementations give two answers for one script carrying a FADE IN: preamble and an A-scene, and NEITHER answer is right: eight modules return 4 scenes with an empty first scene number (they count the preamble as a scene and discard the printed number), timeline/timeline-budget.js returns 3 with a null number. The fixture has three real scenes, 1 / 1A / 2. Every downstream number a producer reads \u2014 page count, eighths, the props breakdown, the risk assessment, the DOOD \u2014 is quoted against these. Root cause is finding 17, the non-capturing group in timeline/parser.js that throws the printed number away. Owner: wave 1.1 (one scene model, js/lib-scenes.js + SB_Scenes_v1, retire the copies). timeline/parser.js is under edit by another agent as this is written, so this entry may change shape before it clears; it must clear, not be re-listed."
+  "why": "DEFECT, the highest-consequence entry on this list. Nine runnable splitScenes implementations give two answers for one script carrying a FADE IN: preamble and an A-scene, and NEITHER answer is right: eight modules return 4 scenes with an empty first scene number (they count the preamble as a scene and discard the printed number), timeline/timeline-budget.js returns 3 with a null number. The fixture has three real scenes, 1 / 1A / 2. Every downstream number a producer reads — page count, eighths, the props breakdown, the risk assessment, the DOOD — is quoted against these. Root cause is finding 17, the non-capturing group in timeline/parser.js that throws the printed number away. Owner: wave 1.1 (one scene model, js/lib-scenes.js + SB_Scenes_v1, retire the copies). timeline/parser.js is under edit by another agent as this is written, so this entry may change shape before it clears; it must clear, not be re-listed."
  },
  "api-reach::boards/lib-shots.js": {
   "n": 1,
@@ -121,35 +121,35 @@
  },
  "api-reach::contracts/lib-deal.js": {
   "n": 4,
-  "why": "DEFECT. acctFor, otPct, removeDeal and scaleStatus are unnamed by any suite. acctFor is the crew-to-3000 / cast-to-2000 fix finding 22 calls for and it is untested; scaleStatus is the function finding 42 says prints '(scale)' for half of scale because of a <=. Note this file's round trip only runs at all because I fixed the harness to resolve a CALL-TIME dependency (contracts/lib-deal.js asks for CMoneyMath when a deal is valued, not when it loads) \u2014 before that fix the SB_Crew_v1 round trip was skipped entirely and read as one line rather than as a check that did not run. Owner: wave 1.4 / wave 1.5."
+  "why": "DEFECT. acctFor, otPct, removeDeal and scaleStatus are unnamed by any suite. acctFor is the crew-to-3000 / cast-to-2000 fix finding 22 calls for and it is untested; scaleStatus is the function finding 42 says prints '(scale)' for half of scale because of a <=. Note this file's round trip only runs at all because I fixed the harness to resolve a CALL-TIME dependency (contracts/lib-deal.js asks for CMoneyMath when a deal is valued, not when it loads) — before that fix the SB_Crew_v1 round trip was skipped entirely and read as one line rather than as a check that did not run. Owner: wave 1.4 / wave 1.5."
  },
  "api-reach::finance/lib-money.js": {
-  "n": 2,
-  "why": "DEFECT. budgetByAcct and postAcct are never named by any suite that loads finance/lib-money.js \u2014 the two functions that decide which account a cost lands on, in the module finding 10 says gets the chart of accounts wrong in at least four places. Owner: wave 1.4."
+  "n": 0,
+  "why": "DEFECT. budgetByAcct and postAcct are never named by any suite that loads finance/lib-money.js — the two functions that decide which account a cost lands on, in the module finding 10 says gets the chart of accounts wrong in at least four places. Owner: wave 1.4."
  },
  "api-reach::investors/lib-invest.js": {
   "n": 1,
-  "why": "SAFE. r2 is a two-decimal rounding helper, and the suite that loads investors/lib-invest.js reaches every function that USES it \u2014 so the behaviour is exercised on every assertion in that suite, it is simply never named directly. This check is deliberately generous (naming the identifier counts), so an unnamed private-in-spirit helper reached through its callers is the one shape where a violation is a true statement and not a gap. UNSURE at the margin: finding 42 is about rounding, so if wave 1.5 introduces roundHalfAway then r2 should be DELETED in favour of it rather than tested \u2014 which would clear this key by removal."
+  "why": "SAFE. r2 is a two-decimal rounding helper, and the suite that loads investors/lib-invest.js reaches every function that USES it — so the behaviour is exercised on every assertion in that suite, it is simply never named directly. This check is deliberately generous (naming the identifier counts), so an unnamed private-in-spirit helper reached through its callers is the one shape where a violation is a true statement and not a gap. UNSURE at the margin: finding 42 is about rounding, so if wave 1.5 introduces roundHalfAway then r2 should be DELETED in favour of it rather than tested — which would clear this key by removal."
  },
  "api-reach::js/learn.js": {
   "n": 1,
-  "why": "DEFECT, minor. cleanCached is unnamed by any suite that loads js/learn.js. The rest of the module is reached. Owner: Phase 4, which replaces this layer wholesale (finding 44) \u2014 listed so it is retired deliberately rather than forgotten."
+  "why": "DEFECT, minor. cleanCached is unnamed by any suite that loads js/learn.js. The rest of the module is reached. Owner: Phase 4, which replaces this layer wholesale (finding 44) — listed so it is retired deliberately rather than forgotten."
  },
  "api-reach::js/lib-money-accounts.js": {
-  "n": 4,
+  "n": 3,
   "why": "DEFECT. 4 of 7 exports unnamed: exists, forDept, isLabor, rollup. This is the shared chart of accounts wave 1.4 introduces to fix four wrong postings (findings 6/10/22). exists() is the guard that would have caught casting/index.html posting to account 1400, which does not exist. Owner: wave 1.4; under active edit."
  },
  "api-reach::js/lib-money-math.js": {
-  "n": 9,
-  "why": "DEFECT. 9 of 16 exports unnamed by any suite: add, csvNum, csvWhole, dollars, mul, mulCents, pctOfCents, roundHalfAway, sumCents. roundHalfAway and pctOfCents are the explicit-rounding primitives wave 1.5 exists to introduce, and csvNum/csvWhole are the ones that decide whether a raw float reaches a CSV \u2014 finding 42's third defect. The decimal money helper being untested is the same failure as having no decimal money helper. Owner: wave 1.5; under active edit."
+  "n": 7,
+  "why": "DEFECT. 9 of 16 exports unnamed by any suite: add, csvNum, csvWhole, dollars, mul, mulCents, pctOfCents, roundHalfAway, sumCents. roundHalfAway and pctOfCents are the explicit-rounding primitives wave 1.5 exists to introduce, and csvNum/csvWhole are the ones that decide whether a raw float reaches a CSV — finding 42's third defect. The decimal money helper being untested is the same failure as having no decimal money helper. Owner: wave 1.5; under active edit."
  },
  "api-reach::js/lib-money-sheet.js": {
-  "n": 13,
-  "why": "DEFECT, the largest single gap in this check. 13 of 15 exported functions are never named by any suite that loads the file \u2014 actualCents, actualTotal, byAcct, byAcctCents, catCents, catTotals, itemActual, itemActualCents, itemEstCents, itemNeedsSync, laborBaseCents, subtotalCents, syncEst. This is the budget sheet's arithmetic, on the SB_BudgetSheet_v1 store that finding 31 says eight modules read, and finding 2 says four of five budget-total implementations are wrong. A module can be loaded and still be untested; that is what mode 5 means one level down. Owner: wave 1.3 (one budget total) / wave 1.5, and the money-suites agent is in this file now \u2014 expect movement."
+  "n": 12,
+  "why": "DEFECT, the largest single gap in this check. 13 of 15 exported functions are never named by any suite that loads the file — actualCents, actualTotal, byAcct, byAcctCents, catCents, catTotals, itemActual, itemActualCents, itemEstCents, itemNeedsSync, laborBaseCents, subtotalCents, syncEst. This is the budget sheet's arithmetic, on the SB_BudgetSheet_v1 store that finding 31 says eight modules read, and finding 2 says four of five budget-total implementations are wrong. A module can be loaded and still be untested; that is what mode 5 means one level down. Owner: wave 1.3 (one budget total) / wave 1.5, and the money-suites agent is in this file now — expect movement."
  },
  "api-reach::js/lib-scenes.js": {
-  "n": 3,
-  "why": "DEFECT, and it is the real one behind ten look-alikes. eighthsOf, normNum and sortScenes are never named by any suite. eighthsOf is the page-eighths measure finding 18 says is 4.4x wrong and which drives both the schedule and the budget; normNum is the A-scene normaliser that drift:parseSceneNums shows two modules disagree about. Until my harness fix this same gap was ALSO charged against ten other modules that merely load lib-scenes.js and do not define these functions, which pointed every reader at the wrong file. Owner: wave 1.1 \u2014 the new scene model must not ship with its measure untested."
+  "n": 2,
+  "why": "DEFECT, and it is the real one behind ten look-alikes. eighthsOf, normNum and sortScenes are never named by any suite. eighthsOf is the page-eighths measure finding 18 says is 4.4x wrong and which drives both the schedule and the budget; normNum is the A-scene normaliser that drift:parseSceneNums shows two modules disagree about. Until my harness fix this same gap was ALSO charged against ten other modules that merely load lib-scenes.js and do not define these functions, which pointed every reader at the wrong file. Owner: wave 1.1 — the new scene model must not ship with its measure untested."
  },
  "api-reach::post/lib-post.js": {
   "n": 2,
@@ -157,35 +157,35 @@
  },
  "api-reach::production/lib-cast.js": {
   "n": 1,
-  "why": "SAFE, with a caveat. wikidataDirectorQuery builds a SPARQL query string against Wikidata; it is a query builder, not a decision, and every value it produces is presented to the owner as a link to verify rather than as a fact \u2014 which is the repo's rule for unverified data. A test would pin a string literal and assert nothing about correctness. CAVEAT: if a later wave ever consumes the RESULT of that query as data rather than as a suggestion, this stops being safe and must be re-read."
+  "why": "SAFE, with a caveat. wikidataDirectorQuery builds a SPARQL query string against Wikidata; it is a query builder, not a decision, and every value it produces is presented to the owner as a link to verify rather than as a fact — which is the repo's rule for unverified data. A test would pin a string literal and assert nothing about correctness. CAVEAT: if a later wave ever consumes the RESULT of that query as data rather than as a suggestion, this stops being safe and must be re-read."
  },
  "api-reach::projects/lib-vault.js": {
-  "n": 2,
-  "why": "DEFECT, and it is the export boundary. allKeys and isPortable are unnamed by any suite. isPortable is the predicate that decides what may leave the project \u2014 finding 33 says nothing gates what leaves the building and finding 34 says continuity photos leave the project. The gate predicate is untested. Owner: wave 2.5 / wave 3 item 2 (rights gate)."
+  "n": 0,
+  "why": "DEFECT, and it is the export boundary. allKeys and isPortable are unnamed by any suite. isPortable is the predicate that decides what may leave the project — finding 33 says nothing gates what leaves the building and finding 34 says continuity photos leave the project. The gate predicate is untested. Owner: wave 2.5 / wave 3 item 2 (rights gate)."
  },
  "api-reach::props/lib-props.js": {
   "n": 3,
-  "why": "DEFECT, real and specific. dimsFor, fitsThrough and toSetItem are unnamed by any suite. fitsThrough is the check that a prop physically fits through a doorway \u2014 a wrong answer there is a truck that arrives and a piece that does not go in the room, which is a shoot day. Owner: the props slice / wave 2.1's sets work, since toSetItem is the props-to-sets handoff."
+  "why": "DEFECT, real and specific. dimsFor, fitsThrough and toSetItem are unnamed by any suite. fitsThrough is the check that a prop physically fits through a doorway — a wrong answer there is a truck that arrives and a piece that does not go in the room, which is a shoot day. Owner: the props slice / wave 2.1's sets work, since toSetItem is the props-to-sets handoff."
  },
  "api-reach::screening/lib-screen.js": {
-  "n": 3,
+  "n": 2,
   "why": "DEFECT, low severity. removeNote, removeSession and sortNotes are unnamed by any suite. Two deletes and a sort over a local store; nothing downstream reads a number from them. Listed rather than dismissed because removeSession deletes a screening record and a delete with no test is how data disappears quietly. Owner: the screening slice."
  },
  "api-reach::timeline/timeline-doc.js": {
   "n": 2,
-  "why": "DEFECT. analyzeDoc and estimateDoc are 2 of this module's 3 exports and neither is named by any suite \u2014 the module is effectively loaded and not tested at all, and estimateDoc is a budget estimate. Owner: wave 1.3 / the timeline consolidation. UNSURE: I did not establish whether either is still reachable from a live page; if they are dead they should be deleted, not tested, and finding 12 (green tests over dead features) says deciding which is the actual work."
+  "why": "DEFECT. analyzeDoc and estimateDoc are 2 of this module's 3 exports and neither is named by any suite — the module is effectively loaded and not tested at all, and estimateDoc is a budget estimate. Owner: wave 1.3 / the timeline consolidation. UNSURE: I did not establish whether either is still reachable from a live page; if they are dead they should be deleted, not tested, and finding 12 (green tests over dead features) says deciding which is the actual work."
  },
  "api-reach::tools/lib-script.js": {
   "n": 3,
   "why": "DEFECT. msToTc, tcToMs and revHex are unnamed by any suite. The timecode pair is the same arithmetic that is provably wrong in timeline/timeline-export.js ftc() (see coverage::timeline/timeline-export.js); whether these two agree with it, or with each other round-tripping ms -> tc -> ms, is asserted nowhere. Owner: wave 2.4."
  },
  "api-reach::tools/lib-sun.js": {
-  "n": 2,
-  "why": "DEFECT. fmtLocal and wmoLabel are unnamed by any suite. fmtLocal is the local-time formatter, and findings 24/28 confirm the timezone bug three times over \u2014 the location's utc_offset_seconds is fetched and discarded. The formatter at the centre of a thrice-confirmed timezone defect is untested. Owner: wave 2.2."
+  "n": 0,
+  "why": "DEFECT. fmtLocal and wmoLabel are unnamed by any suite. fmtLocal is the local-time formatter, and findings 24/28 confirm the timezone bug three times over — the location's utc_offset_seconds is fetched and discarded. The formatter at the centre of a thrice-confirmed timezone defect is untested. Owner: wave 2.2."
  },
  "api-reach::wardrobe/lib-ward.js": {
-  "n": 1,
-  "why": "DEFECT, small. uniqScenes is unnamed by any suite \u2014 and it is the function wardrobe/lib-ward.js parseSceneNums returns THROUGH, i.e. the last step of the A-scene-dropping path in agreement::drift:parseSceneNums. Testing it directly with '12, 12A, 12' would have shown the drop immediately. Owner: wave 1.1."
+  "n": 0,
+  "why": "DEFECT, small. uniqScenes is unnamed by any suite — and it is the function wardrobe/lib-ward.js parseSceneNums returns THROUGH, i.e. the last step of the A-scene-dropping path in agreement::drift:parseSceneNums. Testing it directly with '12, 12A, 12' would have shown the drop immediately. Owner: wave 1.1."
  },
  "coverage::boards/boards.js": {
   "n": 1,
@@ -193,7 +193,7 @@
  },
  "coverage::editor/timeline-engine.js": {
   "n": 1,
-  "why": "DEFECT with a mitigating reason. 611 lines, 21 document. references \u2014 this is the NLE surface and needs a browser harness, not a node suite. The mitigation is real and the size is why it is still a defect: it is the second-largest unexecuted file in the repo. Owner: wave 2.4. scripts/test_cut.mjs already covers the pure cut logic; the engine itself has nothing."
+  "why": "DEFECT with a mitigating reason. 611 lines, 21 document. references — this is the NLE surface and needs a browser harness, not a node suite. The mitigation is real and the size is why it is still a defect: it is the second-largest unexecuted file in the repo. Owner: wave 2.4. scripts/test_cut.mjs already covers the pure cut logic; the engine itself has nothing."
  },
  "coverage::js/config.js": {
   "n": 1,
@@ -201,35 +201,35 @@
  },
  "coverage::js/effects.js": {
   "n": 1,
-  "why": "SAFE, with the narrowest reason on this list. 503 lines, 11 document. references, and every entry point is documented and written as a silent no-op when its element or browser API is missing \u2014 starfield, reveal, typewriter, ticker. It is presentation with no data path: nothing here produces a number a production relies on, and a failure is visible as a missing animation rather than as a wrong figure. This is the one coverage entry I would defend as acceptable indefinitely rather than as owned work. A smoke check that the page still loads with it is already covered by scripts/smoke_pages.mjs."
+  "why": "SAFE, with the narrowest reason on this list. 503 lines, 11 document. references, and every entry point is documented and written as a silent no-op when its element or browser API is missing — starfield, reveal, typewriter, ticker. It is presentation with no data path: nothing here produces a number a production relies on, and a failure is visible as a missing animation rather than as a wrong figure. This is the one coverage entry I would defend as acceptable indefinitely rather than as owned work. A smoke check that the page still loads with it is already covered by scripts/smoke_pages.mjs."
  },
  "coverage::js/ffmpeg-wasm.js": {
   "n": 1,
-  "why": "DEFECT, partially mitigable. 265 lines, no document. reference, no suite. Most of it cannot be executed outside a cross-origin-isolated browser with WASM, which is a real reason no node suite loads it \u2014 but assertIsolated() and the blob-worker construction are ordinary logic and are the part most likely to be silently wrong, and neither is exercised even by a browser harness. Owner: the editor/post slice. Accepting the WASM half is defensible; accepting the whole file is what let finding 36 happen."
+  "why": "DEFECT, partially mitigable. 265 lines, no document. reference, no suite. Most of it cannot be executed outside a cross-origin-isolated browser with WASM, which is a real reason no node suite loads it — but assertIsolated() and the blob-worker construction are ordinary logic and are the part most likely to be silently wrong, and neither is exercised even by a browser harness. Owner: the editor/post slice. Accepting the WASM half is defensible; accepting the whole file is what let finding 36 happen."
  },
  "coverage::js/mastery-resolver.js": {
   "n": 1,
-  "why": "DEFECT, and the closest thing on this list to a repeat of finding 36. 358 shipped lines, DOM-free, node-evaluable today, and no suite loads it \u2014 it is the unified per-shot character/location reference resolver with its own role ranking, i.e. exactly the logic timeline/timeline-characters.js re-infers by hand in drift:inferCastRole. A pure-logic file with no test is the js/budget-engine.js shape, and that one was 1,082 lines wrong by 4.5x. Owner: wave 1.6 for the requirement; whichever Phase 2 team owns the mastery layer for the suite. Cheapest real win on this list."
+  "why": "DEFECT, and the closest thing on this list to a repeat of finding 36. 358 shipped lines, DOM-free, node-evaluable today, and no suite loads it — it is the unified per-shot character/location reference resolver with its own role ranking, i.e. exactly the logic timeline/timeline-characters.js re-infers by hand in drift:inferCastRole. A pure-logic file with no test is the js/budget-engine.js shape, and that one was 1,082 lines wrong by 4.5x. Owner: wave 1.6 for the requirement; whichever Phase 2 team owns the mastery layer for the suite. Cheapest real win on this list."
  },
  "coverage::js/model-config.js": {
   "n": 1,
-  "why": "DEFECT with a mitigating reason. 460 lines, 40 document. references \u2014 it builds the settings dropdowns \u2014 so it needs a browser harness rather than a node suite, and the browser harnesses exist (test_set3d_browser.mjs is the pattern). What is untested is not only the DOM: the PHOTO_MODELS/VIDEO_MODELS capability tables gate which resolutions and aspect ratios a model will accept, and a wrong entry there fails at the API, in front of the owner, with no test between. Owner: the generation/model slice."
+  "why": "DEFECT with a mitigating reason. 460 lines, 40 document. references — it builds the settings dropdowns — so it needs a browser harness rather than a node suite, and the browser harnesses exist (test_set3d_browser.mjs is the pattern). What is untested is not only the DOM: the PHOTO_MODELS/VIDEO_MODELS capability tables gate which resolutions and aspect ratios a model will accept, and a wrong entry there fails at the API, in front of the owner, with no test between. Owner: the generation/model slice."
  },
  "coverage::production/production.js": {
-  "n": 1,
-  "why": "DEFECT, mitigated the same way as boards/boards.js \u2014 553 lines of page controller over production/lib-prod.js, which is covered. Not fully safe: production.js:220 is where the DPR's stores are assembled from localStorage, and the SB_TakeLog_v1 mismatch above is exactly a wiring bug in that assembly, which is the layer no test touches. Owner: wave 2.3."
+  "n": 0,
+  "why": "DEFECT, mitigated the same way as boards/boards.js — 553 lines of page controller over production/lib-prod.js, which is covered. Not fully safe: production.js:220 is where the DPR's stores are assembled from localStorage, and the SB_TakeLog_v1 mismatch above is exactly a wiring bug in that assembly, which is the layer no test touches. Owner: wave 2.3."
  },
  "coverage::timeline/pro-cut.js": {
   "n": 1,
-  "why": "DEFECT with a partial excuse. 228 lines, only 2 document. references, and the clip analysis is genuinely browser-bound (it samples video frames onto a canvas). But the EDL construction and the clamp/threshold arithmetic around it are pure and are what a professional round trip depends on. Owner: wave 2.4 / the editor slice \u2014 test the EDL half in node, leave the frame sampling to a browser harness."
+  "why": "DEFECT with a partial excuse. 228 lines, only 2 document. references, and the clip analysis is genuinely browser-bound (it samples video frames onto a canvas). But the EDL construction and the clamp/threshold arithmetic around it are pure and are what a professional round trip depends on. Owner: wave 2.4 / the editor slice — test the EDL half in node, leave the frame sampling to a browser harness."
  },
  "coverage::timeline/timeline-characters.js": {
   "n": 1,
-  "why": "DEFECT. 518 lines, ZERO document. references \u2014 pure logic, node-evaluable, no suite. It owns inferCastRole (which the DOOD and therefore cast billing depend on, finding 39) and its own esc/parse copies. There is no browser-only excuse for this one. Owner: timeline consolidation (teamA-01) plus wave 1.6's enumeration requirement."
+  "why": "DEFECT. 518 lines, ZERO document. references — pure logic, node-evaluable, no suite. It owns inferCastRole (which the DOOD and therefore cast billing depend on, finding 39) and its own esc/parse copies. There is no browser-only excuse for this one. Owner: timeline consolidation (teamA-01) plus wave 1.6's enumeration requirement."
  },
  "coverage::timeline/timeline-continuity.js": {
   "n": 1,
-  "why": "DEFECT. 393 lines, zero document. references, no suite. Owns parseHeading and nameInBlob \u2014 two of the drift keys above \u2014 so the module that has drifted is also the module nothing runs. Owner: timeline consolidation."
+  "why": "DEFECT. 393 lines, zero document. references, no suite. Owns parseHeading and nameInBlob — two of the drift keys above — so the module that has drifted is also the module nothing runs. Owner: timeline consolidation."
  },
  "coverage::timeline/timeline-enrich.js": {
   "n": 1,
@@ -241,23 +241,23 @@
  },
  "coverage::timeline/timeline-locations.js": {
   "n": 1,
-  "why": "DEFECT. 259 lines, zero document. references, no suite. Owns cleanLocName, parseLocFromText, parseHeading and getClipLocationRaw \u2014 four drift keys in one untested file. Owner: timeline consolidation."
+  "why": "DEFECT. 259 lines, zero document. references, no suite. Owns cleanLocName, parseLocFromText, parseHeading and getClipLocationRaw — four drift keys in one untested file. Owner: timeline consolidation."
  },
  "coverage::tools/sched-weather.js": {
-  "n": 1,
-  "why": "DEFECT. 161 lines, 5 document. references, no suite. It computes shoot-day dates, sunrise/sunset, golden hours and a risk score off tools/lib-sun.js and a live Open-Meteo call. Findings 14/24/28 say the sun and timezone maths is wrong in two different places and that the fix data (utc_offset_seconds) is already fetched and discarded \u2014 and this is one of the consumers, untested. Owner: wave 2.2 (sun and time)."
+  "n": 0,
+  "why": "DEFECT. 161 lines, 5 document. references, no suite. It computes shoot-day dates, sunrise/sunset, golden hours and a risk score off tools/lib-sun.js and a live Open-Meteo call. Findings 14/24/28 say the sun and timezone maths is wrong in two different places and that the fix data (utc_offset_seconds) is already fetched and discarded — and this is one of the consumers, untested. Owner: wave 2.2 (sun and time)."
  },
  "coverage::tools/tools-media-ui.js": {
   "n": 1,
-  "why": "DEFECT. 516 lines, 17 document. references, no suite \u2014 and it is the writer of SB_TakeLog_v1, the store whose three-field mismatch is the first three entries on this list. Owner: wave 2.3, with wave 1.6's enumeration requirement."
+  "why": "DEFECT. 516 lines, 17 document. references, no suite — and it is the writer of SB_TakeLog_v1, the store whose three-field mismatch is the first three entries on this list. Owner: wave 2.3, with wave 1.6's enumeration requirement."
  },
  "coverage::tools/tools-money-ui.js": {
   "n": 1,
-  "why": "DEFECT. 208 lines, only 1 document. reference, so most of it is node-reachable logic on the money path \u2014 the slice PHASE1-SYNTHESIS says is wrong in three independent ways (finding 42). Money code with no test is the least defensible category on this list. Owner: wave 1.5 (money arithmetic). Another agent is editing the money suites as this is written; expect this to clear."
+  "why": "DEFECT. 208 lines, only 1 document. reference, so most of it is node-reachable logic on the money path — the slice PHASE1-SYNTHESIS says is wrong in three independent ways (finding 42). Money code with no test is the least defensible category on this list. Owner: wave 1.5 (money arithmetic). Another agent is editing the money suites as this is written; expect this to clear."
  },
  "coverage::tools/tools-registers.js": {
   "n": 1,
-  "why": "DEFECT, and higher-value than its 178 lines suggest. Only 2 document. references, and it is the WRITER for SB_Festivals_v1 and several other registers \u2014 every writer shape CHECK 1 derives comes from files like this one. The one module that defines what a stored row looks like is executed by no suite, so a field renamed here silently breaks every reader and the round-trip check would still be comparing the reader against the new shape. Owner: wave 1.6."
+  "why": "DEFECT, and higher-value than its 178 lines suggest. Only 2 document. references, and it is the WRITER for SB_Festivals_v1 and several other registers — every writer shape CHECK 1 derives comes from files like this one. The one module that defines what a stored row looks like is executed by no suite, so a field renamed here silently breaks every reader and the round-trip check would still be comparing the reader against the new shape. Owner: wave 1.6."
  },
  "coverage::tools/tools-script-ui.js": {
   "n": 1,
@@ -265,7 +265,7 @@
  },
  "coverage::workflow/advisor-ui.js": {
   "n": 1,
-  "why": "DEFECT, and not a mitigated one. 166 lines, 5 document. references, no suite \u2014 and this is the file that prints js/learn.js's budgetSummary() to the owner as 'Self-learning' (finding 44), a number that goes UP as the system gets MORE wrong. The untested file is the one presenting the misleading label. PROGRAM.md assigns advisor-ui.js to Phase 4. Owner: Phase 4 (the learning layer replacement), which must not ship without a test that pins what this string claims."
+  "why": "DEFECT, and not a mitigated one. 166 lines, 5 document. references, no suite — and this is the file that prints js/learn.js's budgetSummary() to the owner as 'Self-learning' (finding 44), a number that goes UP as the system gets MORE wrong. The untested file is the one presenting the misleading label. PROGRAM.md assigns advisor-ui.js to Phase 4. Owner: Phase 4 (the learning layer replacement), which must not ship without a test that pins what this string claims."
  },
  "coverage::writer/writer.js": {
   "n": 1,
@@ -273,19 +273,19 @@
  },
  "inputs::cents:scripts/test_csv_injection.mjs": {
   "n": 1,
-  "why": "DEFECT against a standing rule. PROGRAM.md's standing rules say money fixtures use cents; this suite executes six money modules including js/lib-money-math.js and js/lib-money-sheet.js and every amount in it is a round number, so the rounding behaviour finding 42 is about is never exercised. It is a CSV-injection suite, so the money modules are incidental \u2014 but a raw float reaching a CSV cell IS one of finding 42's three defects, which makes cents relevant here rather than noise. Owner: the money-suites agent working now (Gate-0 R1). Expected to clear this wave."
+  "why": "DEFECT against a standing rule. PROGRAM.md's standing rules say money fixtures use cents; this suite executes six money modules including js/lib-money-math.js and js/lib-money-sheet.js and every amount in it is a round number, so the rounding behaviour finding 42 is about is never exercised. It is a CSV-injection suite, so the money modules are incidental — but a raw float reaching a CSV cell IS one of finding 42's three defects, which makes cents relevant here rather than noise. Owner: the money-suites agent working now (Gate-0 R1). Expected to clear this wave."
  },
  "inputs::cents:scripts/test_festivals.mjs": {
   "n": 1,
   "why": "DEFECT, same standing rule. festivals/lib-fest.js sums submission fees; every fee in the fixture is round, so feesTotal is never asked to add 65.50 to 41.25. Festival fees in the real world are almost never whole dollars, which makes this the input class the bug would live in. Owner: the festivals slice."
  },
  "inputs::cents:scripts/test_locations.mjs": {
-  "n": 1,
+  "n": 0,
   "why": "DEFECT, same standing rule. locations/lib-scout.js carries day rates and fees and the fixture uses round numbers only. Owner: the locations slice."
  },
  "inputs::script:scripts/test_budget_estimator.mjs": {
-  "n": 1,
-  "why": "DEFECT, and the most consequential of the ten script-fixture entries. This suite carries a screenplay fixture with NEITHER a FADE IN: preamble NOR an A-scene, and it is the suite that pins page count and the budget estimate \u2014 the two numbers findings 18 and 2 say are 4.4x and 4.5x wrong. The preamble is what makes most parsers number the first real scene 2; the A-scene is what they drop. A budget estimator tested only on input that avoids both is finding 43 mode 4 exactly. Owner: wave 1.1 plus wave 1.6; the scenes agent (Gate-0 R2) is in this area now."
+  "n": 0,
+  "why": "DEFECT, and the most consequential of the ten script-fixture entries. This suite carries a screenplay fixture with NEITHER a FADE IN: preamble NOR an A-scene, and it is the suite that pins page count and the budget estimate — the two numbers findings 18 and 2 say are 4.4x and 4.5x wrong. The preamble is what makes most parsers number the first real scene 2; the A-scene is what they drop. A budget estimator tested only on input that avoids both is finding 43 mode 4 exactly. Owner: wave 1.1 plus wave 1.6; the scenes agent (Gate-0 R2) is in this area now."
  },
  "inputs::script:scripts/test_castoffice.mjs": {
   "n": 1,
@@ -293,7 +293,7 @@
  },
  "inputs::script:scripts/test_dailies.mjs": {
   "n": 1,
-  "why": "DEFECT. Has an A-scene, no FADE IN: preamble. The preamble is the input that makes eight of the nine splitScenes copies count a title card as scene 1 and number the first real scene 2 \u2014 see agreement::splitScenes:answers. Owner: wave 1.1."
+  "why": "DEFECT. Has an A-scene, no FADE IN: preamble. The preamble is the input that makes eight of the nine splitScenes copies count a title card as scene 1 and number the first real scene 2 — see agreement::splitScenes:answers. Owner: wave 1.1."
  },
  "inputs::script:scripts/test_locations.mjs": {
   "n": 1,
@@ -309,7 +309,7 @@
  },
  "inputs::script:scripts/test_parser_chars.mjs": {
   "n": 1,
-  "why": "DEFECT, and pointed. This suite has a FADE IN: preamble but NO A-scene, and it is the suite over timeline/parser.js \u2014 the file finding 17 names as the root cause of A-scene numbers being discarded. The one suite guarding the parser omits the one input class the parser gets wrong. Owner: wave 1.1 / Gate-0 R2, who is editing parser.js now."
+  "why": "DEFECT, and pointed. This suite has a FADE IN: preamble but NO A-scene, and it is the suite over timeline/parser.js — the file finding 17 names as the root cause of A-scene numbers being discarded. The one suite guarding the parser omits the one input class the parser gets wrong. Owner: wave 1.1 / Gate-0 R2, who is editing parser.js now."
  },
  "inputs::script:scripts/test_props.mjs": {
   "n": 1,
@@ -320,11 +320,11 @@
   "why": "DEFECT, neither input class present. VFX shots are numbered off scenes and the count drives the vfx budget line. Owner: wave 1.1."
  },
  "inputs::script:scripts/test_wardrobe.mjs": {
-  "n": 1,
+  "n": 0,
   "why": "DEFECT, neither input class present, and the one where the consequence is already proven: wardrobe/lib-ward.js parseSceneNums DROPS A-scenes outright (see agreement::drift:parseSceneNums), and its own suite carries no A-scene to catch it. The fixture and the bug avoid each other precisely. Owner: wave 1.1."
  },
  "roundtrip::uncovered-stores": {
   "n": 56,
-  "why": "DEFECT, aggregated by design, and the single number on this list most worth watching. 56 SB_* stores have no round-trip case at all, so mode 1 (a fixture inventing a shape no writer produces) is still possible in every one of them; the four that ARE covered found five real mismatches between them, which is the argument for the rest. The count is the ceiling: adding a store without a reader case pushes it up and fails the gate, and every reader case a later wave adds lowers it. RAISED 53 -> 56 by Phase 2 wave 1, which added exactly three stores, verified by diffing the store set against the green tree at cd96f33: SB_ShootDays_v1 (T6, the shoot-day join key), SB_StoryDays_v1 (T10) and SB_PostActuals_v1 (T9). Each is a genuine new store, not a re-listing, and each needs a READERS entry in scripts/test_assurance.mjs \u2014 a file NO build team owns, which is why three teams could add a store and none could cover it. That ownership gap is the thing to fix, not the number: give the harness's READERS list an owner, or let each team add its own reader case. For SB_ShootDays_v1 the case is three lines (CShootDays.byDate/indexForDate over a record built by CShootDays.build) and js/lib-shootdays.js is otherwise fully covered by scripts/test_shootdays.mjs. Do NOT migrate this key downward casually - a fall in the count that is not matched by a new READERS entry means a store was DELETED, not covered."
+  "why": "DEFECT, aggregated by design, and the single number on this list most worth watching. 56 SB_* stores have no round-trip case at all, so mode 1 (a fixture inventing a shape no writer produces) is still possible in every one of them; the four that ARE covered found five real mismatches between them, which is the argument for the rest. The count is the ceiling: adding a store without a reader case pushes it up and fails the gate, and every reader case a later wave adds lowers it. RAISED 53 -> 56 by Phase 2 wave 1, which added exactly three stores, verified by diffing the store set against the green tree at cd96f33: SB_ShootDays_v1 (T6, the shoot-day join key), SB_StoryDays_v1 (T10) and SB_PostActuals_v1 (T9). Each is a genuine new store, not a re-listing, and each needs a READERS entry in scripts/test_assurance.mjs — a file NO build team owns, which is why three teams could add a store and none could cover it. That ownership gap is the thing to fix, not the number: give the harness's READERS list an owner, or let each team add its own reader case. For SB_ShootDays_v1 the case is three lines (CShootDays.byDate/indexForDate over a record built by CShootDays.build) and js/lib-shootdays.js is otherwise fully covered by scripts/test_shootdays.mjs. Do NOT migrate this key downward casually - a fall in the count that is not matched by a new READERS entry means a store was DELETED, not covered."
  }
 }

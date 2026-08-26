@@ -38,7 +38,29 @@ check('grand = subtotal + contingency', Math.abs(tot.grand - 121000) < 1e-9, tot
 check('actuals tracked', tot.actual === 90000, tot.actual);
 
 // ── seeding from the estimator ──
-const SCRIPT = ('INT. WAREHOUSE - NIGHT\n\nJACK fights two MEN. An EXPLOSION. A CROWD scatters. Gunshots everywhere as the roof burns.\n\nJACK\nMove!\n\nEXT. HARBOR - DAY\n\nMAYA dives into the water as the boat chase ends in a crash.\n\nMAYA\nGo!\n\n').repeat(10);
+/* A NUMBERED shooting script with a FADE IN: preamble and an A-scene — the
+   two inputs that make most of this codebase's scene numbering start at 2 and
+   lose A-scenes. The preamble is written once, outside the repeat, because a
+   title card appears once in a screenplay and counting it as a scene is the
+   exact defect the fixture exists to catch. */
+const SCENE_PAIR = [
+  '1  INT. WAREHOUSE - NIGHT',
+  '',
+  'JACK fights two MEN. An EXPLOSION. A CROWD scatters. Gunshots everywhere as the roof burns.',
+  '',
+  'JACK',
+  'Move!',
+  '',
+  '1A  EXT. HARBOR - DAY',
+  '',
+  'MAYA dives into the water as the boat chase ends in a crash.',
+  '',
+  'MAYA',
+  'Go!',
+  '',
+  ''
+].join('\n');
+const SCRIPT = 'FADE IN:\n\n' + SCENE_PAIR.repeat(10);
 const state = { projectName: 'T', scriptText: SCRIPT, clips: [], characters: { JACK: {}, MAYA: {}, DRIVER: {} }, locationBible: [], parseResult: null, global: {} };
 const analysis = SBBudget.analyze(state);
 const prod = SBBudget.estimateProduction(analysis, {});
@@ -54,6 +76,10 @@ check('contingency not seeded as line (auto)', noCont);
 // ── schedule board ──
 const scenes = SBScheduleBoard.scenesFromScript(state);
 check('strips built from script', scenes.length >= 10, scenes.length);
+check('the FADE IN: preamble is not a strip', !/FADE IN/i.test(scenes[0].heading), scenes[0].heading);
+check('A-scenes reach the board', scenes.some(s => /^1A\b/.test(s.heading)), scenes.slice(0, 3).map(s => s.heading));
+check('the scene number prefix is stripped from the set name',
+  SBScheduleBoard.locOf(scenes[0].heading) === 'WAREHOUSE', SBScheduleBoard.locOf(scenes[0].heading));
 check('night strip detected', scenes.some(s => s.dn === 'night'));
 check('cast attached to strips', scenes.some(s => s.cast.includes('JACK')));
 check('all strips start unscheduled', scenes.every(s => s.day === -1));
@@ -72,8 +98,9 @@ const dood = SBScheduleBoard.doodMatrix(scenes);
 check('dood has rows and days', dood.rows.length >= 2 && dood.days === maxDay + 1, { rows: dood.rows.length, days: dood.days });
 const jack = dood.rows.find(r => r.name === 'JACK');
 check('JACK spans schedule', jack && jack.tot >= jack.wrk && jack.wrk >= 1, jack);
-check('codes start SW and end WF (multi-day)', jack.wrk < 2 || (jack.codes.filter(c => c).length && jack.codes.find(c => c) === 'SW' && [...jack.codes].reverse().find(c => c) === 'WF'), jack && jack.codes);
-check('holds = span - work', jack.hld === jack.tot - jack.wrk, jack);
+check('codes start with S and end with F (multi-day)', jack.wrk < 2 ||
+  (/^S/.test(jack.codes.find(c => c)) && /F$/.test([...jack.codes].reverse().find(c => c))), jack && jack.codes);
+check('holds = span - work - dropped', jack.hld === jack.tot - jack.wrk - jack.drp, jack);
 const single = SBScheduleBoard.doodMatrix([{ day: 0, eighths: 1, cast: ['SOLO'] }]);
 check('single-day role coded SWF', single.rows[0].codes[0] === 'SWF', single.rows[0]);
 
@@ -109,6 +136,18 @@ const ovScenes = [
 const ov = SBScheduleBoard.boardOverridesModel(ovScenes);
 check('castDood from board days', ov.castDood.JACK.workDays === 2 && ov.castDood.JACK.spanDays === 5, ov.castDood.JACK);
 check('spanWeeks from span', ov.castDood.JACK.spanWeeks === 1, ov.castDood.JACK.spanWeeks);
+/* Finding 39: a 3-day gap is a hold and is still billed; the drop only opens
+   once the gap is wide enough to be one. Both answers come from the SAME
+   SBBudget.castWeeks the estimator uses — see scripts/test_schedule_learn.mjs
+   for the agreement proof. */
+check('a short gap is not a drop', ov.castDood.JACK.drops.length === 0 && ov.castDood.JACK.holdDays === 3, ov.castDood.JACK);
+const gapScenes = ovScenes.map(sc => sc.id === 'x3' ? { ...sc, day: 20 } : { ...sc });
+const gapOv = SBScheduleBoard.boardOverridesModel(gapScenes);
+check('a genuine gap becomes a drop', gapOv.castDood.JACK.drops.length === 1, gapOv.castDood.JACK.drops);
+check('the drop cuts the cast weeks', gapOv.castDood.JACK.spanWeeks === 2 &&
+  gapOv.castDood.JACK.contWeeks === 5 && gapOv.castDood.JACK.savedWeeks === 3, gapOv.castDood.JACK);
+check('a six-day week is carried to the estimator',
+  SBScheduleBoard.boardOverridesModel(ovScenes, { daysPerWeek: 6 }).daysPerWeek === 6);
 check('stuntDays = distinct tagged days', ov.unitOverrides.stuntDays === 1, ov.unitOverrides);
 check('pyroDays from sfx tag', ov.unitOverrides.pyroDays === 1, ov.unitOverrides);
 check('extrasDays summed', ov.unitOverrides.extrasDays === 50, ov.unitOverrides);
@@ -125,8 +164,27 @@ check('tight board DOOD lowers supporting cast cost', supLow(withDood) <= supLow
 const noUnits = SBBudget.estimateProduction(analysis, { scale: 'indie', unitOverrides: { stuntDays: 0, pyroDays: 0, waterDays: 0, animalDays: 0, extrasDays: 10 } });
 const unitsKey = p => Object.keys(p.groups['Production (below the line)']).find(x => x.includes('9900'));
 check('unit overrides zero out special units', noUnits.groups['Production (below the line)'][unitsKey(noUnits)][1] === 0, noUnits.groups['Production (below the line)'][unitsKey(noUnits)]);
+check('estimator reports the working week it used', base.schedule.daysPerWeek === 5 && base.schedule.weekPremium.mult === 1, base.schedule);
+check('estimator reports what the drops saved', typeof base.dood.savedWeeks === 'number' && typeof base.dood.drops === 'number', base.dood);
 
 // ── CSV export ──
+/* Money in cents: a top sheet whose lines are round dollars never asks the
+   arithmetic to carry a fraction, and the rounding bugs live in the cents. */
+{
+  const centsSheet = SBBudgetSheet.blankSheet();
+  centsSheet.categories.forEach(c => { c.items = []; });
+  centsSheet.categories[0].items = [{ id: 'c1', desc: 'Option', amt: '3', units: '5', rate: '1061.64', est: 0, actual: 0, notes: '' }];
+  centsSheet.categories[1].items = [{ id: 'c2', desc: 'Producer', amt: '', units: '', rate: '', est: 12345.67, actual: 12345.68, notes: '' }];
+  check('amt x units x rate keeps the cents', SBBudgetSheet.itemEst(centsSheet.categories[0].items[0]) === 15924.6,
+    SBBudgetSheet.itemEst(centsSheet.categories[0].items[0]));
+  const ct = SBBudgetSheet.sheetTotals(centsSheet);
+  check('cents subtotal is exact, not a float tail', ct.subtotal === 28270.27, ct.subtotal);
+  check('cents contingency rounds half away from zero', ct.contingency === 2827.03, ct.contingency);
+  check('cents actuals survive the round trip', ct.actual === 12345.68, ct.actual);
+  check('csv writes fixed 2-decimal money, never a float tail',
+    SBBudgetSheet.sheetToCsv(centsSheet).indexOf('15924.60') >= 0, SBBudgetSheet.sheetToCsv(centsSheet).split('\n')[1]);
+}
+
 const csvSheet = SBBudgetSheet.blankSheet();
 csvSheet.categories[0].items = [{ id: 'z', desc: 'Option, purchase "rights"', amt: '', units: '', rate: '', est: 50000, actual: 0, notes: '' }];
 for (let i = 1; i < csvSheet.categories.length; i++) csvSheet.categories[i].items = [];

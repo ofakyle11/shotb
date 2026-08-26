@@ -86,11 +86,11 @@
 
     <h2>3 · Money — planning estimates vs bids</h2>
     <table class="vx-table"><thead><tr>
-      <th>Code</th><th>Complexity</th><th class="vx-num">Planning est. range</th><th class="vx-num">Bid $</th><th>Bid vs est.</th><th>Status</th><th></th>
+      <th>Code</th><th>Complexity</th><th class="vx-num">Planning est. range</th><th class="vx-num">Bid $</th><th class="vx-num">Final $</th><th>Bid vs est.</th><th>Status</th><th></th>
     </tr></thead><tbody id="vxMoney"></tbody></table>
     <div class="vx-total" id="vxMoneyTotals"></div>
     <p class="vx-note vx-learned" id="vxLearned" style="display:none"></p>
-    <p class="vx-note">Ranges are internal <b>planning estimates</b> by complexity band — not quotes; real vendor bids always win. Award a bid to commit it to the Money Room under acct 15200 (VFX) as an open PO; each award commits once. When you mark that PO <b>paid</b> in the Money Room, the board records what the shot actually cost against the raw bid and corrects the band for the next shot of that complexity — after two finals, never on one. Verify bids and vendor scope before relying on these figures — VFX pricing drifts with schedule and iteration count.</p>
+    <p class="vx-note">Ranges are internal <b>planning estimates</b> by complexity band — not quotes; real vendor bids always win. Award a bid to commit it to the Money Room under acct 15200 (VFX) as an open PO; each award commits once. When the vendor invoices, put the amount in <b>Final $</b>: that settles the PO in the Money Room as paid, and the board records what the shot actually cost against the raw bid and corrects the band for the next shot of that complexity — after two finals, never on one. Verify bids and vendor scope before relying on these figures — VFX pricing drifts with schedule and iteration count.</p>
 
     <h2>4 · On-set VFX day sheet</h2>
     <div class="vx-bar">
@@ -131,7 +131,11 @@
   if (!Array.isArray(st.finals)) st.finals = [];
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
   function shotById(id) { return st.shots.filter(function (s) { return s.id === id; })[0]; }
-  function money(n) { return '$' + (+n || 0).toLocaleString(); }
+  /* toLocaleString printed a $12,000.50 bid as "$12,000.5". Vendor invoices
+     have cents in them, and now that finals are read back off those invoices
+     the board shows them — so format through the one money formatter, which
+     shows cents only when there are cents to show. */
+  function money(n) { return CMoneyMath.fmt(n); }
 
   /* ── 1 · shot board ── */
   function renderRows() {
@@ -249,6 +253,8 @@
   }
 
   function renderMoney() {
+    var poByNum = {};
+    ((moneyStore() || {}).pos || []).forEach(function (p) { if (p && p.num) poByNum[p.num] = p; });
     $('vxMoney').innerHTML = st.shots.map(function (sh) {
       var opts = { finals: st.finals, vendor: sh.vendor };
       var c = V.bidVsEst(sh, opts);
@@ -267,17 +273,28 @@
       var po = ref ? '<span class="vx-tag" title="Committed to the Money Room">' + esc(ref) + '</span>'
         : sh.committedPo ? '<span class="vx-tag" title="Committed before the PO number was kept — no PO in the Money Room matches this shot code, so its final cost cannot be joined back">PO committed · unjoinable</span>'
         : '';
+      /* The invoice. Until it is entered the PO carries the committed bid, so
+         a "final" read off it would be the bid back again and the loop would
+         learn 1.00× forever. Entering it settles the PO in the Money Room —
+         one number for one cost — and the next render records the observation.
+         Once paid it is a record, not a draft, so it stops being an input. */
+      var poRow = ref ? poByNum[ref] : null;
+      var fin = !poRow ? '<span class="vx-note">—</span>'
+        : poRow.status === 'paid'
+          ? '<span title="Settled — this is what the shot cost">' + esc(money(poRow.amount)) + '</span>'
+          : '<input data-final="' + esc(sh.id) + '" type="number" min="0" step="0.01" style="width:88px" placeholder="invoice">';
       return '<tr>' +
         '<td class="vx-code">' + esc(sh.code) + '</td>' +
         '<td><span class="vx-tag">' + esc(sh.complexity) + '</span></td>' +
         '<td class="vx-num">' + esc(money(c.est.lo)) + ' – ' + esc(money(c.est.hi)) + cal + '</td>' +
         '<td class="vx-num">' + (c.bid ? esc(money(c.bid)) : '—') + '</td>' +
+        '<td class="vx-num">' + fin + '</td>' +
         '<td>' + verdict + '</td>' +
         '<td><span class="vx-st vx-st-' + esc(sh.status) + '">' + esc(sh.status) + '</span></td>' +
         '<td>' + (sh.committedPo ? po
           : canCommit ? '<button class="tb-btn gold" data-award="' + esc(sh.id) + '">Award → Money Room</button>'
           : '<span class="vx-note">enter a bid to award</span>') + '</td></tr>';
-    }).join('') || '<tr><td colspan="7" class="vx-note">No shots on the board yet.</td></tr>';
+    }).join('') || '<tr><td colspan="8" class="vx-note">No shots on the board yet.</td></tr>';
     var b = V.board(st.shots, { finals: st.finals });
     $('vxMoneyTotals').innerHTML =
       '<span>Planning range <b>' + esc(money(b.estLo)) + ' – ' + esc(money(b.estHi)) + '</b> <span class="vx-tag">planning estimate' +
@@ -297,6 +314,27 @@
       : '';
     el.style.display = lines.length ? '' : 'none';
   }
+  /* Recording the invoice against the PO the award created. The Money Room
+     edits a PO's status but not its amount, so a VFX PO marked paid still
+     carries the committed bid — the department that receives the invoice is
+     the one that can say what it actually came to. Writing it here keeps ONE
+     number for the cost: the report reads the same amount this board learns
+     from. (A setPoAmount belongs in CMoney; finance owns that file.) */
+  $('vxMoney').addEventListener('change', function (e) {
+    var id = e.target.getAttribute('data-final'); if (!id) return;
+    var sh = shotById(id); if (!sh) return;
+    var ref = V.poRef(sh); if (!ref) return;
+    var amt = parseFloat(e.target.value);
+    if (!(amt > 0)) return toast('Enter the invoiced amount — what the shot actually came to');
+    var m = moneyStore(); if (!m) return toast('No Money Room store yet — award the bid first');
+    var po = (m.pos || []).filter(function (p) { return p.num === ref; })[0];
+    if (!po) return toast(ref + ' is no longer in the Money Room');
+    po.amount = amt;
+    CMoney.setPoStatus(m, po.id, 'paid');
+    localStorage.setItem('SB_Money_v1', JSON.stringify(m));
+    renderAll();                       // syncFinals() records the observation
+    toast(ref + ' settled at ' + money(amt) + ' against a ' + money(sh.bid) + ' bid — recorded for ' + sh.code);
+  });
   $('vxMoney').addEventListener('click', function (e) {
     var id = e.target.getAttribute('data-award'); if (!id) return;
     var sh = shotById(id); if (!sh) return;

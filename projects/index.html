@@ -56,7 +56,8 @@
       <button class="tb-btn gold" id="pvExport" title="One portable .cinamate file with every module's data">⬇ Export backup</button>
       <button class="tb-btn" id="pvSaveSlot" title="Snapshot the current state into this project's slot">💾 Save snapshot</button>
     </div>
-    <p class="pv-note">Everything Cinamate saves lives in this browser. <b>Export a backup after real work sessions</b> — the file restores the entire production (script, boards, budget, schedule, cut, tools) on any machine. Editor media files re-import from disk.</p>
+    <p class="pv-note">Everything Cinamate saves lives in this browser. <b>Export a backup after real work sessions</b> — the file restores the entire production (script, boards, budget, schedule, cut, tools) on any machine, <b>including its photographs</b>.</p>
+    <div id="pvMedia"></div>
     <div class="pv-mods" id="pvMods"></div>
 
     <h2>Restore</h2>
@@ -100,6 +101,182 @@
   function now() { return new Date().toISOString().slice(0, 16).replace('T', ' '); }
   function kb(b) { return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
 
+  /* ══ the media adapter ════════════════════════════════════════════════════
+     CVault is sync and pure and never opens a database. This is the only place
+     in the platform that knows both the vault and IndexedDB, and it is a thin
+     translation layer: it walks the DB LIST the engine publishes, turns each
+     store's native shape into the engine's flat envelope, and turns it back.
+
+     Every open uses version 1 and creates the store with the SAME keyPath the
+     owning module creates it with. That is deliberate: if this page ever opened
+     a database at a higher version, wardrobe/locations/editor — which all open
+     at version 1 — would start failing with a VersionError, and the fix for
+     losing photographs would be a way of losing all three modules.           */
+  var IDB_READ_MAX = 16 * 1024 * 1024;   // per record, into memory. See below.
+
+  function openDb(spec) {
+    return new Promise(function (res, rej) {
+      var rq;
+      try { rq = indexedDB.open(spec.db, 1); } catch (e) { return rej(e); }
+      rq.onupgradeneeded = function () {
+        var d = rq.result;
+        if (!d.objectStoreNames.contains(spec.store)) {
+          d.createObjectStore(spec.store, spec.keyPath ? { keyPath: spec.keyPath } : undefined);
+        }
+      };
+      rq.onsuccess = function () { res(rq.result); };
+      rq.onblocked = function () { rej(new Error('Another Cinamate tab is holding ' + spec.db + ' open — close it and try again')); };
+      rq.onerror = function () {
+        /* A module has moved the database on: never force it back. Open it at
+           whatever version it is now and work with what is there. */
+        var re;
+        try { re = indexedDB.open(spec.db); } catch (e) { return rej(e); }
+        re.onsuccess = function () { res(re.result); };
+        re.onerror = function () { rej(re.error); };
+      };
+    });
+  }
+  function blobToDataUrl(b) {
+    return new Promise(function (res) {
+      var fr = new FileReader();
+      fr.onload = function () { res(String(fr.result || '')); };
+      fr.onerror = function () { res(''); };
+      fr.readAsDataURL(b);
+    });
+  }
+  function dataUrlToBlob(d) {
+    var m = /^data:([^;,]+);base64,(.*)$/.exec(String(d || ''));
+    if (!m) return null;
+    var bin = atob(m[2]);
+    var arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: m[1] });
+  }
+  function toRecord(spec, key, value) {
+    var id = spec.keyPath && value && value[spec.keyPath] != null ? value[spec.keyPath] : key;
+    var rec = { db: spec.db, store: spec.store, id: String(id), project: '', data: '', bytes: 0 };
+    if (spec.projectField && value && value[spec.projectField] != null) rec.project = String(value[spec.projectField]);
+    (spec.keep || []).forEach(function (k) { if (value && value[k] != null) rec[k] = String(value[k]); });
+    var raw = spec.dataField ? (value && value[spec.dataField]) : value;
+    if (typeof raw === 'string') { rec.data = raw; rec.bytes = raw.length; return Promise.resolve(rec); }
+    if (raw && typeof Blob !== 'undefined' && raw instanceof Blob) {
+      rec.bytes = raw.size;
+      /* A cutting-room source can be gigabytes. Reading one into a string to
+         put it in a JSON file would take the tab down, so it is COUNTED and
+         REPORTED and never loaded — the vault lists it as media it could not
+         carry rather than pretending the archive is complete. */
+      if (raw.size > IDB_READ_MAX) return Promise.resolve(rec);
+      return blobToDataUrl(raw).then(function (d) { rec.data = d; rec.bytes = d.length || raw.size; return rec; });
+    }
+    return Promise.resolve(rec);          // an unreadable shape carries no bytes
+  }
+  function fromRecord(spec, rec) {
+    if (spec.keyPath) {
+      var v = { project: rec.project || '', bytes: (rec.data || '').length };
+      v[spec.keyPath] = rec.id;
+      v[spec.dataField || 'data'] = rec.data || '';
+      (spec.keep || []).forEach(function (k) { v[k] = rec[k] == null ? '' : rec[k]; });
+      return { key: null, value: v };
+    }
+    if (spec.db === 'cinamate_cut') {
+      var b = dataUrlToBlob(rec.data);
+      return b ? { key: rec.id, value: b } : null;
+    }
+    return { key: rec.id, value: rec.data || '' };
+  }
+  function readStore(spec) {
+    return openDb(spec).then(function (db) {
+      return new Promise(function (res) {
+        var pending = [], tx;
+        try { tx = db.transaction(spec.store, 'readonly'); } catch (e) { return res([]); }
+        var rq = tx.objectStore(spec.store).openCursor();
+        rq.onsuccess = function () {
+          var c = rq.result;
+          if (!c) return;
+          pending.push(toRecord(spec, c.key, c.value));
+          c.continue();
+        };
+        tx.oncomplete = function () { res(Promise.all(pending)); };
+        tx.onerror = function () { res(Promise.all(pending)); };
+        tx.onabort = function () { res(Promise.all(pending)); };
+      });
+    }).catch(function () { return []; });
+  }
+  function writeStore(spec, recs) {
+    if (!recs.length) return Promise.resolve({ written: 0, failed: [] });
+    return openDb(spec).then(function (db) {
+      return new Promise(function (res) {
+        var tx, failed = [], written = 0;
+        try { tx = db.transaction(spec.store, 'readwrite'); } catch (e) {
+          return res({ written: 0, failed: recs.map(function (r) { return { id: r.id, why: 'store unavailable' }; }) });
+        }
+        var os = tx.objectStore(spec.store);
+        recs.forEach(function (r) {
+          var pair = fromRecord(spec, r);
+          if (!pair) { failed.push({ id: r.id, why: 'could not be decoded' }); return; }
+          try { pair.key == null ? os.put(pair.value) : os.put(pair.value, pair.key); written++; }
+          catch (e) { failed.push({ id: r.id, why: 'rejected by this browser' }); }
+        });
+        tx.oncomplete = function () { res({ written: written, failed: failed }); };
+        tx.onerror = function () { res({ written: 0, failed: recs.map(function (r) { return { id: r.id, why: 'write failed — the browser may be out of space' }; }) }); };
+        tx.onabort = function () { res({ written: 0, failed: recs.map(function (r) { return { id: r.id, why: 'write aborted — the browser may be out of space' }; }) }); };
+      });
+    }).catch(function () {
+      return { written: 0, failed: recs.map(function (r) { return { id: r.id, why: 'database unavailable' }; }) };
+    });
+  }
+  function deleteStore(spec, recs) {
+    if (!recs.length) return Promise.resolve({ deleted: 0 });
+    return openDb(spec).then(function (db) {
+      return new Promise(function (res) {
+        var tx;
+        try { tx = db.transaction(spec.store, 'readwrite'); } catch (e) { return res({ deleted: 0 }); }
+        var os = tx.objectStore(spec.store);
+        recs.forEach(function (r) { try { os.delete(r.id); } catch (e) {} });
+        tx.oncomplete = function () { res({ deleted: recs.length }); };
+        tx.onerror = function () { res({ deleted: 0 }); };
+        tx.onabort = function () { res({ deleted: 0 }); };
+      });
+    }).catch(function () { return { deleted: 0 }; });
+  }
+  function byStore(recs) {
+    var map = [];
+    V.BLOB_DBS.forEach(function (spec) {
+      map.push({ spec: spec, recs: (recs || []).filter(function (r) { return r.db === spec.db && r.store === spec.store; }) });
+    });
+    return map;
+  }
+  var MEDIA = {
+    readAll: function () {
+      if (typeof indexedDB === 'undefined') return Promise.resolve([]);
+      return Promise.all(V.BLOB_DBS.map(readStore)).then(function (lists) {
+        return [].concat.apply([], lists);
+      });
+    },
+    putAll: function (recs) {
+      if (typeof indexedDB === 'undefined') {
+        return Promise.resolve({ written: 0, failed: (recs || []).map(function (r) { return { id: r.id, why: 'no media store in this browser' }; }) });
+      }
+      return Promise.all(byStore(recs).map(function (g) { return writeStore(g.spec, g.recs); }))
+        .then(function (rs) {
+          return { written: rs.reduce(function (a, x) { return a + x.written; }, 0),
+                   failed: [].concat.apply([], rs.map(function (x) { return x.failed; })) };
+        });
+    },
+    deleteMany: function (recs) {
+      if (typeof indexedDB === 'undefined') return Promise.resolve({ deleted: 0 });
+      return Promise.all(byStore(recs).map(function (g) { return deleteStore(g.spec, g.recs); }))
+        .then(function (rs) { return { deleted: rs.reduce(function (a, x) { return a + x.deleted; }, 0) }; });
+    }
+  };
+  window.CVaultMedia = MEDIA;
+
+  function mediaLine(rep) {
+    if (!rep) return '';
+    var note = rep.note || V.blobReport(rep);
+    return note ? ' · ' + note : '';
+  }
+
   function render() {
     var m = V.meta(localStorage);
     var inv = V.inventory(V.snapshot(localStorage));
@@ -112,12 +289,48 @@
     $('pvSlots').innerHTML = (names.length ? names : []).map(function (n) {
       var s = m.slots[n];
       var siz = V.inventory(s.stores || {});
+      var med = V.blobInventory(s.blobs || []);
       return '<div class="pv-slot"><b>' + esc(n) + '</b>' +
-        '<span class="pv-meta">' + esc(siz.count) + ' modules · ' + kb(siz.bytes) + (s.savedAt ? ' · saved ' + esc(s.savedAt) : '') + '</span>' +
+        '<span class="pv-meta">' + esc(siz.count) + ' modules · ' + kb(siz.bytes) +
+        (med.count ? ' · ' + esc(med.count) + ' media · ' + esc(med.label) : '') +
+        (s.savedAt ? ' · saved ' + esc(s.savedAt) : '') + '</span>' +
         '<span class="pv-spacer"></span>' +
         '<button class="tb-btn gold" data-open="' + esc(n) + '">Open</button>' +
         '<button class="tb-btn" data-del="' + esc(n) + '">✕</button></div>';
     }).join('') || '<p class="pv-note">No other projects yet — New project starts a second one, and switching keeps both safe.</p>';
+    renderMedia();
+  }
+
+  /* What the vault can actually see of this production's bytes, and what it
+     cannot. A referenced photo with no bytes on this device is stated, not
+     hidden — that silence is the defect this page exists to close. */
+  function renderMedia() {
+    var el = $('pvMedia');
+    if (!el) return;
+    MEDIA.readAll().then(function (recs) {
+      var stores = V.snapshot(localStorage);
+      var mine = V.blobsFor(recs, stores, V.meta(localStorage).active);
+      var inv = V.blobInventory(mine);
+      var missing = V.missingBlobs(stores, recs);
+      var strays = recs.length - mine.length;
+      var h = '<p class="pv-note"><b>' + esc(inv.count) + ' media file(s) · ' + esc(inv.label) +
+        '</b> travel with this production — continuity photos, scout photos and cutting-room sources. ' +
+        'They are packed into the backup file and pushed to the studio cloud in parts.';
+      if (missing.length) {
+        h += '<br><b style="color:var(--bad,#e06c6c)">⚠ ' + esc(missing.length) +
+          ' referenced file(s) have no bytes on this device</b> — ' +
+          esc(missing.slice(0, 4).map(function (x) { return x.module + ' ' + x.id; }).join(', ')) +
+          (missing.length > 4 ? ' and ' + esc(missing.length - 4) + ' more' : '') +
+          '. Restore from a backup that carries media, or the pages will show an empty frame where they were.';
+      }
+      if (strays > 0) {
+        h += '<br>' + esc(strays) + ' file(s) in this browser belong to other productions on this machine.';
+      }
+      h += '</p>';
+      el.innerHTML = h;
+    }).catch(function (e) {
+      el.innerHTML = '<p class="pv-note">Media store unavailable in this browser — ' + esc(e.message) + '</p>';
+    });
   }
 
   $('pvName').addEventListener('change', function () {
@@ -127,18 +340,25 @@
     render(); toast('Renamed to ' + n);
   });
   $('pvSaveSlot').addEventListener('click', function () {
-    V.saveActive(localStorage, now());
-    render(); toast('Snapshot saved');
+    V.saveActiveAsync(localStorage, now(), MEDIA)
+      .then(function () { render(); toast('Snapshot saved'); })
+      .catch(function (e) { toast(e.message); });
   });
   $('pvExport').addEventListener('click', function () {
     var m = V.meta(localStorage);
-    var data = V.archive(localStorage, m.active, now());
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
-    a.download = m.active.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.cinamate';
-    a.click();
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
-    toast('Backup exported — keep it somewhere safe');
+    var btn = this; btn.disabled = true;
+    V.archiveAsync(localStorage, m.active, now(), MEDIA).then(function (data) {
+      var arch = JSON.parse(data);
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+      a.download = m.active.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.cinamate';
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
+      var short = (arch.blobsMissing || []).length;
+      toast('Backup exported — ' + kb(data.length) + ', ' + (arch.blobs || []).length + ' media file(s)' +
+        (short ? '. ' + short + ' referenced file(s) had no bytes on this machine and are NOT in it' : '') );
+    }).catch(function (e) { toast(e.message); })
+      .then(function () { btn.disabled = false; });
   });
   $('pvImport').addEventListener('click', function () { $('pvFile').click(); });
   $('pvFile').addEventListener('change', function () {
@@ -148,16 +368,19 @@
       var arch;
       try { arch = V.parseArchive(String(rd.result)); } catch (e) { return toast(e.message); }
       if (!confirm('Restore "' + arch.name + '"? The current workspace is stashed to its project slot first.')) return;
-      V.saveActive(localStorage, now());
-      var m = V.meta(localStorage);
-      var name = arch.name || 'Imported project';
-      while (m.slots[name] && name !== m.active) name += ' (imported)';
-      V.restore(localStorage, arch);
-      m = V.meta(localStorage);
-      m.active = name;
-      m.slots[name] = { savedAt: now(), stores: arch.stores };
-      localStorage.setItem(V.META_KEY, JSON.stringify(m));
-      render(); toast('Restored "' + name + '" — every module now shows this production');
+      V.saveActiveAsync(localStorage, now(), MEDIA).then(function () {
+        var m = V.meta(localStorage);
+        var name = arch.name || 'Imported project';
+        while (m.slots[name] && name !== m.active) name += ' (imported)';
+        return V.restoreAsync(localStorage, arch, MEDIA).then(function (rep) {
+          m = V.meta(localStorage);
+          m.active = name;
+          m.slots[name] = { savedAt: now(), stores: arch.stores, blobs: V.manifestOf(arch.blobs || []) };
+          localStorage.setItem(V.META_KEY, JSON.stringify(m));
+          render();
+          toast('Restored "' + name + '"' + mediaLine(rep));
+        });
+      }).catch(function (e) { toast(e.message); });
     };
     rd.readAsText(f);
     this.value = '';
@@ -165,19 +388,30 @@
   $('pvNew').addEventListener('click', function () {
     var n = prompt('Name for the new production:', 'Untitled Film');
     if (!n) return;
-    try { V.newProject(localStorage, n.trim(), now()); } catch (e) { return toast(e.message); }
-    render(); toast('Fresh workspace — "' + n.trim() + '"');
+    V.newProjectAsync(localStorage, n.trim(), now(), MEDIA)
+      .then(function () { render(); toast('Fresh workspace — "' + n.trim() + '"'); })
+      .catch(function (e) { toast(e.message); });
   });
   $('pvSlots').addEventListener('click', function (e) {
     var open = e.target.getAttribute('data-open'), del = e.target.getAttribute('data-del');
     if (open) {
-      V.switchTo(localStorage, open, now());
-      render(); toast('Switched to "' + open + '"');
+      V.switchToAsync(localStorage, open, now(), MEDIA).then(function (rep) {
+        render();
+        toast('Switched to "' + open + '"' +
+          (rep.missing.length ? ' — ' + rep.missing.length + ' referenced media file(s) have no bytes on this device' : ''));
+      }).catch(function (e2) { toast(e2.message); });
     }
     if (del) {
-      if (!confirm('Delete project "' + del + '" and its saved data? The backup file, if you exported one, still works.')) return;
-      try { V.deleteSlot(localStorage, del); } catch (e2) { return toast(e2.message); }
-      render(); toast('Deleted "' + del + '"');
+      var s = V.meta(localStorage).slots[del] || {};
+      var med = V.blobInventory(s.blobs || []);
+      if (!confirm('Delete project "' + del + '" and its saved data' +
+          (med.count ? ', including ' + med.count + ' media file(s) (' + med.label + ') no other production uses' : '') +
+          '? The backup file, if you exported one, still works.')) return;
+      V.deleteSlotAsync(localStorage, del, MEDIA).then(function (rep) {
+        render();
+        toast('Deleted "' + del + '"' + (rep.purged ? ' — ' + rep.purged + ' media file(s) purged' : '') +
+          (rep.shared ? ', ' + rep.shared + ' kept for other productions' : ''));
+      }).catch(function (e2) { toast(e2.message); });
     }
   });
 
@@ -200,6 +434,7 @@
       $('pvCloud').innerHTML = rows.length ? rows.map(function (p) {
         return '<div class="pv-slot"><b>☁ ' + esc(p.name) + '</b>' +
           '<span class="pv-meta">' + kb(p.bytes || 0) +
+          (p.blobCount ? ' · ' + esc(p.blobCount) + ' media · ' + kb(p.blobBytes || 0) : ' · no media') +
           (p.savedAt ? ' · saved ' + esc(p.savedAt) : '') +
           (p.savedBy ? ' by ' + esc(String(p.savedBy).toUpperCase()) : '') + '</span>' +
           '<span class="pv-spacer"></span>' +
@@ -212,15 +447,41 @@
       $('pvCloud').innerHTML = '<p class="pv-note">' + esc(e.message) + '</p>';
     });
   }
+  /* Push: the written record first (it carries the media MANIFEST), then the
+     bytes as bounded parts. The plan is computed BEFORE anything goes on the
+     wire, so a production the cloud cannot hold is refused whole with a reason
+     — never uploaded down to whatever happened to fit. */
   $('pvCloudSave').addEventListener('click', function () {
     var m = V.meta(localStorage);
     var btn = this; btn.disabled = true;
-    cloudCall('', { op: 'push', name: m.active, archive: V.archive(localStorage, m.active, now()) })
-      .then(function (j) {
-        toast('"' + m.active + '" saved to the studio cloud');
-        renderCloud();
-      })
-      .catch(function (e) { toast(e.message); })
+    V.archiveAsync(localStorage, m.active, now(), MEDIA).then(function (data) {
+      var arch = JSON.parse(data);
+      var plan = V.planBlobUpload(arch.blobs || []);
+      if (!plan.ok) { toast(plan.error); return; }
+      var body = { format: arch.format, name: arch.name, savedAt: arch.savedAt,
+                   stores: arch.stores, blobs: V.manifestOf(arch.blobs || []),
+                   blobsMissing: arch.blobsMissing || [] };
+      return cloudCall('', { op: 'push', name: m.active, archive: JSON.stringify(body),
+                             blobChunks: plan.chunks.length })
+        .then(function () {
+          return plan.chunks.reduce(function (chain, part, i) {
+            return chain.then(function () {
+              return cloudCall('', { op: 'push-blobs', name: m.active, seq: i,
+                                     total: plan.chunks.length, blobs: part });
+            });
+          }, Promise.resolve());
+        })
+        .then(function () {
+          renderCloud();
+          toast('"' + m.active + '" saved to the studio cloud — ' + plan.count +
+            ' media file(s) in ' + plan.chunks.length + ' part(s)');
+        })
+        .catch(function (e) {
+          renderCloud();
+          toast('The written record was saved but its media did not all get there: ' + e.message +
+            ' — push again before relying on that copy.');
+        });
+    }).catch(function (e) { toast(e.message); })
       .then(function () { btn.disabled = false; });
   });
   $('pvCloud').addEventListener('click', function (e) {
@@ -259,17 +520,39 @@
     if (pull) {
       cloudCall('?op=pull&name=' + encodeURIComponent(pull)).then(function (j) {
         var arch = V.parseArchive(j.archive);
+        var parts = Number(j.blobChunks) || 0;
         if (!confirm('Open "' + pull + '" from the cloud' +
           (j.savedBy ? ' (saved ' + j.savedAt + ' by ' + String(j.savedBy).toUpperCase() + ')' : '') +
+          (j.blobCount ? ' with ' + j.blobCount + ' media file(s), ' + kb(j.blobBytes || 0) : '') +
           '? Your current workspace is stashed to its slot first.')) return;
-        V.saveActive(localStorage, now());
-        var m = V.meta(localStorage);
-        V.restore(localStorage, arch);
-        m = V.meta(localStorage);
-        m.active = pull;
-        m.slots[pull] = { savedAt: now(), stores: arch.stores };
-        localStorage.setItem(V.META_KEY, JSON.stringify(m));
-        render(); toast('Opened "' + pull + '" — every module now shows this production');
+        /* Collect the media parts before anything is written. A part that is
+           not there is REPORTED — the production still opens, because the
+           written record is worth having, but nobody is told it is complete. */
+        var got = [], lost = [];
+        var chain = Promise.resolve();
+        for (var i = 0; i < parts; i++) {
+          (function (seq) {
+            chain = chain.then(function () {
+              return cloudCall('?op=pull-blobs&name=' + encodeURIComponent(pull) + '&seq=' + seq)
+                .then(function (c) { got = got.concat(c.blobs || []); })
+                .catch(function (e3) { lost.push('part ' + (seq + 1) + ': ' + e3.message); });
+            });
+          })(i);
+        }
+        return chain.then(function () {
+          arch.blobs = got;
+          return V.saveActiveAsync(localStorage, now(), MEDIA)
+            .then(function () { return V.restoreAsync(localStorage, arch, MEDIA); })
+            .then(function (rep) {
+              var m = V.meta(localStorage);
+              m.active = pull;
+              m.slots[pull] = { savedAt: now(), stores: arch.stores, blobs: V.manifestOf(got) };
+              localStorage.setItem(V.META_KEY, JSON.stringify(m));
+              render();
+              toast('Opened "' + pull + '"' + mediaLine(rep) +
+                (lost.length ? '. ' + lost.length + ' media part(s) never arrived — ' + lost[0] : ''));
+            });
+        });
       }).catch(function (e2) { toast(e2.message); });
     }
     if (del) {
@@ -285,15 +568,17 @@
     fetch('sample.cinamate.json').then(function (r) { return r.text(); }).then(function (txt) {
       var arch = V.parseArchive(txt);
       if (!confirm('Load the sample production "' + arch.name + '"? Your current workspace is stashed to its slot first.')) return;
-      V.saveActive(localStorage, now());
-      var m = V.meta(localStorage);
       var name = arch.name;
-      V.restore(localStorage, arch);
-      m = V.meta(localStorage);
-      m.active = name;
-      m.slots[name] = { savedAt: now(), stores: arch.stores };
-      localStorage.setItem(V.META_KEY, JSON.stringify(m));
-      render(); toast('Sample loaded — tour the modules to see it everywhere');
+      return V.saveActiveAsync(localStorage, now(), MEDIA)
+        .then(function () { return V.restoreAsync(localStorage, arch, MEDIA); })
+        .then(function (rep) {
+          var m = V.meta(localStorage);
+          m.active = name;
+          m.slots[name] = { savedAt: now(), stores: arch.stores, blobs: V.manifestOf(arch.blobs || []) };
+          localStorage.setItem(V.META_KEY, JSON.stringify(m));
+          render();
+          toast('Sample loaded' + mediaLine(rep) + ' — tour the modules to see it everywhere');
+        });
     }).catch(function () { toast('Could not load the sample'); });
   }
   $('pvSample').addEventListener('click', loadSample);

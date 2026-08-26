@@ -397,7 +397,20 @@
       if (sheet.name === 'Untitled Budget') sheet.name = (st.projectName || 'Untitled Film') + ' — budget';
       persist(); renderTopSheet(); renderDetail();
       var usedBoard = ov.castDood && Object.keys(ov.castDood).length;
-      if (root.psToast) psToast('Seeded — ' + SBBudget.fmtMoney(sheetTotals(sheet).grand) + ' grand total' + (usedBoard ? ' (using your stripboard schedule' + (ov.unitOverrides ? ' + breakdown tags' : '') + ')' : ''));
+      /* What the DOOD's drops took OFF the cast lines, said out loud. The
+         saving is invisible otherwise — it shows up only as a smaller number,
+         which reads as an estimate that moved rather than a schedule decision
+         that paid for itself. */
+      var saved = 0, drops = 0;
+      if (usedBoard) Object.keys(ov.castDood).forEach(function (n) {
+        saved += ov.castDood[n].savedWeeks || 0;
+        drops += (ov.castDood[n].drops || []).length;
+      });
+      var week = prod.dood && prod.dood.weeklyRate;
+      if (root.psToast) psToast('Seeded — ' + SBBudget.fmtMoney(sheetTotals(sheet).grand) + ' grand total' +
+        (usedBoard ? ' (using your stripboard schedule' + (ov.unitOverrides ? ' + breakdown tags' : '') + ')' : '') +
+        (drops ? ' · ' + drops + ' cast drop' + (drops === 1 ? '' : 's') + ' saved ' + saved + ' week' + (saved === 1 ? '' : 's') +
+          (week ? ' (~' + SBBudget.fmtMoney(saved * week) + ' at scale)' : '') : ''));
     });
     var csv = $('bsCsv');
     if (csv) csv.addEventListener('click', function () {

@@ -221,6 +221,128 @@
   };
 
   /* ════════════════════════════════════════════════════════════════════
+   *  1b. CAST WEEKS — the ONE drop/pick-up arithmetic
+   * ════════════════════════════════════════════════════════════════════
+   * A weekly performer is paid for the weeks they are HELD, not the days
+   * they work. Two files used to compute that as ceil((last - first + 1)/5),
+   * which bills every idle day inside the span: a performer who works day 2
+   * and day 20 was quoted four weeks for two days of work, and there was no
+   * way to say otherwise.
+   *
+   * A real Day-out-of-Days expresses a DROP. The performer is released after
+   * the last day of one block and re-engaged — "picked up" — for the next;
+   * the free days between belong to them, not to the production. The terms
+   * below are the standard weekly drop/pick-up convention:
+   *
+   *   minDropGap  free days that must separate the drop from the pick-up
+   *               before a drop is permitted at all (a two-day gap is a
+   *               hold, not a drop);
+   *   maxDrops    how many times one performer may be dropped and picked up;
+   *   noticeDays  written notice owed at the drop — it does not change the
+   *               money, it changes what the AD has to send and when, so the
+   *               call sheet can print the date;
+   *   minWeeks    the weekly minimum guarantee that starts again on every
+   *               re-engagement — which is why two 1-day blocks cost two
+   *               weeks and not two days.
+   *
+   * Every one of them is a parameter because they are agreement terms, and
+   * the production's own contract governs. Nothing here reads a clock or a
+   * store: it takes the worked-day list and hands back the arithmetic.
+   */
+  var CAST_RULES = {
+    daysPerWeek: 5,
+    minDropGap: 10,
+    maxDrops: 1,
+    noticeDays: 1,
+    minWeeks: 1
+  };
+
+  function castRules(over) {
+    var r = {}, k;
+    for (k in CAST_RULES) if (Object.prototype.hasOwnProperty.call(CAST_RULES, k)) r[k] = CAST_RULES[k];
+    if (over) for (k in over) if (over[k] != null && Object.prototype.hasOwnProperty.call(CAST_RULES, k)) r[k] = over[k];
+    r.daysPerWeek = Math.max(1, Math.round(r.daysPerWeek));
+    r.minDropGap = Math.max(0, Math.round(r.minDropGap));
+    r.maxDrops = Math.max(0, Math.round(r.maxDrops));
+    return r;
+  }
+
+  /* days: 0-based shoot-day indices the performer actually works.
+     → { workDays, spanDays, spanWeeks, contWeeks, savedWeeks, billedDays,
+         holdDays, droppedDays, segments:[{first,last,days,weeks}],
+         drops:[{after,pickUp,freeDays,noticeBy}], rules } */
+  function castWeeks(days, rules) {
+    var R = castRules(rules);
+    var seen = {}, list = [];
+    (days || []).forEach(function (d) {
+      var n = Math.round(d);
+      if (!(n >= 0) || seen[n]) return;
+      seen[n] = 1; list.push(n);
+    });
+    list.sort(function (a, b) { return a - b; });
+    if (!list.length) {
+      return { workDays: 0, spanDays: 0, spanWeeks: 0, contWeeks: 0, savedWeeks: 0,
+               billedDays: 0, holdDays: 0, droppedDays: 0, segments: [], drops: [], rules: R };
+    }
+    var spanDays = list[list.length - 1] - list[0] + 1;
+    /* Every gap wide enough to be a legal drop, biggest first — dropping the
+       longest idle stretch is what saves the most, and the agreement limits
+       how many drops one performer may carry. */
+    var gaps = [];
+    for (var i = 0; i < list.length - 1; i++) {
+      var free = list[i + 1] - list[i] - 1;
+      if (free >= R.minDropGap && R.minDropGap > 0) gaps.push({ at: i, free: free });
+    }
+    gaps.sort(function (a, b) { return b.free - a.free || a.at - b.at; });
+    var cut = {};
+    gaps.slice(0, R.maxDrops).forEach(function (g) { cut[g.at] = g.free; });
+
+    var segments = [], drops = [], start = 0;
+    for (var j = 0; j < list.length; j++) {
+      if (j === list.length - 1 || cut[j] != null) {
+        var first = list[start], last = list[j], d = last - first + 1;
+        segments.push({ first: first, last: last, days: d,
+                        weeks: Math.max(R.minWeeks, Math.ceil(d / R.daysPerWeek)) });
+        if (cut[j] != null) {
+          /* Notice is owed noticeDays before the drop. It cannot fall before
+             day 1 of the shoot — a drop on the performer's first day means
+             the notice goes out at engagement, not on a day that does not
+             exist — so the index is clamped rather than allowed to go
+             negative and print as "Day 0". */
+          drops.push({ after: last, pickUp: list[j + 1], freeDays: cut[j],
+                       noticeBy: Math.max(0, last - R.noticeDays) });
+          start = j + 1;
+        }
+      }
+    }
+    var spanWeeks = segments.reduce(function (a, s) { return a + s.weeks; }, 0);
+    var billedDays = segments.reduce(function (a, s) { return a + s.days; }, 0);
+    var contWeeks = Math.max(R.minWeeks, Math.ceil(spanDays / R.daysPerWeek));
+    return {
+      workDays: list.length, spanDays: spanDays,
+      spanWeeks: spanWeeks, contWeeks: contWeeks, savedWeeks: contWeeks - spanWeeks,
+      billedDays: billedDays, holdDays: billedDays - list.length,
+      droppedDays: spanDays - billedDays,
+      segments: segments, drops: drops, rules: R
+    };
+  }
+
+  /* Six- and seven-day weeks. The premium multipliers are TMoney's — read,
+     never copied: a second table of the same numbers is how two answers to
+     one question start. When tools/lib-money.js is not on the page the
+     premium is reported as unavailable rather than silently quoted as 1×. */
+  function weekPremium(daysPerWeek) {
+    var n = Math.max(5, Math.min(7, Math.round(daysPerWeek || 5)));
+    var tc = root.TMoney && root.TMoney.TC_DEFAULTS;
+    if (n === 5) return { daysPerWeek: 5, mult: 1, source: 'straight week' };
+    if (!tc) return { daysPerWeek: n, mult: 1, source: 'unavailable',
+                      note: 'tools/lib-money.js is not loaded on this page, so the 6th/7th-day premium could not be applied' };
+    var total = 5 + tc.sixthDayMult + (n >= 7 ? tc.seventhDayMult : 0);
+    return { daysPerWeek: n, mult: total / n, source: 'TMoney.TC_DEFAULTS',
+             sixthDayMult: tc.sixthDayMult, seventhDayMult: n >= 7 ? tc.seventhDayMult : null };
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
    *  2. SCRIPT ANALYSIS
    * ════════════════════════════════════════════════════════════════════ */
 
@@ -564,7 +686,12 @@
     // (CineSched convention); page-count fallback otherwise.
     var pagesExact = analysis.eighthsTotal ? analysis.eighthsTotal / 8 : analysis.pages;
     var shootDays = Math.max(5, Math.ceil(pagesExact / scale.pagesPerDay * driverLoad));
-    var shootWeeks = shootDays / 5;
+    /* The working week. Five- and seven-day weeks were the only two shapes
+       the platform could express; six is the norm on a low-budget feature,
+       and it changes both the calendar (the same days in fewer weeks) and
+       the money (the 6th day carries TMoney's premium). */
+    var week = weekPremium(sel.daysPerWeek);
+    var shootWeeks = shootDays / week.daysPerWeek;
     var prepWeeks = Math.max(2, Math.round(shootWeeks * (scale.crewSize >= 110 ? 1.6 : 1.1)));
     var postWeeks = Math.max(8, Math.round(shootWeeks * 2.4 + (vfx.shotsPct >= 0.45 ? 16 : vfx.shotsPct >= 0.25 ? 8 : 0)));
 
@@ -578,6 +705,16 @@
       sceneDay.push(Math.min(shootDays - 1, Math.floor(cum / eighthsPerDay)));
       cum += e;
     });
+    /* One arithmetic, two entry points. The board hands over a finished
+       castDood row (producer/schedule-board.js runs the SAME castWeeks over
+       real day assignments); without a board this derives the worked-day list
+       from script order and runs castWeeks over that. The two used to be
+       separate ceil(span/5) expressions in two files, and only one of them
+       could ever be fixed at a time. */
+    var doodRules = { daysPerWeek: week.daysPerWeek };
+    if (sel.castRules) {
+      Object.keys(sel.castRules).forEach(function (k) { doodRules[k] = sel.castRules[k]; });
+    }
     function doodFor(name) {
       // Board-driven DOOD wins: when the stripboard has real day assignments
       // (sel.castDood from the Producer Suite), use those exact spans instead
@@ -585,15 +722,8 @@
       if (sel.castDood && sel.castDood[name]) return sel.castDood[name];
       var idxs = analysis.sceneCast && analysis.sceneCast[name];
       if (!idxs || !idxs.length || !sceneDay.length) return null;
-      var seen = {}, min = Infinity, max = -Infinity;
-      idxs.forEach(function (i) {
-        var d = sceneDay[Math.min(i, sceneDay.length - 1)];
-        seen[d] = 1;
-        if (d < min) min = d;
-        if (d > max) max = d;
-      });
-      var span = max - min + 1;
-      return { workDays: Object.keys(seen).length, spanDays: span, spanWeeks: Math.max(1, Math.ceil(span / 5)) };
+      var worked = idxs.map(function (i) { return sceneDay[Math.min(i, sceneDay.length - 1)]; });
+      return castWeeks(worked, doodRules);
     }
     // Per-scene breakdown tags from the stripboard override the keyword
     // heuristics (sel.unitOverrides), and board day assignments override the
@@ -615,6 +745,13 @@
     /* ── Above the line ──────────────────────────────────────────── */
     var castLeads = R(lead.range, analysis.leads);
     var castSupport = [0, 0];
+    /* What the drop/pick-up actually saves, in weeks and in dollars, so the
+       number is visible instead of implied. */
+    var dropSavedWeeks = 0, dropCount = 0;
+    supportNames.forEach(function (n) {
+      var dd = doodFor(n);
+      if (dd && dd.savedWeeks > 0) { dropSavedWeeks += dd.savedWeeks; dropCount += (dd.drops || []).length; }
+    });
     supportNames.forEach(function (n) {
       var d = doodFor(n);
       var weeks = d ? d.spanWeeks : fallbackSpanWeeks;
@@ -642,7 +779,10 @@
     atl['4400 · Casting'] = R(scale.castingFee);
 
     /* ── Below the line (production) ─────────────────────────────── */
-    var laborBase = scale.crewSize * scale.crewAvgDay * crew.rateMult * shootDays * (1 + OT_FACTOR);
+    /* week.mult carries the 6th/7th-day premium: on a six-day week one day in
+       every six is paid at TMoney's sixthDayMult, so the average shoot day
+       costs more than a straight day. At five days a week it is exactly 1. */
+    var laborBase = scale.crewSize * scale.crewAvgDay * crew.rateMult * shootDays * (1 + OT_FACTOR) * week.mult;
     var crewLabor = [laborBase * 0.9, laborBase * 1.15];
     var castFringeBase = addR(addR(castLeads, castSupport), castDay);
     var fringes = [
@@ -771,8 +911,12 @@
 
     return {
       tiers: { scale: scale, director: director, lead: lead, supporting: support, crew: crew, locations: loc, equipment: equip, vfx: vfx, vfxAuto: (sel.vfx === 'auto' || !sel.vfx), incentive: incentive, genre: genre, genreAuto: !(sel.genre && sel.genre !== 'auto' && GENRE_BENCHMARKS[sel.genre]) },
-      schedule: { shootDays: shootDays, prepWeeks: prepWeeks, postWeeks: postWeeks, totalWeeks: Math.round(prepWeeks + shootWeeks + postWeeks) },
-      dood: { avgSupportWeeks: avgSupportWeeks, hasSceneData: !!(sceneDay.length && Object.keys(analysis.sceneCast || {}).length) },
+      schedule: { shootDays: shootDays, prepWeeks: prepWeeks, postWeeks: postWeeks,
+                  totalWeeks: Math.round(prepWeeks + shootWeeks + postWeeks),
+                  daysPerWeek: week.daysPerWeek, weekPremium: week },
+      dood: { avgSupportWeeks: avgSupportWeeks, hasSceneData: !!(sceneDay.length && Object.keys(analysis.sceneCast || {}).length),
+              drops: dropCount, savedWeeks: dropSavedWeeks,
+              savedCost: dropSavedWeeks * perf.week, weeklyRate: perf.week },
       groups: { 'Above the line': atl, 'Production (below the line)': btl, 'Post-production': post, 'Other': other },
       groupTotals: {
         'Above the line': sumGroup(atl),
@@ -1229,6 +1373,10 @@
     fmtRange: fmtRange,
     fmtMins: fmtMins,
     splitScenes: splitScenes,
+    castWeeks: castWeeks,
+    castRules: castRules,
+    weekPremium: weekPremium,
+    CAST_RULES: CAST_RULES,
     inferGenre: inferGenre,
     budgetPercentile: budgetPercentile,
     TIERS: TIERS,

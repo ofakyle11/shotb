@@ -36,6 +36,13 @@
 .sk-photos{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .sk-photos .sk-ph{position:relative}
 .sk-photos img{height:72px;border-radius:6px;border:1px solid var(--border);display:block}
+/* A photo whose bytes are not on this device. It used to be removed from the
+   page outright, so a scout book that had lost every image looked like a scout
+   book that never had one. It stays, and it says what happened. */
+.sk-photos .sk-gone{height:72px;width:96px;border-radius:6px;border:1px dashed var(--bad,#e06c6c);
+  display:flex;align-items:center;justify-content:center;text-align:center;padding:4px;
+  font-size:9px;line-height:1.3;color:var(--bad,#e06c6c);background:var(--surface2)}
+.sk-missing{color:var(--bad,#e06c6c);font-size:11px;margin-top:6px;display:block}
 .sk-photos button{position:absolute;top:2px;right:2px;font-size:9px;line-height:1;padding:2px 4px}
 .sk-tag{font-family:var(--mono);font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 6px;text-transform:uppercase;letter-spacing:.06em}
 .sk-spacer{flex:1}
@@ -142,19 +149,33 @@
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
 
   /* ── IndexedDB photo store: db cinamate_scout / store photos ── */
-  function idb(cb) {
+  /* `fail` is not optional politeness: a reader that is never called back
+     leaves an <img> with no src on the page, which is the silent-failure shape
+     this module is being fixed for. Every path here ends in one callback or
+     the other. */
+  function idb(cb, fail) {
+    function gone() { if (fail) fail(); else toast('Photo store unavailable in this browser'); }
     try {
       var rq = indexedDB.open('cinamate_scout', 1);
-      rq.onupgradeneeded = function (e) { e.target.result.createObjectStore('photos'); };
+      rq.onupgradeneeded = function (e) {
+        var d = e.target.result;
+        if (!d.objectStoreNames.contains('photos')) d.createObjectStore('photos');
+      };
       rq.onsuccess = function (e) { cb(e.target.result); };
-      rq.onerror = function () { toast('Photo store unavailable in this browser'); };
-    } catch (e) { toast('Photo store unavailable in this browser'); }
+      rq.onerror = gone;
+    } catch (e) { gone(); }
   }
   function putPhoto(id, dataUrl, done) {
     idb(function (db) { var tx = db.transaction('photos', 'readwrite'); tx.objectStore('photos').put(dataUrl, id); tx.oncomplete = done; });
   }
   function getPhoto(id, cb) {
-    idb(function (db) { var rq = db.transaction('photos').objectStore('photos').get(id); rq.onsuccess = function () { cb(rq.result || null); }; });
+    idb(function (db) {
+      var rq;
+      try { rq = db.transaction('photos').objectStore('photos').get(id); }
+      catch (e) { return cb(null); }
+      rq.onsuccess = function () { cb(rq.result || null); };
+      rq.onerror = function () { cb(null); };
+    }, function () { cb(null); });
   }
   function delPhoto(id) {
     idb(function (db) { db.transaction('photos', 'readwrite').objectStore('photos').delete(id); });
@@ -264,10 +285,35 @@
   function renderLocations() {
     $('skLocs').innerHTML = st.locations.map(locCard).join('') ||
       '<p class="sk-note">No locations yet — add one, or suggest them from the working screenplay.</p>';
-    /* hydrate photo strips from IndexedDB */
+    /* Hydrate photo strips from IndexedDB.
+
+       A miss used to delete the img element. The bytes of a scout photo live in
+       IndexedDB and, until the vault learned to carry them, never travelled in
+       an archive or a cloud push — so on any second device every photo was a
+       miss and the page removed all of them, leaving a scout book that looked
+       like it had simply never been photographed. Nothing was reported and
+       nothing looked wrong. The element stays now, and it says what is missing
+       and what to do about it. */
     var imgs = $('skLocs').querySelectorAll('img[data-photo]');
     Array.prototype.forEach.call(imgs, function (im) {
-      getPhoto(im.getAttribute('data-photo'), function (data) { if (data) im.src = data; else im.parentNode.removeChild(im); });
+      var pid = im.getAttribute('data-photo');
+      getPhoto(pid, function (data) {
+        if (data) { im.src = data; return; }
+        var ph = document.createElement('span');
+        ph.className = 'sk-gone';
+        ph.textContent = '⚠ photo missing';
+        ph.setAttribute('title', 'This location references photo ' + pid + ', but its bytes are not in ' +
+          'this browser. Open Projects and restore this production from a backup that carries media, ' +
+          'or re-add the photo.');
+        if (im.parentNode) im.parentNode.replaceChild(ph, im);
+        var strip = ph.closest ? ph.closest('.sk-photos') : null;
+        if (strip && !strip.querySelector('.sk-missing')) {
+          var n = document.createElement('span');
+          n.className = 'sk-missing';
+          n.textContent = 'Some photo files are not on this device — Projects → Import backup restores them.';
+          strip.appendChild(n);
+        }
+      });
     });
   }
   $('skAdd').addEventListener('click', function () {

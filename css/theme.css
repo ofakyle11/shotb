@@ -33,6 +33,22 @@
 
 /* ==========================================================================
    01 · DESIGN TOKENS
+   --------------------------------------------------------------------------
+   THIS BLOCK IS A MIRROR OF css/tokens.css SECTION 01. Change both together.
+
+   tokens.css is the single token source for the application. theme.css cannot
+   @import it: scripts/deploy_cinamate.mjs keeps theme.css on the public CDN
+   for the signed-out landing page while moving tokens.css inside the gate
+   function, so the import would be answered with a redirect and the landing
+   page would render with no tokens for every anonymous visitor. Hence the
+   duplication. To collapse it, add 'css/tokens.css' to PUBLIC_FILES in
+   scripts/deploy_cinamate.mjs and to PUBLIC_EXACT in sw.js, then replace this
+   block with an @import.
+
+   `color-scheme: dark` stays here only. It is not mirrored into tokens.css,
+   because applying it to the 28 module pages would repaint every native
+   <select>, date picker and scrollbar on them — a real visual change, and so
+   a separate order rather than a side effect of moving tokens.
    ========================================================================== */
 
 :root {

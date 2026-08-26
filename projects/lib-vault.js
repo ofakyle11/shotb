@@ -440,9 +440,13 @@
       var spec = specFor(r.db, r.store);
       if (!spec) return;
       var owner = (spec.projectField && r.project != null) ? String(r.project) : '';
-      var mine = owner
-        ? owner === proj
-        : !!(refs[spec.db + '/' + spec.store] || {})[String(r.id)];
+      /* Either claim is enough. The stamp catches a record this project made
+         and has since stopped pointing at; the reference catches a record that
+         carries no stamp at all (scout, cutting room) and one whose stamp has
+         gone stale — a project rename leaves every wardrobe photo stamped with
+         the old title, and reading only the stamp would strand all of them. */
+      var mine = (owner && owner === proj) ||
+        !!(refs[spec.db + '/' + spec.store] || {})[String(r.id)];
       if (!mine) return;
       var k = blobKey(r);
       if (seen[k]) return;
@@ -602,15 +606,21 @@
       var proj = meta(store).active;
       return P(ad.readAll()).then(function (recs) {
         var mine = blobsFor(recs, stores, proj).map(normalizeBlob);
+        /* An entry with no bytes is not a file, it is a hole. The adapter
+           returns one when a record was too large to read into memory or its
+           stored shape was not readable at all. It goes in the missing list,
+           never into `blobs` — an archive must not carry an entry that looks
+           like a photograph and restores to nothing. */
+        var carried = mine.filter(function (r) { return !!r.data; });
         return JSON.stringify({
           format: FORMAT,
           name: name || 'Untitled Project',
           savedAt: when || '',
           stores: stores,
-          blobs: mine,
+          blobs: carried,
           /* Recorded at pack time, so a restore can tell "this backup never had
              them" apart from "this restore lost them". */
-          blobsMissing: missingBlobs(stores, recs)
+          blobsMissing: missingBlobs(stores, carried)
         });
       });
     });
