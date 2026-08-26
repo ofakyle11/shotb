@@ -1960,7 +1960,12 @@ function bindUI(){
   $('btnGen').onclick=genSelected;
   $('btnRegen').onclick=genSelected;
   $('btnApprove').onclick=approveSelected;
-  $('btnPreview').onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(c&&c.videoUrl)window.open(c.videoUrl);else toast('No video')};
+  /* A clip's videoUrl arrives from the generation API, but it also survives
+     a project export and comes back on import, so it can be anything the
+     file said it was. window.open on a javascript: URL runs it in this
+     origin. isSafe() rather than safe() because safe() escapes for an HTML
+     attribute and would corrupt a real URL's query string. */
+  $('btnPreview').onclick=()=>{const c=state.clips.find(x=>x.id===state.selectedId);if(c&&c.videoUrl&&window.CinUrl&&CinUrl.isSafe(c.videoUrl))window.open(c.videoUrl,'_blank','noopener');else toast(c&&c.videoUrl?'That clip\u2019s video link is not a URL this app will open':'No video')};
   $('btnPreviewAll').onclick=previewAll;
   $('btnExport').onclick=sendEditor;
   $('btnFinal').onclick=finalExport;

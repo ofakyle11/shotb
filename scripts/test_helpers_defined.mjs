@@ -30,6 +30,13 @@ const SKIP = new Set(['.git', 'node_modules', 'static', 'assets', 'private',
 
 const HELPERS = ['esc', 'escHtml', 'escAttr', 'escT', 'escH', 'jsq', 'csvSafe', 'ea', 'ex'];
 
+/* Namespaced helpers are member calls — CinUrl.safe(x) — so the bare-name
+   test below cannot see them: it looks for `name(` and this is `name.`. The
+   consequence of a missing one is identical, a ReferenceError that takes the
+   whole renderer down, and it was reached the same way: a sweep added
+   CinUrl.safe() to a page whose script tags never loaded js/safe-url.js. */
+const NAMESPACES = ['CinUrl'];
+
 /* Strip strings, template literals, comments and regex literals, and report
    the brace depth at each surviving character. Nothing here needs to be a
    perfect JS parser — it needs to know whether a declaration sits at the top
@@ -135,6 +142,11 @@ const calls = (raw, name) => {
   return new RegExp('(?<![.\\w$])' + name + '\\s*\\(').test(withoutDefs);
 };
 
+/* A bare `CinUrl.` — not `window.CinUrl`, which is the guarded form and is a
+   test for existence rather than a use of it. */
+const usesNamespace = (raw, name) =>
+  new RegExp('(?<![.\\w$])' + name + '\\s*\\.').test(stripComments(raw));
+
 /* Declarations ANYWHERE inside one script block, at any depth. A page that
    wraps its code in an IIFE and defines esc() inside it is perfectly correct —
    the call and the definition share a scope. What is NOT correct is calling a
@@ -182,6 +194,12 @@ for (const page of walk(ROOT, '.html')) {
       fail++;
       console.log(`  x ${rel} calls ${name}() — not defined in that script block, and not a global of any script the page loads`);
     }
+    for (const ns of NAMESPACES) {
+      if (!usesNamespace(block, ns)) continue;
+      if (local.has(ns) || globals.has(ns)) { pass++; continue; }
+      fail++;
+      console.log(`  x ${rel} uses ${ns}.* — no script the page loads defines it`);
+    }
   }
 }
 
@@ -189,6 +207,23 @@ for (const file of walk(ROOT, '.js')) {
   const rel = relative(ROOT, file).split('\\').join('/');
   const body = readFileSync(file, 'utf8');
   const local = declaredInBlock(body);
+  /* A module that assigns root.CinUrl is the definition, not a use of one. */
+  const selfDefines = topLevelDeclarations(body);
+  const pagesLoading = (rel, base, dirOf) => walk(ROOT, '.html').filter((p) => {
+    const pr = relative(ROOT, p).split('\\').join('/');
+    if (pr.slice(0, pr.lastIndexOf('/')) !== dirOf && !readFileSync(p, 'utf8').includes('/' + rel)) return false;
+    return readFileSync(p, 'utf8').includes(base);
+  });
+  for (const ns of NAMESPACES) {
+    if (!usesNamespace(body, ns) || selfDefines.has(ns) || local.has(ns)) continue;
+    const base = rel.slice(rel.lastIndexOf('/') + 1);
+    const loaders = pagesLoading(rel, base, rel.slice(0, rel.lastIndexOf('/')));
+    if (loaders.length && loaders.every((l) => pageGlobals(l).globals.has(ns))) { pass++; continue; }
+    fail++;
+    console.log(`  x ${rel} uses ${ns}.* — ` + (loaders.length
+      ? 'a page loading it does not load the script that defines it'
+      : 'no page loading it was found'));
+  }
   for (const name of HELPERS) {
     if (!calls(body, name)) continue;
     if (local.has(name)) { pass++; continue; }

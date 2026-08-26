@@ -243,7 +243,11 @@
         '<h1>' + esc(t) + '</h1><p class="log">' + esc(C.$('ekLogline').value) + '</p>' +
         (C.$('ekRuntime').value ? '<p class="c">Runtime ' + esc(C.$('ekRuntime').value) + '</p>' : '') +
         '<h2>Synopsis</h2><p>' + esc(C.$('ekSyn').value).replace(/\n/g, '</p><p>') + '</p>' +
-        (stills.length ? '<h2>Stills</h2>' + stills.map(function (s) { return '<img src="' + escAttr(s) + '">'; }).join('') : '') +
+        (stills.length ? '<h2>Stills</h2>' + stills.map(function (s) {
+          /* escAttr stops a value breaking out of the attribute and does
+             nothing about what the attribute then points at. */
+          return '<img src="' + CinUrl.safe(s) + '">';
+        }).join('') : '') +
         (cast.length ? '<h2>Characters</h2><table>' + cast.map(function (c) { return '<tr><td>' + esc(c) + '</td></tr>'; }).join('') + '</table>' : '') +
         (crew.length ? '<h2>Crew</h2><table>' + crew.map(function (c) { return '<tr><td>' + esc(c.role || '') + '</td><td class="c">' + esc(c.name || '') + '</td></tr>'; }).join('') + '</table>' : '') +
         (C.$('ekContact').value ? '<h2>Contact</h2><p>' + esc(C.$('ekContact').value) + '</p>' : '') +
