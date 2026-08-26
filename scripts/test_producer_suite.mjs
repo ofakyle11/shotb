@@ -4,7 +4,8 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-for (const f of ['timeline/timeline-doc.js', 'timeline/timeline-budget.js', 'producer/budget-sheet.js', 'producer/schedule-board.js', 'producer/incentives.js']) {
+for (const f of ['js/lib-money-math.js', 'js/lib-money-accounts.js', 'js/lib-money-sheet.js',
+                 'timeline/timeline-doc.js', 'timeline/timeline-budget.js', 'producer/budget-sheet.js', 'producer/schedule-board.js', 'producer/incentives.js']) {
   (0, eval)(readFileSync(join(root, f), 'utf8'));
 }
 const { SBBudget, SBBudgetSheet, SBScheduleBoard } = globalThis;
@@ -17,8 +18,11 @@ function check(name, cond, extra) {
 
 // ── budget sheet model ──
 const sheet = SBBudgetSheet.blankSheet();
-check('18 categories (contingency auto)', sheet.categories.length === 18, sheet.categories.length);
-check('accounts 1000..18000', sheet.categories[0].acct === '1000' && sheet.categories[17].acct === '18000');
+/* 19 now: wave 1 pulled fringes out of General Expenses onto their own
+   CAccounts.FRINGE_ACCT ('20000') line. Contingency (19000) stays computed. */
+check('19 categories (contingency auto, fringes seeded)', sheet.categories.length === 19, sheet.categories.length);
+check('accounts 1000..18000 then 20000', sheet.categories[0].acct === '1000'
+  && sheet.categories[17].acct === '18000' && sheet.categories[18].acct === '20000');
 
 const it = { amt: '3', units: '10', rate: '500', est: 999, actual: 0 };
 check('amt×units×rate wins over manual est', SBBudgetSheet.itemEst(it) === 15000, SBBudgetSheet.itemEst(it));

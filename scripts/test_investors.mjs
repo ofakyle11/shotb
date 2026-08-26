@@ -5,6 +5,10 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+/* money substrate — hard load order: math → accounts → sheet */
+for (const f of ['js/lib-money-math.js', 'js/lib-money-accounts.js', 'js/lib-money-sheet.js']) {
+  (0, eval)(readFileSync(join(ROOT, f), 'utf8'));
+}
 (0, eval)(readFileSync(join(ROOT, 'investors/lib-invest.js'), 'utf8'));
 const I = globalThis.CInvest;
 

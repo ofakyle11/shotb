@@ -113,6 +113,10 @@ t('committedPo guard blocks a second commit', P.awardBid(bids, b2.id).needsCommi
 t('awardBid of unknown id → null', P.awardBid(bids, 'nope') === null);
 
 /* ── Money Room round-trip (real CMoney) ── */
+/* money substrate — hard load order: math → accounts → sheet */
+for (const f of ['js/lib-money-math.js', 'js/lib-money-accounts.js', 'js/lib-money-sheet.js']) {
+  (0, eval)(readFileSync(join(ROOT, f), 'utf8'));
+}
 (0, eval)(readFileSync(join(ROOT, 'finance/lib-money.js'), 'utf8'));
 const M = globalThis.CMoney;
 const money = M.blank();

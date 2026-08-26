@@ -8,6 +8,10 @@ import { fileURLToPath } from 'url';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 globalThis.SBBudget = { fmtMoney: (n) => '$' + Math.round(n).toLocaleString() };
 (0, eval)(readFileSync(join(ROOT, 'editor/lib-cut.js'), 'utf8'));
+/* money substrate — hard load order: math → accounts → sheet */
+for (const f of ['js/lib-money-math.js', 'js/lib-money-accounts.js', 'js/lib-money-sheet.js']) {
+  (0, eval)(readFileSync(join(ROOT, f), 'utf8'));
+}
 (0, eval)(readFileSync(join(ROOT, 'producer/budget-sheet.js'), 'utf8'));
 const C = globalThis.CCut, B = globalThis.SBBudgetSheet;
 
