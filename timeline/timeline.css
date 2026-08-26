@@ -17,7 +17,7 @@ button,input,select,textarea{font-family:inherit}
 
 /* ── top bar ── */
 .topbar{display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
-.logo{font-family:var(--display);font-size:17px;font-weight:800;letter-spacing:-.03em;margin-right:8px;flex-shrink:0}
+.logo{font-family:var(--display);font-size:17px;font-weight:700;letter-spacing:.04em;margin-right:8px;flex-shrink:0}
 .logo span{color:#8BA3B8}
 .tb-group{display:flex;align-items:center;gap:6px}
 .tb-btn{border:1px solid var(--border);background:var(--surface2);color:var(--text2);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:600;cursor:pointer;transition:.12s;white-space:nowrap}

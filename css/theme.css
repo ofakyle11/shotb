@@ -67,6 +67,13 @@
   --violet:  #8BA3B8;
   --magenta: #C9A86C;
 
+  /* The two Blue Patina primaries the accent trio above has no slot for.
+     Both are named in the brand kit and neither existed anywhere in the tree
+     until now, so --grad-brand below — the kit's one specified gradient —
+     had no colour to end on and was simply never implemented. */
+  --patina-hi: #C0D0E0;   /* Metallic Highlight — rims, hover lift, key line */
+  --blue-mid:  #4A6B82;   /* Mid Blue — gradient terminus, muted fills       */
+
   /* accent alphas — reused constantly, tokenized once */
   --cyan-25:    rgba(91, 141, 184, 0.25);
   --cyan-12:    rgba(91, 141, 184, 0.12);
@@ -86,6 +93,10 @@
   --info:  var(--cyan);
 
   /* ---- Gradients (thin strokes, text fills, 1px borders — never fills) ---- */
+  /* The kit specifies exactly one brand gradient: Deep Navy → Mid Blue. It is
+     the only one here allowed to fill a surface; --grad-holo below is a stroke
+     recipe and stays one. */
+  --grad-brand: linear-gradient(135deg, #0A1628 0%, #4A6B82 100%);
   --grad-holo: linear-gradient(135deg, #5B8DB8 0%, #8BA3B8 50%, #C9A86C 100%);
   --grad-holo-soft: linear-gradient(135deg,
       rgba(91, 141, 184, 0.55) 0%,
