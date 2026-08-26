@@ -10,7 +10,7 @@
  * Run: node scripts/test_deploy_exclusions.mjs
  */
 import { execFileSync } from 'child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'fs';
+import { cpSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { dirname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
@@ -45,6 +45,30 @@ for (const rel of planted) {
   writeFileSync(join(repo, rel), 'TOKEN=' + CANARY + '\n');
 }
 
+/* A later review found the name and extension lists were applied only to the
+   top level — the recursive filter under them asked about dotfiles and
+   nothing else. A .zip under assets/ and a .ps1 under static/ were planted
+   and both shipped to the CDN untouched. Extension matching was also
+   case-sensitive, and a CDN serves "Backup.ZIP" exactly like "backup.zip". */
+const deepPlanted = [
+  join('assets', 'build.zip'),
+  join('assets', 'Backup.ZIP'),
+  join('static', 'vendor-install.ps1'),
+  join('static', 'Setup.BAT'),
+  join('projects', 'private', 'notes.txt'), // an excluded NAME, one level down
+];
+for (const rel of deepPlanted) {
+  mkdirSync(dirname(join(repo, rel)), { recursive: true });
+  writeFileSync(join(repo, rel), 'TOKEN=' + CANARY + '\n');
+}
+
+/* A symlink is not its target until something reads it — and reading it is
+   precisely what the upload step does. Copied as a link, resolved later, the
+   name checks never see where it actually points. */
+writeFileSync(join(repo, 'private', 'owner-token.txt'), 'TOKEN=' + CANARY + '\n');
+symlinkSync(join(repo, 'private', 'owner-token.txt'), join(repo, 'assets', 'logo-backup.svg'));
+symlinkSync(join(repo, 'private'), join(repo, 'assets', 'vault'), 'dir');
+
 /* package.json came across with the copy; terser and its own dependencies
    resolve from node_modules, which is linked rather than copied — it is by
    far the largest thing in the tree and nothing here writes to it. */
@@ -69,7 +93,9 @@ if (staged) {
     const acc = [];
     for (const e of readdirSync(dir)) {
       const p = join(dir, e);
-      if (statSync(p).isDirectory()) acc.push(...walk(p));
+      /* lstat: a surviving symlink must be reported, not walked through as
+         though it were an ordinary part of the staged tree. */
+      if (lstatSync(p).isDirectory()) acc.push(...walk(p));
       else acc.push(p);
     }
     return acc;
@@ -112,25 +138,53 @@ if (staged) {
     t('never publishes ' + dir + '/', hit.length === 0, hit.slice(0, 3).join(', '));
   }
 
+  /* 5. the lists reach all the way down, and are blind to case */
+  const all = [...publicFiles.map((r) => ['public', r]), ...gatedFiles.map((r) => ['gated', r])];
+  for (const bad of ['build.zip', 'Backup.ZIP', 'vendor-install.ps1', 'Setup.BAT']) {
+    const hit = all.filter(([, r]) => r.split('/').pop() === bad);
+    t('never ships ' + bad + ' from inside a published directory',
+      hit.length === 0, hit.map(([l, r]) => l + ':' + r).join(', '));
+  }
+  const nestedName = all.filter(([, r]) => r.split('/').slice(0, -1).includes('private'));
+  t('an excluded name is excluded at depth too',
+    nestedName.length === 0, nestedName.map(([l, r]) => l + ':' + r).join(', '));
+
+  /* 6. no symlink survives the copy into either tree */
+  const links = [['public', site, publicFiles], ['gated', gated, gatedFiles]]
+    .flatMap(([label, dir, list]) => list
+      .filter((r) => { try { return lstatSync(join(dir, r)).isSymbolicLink(); } catch { return false; } })
+      .map((r) => label + ':' + r));
+  t('no symlink survives into either tree', links.length === 0, links.join(', '));
+
   rmSync(staged[1].trim(), { recursive: true, force: true });
 }
 
-/* 5. the hard stop actually stops. Route around the copy filter by writing a
-      dotfile straight into the staged tree, and prove the build refuses. */
-{
-  const patched = readFileSync(join(repo, 'scripts', 'deploy_cinamate.mjs'), 'utf8').replace(
-    "cpSync(join(ROOT, 'assets', 'favicon.ico'), join(site, 'favicon.ico'));",
-    "writeFileSync(join(site, '.env'), 'TOKEN=" + CANARY + "');\n" +
-    "cpSync(join(ROOT, 'assets', 'favicon.ico'), join(site, 'favicon.ico'));");
-  const probe = join(repo, 'scripts', '_probe_deploy.mjs');
-  writeFileSync(probe, patched);
+/* 7. the hard stop actually stops. Route around the copy filter entirely by
+      writing straight into the staged tree, and prove the build still refuses
+      — once for each rule, because a guard that only knows about dotfiles is
+      how the .zip and .ps1 got out in the first place. */
+const ANCHOR = "cpSync(join(ROOT, 'assets', 'favicon.ico'), join(site, 'favicon.ico'));";
+const PLANTS = [
+  ['dotfile', "writeFileSync(join(site, '.env'), 'x');", /\.env/],
+  ['excluded extension', "writeFileSync(join(site, 'leak.zip'), 'x');", /leak\.zip/],
+  ['upper-case extension', "writeFileSync(join(site, 'Leak.ZIP'), 'x');", /Leak\.ZIP/],
+  ['excluded name', "mkdirSync(join(site, 'private'));writeFileSync(join(site, 'private', 'n.txt'), 'x');", /private/],
+  ['symlink', "symlinkSync(join(ROOT, 'package.json'), join(site, 'notes.txt'));", /notes\.txt/],
+];
+const src = readFileSync(join(repo, 'scripts', 'deploy_cinamate.mjs'), 'utf8');
+for (const [label, plant, names] of PLANTS) {
+  const probe = join(repo, 'scripts', '_probe_' + label.replace(/\W+/g, '_') + '.mjs');
+  writeFileSync(probe, src
+    .replace('} from \'fs\';', ', symlinkSync } from \'fs\';')
+    .replace(ANCHOR, plant + '\n' + ANCHOR));
   let status = 0, text = '';
   try {
     text = execFileSync(process.execPath, [probe, 'cinamate-studio', '--build-only'],
       { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (e) { status = e.status; text = (e.stdout || '') + (e.stderr || ''); }
-  t('a dotfile that reaches the staged tree fails the build', status !== 0, 'exit ' + status);
-  t('the failure names the file', /REFUSING TO DEPLOY/.test(text) && /\.env/.test(text), text.slice(-300));
+  t('a ' + label + ' reaching the staged tree fails the build', status !== 0, 'exit ' + status + '\n      ' + text.slice(-300));
+  t('the ' + label + ' failure names the file',
+    /REFUSING TO DEPLOY/.test(text) && names.test(text), text.slice(-300));
   const stagedAt = /BUILD-ONLY — staged at: (.+)/.exec(text);
   if (stagedAt) rmSync(stagedAt[1].trim(), { recursive: true, force: true });
 }

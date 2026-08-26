@@ -19,7 +19,7 @@
  */
 import { execSync } from 'child_process';
 import { createHash, randomBytes } from 'crypto';
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync, existsSync } from 'fs';
+import { cpSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync, existsSync } from 'fs';
 import { createRequire } from 'module';
 import { tmpdir } from 'os';
 import { dirname, join, relative } from 'path';
@@ -89,27 +89,49 @@ const EXCLUDE_EXT = new Set(['.zip', '.jpeg', '.ps1', '.bat']);
  * from a dot-path has to be named here deliberately. */
 const DOTFILE_ALLOW = new Set(['.well-known']);
 const isHidden = (entry) => entry.charAt(0) === '.' && !DOTFILE_ALLOW.has(entry);
+/* Extension matching is case-insensitive. A case-preserving file system
+ * still serves "Backup.ZIP" over HTTP exactly like "backup.zip", so testing
+ * the lower-case spelling alone excluded only the tidy half of the risk. */
+const hasBadExt = (entry) =>
+  EXCLUDE_EXT.has(entry.slice(entry.lastIndexOf('.')).toLowerCase());
+
+/* Every rule has to hold at every depth, not only at the repo root. The old
+ * root loop tested the name and extension lists once, at the top, and the
+ * recursive filter below it asked about nothing but dotfiles — so
+ * "assets/build.zip" and "static/vendor/install.ps1" were copied to the CDN
+ * untouched, because nothing below the first level was ever asked.
+ *
+ * Symlinks are refused rather than followed. cpSync copies a link as a link
+ * and only the later read resolves it, so a link named "logo.svg" pointing
+ * at ../private/owner-token passes every name test above and still lands the
+ * target's bytes in the upload set. */
+function refuse(src) {
+  const name = src.slice(src.lastIndexOf('/') + 1);
+  if (isHidden(name)) return 'dotfile';
+  if (EXCLUDE.has(name)) return 'excluded name';
+  if (hasBadExt(name)) return 'excluded extension';
+  if (lstatSync(src).isSymbolicLink()) return 'symlink';
+  return null;
+}
 
 const work = mkdtempSync(join(tmpdir(), 'cinamate-'));
 const site = join(work, 'site');
 mkdirSync(site);
-const skippedHidden = [];
+const skipped = [];
 for (const entry of readdirSync(ROOT)) {
-  if (isHidden(entry)) { skippedHidden.push(entry); continue; }
-  if (EXCLUDE.has(entry) || EXCLUDE_EXT.has(entry.slice(entry.lastIndexOf('.')))) continue;
+  const why = refuse(join(ROOT, entry));
+  if (why) { skipped.push(entry + ' (' + why + ')'); continue; }
   cpSync(join(ROOT, entry), join(site, entry), {
     recursive: true,
-    /* the same rule has to hold all the way down: a module directory
-       carrying its own .env is no less published than a root one */
     filter: (src) => {
-      const name = src.slice(src.lastIndexOf('/') + 1);
-      if (!isHidden(name)) return true;
-      skippedHidden.push(relative(ROOT, src).split('\\').join('/'));
+      const w = refuse(src);
+      if (!w) return true;
+      skipped.push(relative(ROOT, src).split('\\').join('/') + ' (' + w + ')');
       return false;
     },
   });
 }
-if (skippedHidden.length) console.log('skipped dotfiles: ' + skippedHidden.sort().join(' '));
+if (skipped.length) console.log('skipped: ' + skipped.sort().join(' '));
 cpSync(join(ROOT, 'cinamate', 'index.html'), join(site, 'index.html'));
 rmSync(join(site, 'cinamate'), { recursive: true, force: true }); // root copy is canonical
 /* Root-convention icons: iMessage/Safari/scrapers fetch these paths directly. */
@@ -126,7 +148,10 @@ function walk(dir) {
   const out = [];
   for (const e of readdirSync(dir)) {
     const p = join(dir, e);
-    if (statSync(p).isDirectory()) out.push(...walk(p));
+    /* lstat, not stat: a symlink pointing at a directory must be reported as
+       an entry in its own right, not silently recursed through as if it were
+       part of the tree we assembled. */
+    if (lstatSync(p).isDirectory()) out.push(...walk(p));
     else out.push(p);
   }
   return out;
@@ -229,11 +254,18 @@ for (const p of walk(site)) {
   for (const [label, dir] of [['public CDN', site], ['gate bundle', join(fnRoot, 'site')]]) {
     for (const p of walk(dir)) {
       const rel = relative(dir, p).split('\\').join('/');
-      if (rel.split('/').some(isHidden)) leaked.push(label + ': ' + rel);
+      const parts = rel.split('/');
+      /* The same three questions the copy asked, asked again of the finished
+         article. A rule that is only enforced while building is a rule that
+         stops holding the moment anything writes to the tree afterwards. */
+      if (parts.some(isHidden)) leaked.push(label + ': ' + rel + ' (dotfile)');
+      else if (parts.some((n) => EXCLUDE.has(n))) leaked.push(label + ': ' + rel + ' (excluded name)');
+      else if (hasBadExt(parts[parts.length - 1])) leaked.push(label + ': ' + rel + ' (excluded extension)');
+      else if (lstatSync(p).isSymbolicLink()) leaked.push(label + ': ' + rel + ' (symlink)');
     }
   }
   if (leaked.length) {
-    console.error('REFUSING TO DEPLOY — hidden files reached the shipped tree:\n  ' + leaked.join('\n  '));
+    console.error('REFUSING TO DEPLOY — excluded files reached the shipped tree:\n  ' + leaked.join('\n  '));
     process.exit(1);
   }
 }
