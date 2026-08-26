@@ -14,24 +14,20 @@ authority.</div>
 <h2>Two rooms, three stores</h2>
 
 <p>Casting is not one page. The <strong>Casting Office</strong> at
-<span class="path">casting/index.html</span> is the cast desk proper: roles,
-candidates, audition sides, offer memos. Its engine is
-<span class="path">casting/lib-castdesk.js</span> (<code>CCastDesk</code>), and
-its state lives under one key, <code>SB_CastingDesk_v1</code>, holding
-<code>roles</code>, the selected role, and the offer draft.</p>
-
-<p>The <strong>Production Office</strong> at
-<span class="path">production/index.html</span> carries a second Casting &amp;
-Sides pane, with its own registers under <code>SB_Roles_v1</code> and
-<code>SB_Candidates_v1</code>, its own sides cutter in
-<span class="path">production/lib-prod.js</span>, and the Cast Intelligence
+<span class="path">casting/index.html</span> is the cast desk proper — roles,
+candidates, sides, offer memos — driven by
+<span class="path">casting/lib-castdesk.js</span> (<code>CCastDesk</code>) and
+stored under one key, <code>SB_CastingDesk_v1</code>. The <strong>Production
+Office</strong> at <span class="path">production/index.html</span> carries a
+second Casting &amp; Sides pane with its own registers,
+<code>SB_Roles_v1</code> and <code>SB_Candidates_v1</code>, its own sides cutter
+in <span class="path">production/lib-prod.js</span>, and the Cast Intelligence
 lookups in <span class="path">production/lib-cast.js</span>.</p>
 
-<p>These stores do not synchronise. A candidate entered on the cast desk is not
-visible in the production office register, and Cast Intelligence's
-<strong>Add as candidate</strong> writes to <code>SB_Candidates_v1</code> — the
-production office list — not to the cast desk. Pick one as your book of record
-and keep it.</p>
+<p>These stores do not synchronise. A candidate entered on the cast desk is
+invisible to the production office register, and Cast Intelligence's
+<strong>Add as candidate</strong> writes to <code>SB_Candidates_v1</code>, not
+to the cast desk. Pick one as your book of record and keep it.</p>
 
 <h2>Roles from the screenplay</h2>
 
@@ -55,16 +51,13 @@ more test of its own: the cue must be followed by a non-blank line that is not
 itself a slugline, so a lone shouted word with nothing under it is not promoted
 to a character.</p>
 
-<p>Each role comes back with its name, the number of cues, the number of scenes
-it speaks in, and the scene list, sorted by cue count descending and then by
-name. That ordering is the first useful thing on the page: the two or three
-names at the top are your leads, and the long tail of one-cue roles is your day
-player list.</p>
-
-<p>The board still needs curating. A shouted ALL-CAPS action line that happens
-to be short and to have dialogue-shaped text under it will land in the list,
-and characters credited only in action never appear at all, because they never
-speak. Prune by hand; add anything the parser missed with <strong>Add
+<p>Each role comes back with its name, its cue count, the number of scenes it
+speaks in and the scene list, sorted by cue count descending and then by name.
+That ordering is the first useful thing on the page: the names at the top are
+your leads, and the long tail of one-cue roles is your day player list. The
+board still needs curating — a short shouted action line with dialogue-shaped
+text under it will land in the list, and a character who never speaks never
+appears at all. Prune by hand, and add what the parser missed with <strong>Add
 role</strong>, which marks the role <code>manual</code>.</p>
 
 <div class="note"><strong>Re-seeding rebuilds the board and can take candidates
@@ -166,14 +159,12 @@ you used, not from the title line.</div>
 <h2>The offer memo</h2>
 
 <p><code>offerLetter</code> prints business points only: production, date,
-performer and representative, role, engagement dates, rate and unit, and
-billing. Anything you leave blank prints as <code>TBD</code> — no figure, date
-or name is ever invented. Every memo carries the same closing: it is not a
-binding agreement, engagement is conditional on a long-form agreement prepared
-and reviewed by production counsel and on any required union clearances and
-work permits, and the representatives are asked to confirm availability. The
-envelope button on a candidate row pre-fills the memo from that candidate's
-name, rate and hold dates.</p>
+performer and representative, role, engagement dates, rate and unit, billing.
+Anything left blank prints as <code>TBD</code> — no figure, date or name is ever
+invented. Every memo closes the same way: not a binding agreement, conditional
+on a long-form agreement reviewed by production counsel and on any required
+union clearances and work permits. The envelope button on a candidate row
+pre-fills the memo from that candidate's name, rate and hold dates.</p>
 
 <div class="note"><strong>Commit to Money Room writes a real commitment.</strong>
 It parses the digits out of the rate field, refuses anything that is not a
@@ -189,7 +180,7 @@ computed total for the engagement.</div>
 <h2>Cast intelligence</h2>
 
 <p>The Cast Intelligence block sits at the foot of the production office's
-Casting &amp; Sides pane. Type an actor's name, optionally a target director,
+Casting &amp; Sides pane: type a performer's name, optionally a target director,
 and press <strong>Analyze</strong>.</p>
 
 <div class="note"><strong>This sends a real person's name off the device.</strong>
@@ -271,14 +262,12 @@ the representatives before you move the board.</p>
 <h2>What the suites check</h2>
 
 <p><span class="path">scripts/test_castoffice.mjs</span> exercises the cast desk
-engine against a fixture screenplay: scene splitting through the shared model,
-every cue-detection rule above, the role counts and their scene lists, the hold
-conflict cases including touching endpoints and missing dates, that sides
-include the slugline and the dialogue and exclude scenes without the role, that
-an unknown character yields nothing, that an empty offer memo prints
-<code>TBD</code> rather than inventing figures, and the board totals.
+engine against a fixture screenplay: every cue-detection rule above, the role
+counts and scene lists, the hold conflict cases including touching endpoints
+and missing dates, that sides carry the slugline and the dialogue and exclude
+scenes without the role, that an unknown character yields nothing, and that an
+empty offer memo prints <code>TBD</code> rather than inventing figures.
 <span class="path">scripts/test_advisor.mjs</span> covers Cast Intelligence: the
 TMDB and Wikidata parsers, the fit scoring, and the quote tiers including the
-known-quote override and the stated scale floor. Both run under
-<code>node scripts/run_all_tests.mjs</code>, which discovers suites rather than
-listing them.</p>
+known-quote override. Both run under
+<code>node scripts/run_all_tests.mjs</code>.</p>

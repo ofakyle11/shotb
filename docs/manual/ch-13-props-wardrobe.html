@@ -1,0 +1,289 @@
+<h1 class="ch">Props &amp; Wardrobe</h1>
+<span class="mk">@@CH13@@</span>
+
+<p class="lede">Two departments, one habit of mind. Break the script down into
+things; put a number on each thing; find someone who has one; and keep a record
+of what it looked like on the day, so the next shot matches. Cinamate treats
+props and wardrobe as the same shape of problem, and the two modules are built
+to the same pattern deliberately.</p>
+
+<div class="note"><strong>On the accuracy of this chapter.</strong> Everything
+here was established by reading the files named in it — no part of it was
+observed in a running browser. The platform changes weekly. Where this page and
+the software disagree, the software is the authority and this page is out of
+date.</div>
+
+<h2>The props breakdown</h2>
+
+<p>The Props Department is <span class="path">props/index.html</span>, over the
+engine <span class="path">props/lib-props.js</span> (<code>CProps</code>). Its
+state lives in <code>SB_Props_v1</code>.</p>
+
+<p><em>Rebuild from script</em> reads the working screenplay out of
+<code>SB_Timeline_v1.scriptText</code> — under about forty characters it declines
+and tells you to load a screenplay in the Studio or the Writer first. It splits
+scenes through the one scene model, <span class="path">js/lib-scenes.js</span>,
+then runs a fixed lexicon of <strong>191 terms across nine categories</strong>
+over each scene body. A term matches on a word boundary, case-insensitively,
+with an optional plural.</p>
+
+<p>Three consequences worth knowing before you trust the list. The lexicon is
+closed: a thing it does not name is not found, and goes in through <em>+ Add
+prop</em>. Results are deduplicated by <em>term</em>, so one row covers every
+appearance of that word and quantity always starts at 1. And the match runs over
+the whole scene body, dialogue included — a gun somebody merely talks about is
+still listed. Scenes are recorded by their printed identity, so an A-scene stays
+an A-scene on the props list.</p>
+
+<div class="note"><strong>Rebuild replaces, it does not merge.</strong> Only rows
+you created with <em>+ Add prop</em> survive a rebuild. Every automatically found
+row is discarded and regenerated, taking its quoted price, its hero and period
+flags and any hand-entered dimensions with it. Rebuild after a script revision;
+do not rebuild to refresh a list you have already priced.</div>
+
+<h2>What a prop costs</h2>
+
+<p>Pricing is the industry ten-per-cent rule: a week's rental is about a tenth of
+what the thing costs to replace. Cinamate carries a replacement value per
+category, and the whole estimate stands on it.</p>
+
+<table>
+  <tr><th>Category</th><th>Replacement value</th><th>Priced as</th></tr>
+  <tr><td>Weapons &amp; armory</td><td>$1,200</td><td>weekly; adds a licensed armorer</td></tr>
+  <tr><td>Picture vehicles</td><td>$20,000</td><td>$400 per shoot day</td></tr>
+  <tr><td>Furniture</td><td>$900</td><td>weekly</td></tr>
+  <tr><td>Electronics &amp; tech</td><td>$450</td><td>weekly</td></tr>
+  <tr><td>Set dressing</td><td>$180</td><td>weekly</td></tr>
+  <tr><td>Hand props</td><td>$75</td><td>weekly</td></tr>
+  <tr><td>Greens &amp; florals</td><td>$1,200</td><td>weekly</td></tr>
+  <tr><td>Food &amp; consumables</td><td>$60</td><td>bought, $60 per shoot day</td></tr>
+  <tr><td>Specialty / oversize</td><td>$3,500</td><td>weekly</td></tr>
+</table>
+
+<p>A <em>hero</em> prop triples that value, because it is built or dressed to
+close-up specification. <em>Period</em> multiplies it by 1.6, because
+period-correct stock is scarcer. The first rental week is charged in full and
+every week after it at 75%. Buying wins when renting passes 60% of the purchase
+price, which assumes roughly 40% asset recovery at wrap.</p>
+
+<p>That break-even has a consequence you can rely on: because both sides of the
+comparison scale with the same value, <strong>every category priced by the ten
+per cent rule flips from rent to buy at eight rental weeks</strong> — hero and
+period props included. Vehicles and consumables never reach it, since they are
+priced by the day. Vehicles bill for twice their scene count in days, capped at
+the shoot length.</p>
+
+<p>Weapons add an armorer at <strong>$650 a day</strong>, once per production
+rather than once per weapon. The engine will take a weapon-day count, but the
+page does not supply one, so the armorer line is three days on any schedule of
+three days or more. Ten per cent contingency is added on top of everything.</p>
+
+<div class="note"><strong>A gap, stated plainly.</strong> The engine honours a
+per-item replacement value, but the breakdown table offers no field for it — the
+editable columns are name, category, quantity, plan, hero, period, quoted price
+and size. Reading the source, there is no route in this page to set the value of
+one prop; the category default governs it. Use the quoted-price column for a real
+number.</div>
+
+<p>Each row also carries a real-world size in feet, defaulted per category and
+overridable per item. The size button draws the prop beside a six-foot figure and
+answers one question outright: whether it passes a standard 3 ft × 6 ft 9 in
+doorway. <em>→ Set</em> writes the prop into the active plan in
+<code>SB_SetDesign_v1</code> at its true size; placing it twice moves it rather
+than littering the stage. A set plan has to exist first.</p>
+
+<h2>Sourcing, and the quote request</h2>
+
+<p>The directory holds twenty production hubs; twelve named houses are listed
+across six of them, and the remaining fourteen hubs are recognised but carry no
+houses yet. <strong>No directory entry carries a telephone number.</strong>
+Numbers arrive only from live map data, from the research service on your
+generation machine, or from your own typing — and numbers you type are saved
+against that production.</p>
+
+<p><em>Use Advisor location</em> reads the jurisdiction you modelled for tax
+incentives from <code>SB_Budget_v1</code> and maps it to the nearest hub. A
+lookup then geocodes the city through OpenStreetMap's Nominatim and searches
+Overpass within 40 km, merging what it finds onto the directory: a map listing
+that matches a directory name fills in its phone and website rather than
+duplicating the card. Results are cached for a week in <code>CIN_Learn_v1</code>.
+Confirm every detail on the phone before you quote from it.</p>
+
+<p>Section 3 assembles a quote request naming the production, the dates, the
+shooting area and every prop with its quantity, category and rent-or-buy
+intention, and asks for weekly rates, purchase where applicable, damage waiver
+and delivery. <em>Copy</em> gives you the whole thing. The email button truncates
+at 1,800 characters of encoded text, so send a long list by copy and paste.</p>
+
+<h2>Wardrobe: characters, looks and pieces</h2>
+
+<p>Wardrobe is <span class="path">wardrobe/index.html</span> over
+<span class="path">wardrobe/lib-ward.js</span> (<code>CWard</code>), stored in
+<code>SB_Wardrobe_v1</code>. Seeding reads the screenplay for dialogue cues — a
+short all-capitals line, suffixes such as (V.O.) and (CONT'D) folded together,
+followed by an actual line of dialogue — which is the same walk the casting
+office makes.</p>
+
+<p>A <em>look</em> belongs to a character, names itself, lists the scenes it is
+worn in, and holds sizes, notes and pieces. Each piece has an item, a source —
+<code>buy</code>, <code>rent</code>, <code>build</code> or
+<code>cast-own</code> — an estimated cost and, later, an actual. The actual sits
+<em>beside</em> the estimate and never on top of it: overwriting an estimate with
+an invoice destroys the only record of what the department thought, and with it
+any way to find out whether it was right.</p>
+
+<div class="note"><strong>Two things that remove data.</strong> Deleting a look
+also deletes its continuity photographs from this browser, with no confirmation.
+And a character chip seeds a look from the legacy numeric scene list, which
+cannot tell 4A from 4 — after seeding, retype the scene box, which does accept
+A-scenes and ranges (<code>1, 4A, 6-9</code>).</div>
+
+<h2>What the department learns from an invoice</h2>
+
+<p>This is the part of both modules worth understanding properly. The
+department types an estimate; weeks later an invoice arrives for a different
+number; and until this loop existed the second number had nowhere to go, so next
+year's estimate was the same guess again. The reasoning is written out at
+<span class="path">wardrobe/lib-ward.js</span> lines 169–206, and it copies
+<code>recordQuote</code> in <span class="path">props/lib-props.js</span>
+deliberately. Three rules separate calibration from self-flattery.</p>
+
+<p><strong>It learns from the raw estimate, never the calibrated one.</strong>
+Feeding the corrected figure back in would teach the multiplier from its own
+output and compound it — the number would drift and always agree with itself.
+What goes to the learning layer is what you typed.</p>
+
+<p><strong>It reports the evidence it is actually applying.</strong> Every priced
+piece carries <code>learnedN</code>: how many past invoices stand behind the
+multiplier in front of you. A correction resting on two invoices is never shown
+as though it rested on fifty. The rollup prints the multiplier and its count
+together, per source.</p>
+
+<p><strong>Below the threshold it says so.</strong> Two invoices is the minimum.
+Under it the multiplier is exactly 1 and the page reads <em>not calibrated · 1 of
+2 invoice(s) needed — estimates for this source are exactly what you typed</em>,
+rather than dressing a guess in arithmetic. Note the phrasing: the evidence that
+<em>exists</em> is still reported, even while it is not being <em>used</em>.</p>
+
+<p>The account is chosen so that the learning means something. Wardrobe learns
+per <em>source</em>: a built garment overruns for different reasons than a rental
+does, and averaging them would teach nothing about either. Props learns per
+<em>category</em>, under <code>props:handprop</code> and its siblings. Both write
+into <code>CIN_Learn_v1</code>, which sits outside the per-project
+<code>SB_</code> namespace on purpose, so what one production teaches survives
+into the next.</p>
+
+<div class="note"><strong>Nothing is learned until the film is wrapped.</strong>
+The learning layer refuses every observation unless the active project is marked
+wrapped in Projects. Mid-shoot, an actual is whatever has been invoiced so far
+against a whole-picture estimate — a department that has spent 12% in week two
+looks like an 88% underrun, and folding that in would drag every future estimate
+down. So typing an invoice during production is recorded on the piece and teaches
+nothing, and no confirmation appears. Mark the production wrapped when it is
+finished. A line also teaches only once: re-typing a corrected invoice against
+the same item does not re-teach it.</div>
+
+<p>Where evidence does exist, the multiplier is a ratio of actual to estimate,
+weighted towards recent films and clamped so no single catastrophe can double or
+halve an account. Treat the size of a correction as a measure of how much
+correcting has been necessary — not as a measure of accuracy. The platform keeps
+a separate walk-forward record for that question, and it can come back negative.
+An operator who holds these three rules in mind will believe the number when it
+has been earned and disbelieve it when it has not, which is worth more than any
+feature.</p>
+
+<h2>Story days, and where they are uncertain</h2>
+
+<p>A <strong>story day</strong> is a day in the life of the story, not a day of
+the shoot. Scene 4A and scene 22 may be the same story day, in which case the
+shirt, the cut lip and the hair must match between them — even though one shoots
+in week one and the other in week three. No scene record holds this: a slugline
+says INT or EXT and a time of day, and nothing else states which day of the story
+it is. <span class="path">js/lib-storyday.js</span> derives it, and the wardrobe
+page presents it as section 2.</p>
+
+<p>The derivation compares each scene against the last <em>printed</em> time of
+day, so a run of CONTINUOUS headings does not lose the clock. Every boundary
+carries a confidence, and the honest half is the second column.</p>
+
+<table>
+  <tr><th>Certain — the script said so</th><th>Uncertain — the derivation had to choose</th></tr>
+  <tr><td>CONTINUOUS, SAME TIME, LATER, MOMENTS LATER</td><td>DAY following DAY: nothing says whether a night passed</td></tr>
+  <tr><td>NEXT DAY, THREE DAYS LATER, THE DAY AFTER</td><td>NIGHT following NIGHT: nothing says it is the same night</td></tr>
+  <tr><td>An explicit stamp on the heading — DAY 4</td><td>DAY into NIGHT: read as the evening of the same day</td></tr>
+  <tr><td>NIGHT giving way to DAY — the sun came up</td><td>A heading with no time of day printed at all</td></tr>
+  <tr><td>The first scene of the script opens day 1</td><td>Flashback, dream, fantasy: a new day, but which one is unsaid</td></tr>
+</table>
+
+<p>Uncertain scenes default to <em>the same story day</em>, which is the
+conservative reading: it makes the department match more often, and an
+unnecessary match costs a photograph while a missed one costs a reshoot. Every
+uncertain boundary is listed rather than hidden, and the page states the tally —
+so many boundaries the script settles, so many it does not. Walk that list with
+the script supervisor and set them by hand. A hand-set day always wins, is marked
+as set by hand, and still shows what it overruled.</p>
+
+<div class="note"><strong>A wrong story day is a continuity error on screen.</strong>
+Treat the derivation as a first pass. <code>SB_StoryDays_v1</code> stores only
+your decisions — the overrides and any day names — and the derivation is
+recomputed from the script every time, so a rewrite never leaves stale days
+pretending to be current. <em>Clear all overrides</em> discards every hand-set day
+at once and cannot be undone.</div>
+
+<h2>The costume plot, changes and doubles</h2>
+
+<p>Section 3 is character against scene, grouped by story day and cross-referenced
+to the shooting order taken from the stripboard in
+<code>SB_ScheduleBoard_v1</code>. The board identifies a strip by its heading and
+its ordinal, never by the printed scene number, so the join is made here — and a
+strip that matches no scene in the script is reported rather than quietly
+dropped.</p>
+
+<p>Changes are numbered per character in story order, which is what a supervisor
+calls out: MAGGIE #1, #2, #3. A look that comes back keeps its own number,
+because "back into change 2" is the instruction. Each change is then flagged:
+<em>must match</em> when it is worn in more than one scene, with a note when it
+spans several shooting days; <em>shot out of story order</em>, the classic trap
+where a garment's torn and bloodied state is arrived at on story day 2 and
+photographed on shooting day 9; and <em>uncertain</em> where the story day itself
+is not settled. Quick changes are measured <em>inside</em> the story day, where
+the clock actually runs, and the flag says whether both scenes shoot on the same
+day — a change on the floor with a dresser standing by, or a change on the truck.
+Two looks down for one scene is a conflict; a look pinned to a scene the
+screenplay does not contain is named as such.</p>
+
+<p>Doubles come from the script. Six hazards are read from each scene — blood,
+rain, mud, tearing, fights and water. A look that meets one gets three multiples
+(one to wear, one to wreck, one spare), plus one for each further hazard scene,
+capped at six. The advice says outright that it is an estimate: confirm the count
+with stunts and SFX.</p>
+
+<h2>Continuity photographs</h2>
+
+<p>Photographs attach to a look. Each is scaled so its longest edge is at most
+1,024 pixels, stored as JPEG, and stamped with the date and the active project.
+The bytes go into IndexedDB — database <code>cinamate_wardrobe</code>, store
+<code>photos</code>.</p>
+
+<div class="note"><strong>The vault does not carry your photographs.</strong> The
+project vault snapshots <code>localStorage</code> only. The photo
+<em>references</em> travel with the project and into every archive; the
+<em>bytes</em> stay in this browser. Switching projects therefore strands them,
+and an archive restored on a second machine shows empty frames. The scan on the
+page counts exactly this — yours, another production's, orphans no project points
+at any more, and references whose bytes are not on this device.
+<em>Export photo pack</em> is the only way to move them; keep the file.
+<em>Purge orphans</em> deletes bytes permanently after a confirmation.</div>
+
+<p>Finally, <em>Commit total to Money Room</em> raises a purchase order against
+account 10000 for the wardrobe total, and the description records which figure it
+is — calibrated on past invoices, or an uncalibrated estimate.</p>
+
+<p>All three engines are covered by node suites that run without a browser:
+<span class="path">scripts/test_props.mjs</span>,
+<span class="path">scripts/test_wardrobe.mjs</span> and
+<span class="path">scripts/test_storyday.mjs</span>. Their fixtures are
+deliberately awkward — a FADE IN: preamble, printed scene numbers, an A-scene
+carrying a character's only second look, an I/E slugline and a shooting order
+that is not the story order — because those are the scripts a department actually
+receives.</p>

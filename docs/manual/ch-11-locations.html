@@ -1,0 +1,272 @@
+<h1 class="ch">Locations, Permits &amp; The Scout Book</h1>
+<span class="mk">@@CH11@@</span>
+
+<p class="lede">A location is the one department where the production is a guest.
+Somebody else owns the room, somebody else's neighbours have to tolerate the
+truck, and a city office decides whether the street is yours at all. The Scout
+Book at <span class="path">/locations/</span> is where that becomes a record:
+what you saw, who you have to ask, and what time the light goes.</p>
+
+<div class="note"><strong>How this chapter was written.</strong> By reading the
+files, not by using the screens. Cinamate is still being built; wherever this
+page and the running software disagree, believe the software and treat the
+paragraph below as stale.</div>
+
+<h2>The location bible</h2>
+
+<p>The page is <span class="path">locations/index.html</span>; its arithmetic and
+its directories are <span class="path">locations/lib-scout.js</span>, which
+exports <code>CScout</code>. Everything typed on the page is written to one
+localStorage key, <code>SB_ScoutBook_v1</code>, on every change — there is no save
+button. That object holds the locations, the hub picked in each directory, the last
+sun query and the checklist ticks.</p>
+
+<p>A location record is built by <code>blankLocation()</code>. No field is
+mandatory, and an empty one stays empty rather than being guessed at.</p>
+
+<table>
+<tr><th>Group</th><th>Fields</th></tr>
+<tr><td>Identity</td><td><code>name</code>, <code>address</code>, <code>scenes</code>, <code>notes</code></td></tr>
+<tr><td>Practical</td><td><code>parking</code>, <code>power</code> (free text, as scouted), <code>loadIn</code></td></tr>
+<tr><td>Safety</td><td><code>hospital</code>, <code>hospitalAddress</code></td></tr>
+<tr><td>Paper</td><td><code>permitStatus</code> (none / applied / issued), <code>releaseStatus</code> (none / sent / signed)</td></tr>
+<tr><td>The pin</td><td><code>lat</code>, <code>lon</code>, <code>tzOffsetMin</code>, <code>tzSource</code></td></tr>
+<tr><td>Electrical</td><td><code>supplyAmps</code>, <code>supplyVolts</code>, <code>supplyPhases</code>, <code>fixtures</code></td></tr>
+<tr><td>Media</td><td><code>photos</code> — a list of ids, never the images themselves</td></tr>
+</table>
+
+<p>The hospital fields are not decoration. The call-sheet builder in
+<span class="path">producer/schedule-board.js</span> reads
+<code>SB_ScoutBook_v1</code> for the hospital, parking and load-in lines of the
+safety block, and <span class="path">today/index.html</span> matches the day's
+sets loosely against location names to surface the nearest hospital on the day
+view. A blank hospital field prints as a stated gap on the sheet.</p>
+
+<p>Note that the platform holds <em>two</em> location registers: this one, and a
+flatter <code>SB_Locations_v1</code> table on the Production page
+(<span class="path">production/production.js</span>) with a permit-expiry chip.
+They do not synchronise. The Scout Book is the one carrying the hospital, the pin
+and the photographs.</p>
+
+<h3>Suggesting locations from the screenplay</h3>
+
+<p><strong>⟳ Suggest from script</strong> reads <code>SB_Timeline_v1</code> in this
+browser and runs <code>scriptLocations()</code> over its
+<code>scriptText</code>. That function takes every slugline — <code>INT</code>,
+<code>EXT</code>, <code>INT/EXT</code>, <code>I/E</code>, with or without a leading
+scene number — strips the prefix and the time-of-day suffix at the first spaced
+dash, upper-cases what remains, and groups repeats. An unreadable slugline becomes
+<code>(UNNAMED LOCATION)</code> rather than disappearing.</p>
+
+<p>One caution: the scene numbers it reports are <em>positional</em>. It counts
+sluglines from the top of the file and ignores any number printed in the script,
+so a scene the screenplay calls 12 will be listed as the third slugline if it is
+the third slugline. On an unnumbered draft the two agree; on a revised, numbered
+script they will not. Nothing is added to the book until you press
+<strong>+ Add to book</strong> on a suggestion.</p>
+
+<h2>Scout photographs</h2>
+
+<p>Adding a photo re-encodes it in the browser before storage: the longest edge is
+reduced to 1280 pixels if it exceeds that, and the result is written as a JPEG data
+URL at quality 0.85. The bytes go to IndexedDB — database <code>cinamate_scout</code>,
+object store <code>photos</code>, keyed by a generated id of the form
+<code>ph&lt;timestamp&gt;&lt;random&gt;</code>. Only the id is written into the
+location record. This is why a location can carry photographs that are not on the
+machine you are reading: the record and the image travel separately.</p>
+
+<p>When they have separated, the page says so. A photo id whose bytes are not in
+this browser is replaced by a dashed <strong>⚠ photo missing</strong> tile naming
+the id, and the strip gains one line telling you to restore the production from a
+backup that carries media. An earlier version deleted the element instead, which
+made a scout book that had lost every image look like one that had never been
+photographed.</p>
+
+<div class="note"><strong>Scout photographs are other people's property, and they
+travel.</strong> These are interiors of real premises — very often private homes
+whose owners let a location manager through the door, not a studio. The bytes sit
+in IndexedDB unencrypted; they are packed into a <span class="path">.cinamate</span>
+export, which is a self-contained file with no size limit; and
+<span class="path">netlify/functions/projects-sync.js</span> lists
+<code>cinamate_scout/photos</code> among the three stores the studio cloud accepts,
+which means a push puts them where all five owners of the shared cloud can pull
+them down. Cloud transfer is capped — 900&nbsp;KB per record, 1&nbsp;MB per
+request, 48 requests, so 48&nbsp;MB per production — but that is a size limit, not
+an access limit. Treat a scout book as commercially and personally sensitive, know
+where its exports are going, and say so to the people whose homes are in it.</div>
+
+<div class="note"><strong>Deleting a location deletes its photographs.</strong>
+The ✕ on a location card asks for confirmation and then removes every photo id it
+owns from IndexedDB as well as the record itself. The per-photo ✕ deletes those
+bytes immediately with no confirmation at all. Neither is undoable from this page;
+the only recovery is a restore, and only if the backup was taken with media.</div>
+
+<h2>The tech-scout checklist</h2>
+
+<p><code>locationChecklist()</code> returns ten fixed items — power, parking,
+load-in, bathrooms, neighbors, noise, cell signal, nearest hospital, permits and
+insurance COI — each with a sentence about what to actually record. The power item
+insists on amps per leg and a phase count rather than a reassurance, because the
+load calculator needs a number.</p>
+
+<p>The ticks are stored in <code>SB_ScoutBook_v1</code> under <code>checks</code>,
+keyed by item id. That is one set of ten for the whole production, not one per
+location — ticking <em>Noise</em> does not record that noise was checked anywhere in
+particular. Use it as a scout-day aide-mémoire and put the findings in the
+location's own fields.</p>
+
+<h2>Power on a location</h2>
+
+<p>Each card carries a supply-versus-order panel.
+<code>parseSupply()</code> will read a number back out of the scouted power note —
+it understands forms like <em>100A</em>, <em>200 amp 3-phase</em> and
+<em>2 x 20A</em> — and returns nothing at all when the note has no number in it,
+because an unparseable note is an unknown supply and not a zero.
+<code>powerDemand()</code> then puts a fixture order against it: nameplate watts,
+with HMI ballasts drawn at 1.2× the lamp rating, converted to amps per leg at 120V
+and divided across three legs when the service is three-phase. The verdict is one
+of <em>ok</em>, <em>tight</em>, <em>derate</em>, <em>over</em> or <em>unknown</em>,
+against the 80% continuous-load ceiling. An unrecorded supply returns
+<em>unknown</em> and still shows the draw, so the gap is visible rather than
+assumed adequate. Inrush on an HMI strike is higher than any of these figures and
+is not modelled.</p>
+
+<h2>The permit directory</h2>
+
+<p><code>CScout.PERMITS</code> holds six hubs. Each entry carries the office name,
+when a permit is required, cost, lead time, insurance, police and traffic extras,
+an <code>applyUrl</code>, and a <code>verified</code> flag. The rule the data obeys
+— and <span class="path">scripts/test_locations.mjs</span> asserts it — is that an
+unverified entry may never carry an application URL; the page then renders a
+web-search link instead of an <strong>Apply</strong> button. All six entries in the
+file today are marked verified and all six carry an official application URL.</p>
+
+<table>
+<tr><th>Hub</th><th>Office named in the file</th></tr>
+<tr><td>Toronto</td><td>City of Toronto Film &amp; Entertainment Industries office</td></tr>
+<tr><td>Vancouver</td><td>City of Vancouver Film and Special Events Branch</td></tr>
+<tr><td>Atlanta</td><td>Atlanta Mayor's Office of Film &amp; Entertainment</td></tr>
+<tr><td>Los Angeles</td><td>FilmLA</td></tr>
+<tr><td>New York</td><td>NYC Mayor's Office of Media and Entertainment</td></tr>
+<tr><td>London</td><td>Borough Film Services — the entry states there is no single London fee and no single office; it varies by borough</td></tr>
+</table>
+
+<p>Hubs are matched by <code>matchHub()</code>, which is deliberately loose: it
+takes an alias table (<code>la</code>, <code>nyc</code>, <code>hollywood</code>,
+<code>burbank</code>, <code>brooklyn</code>, <code>queens</code>,
+<code>burnaby</code>, <code>gta</code>), then matches if the hub name appears
+anywhere in your text, or if four or more characters you typed are a prefix of a
+hub name. That means free text such as <em>shooting in downtown toronto, ON</em>
+resolves correctly — and equally that a place that merely contains a hub name will
+resolve to that hub. Read the card's heading before you trust the fees on it.
+<strong>Use Advisor location</strong> takes the jurisdiction picked for tax
+incentives out of <code>SB_Budget_v1</code> and maps it through
+<code>INCENTIVE_HUB</code>: Ontario to Toronto, BC to Vancouver, Georgia to
+Atlanta, California to Los Angeles, New York to New York, and either UK incentive
+to London. Anywhere outside those six, the page says so and tells you to find the
+local film office yourself.</p>
+
+<p><strong>Log permit fee</strong> commits an amount to the Money Room as an open
+purchase order against account 13000 (Locations), vendor <em>Film permit office</em>,
+written into <code>SB_Money_v1</code>. It is a real commitment in the budget, made
+from this page, and it must be reversed in the Money Room rather than here.</p>
+
+<div class="note"><strong>The directory text is truncated, and one footnote
+contradicts the card above it.</strong> In every one of the six permit entries the
+<code>required</code> field ends mid-sentence — several end mid-word — and other
+fields do the same; the page prints them verbatim, so an operator reads a rule that
+stops before its exception. Separately, the card's footnote states that this build
+could not verify fees or application URLs and that none are shown, while the card
+directly above it shows both. The file's own header comment is likewise missing a
+clause. Nothing in this directory is a quote or a legal position: confirm the fee,
+the lead time and the insurance wording on the office's own page before you rely on
+any of it.</div>
+
+<h2>The stage and facility directory</h2>
+
+<p><code>CScout.STAGES</code> covers the same six hubs, six facilities each, with a
+booking paragraph per hub. A facility entry carries a name, a kind, a qualitative
+description of its stages, a notable line, an optional website and a
+<code>verified</code> flag; an unverified facility carries no website by rule, and
+the page renders a search link in place of the site button. Three of the
+thirty-six entries are unverified today — two in Toronto, one in Vancouver — and
+one verified entry has no website recorded, which also produces a search link.</p>
+
+<p>The stage descriptions are abbreviated the same way the permit fields are:
+counts and square footages frequently break off mid-figure, and the booking
+paragraphs, which carry contact routes for some operators, break off mid-address.
+Where an entry looks incomplete, it is incomplete — do not read the missing half as
+absent detail. The consistent finding across all six booking notes is that the
+professional tier does not publish rates: every one of these markets is direct
+quote, negotiated with the facility's own bookings team. The page carries that as a
+standing caution, and it is the honest part of the directory.</p>
+
+<h2>Sun times, and the timezone that decides them</h2>
+
+<p>Section 4 of the page computes daylight for a pin. Pick a location from the
+dropdown to copy its latitude, longitude and recorded offset into the bar, or type
+them; supply a date, and press <strong>Compute</strong>. The maths is
+<span class="path">tools/lib-sun.js</span> (<code>TSun</code>), the tested
+NOAA/Meeus implementation described in Chapter 19, accurate to about two minutes.
+An approximate second solar engine that once lived in
+<span class="path">lib-scout.js</span> has been deleted, and
+<span class="path">scripts/test_locations.mjs</span> asserts its absence so it
+cannot come back.</p>
+
+<p>You get sunrise, the end of morning golden hour, the start of evening golden
+hour, sunset, civil dusk and total daylight hours; below them the compass bearing
+the sun rises and sets on, and solar noon with the sun's altitude. Azimuth is
+degrees clockwise from true north. At high latitudes where the sun does not cross
+the horizon, the panel says <em>midnight sun</em> or <em>polar night</em> rather
+than printing a time.</p>
+
+<div class="note"><strong>The clock is yours to supply. The code will not guess
+it.</strong> <code>sunTimes()</code> returns UTC instants;
+<code>fmtLocal(ms, offsetMinutes)</code> renders them in whatever offset it is
+given, and given none it uses the offset of the machine you are reading on. The
+Scout Book therefore uses, in order: the number in the <strong>UTC offset (min)</strong>
+box, or the <code>tzOffsetMin</code> recorded on the location, or — failing both —
+<code>tzOffsetFromLon()</code>, which is <code>round(lon / 15)</code> hours. That
+last is solar mean time. It knows nothing of political borders and nothing of
+daylight saving, so it can be a full hour wrong; the panel marks it ESTIMATED
+whenever it is used, and that label is the one thing to read before
+publishing a call time. Enter the location's real civil offset in minutes —
+<code>-420</code> for Los Angeles in August, <code>330</code> for a half-hour zone —
+and it is stored on the record with <code>tzSource</code> set to
+<code>entered</code>. Note that nothing on this page fills that field in for you:
+the code comments describe the offset arriving from the forecast service, but the
+only writer of <code>tzOffsetMin</code> on a location record is you typing it. The
+scale of the error is in <span class="path">scripts/test_sun.mjs</span>, which
+pins an LA sunset at 19:28 in the location's own offset and 02:28 in UTC, and
+re-runs its assertions in child processes forced to three different machine
+timezones.</div>
+
+<h2>Weather, and what leaves the device</h2>
+
+<p><code>TSun.weatherUrl()</code> builds a request to
+<code>https://api.open-meteo.com/v1/forecast</code>. What it sends is the
+location's <strong>latitude and longitude</strong>, a start and end date, a fixed
+list of daily variables — weather code, maximum and minimum temperature, maximum
+precipitation probability, maximum 10&nbsp;m wind speed — and
+<code>timezone=auto</code>. No key, no account, no production name; the call is
+made by your browser directly to that host, which is why
+<code>https://api.open-meteo.com</code> appears in the <code>connect-src</code>
+directive of <span class="path">_headers</span>. A coordinate pair for a private
+house is still a disclosure, and it is worth knowing you are making it.</p>
+
+<p>Be precise about where that happens, because it is not this page. The Scout
+Book loads <span class="path">lib-sun.js</span> but never calls
+<code>weatherUrl</code>: its sun panel is pure local arithmetic and makes no
+network request. The forecast lives in the Producer Suite — the day planner in
+<span class="path">tools/sched-weather.js</span>, loaded only on
+<span class="path">/producer/</span>, and the call-sheet forecast line — and both
+read their pin from <code>SB_ShootPlan_v1</code>, which is a separate coordinate
+you enter there. Those screens also capture <code>utc_offset_seconds</code> from
+the reply and keep it as the plan's real civil offset; the Scout Book's own
+records never receive it.</p>
+
+<p><code>shootRisk()</code> scores a forecast day out of 100 for reordering
+exteriors, and <code>wmoLabel()</code> names the weather code or reports
+<code>Code n</code> when it does not recognise one. A failed or blocked request is
+reported as a failure on the page — it is not permitted to look like a clear day,
+and not permitted to look like a date beyond the forecast window.</p>

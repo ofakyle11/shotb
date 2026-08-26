@@ -44,8 +44,8 @@ the document — which is why it can be executed in node, and is. In the browser
 
 <p><code>SB_Sales_v1</code>, <code>SB_Crew_v1</code> and <code>SB_Drafts_v1</code>
 are gathered as well but no stage consults them; the Advisor reads
-<code>SB_Crew_v1</code> for itself. Everything is read from this browser. The
-page makes no network call except one optional health ping to the bridge.</p>
+<code>SB_Crew_v1</code> for itself. Everything comes from this browser: the page
+makes no network call except one optional health ping to the bridge.</p>
 
 <h2>The seven stages</h2>
 
@@ -118,10 +118,10 @@ until you leave and return.</p>
 <h2>The Advisor</h2>
 
 <p>The Advisor is a separate layer: pure functions in
-<span class="path">workflow/advisor.js</span>, mounted on this page by
-<span class="path">workflow/advisor-ui.js</span>. It computes the film's script
-analysis through <code>SBBudget.analyze()</code>, takes the budget through the
-shared sheet reader, and produces three things.</p>
+<span class="path">workflow/advisor.js</span>, mounted here by
+<span class="path">workflow/advisor-ui.js</span>. It runs the script through
+<code>SBBudget.analyze()</code>, reads the budget through the shared sheet
+reader, and produces three things.</p>
 
 <h3>Prep actions</h3>
 
@@ -141,33 +141,32 @@ downstream is moot until there is a script.</p>
 
 <h3>Where to shoot it</h3>
 
-<p>The ranking scores every jurisdiction in the platform's incentive table
-against three things: the money back on this budget, weighted heaviest; how many
-of the script's look cues that place can supply, at fourteen points each; and a
-hand-authored crew-depth rating of one to three, at six points each. Falling
-below a programme's minimum spend costs fifty points and exceeding its budget
-cap costs sixty — a penalty, not a veto, so an ineligible programme can still
-place if the money is large enough. It is flagged in the reasons when it does.
-Look cues are drawn from the screenplay by keyword, plus a few implied by genre.
-The top three are shown.</p>
+<p>The ranking scores every jurisdiction in the platform's incentive table on three
+things: the money back on this budget, weighted heaviest; how many of the
+script's look cues that place can supply, at fourteen points each; and a
+hand-authored crew-depth rating of one to three, at six points each. Look cues
+are drawn from the screenplay by keyword, plus a few implied by genre. Falling
+below a programme's minimum spend costs fifty points and exceeding its budget cap
+costs sixty — a penalty, not a veto, so an ineligible programme can still place
+if the money is large enough, and it is flagged in the reasons when it does. The
+top three are shown.</p>
 
 <p>Two cautions the source states plainly. The incentive figures are headline
-programme terms and are to be verified with a production accountant before
-anything is relied on. And when no budget has been seeded the whole ranking is
-modelled on a five-million-dollar placeholder — the heading says so in
-parentheses, and that parenthesis is the difference between a recommendation
-about your film and a recommendation about a hypothetical one.</p>
+programme terms, to be verified with a production accountant before anything is
+relied on. And when no budget has been seeded the ranking is modelled on a
+five-million-dollar placeholder — the heading says so in parentheses, and that
+parenthesis is the difference between a recommendation about your film and one
+about a hypothetical one.</p>
 
 <h3>Who to hire for this style</h3>
 
-<p>The staffing table starts from a core unit — eleven entries for scripted work,
-a five-person unit for documentary — and multiplies the elastic positions by
-scale: 1 for indie, 1.5 for mid, 2.2 for studio, read from
-<code>SB_Budget_v1</code>. The script's detected drivers then add specialists: a
-stunt coordinator, a marine coordinator and safety, an on-set VFX supervisor,
-extras casting, an animal wrangler, a period set decorator. More than 30% night
-work adds lighting crew; more than eight speaking parts adds a 2nd AD. Each row
-states its reason.</p>
+<p>The staffing table starts from a core unit — eleven entries for scripted work, a
+five-person unit for documentary — and multiplies the elastic positions by scale
+read from <code>SB_Budget_v1</code>: 1 for indie, 1.5 for mid, 2.2 for studio.
+The script's detected drivers then add specialists — stunt coordinator, marine
+coordinator and safety, on-set VFX supervisor, extras casting, animal wrangler,
+period set decorator. More than 30% night work adds lighting crew; more than
+eight speaking parts adds a 2nd AD. Each row states its reason.</p>
 
 <h3>Turning a recommendation into an action</h3>
 
@@ -187,8 +186,8 @@ discarded and replaced.</div>
 
 <h2>What the self-learning paragraph is telling you</h2>
 
-<p>Beneath the staffing table sits a short grey paragraph. It is the only place
-on this page that reports on the platform's own performance, and it is worth
+<p>Beneath the staffing table sits a short four-line paragraph — the only place on
+this page that reports on the platform's own performance, and the one worth
 reading precisely.</p>
 
 <p>Its first line is built in <span class="path">js/learn.js</span> by
@@ -196,9 +195,9 @@ reading precisely.</p>
 <code>CIN_Learn_v1</code>. Before any closed budget line is folded into the
 learning store, the platform writes down what it <em>would</em> have predicted
 for that line from everything it knew at that moment, next to what the line
-really cost. The walk-forward check compares those predictions against the raw
-estimates they replaced, over lines where the account already had at least two
-prior observations. It reports one of four things:</p>
+really cost. The check compares those predictions against the raw estimates they
+replaced, over lines whose account already had at least two prior observations,
+and reports one of four things:</p>
 
 <ul>
   <li><strong>unproven</strong> — fewer than five scored lines exist. The
@@ -226,11 +225,10 @@ gets things more wrong. A large correction average sitting above a
 <em>worse</em> verdict is not a contradiction; it is the same fact stated
 twice.</p>
 
-<p>The fourth line reports render speed from the same store: how many renders
-have been timed, the median wall-clock seconds per clip on this machine, and a
-trend of faster, steady or slower — computed only once at least eight renders
-have been recorded. A count of cached research lookups follows if there are
-any.</p>
+<p>The fourth line reports render speed from the same store: how many renders have
+been timed, the median wall-clock seconds per clip on this machine, and a trend
+of faster, steady or slower — computed only once at least eight renders exist. A
+count of cached research lookups follows if there are any.</p>
 
 <div class="note"><strong>The verdict is carried by the words, not the
 colour.</strong> On screen the headline is tinted red for <em>worse</em> and
