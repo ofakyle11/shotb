@@ -174,9 +174,11 @@
           return 'M' + (Math.sin(-half) * r) + ' ' + (-Math.cos(-half) * r) +
                  ' A' + r + ' ' + r + ' 0 0 1 ' + (Math.sin(half) * r) + ' ' + (-Math.cos(half) * r);
         };
-        g += '<path d="' + arc(band.near) + '" fill="none" stroke="rgba(201,168,108,.55)" stroke-width="1.5"/>';
+        /* esc() on a path built from numbers is a no-op, and it is the rule
+           the rest of this file follows for anything reaching an attribute. */
+        g += '<path d="' + esc(arc(band.near)) + '" fill="none" stroke="rgba(201,168,108,.55)" stroke-width="1.5"/>';
         if (band.far !== Infinity) {
-          g += '<path d="' + arc(band.far) + '" fill="none" stroke="rgba(201,168,108,.55)" stroke-width="1.5"/>';
+          g += '<path d="' + esc(arc(band.far)) + '" fill="none" stroke="rgba(201,168,108,.55)" stroke-width="1.5"/>';
         }
       }
       g += '<rect x="' + (-w / 2) + '" y="' + (-h / 2) + '" width="' + w + '" height="' + h + '" rx="2" fill="#1A2F4A" stroke="' + stroke + '" stroke-width="1.5"/>';

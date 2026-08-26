@@ -139,6 +139,65 @@ const lensPixels = await page.evaluate(() => {
 });
 t('the lens view renders the set', lensPixels > 500, lensPixels);
 
+/* ── the frame belongs to the FORMAT, not to the browser window ──────────
+   A 35mm used to read 39.1° in a 4:3 panel, 50.7° at 16:9 and 63.8° at 21:9,
+   because fovY came from the aperture and `aspect` came from the canvas.
+   Widening the window widened the lens. The viewport now letterboxes. */
+t('the caption states the sensor it is using', /Super 35/.test(note || ''), note);
+
+const frame0 = await page.evaluate(() => window.CSetApp.gl().lensFrame());
+t('the lens frame carries the format aspect, not the panel aspect',
+  Math.abs(frame0.aspect - 24.9 / 18.7) < 0.001, JSON.stringify(frame0));
+t('the frame is letterboxed inside a panel of another shape', frame0.letterboxed,
+  JSON.stringify(frame0));
+t('the frame reports the horizontal coverage of the lens',
+  Math.abs(frame0.fovX - 39.16) < 0.1, frame0.fovX);
+
+await page.setViewportSize({ width: 1680, height: 620 });   // ~2.7:1 panel
+await page.waitForTimeout(400);
+await page.evaluate(() => window.CSetApp.gl().render());
+const frame1 = await page.evaluate(() => window.CSetApp.gl().lensFrame());
+t('widening the window does not widen the lens',
+  Math.abs(frame1.fovX - frame0.fovX) < 1e-9 && Math.abs(frame1.aspect - frame0.aspect) < 1e-9,
+  `${frame0.fovX}° @ ${frame0.aspect} -> ${frame1.fovX}° @ ${frame1.aspect}`);
+t('a wider window becomes matte, not more coverage', frame1.width < frame1.height * 2,
+  `${frame1.width}x${frame1.height}`);
+
+const bars = await page.evaluate(() => {
+  const c = document.getElementById('sdGL');
+  const gl = c.getContext('webgl', { preserveDrawingBuffer: true });
+  const px = new Uint8Array(4);
+  const read = (x, y) => { gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); return px[0] + px[1] + px[2]; };
+  return { edge: read(1, Math.floor(c.height / 2)), middle: read(Math.floor(c.width / 2), Math.floor(c.height / 2)),
+    culling: gl.isEnabled(gl.CULL_FACE) };
+});
+t('the matte outside the frame is darker than the frame', bars.edge < bars.middle,
+  JSON.stringify(bars));
+/* Culling is what makes a future winding error visible on screen instead of
+   silently lighting every set from underneath, as it did for months. */
+t('back-face culling is on', bars.culling);
+
+await page.setViewportSize({ width: 1280, height: 800 });
+await page.waitForTimeout(300);
+
+/* ── changing the format re-answers everything at once ── */
+const swapped = await page.evaluate(() => {
+  document.getElementById('sdPlanSensor').value = 'fullframe';
+  document.getElementById('sdPlanSensor').dispatchEvent(new Event('change'));
+  return { note: document.getElementById('sdGLNote').textContent,
+    frame: window.CSetApp.gl().lensFrame(),
+    options: document.querySelectorAll('#sdPlanSensor option').length };
+});
+t('the format picker offers the whole sensor table', swapped.options === 9, swapped.options);
+t('switching the plan to full frame widens the frustum',
+  swapped.frame.fovX > frame0.fovX, `${frame0.fovX} -> ${swapped.frame.fovX}`);
+t('and the caption follows it', /Full frame/.test(swapped.note || ''), swapped.note);
+await page.evaluate(() => {
+  document.getElementById('sdPlanSensor').value = 'super35';
+  document.getElementById('sdPlanSensor').dispatchEvent(new Event('change'));
+});
+await page.waitForTimeout(200);
+
 await page.click('#sdLook');            // back to orbit
 await page.waitForTimeout(300);
 
@@ -185,6 +244,29 @@ const fields = await page.evaluate(() => {
 t('the selection panel offers a height field', fields.includes('hgt'), fields.join(','));
 t('the selection panel offers an off-floor field', fields.includes('z'), fields.join(','));
 t('the selection panel offers a colour field', fields.includes('color'), fields.join(','));
+
+/* ── a camera is a focal length, a format and an aperture ── */
+const camPanel = await page.evaluate(() => {
+  const svg = document.querySelector('#sdCanvas svg');
+  /* The <g> bounding box includes the coverage cone, whose centre is empty
+     floor — click the camera body itself. */
+  const g = svg.querySelector('[data-id="cam"] rect');
+  if (!g) return { fields: ['NO CAMERA IN SVG'], text: '' };
+  const b = g.getBoundingClientRect();
+  svg.dispatchEvent(new PointerEvent('pointerdown', {
+    bubbles: true, clientX: b.left + b.width / 2, clientY: b.top + b.height / 2,
+  }));
+  return {
+    fields: Array.from(document.querySelectorAll('#sdSel [data-f]')).map((i) => i.getAttribute('data-f')),
+    text: document.getElementById('sdSel').textContent,
+  };
+});
+t('a camera offers an aperture', camPanel.fields.includes('fstop'), camPanel.fields.join(','));
+t('a camera offers a focus distance', camPanel.fields.includes('focus'), camPanel.fields.join(','));
+t('the camera panel names the format it answered on', /Super 35/.test(camPanel.text), camPanel.text);
+t('the camera panel reports the sharp band', /Sharp .*hyperfocal/.test(camPanel.text), camPanel.text);
+const planText = await page.evaluate(() => document.querySelector('#sdCanvas svg').textContent);
+t('the drawing itself states the format it was drawn for', /Super 35/.test(planText), planText);
 
 /* ── exports produce real files ── */
 const exports_ = await page.evaluate(() => {

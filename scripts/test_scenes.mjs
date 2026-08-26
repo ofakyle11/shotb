@@ -284,7 +284,9 @@ for (const [file, global] of [
 }
 
 /* production/lib-prod.js shipped the whole screenplay as "sides" because its
-   splitter had no scene-number prefix. */
+   splitter had no scene-number prefix. Its load-order prelude is CScenes (above)
+   and CShootDays — the shoot-day record its daily report joins the day on. */
+(0, eval)(readFileSync(join(ROOT, 'js/lib-shootdays.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'production/lib-prod.js'), 'utf8'));
 const sides = globalThis.CProd.sidesFor(SHOOTING, 'Maggie');
 t('sides: numbered script actually splits', sides.length >= 1);

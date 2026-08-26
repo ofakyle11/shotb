@@ -13,9 +13,11 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+/* TMedia first: it carries THE sensor table both set modules read. */
+(0, eval)(readFileSync(join(ROOT, 'tools/lib-media.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'sets/lib-set3d.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'sets/lib-set.js'), 'utf8'));
-const S3 = globalThis.CSet3D, S = globalThis.CSet;
+const S3 = globalThis.CSet3D, S = globalThis.CSet, M = globalThis.TMedia;
 
 let pass = 0, fail = 0;
 const t = (name, cond, detail) => {
@@ -132,7 +134,14 @@ t('the legs reach the floor', near(legBottom, 0), legBottom);
 {
   /* Known values for Super 35: a 50mm is roughly 27.9° horizontally, an 18mm
      roughly 69.4°. If these drift, every "what does camera A see" answer is
-     wrong, which is worse than not offering the feature. */
+     wrong, which is worse than not offering the feature.
+
+     THIS PIN AND THE ONE IN scripts/test_set.mjs MOVE TOGETHER. They used to
+     name two different sensors for the same lens — Super 35 here, full frame
+     there — and both passed, so the suite certified the contradiction and
+     correcting either file on its own turned the run red. The agreement
+     assertions below make that impossible to repeat: change a sensor in one
+     module and both suites fail until the other follows. */
   t('a 50mm reads about 28° horizontal', Math.abs(S3.lensFov(50, false) - 27.9) < 0.6,
     S3.lensFov(50, false).toFixed(2));
   t('an 18mm reads about 69° horizontal', Math.abs(S3.lensFov(18, false) - 69.4) < 1.0,
@@ -154,6 +163,137 @@ t('the legs reach the floor', near(legBottom, 0), legBottom);
   t('rotating the camera 90° swings it to +X', v90.target[0] > v90.eye[0] + 5,
     `${v90.eye[0]} -> ${v90.target[0]}`);
   t('the view carries the lens through', v.lens === 35);
+
+  /* ── one lens, one answer, across all three implementations ── */
+  for (const mm of [18, 25, 35, 50, 85, 100]) {
+    t(`the 3D frustum and the 2D cone agree at ${mm}mm`,
+      Math.abs(S3.lensFov(mm, false) - S.fovDeg(mm)) < 0.05,
+      `${S3.lensFov(mm, false)} vs ${S.fovDeg(mm)}`);
+    t(`the 3D frustum and the sensor table agree at ${mm}mm`,
+      Math.abs(S3.lensFov(mm, false) - M.lensCalc('super35', mm).hfov) < 0.05);
+  }
+  t('the fallback sensor is a copy of the shared table, not a second opinion',
+    S3.FALLBACK_SENSOR.w === M.SENSORS.super35.w && S3.FALLBACK_SENSOR.h === M.SENSORS.super35.h &&
+    S3.FALLBACK_SENSOR.label === M.SENSORS.super35.label);
+  t('sensorFor resolves a key against the shared table',
+    S3.sensorFor('s16').w === M.SENSORS.s16.w && S3.sensorFor('s16').key === 's16');
+  t('sensorFor falls back rather than returning nothing', S3.sensorFor('nope').key === 'super35');
+  t('a named format is honoured', Math.abs(S3.lensFov(35, false, 'fullframe') - 54.4) < 0.1,
+    S3.lensFov(35, false, 'fullframe'));
+  t('an unknown format falls back to the default',
+    near(S3.lensFov(35, false, 'nope'), S3.lensFov(35, false)));
+
+  /* ── the frame's shape comes from the format, not the window ── */
+  t('aspect is the format aspect', near(S3.aspectFor('super35'), 24.9 / 18.7, 1e-9),
+    S3.aspectFor('super35'));
+  t('a 17:9 format is wider than a 4:3 one', S3.aspectFor('super35-17x9') > S3.aspectFor('super35'));
+  t('cameraView carries fovY and aspect as one pair from one format',
+    near(v.aspect, S3.aspectFor('super35')) && near(v.fovY, S3.lensFov(35, true)) &&
+    near(v.fovX, S3.lensFov(35, false)), `${v.aspect} ${v.fovY} ${v.fovX}`);
+  t('cameraView names the sensor it used', /Super 35/.test(v.sensor) && v.sensorKey === 'super35');
+  t('a plan on another format changes the frustum, not the window',
+    S3.cameraView(cam, null, 'fullframe').fovX > v.fovX &&
+    S3.cameraView(cam, null, 'fullframe').aspect === 36 / 24);
+  /* The window used to decide the horizontal coverage: 39.1° at 4:3, 50.7° at
+     16:9, 63.8° at 21:9 on one 35mm. The maths that produced that is the
+     canvas aspect reaching perspective(); the format aspect is fixed. */
+  t('the format aspect does not move when the panel does',
+    S3.cameraView(cam).aspect === S3.cameraView(cam).aspect &&
+    near(S3.cameraView(cam).aspect, 24.9 / 18.7));
+}
+
+/* ── which way does a face point ───────────────────────────────────────────
+   63 geometry assertions and not one asked this, so every normal in the
+   engine pointed inward: sets lit from below, and every OBJ and STL imported
+   inside out. A closed solid's face normal must point AWAY from its centre. */
+{
+  const triNormal = (q) => S3.normalize(S3.cross(S3.sub(q[1], q[0]), S3.sub(q[2], q[0])));
+  const centre = (pts) => {
+    const s = pts.reduce((a, p) => [a[0] + p[0], a[1] + p[1], a[2] + p[2]], [0, 0, 0]);
+    return s.map((v) => v / pts.length);
+  };
+
+  const box = S3.itemMesh({ id: 'b', type: 'custom', x: 0, y: 0, w: 4, h: 6, rot: 0 }, 10);
+  const nTop = triNormal(box.quads[0]);
+  t('the top of a box points UP', near(nTop[0], 0) && near(nTop[1], 1) && near(nTop[2], 0),
+    nTop.join(','));
+  const nBot = triNormal(box.quads[1]);
+  t('the bottom of a box points DOWN', near(nBot[1], -1), nBot.join(','));
+  t('the -Z side of a box points -Z', near(triNormal(box.quads[2])[2], -1),
+    triNormal(box.quads[2]).join(','));
+
+  const outward = (mesh) => {
+    const mid = centre(mesh.quads.flat());
+    return mesh.quads.every((q) => {
+      const n = triNormal(q);
+      if (!n[0] && !n[1] && !n[2]) return true;          // degenerate cap corner
+      return S3.dot(n, S3.sub(centre(q), mid)) > 0;
+    });
+  };
+  t('every face of a box points away from its centre', outward(box));
+  t('rotation does not flip a face inward',
+    outward(S3.itemMesh({ id: 'r', type: 'custom', x: 3, y: 7, w: 4, h: 1, rot: 37 }, 10)));
+  t('every face of a cylinder points outward',
+    outward(S3.itemMesh({ id: 'c', type: 'plant', x: 0, y: 0, w: 3, h: 3, rot: 0 }, 10)));
+  t('a cylinder is capped at both ends, so it is a solid', (function () {
+    const cyl = S3.itemMesh({ id: 'c', type: 'plant', x: 0, y: 0, w: 3, h: 3, rot: 0 }, 10);
+    const lo = Math.min(...cyl.quads.flat().map((p) => p[1]));
+    const up = cyl.quads.filter((q) => near(triNormal(q)[1], 1, 1e-6)).length;
+    const down = cyl.quads.filter((q) => near(triNormal(q)[1], -1, 1e-6)).length;
+    return up > 0 && up === down && lo >= -1e-9;
+  })());
+  /* Every mesh the catalog can produce, not just the two shapes above. A
+     table is a top on four legs, so "away from the centroid" is the wrong
+     question for it; the right one is the divergence theorem — a closed mesh
+     wound outward encloses a POSITIVE volume, and an inside-out one encloses
+     the same volume negated. That holds for a union of closed solids too,
+     which is what every composite shape here is. */
+  const signedVolume = (mesh) => mesh.quads.reduce((sum, q) =>
+    sum + [[q[0], q[1], q[2]], [q[0], q[2], q[3]]].reduce((s, tr) =>
+      s + S3.dot(tr[0], S3.cross(S3.sub(tr[1], tr[0]), S3.sub(tr[2], tr[0]))) / 6, 0), 0);
+  const catalog = Object.keys(S3.PROFILES);
+  const inverted = catalog.filter((type) =>
+    signedVolume(S3.itemMesh({ id: 't', type: type, x: 6, y: 6, w: 4, h: 3, rot: 0 }, 10)) <= 0);
+  t('no shape in the catalog is built inside out', inverted.length === 0, inverted.join(','));
+  t('a box encloses exactly its own volume', (function () {
+    const v = signedVolume(S3.itemMesh({ id: 'v', type: 'custom', x: 0, y: 0, w: 4, h: 3, rot: 0 }, 10));
+    return near(v, 4 * 3 * S3.PROFILES.custom.h, 1e-6);
+  })());
+
+  /* STL states its normals explicitly, and a slicer believes them. */
+  const stl = S3.toSTL({ w: 10, h: 10, items: [{ id: 'b', type: 'custom', x: 5, y: 5, w: 4, h: 4, rot: 0 }] }, 'n');
+  const facets = stl.match(/facet normal [^\n]*/g) || [];
+  t('the STL export declares an upward normal for the top face',
+    facets.filter((f) => f === 'facet normal 0 1 0').length === 2, facets.slice(0, 3).join(' | '));
+  t('and a downward one for the bottom, not two of the same',
+    facets.filter((f) => f === 'facet normal 0 -1 0').length === 2, facets.join(' | '));
+
+  /* The camera model and the camera's own view must agree about "forward". */
+  const camMesh = S3.itemMesh({ id: 'cm', type: 'camera', x: 10, y: 10, w: 1.6, h: 1.6, rot: 0, lens: 35 }, 10);
+  const zs = camMesh.quads.flat().map((p) => p[2]);
+  const look = S3.cameraView({ id: 'cm', type: 'camera', x: 10, y: 10, rot: 0, lens: 35 });
+  t('the camera mesh points the same way its own frustum does',
+    Math.min(...zs) < 10 - 0.95 && look.target[2] < look.eye[2],
+    `mesh reaches z=${Math.min(...zs)}, view looks to ${look.target[2]}`);
+  t('nothing sticks out of the back of the camera', Math.max(...zs) <= 10 + 0.95 + 1e-9,
+    Math.max(...zs));
+  t('a rotated camera takes its lens with it', (function () {
+    const m = S3.itemMesh({ id: 'c2', type: 'camera', x: 10, y: 10, w: 1.6, h: 1.6, rot: 90 }, 10);
+    return Math.max(...m.quads.flat().map((p) => p[0])) > 10 + 0.95;
+  })());
+
+  /* The primitives the whole thing rests on, named directly rather than
+     only through the meshes they build. */
+  t('cross is right-handed', S3.cross([1, 0, 0], [0, 1, 0])[2] === 1);
+  t('dot of perpendiculars is zero', S3.dot([1, 0, 0], [0, 0, 1]) === 0);
+  t('normalize returns unit length', near(Math.hypot(...S3.normalize([3, 4, 12])), 1, 1e-9));
+  t('normalize of nothing is not NaN', S3.normalize([0, 0, 0]).every((v) => v === 0));
+  t('sub subtracts', S3.sub([5, 5, 5], [1, 2, 3]).join(',') === '4,3,2');
+  t('profileFor falls back for an unknown type', S3.profileFor('nope') === S3.PROFILES.custom);
+  t('colorOf rejects a non-colour', S3.colorOf({ type: 'wall', color: 'red' }) === S3.PROFILES.wall.color);
+  t('rayTriangle reports the distance to a hit',
+    Math.abs(S3.rayTriangle([0, 0, 5], [0, 0, -1], [-1, -1, 0], [1, -1, 0], [0, 1, 0]) - 5) < 1e-9);
+  t('rayTriangle misses cleanly', S3.rayTriangle([9, 9, 5], [0, 0, -1], [-1, -1, 0], [1, -1, 0], [0, 1, 0]) === -1);
 }
 
 /* ── picking ── */

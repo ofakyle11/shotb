@@ -170,7 +170,7 @@
     var txt = r.slip === 0 ? 'on plan' : (r.slip > 0 ? '+' + r.slip : r.slip) + ' d ' + (r.slip > 0 ? 'late' : 'early');
     var fc = (r.status !== 'done' && r.forecastEnd !== r.plannedEnd)
       ? '<span class="po-fc">forecast ' + esc(r.forecastEnd) + '</span>' : '';
-    return '<span class="po-slip ' + cls + '">' + esc(txt) + '</span>' + fc;
+    return '<span class="po-slip ' + esc(cls) + '">' + esc(txt) + '</span>' + fc;
   }
   function renderCalendar() {
     $('poDateLabel').firstChild.nodeValue = st.direction === 'backward' ? 'Delivery date ' : 'Assembly starts ';

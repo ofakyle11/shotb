@@ -621,7 +621,7 @@
     if (usable == null) out.verdict = 'unknown';
     else if (perLeg > supplyAmps) out.verdict = 'over';
     else if (perLeg > usable) out.verdict = 'derate';
-    else if (perLeg > usable * 0.85) out.verdict = 'tight';
+    else if (perLeg > usable * 0.75) out.verdict = 'tight';
     else out.verdict = 'ok';
     return out;
   }

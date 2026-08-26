@@ -114,14 +114,114 @@ t('festival letter asks for step-up', /step-up option/.test(letter) && /festival
 t('all-media letter states full scope', /all media, worldwide, in perpetuity/i.test(
   M.licenseRequest({ cue: M.makeCue({ scope: 'all-media' }) })));
 
-/* ── cue sheet ── */
-const sheet = M.cueSheet(cues.concat([M.makeCue({ title: 'Midnight Freight', artist: 'The Spur Line', use: 'featured' })]),
-  { production: 'Night Harvest', date: '2026-08-23' });
-t('sheet has header columns', /SEQ/.test(sheet) && /PUBLISHER/.test(sheet) && /MASTER OWNER/.test(sheet));
+/* ── the PRO cue sheet ──
+   A performing-rights society pays from this document. It cannot pay from one
+   `composer` and one `publisher` text field: it needs each writer and each
+   publisher named with a SHARE totalling 100% per side, a PRO affiliation, a
+   use code, a timing and a DURATION. */
+const PRO_CUE = M.makeCue({
+  title: 'Midnight Freight', artist: 'The Spur Line', status: 'licensed', use: 'featured',
+  tcIn: '00:04:12:00', tcOut: '00:05:44:12', iswc: 'T-070.240.101-2', isrc: 'USRC17607839',
+  recordLabel: 'Spur Line Recordings',
+  writers: [{ name: 'R. Hart', role: 'C', pro: 'ASCAP', ipi: '00123456789', share: 50 },
+            { name: 'J. Vane', role: 'A', pro: 'BMI', share: 50 }],
+  publishers: [{ name: 'Loam Songs', pro: 'ASCAP', share: 100 }]
+});
+t('cue carries writers, publishers, ISWC, ISRC and timings',
+  PRO_CUE.writers.length === 2 && PRO_CUE.publishers.length === 1 &&
+  PRO_CUE.iswc === 'T-070.240.101-2' && PRO_CUE.isrc === 'USRC17607839');
+t('a bogus writer role falls back to composer', M.normWriter({ name: 'X', role: 'ZZ' }).role === 'C');
+t('shares are numbers, never strings, and never negative',
+  M.normPublisher({ share: '33.333' }).share === 33.33 && M.normWriter({ share: -5 }).share === 0);
+t('shareTotals reads both sides', (() => {
+  const s = M.shareTotals(PRO_CUE);
+  return s.writers === 100 && s.publishers === 100 && s.ok === true;
+})());
+t('shares that do not total 100 are not ok', !M.shareTotals(M.makeCue({
+  writers: [{ name: 'A', pro: 'BMI', share: 60 }], publishers: [{ name: 'P', pro: 'BMI', share: 100 }] })).ok);
+t('timings parse and format', M.timingSec('00:04:12:00') === 252 && M.timingSec('4:12') === 252 &&
+  M.timingSec('') === 0 && M.timingTc(252, 24) === '00:04:12:00');
+t('duration comes from the timings when not entered', M.cueDuration(PRO_CUE) === 92.5 &&
+  M.cueDuration(M.makeCue({ durSec: 30 })) === 30 && M.cueDuration(M.makeCue({})) === 0);
+t('mmss reads like a cue sheet', M.mmss(92.5) === '1:33' && M.mmss(5) === '0:05');
+t('use codes follow the use, and can be overridden',
+  M.useCodeFor(M.makeCue({ use: 'main title' })) === 'MT' &&
+  M.useCodeFor(M.makeCue({ use: 'end credits' })) === 'ET' &&
+  M.useCodeFor(M.makeCue({ use: 'background' })) === 'BI' &&
+  M.useCodeFor(PRO_CUE) === 'VV' &&
+  M.useCodeFor(M.makeCue({ use: 'background', useCode: 'LOGO' })) === 'LOGO' &&
+  M.USE_CODE_IDS.length === M.USE_CODES.length && M.PROS.indexOf('SOCAN') >= 0 &&
+  M.WRITER_ROLES.indexOf('CA') >= 0);
+
+/* the pre-submission read */
+t('a complete cue has no issues', M.cueSheetIssues([PRO_CUE]).length === 0);
+const issues = M.cueSheetIssues([M.makeCue({ title: 'Bar Band', status: 'licensed' })]);
+const fields = issues.map(i => i.field);
+t('a bare cue is reported field by field', fields.indexOf('timing') >= 0 &&
+  fields.indexOf('writers') >= 0 && fields.indexOf('publishers') >= 0 && fields.indexOf('iswc') >= 0);
+t('a share that does not total 100 is named', M.cueSheetIssues([M.makeCue({
+  title: 'X', status: 'licensed', durSec: 60, iswc: 'T-1',
+  writers: [{ name: 'A', pro: 'BMI', share: 60 }],
+  publishers: [{ name: 'P', pro: 'BMI', share: 100 }] })])
+  .some(i => /total 60%/.test(i.msg)));
+t('a writer with no PRO is named — the society cannot route the royalty',
+  M.cueSheetIssues([M.makeCue({ title: 'X', status: 'licensed', durSec: 60, iswc: 'T-1',
+    writers: [{ name: 'A', share: 100 }], publishers: [{ name: 'P', pro: 'BMI', share: 100 }] })])
+    .some(i => /no PRO affiliation/.test(i.msg)));
+t('an unlicensed cue is flagged for a delivered sheet, unless the caller waives it',
+  M.cueSheetIssues([Object.assign({}, PRO_CUE, { status: 'quoted' })]).some(i => i.field === 'status') &&
+  M.cueSheetIssues([Object.assign({}, PRO_CUE, { status: 'quoted' })], { requireLicensed: false })
+    .every(i => i.field !== 'status'));
+t('issues carry the cue back so a UI can point at it',
+  M.cueSheetIssues([M.makeCue({ title: 'Bar Band', status: 'licensed' })])[0].cueId !== undefined);
+
+/* rows + CSV */
+const rows = M.cueSheetRows([PRO_CUE, M.makeCue({ title: 'Cut', status: 'replaced' })]);
+t('rows exclude replaced cues and number from 1', rows.length === 1 && rows[0].seq === 1);
+t('row carries the PRO columns', rows[0].useCode === 'VV' && rows[0].durSec === 92.5 &&
+  rows[0].duration === '1:33' && rows[0].iswc === 'T-070.240.101-2' && rows[0].writers.length === 2);
+const csv = M.cueSheetCsv([PRO_CUE]);
+const csvLines = csv.split('\n');
+t('csv header names the PRO columns', /ISWC/.test(csvLines[0]) && /Share %/.test(csvLines[0]) &&
+  /IPI/.test(csvLines[0]) && /ISRC/.test(csvLines[0]));
+t('csv writes one line per writer and publisher share', csvLines.length === 4 &&
+  /"C","R\. Hart","ASCAP"/.test(csvLines[1]) && /"A","J\. Vane","BMI"/.test(csvLines[2]) &&
+  /"P","Loam Songs","ASCAP"/.test(csvLines[3]));
+t('csv repeats the cue columns only on its first line',
+  /^"1","Midnight Freight","VV"/.test(csvLines[1]) && /^"","",""/.test(csvLines[2]));
+t('csv neutralises a formula cell', (() => {
+  const line = M.cueSheetCsv([M.makeCue({ title: '=cmd|calc', status: 'licensed', durSec: 10,
+    writers: [{ name: '+A', pro: 'BMI', share: 100 }], publishers: [{ name: 'P', pro: 'BMI', share: 100 }] })]);
+  return /"'=cmd\|calc"/.test(line) && /"'\+A"/.test(line);
+})());
+t('a cue with no parties still emits its row', M.cueSheetCsv([M.makeCue({ title: 'Orphan' })]).split('\n').length === 2);
+
+/* the readable sheet */
+const sheet = M.cueSheet([PRO_CUE].concat(cues), { production: 'Night Harvest', date: '2026-08-23' });
+t('sheet has the PRO header columns', /SEQ/.test(sheet) && /ISWC/.test(sheet) && /WRITERS \/ PUBLISHERS/.test(sheet));
 t('sheet excludes replaced cues', /3 cues/.test(sheet));
-t('sheet has timing placeholders', /__:__/.test(sheet));
-t('sheet carries titles + placeholder owners', /Midnight Freight/.test(sheet) && /\[publisher\]/.test(sheet));
-t('sheet warns to verify before delivery', /verify/i.test(sheet));
+t('sheet prints shares and affiliations', /R\. Hart \(C\) · ASCAP 50%/.test(sheet) && /Loam Songs · ASCAP 100%/.test(sheet));
+t('sheet refuses to look ready when it is not', /NOT READY TO SUBMIT/.test(sheet));
+t('a complete sheet says so', /Every cue carries a duration/.test(M.cueSheet([PRO_CUE], { production: 'X' })));
+t('sheet explains the use codes', /BI=Background instrumental/.test(sheet));
+
+/* seeding: the cut, and the old office register */
+const fromCut = M.cuesFromCut({ project: { fps: 24, audio: [
+  { label: 'Main Title', start: 0, in: 0, out: 90 },
+  { label: 'Bar Source', start: 300, in: 10, out: 40 }] } });
+t('cuesFromCut reads the Editor audio track with real timings', fromCut.length === 2 &&
+  fromCut[0].tcIn === '00:00:00:00' && fromCut[0].tcOut === '00:01:30:00' && fromCut[0].durSec === 90);
+t('cuesFromCut keeps the duration instead of throwing it away',
+  fromCut[1].durSec === 30 && fromCut[1].tcIn === '00:05:00:00' && M.cueDuration(fromCut[1]) === 30);
+t('cuesFromCut is safe on an empty cut', M.cuesFromCut(null).length === 0 && M.cuesFromCut({}).length === 0);
+const imported = M.importCueRows([{ title: 'Old Cue', tcIn: '00:01:00:00', tcOut: '00:01:30:00',
+  use: 'BI', composer: 'A. Composer', publisher: 'Old Publishing', society: 'SOCAN' }]);
+t('the office register imports without losing a name', imported.length === 1 &&
+  imported[0].writers[0].name === 'A. Composer' && imported[0].publishers[0].name === 'Old Publishing' &&
+  imported[0].publishers[0].pro === 'SOCAN' && imported[0].useCode === 'BI');
+t('an imported cue is honest that its shares are missing',
+  M.cueSheetIssues(imported).some(i => /total 0%/.test(i.msg)));
+t('sharesText reads back what a human typed', /A\. Composer \(C\) 0%/.test(M.sharesText(imported[0].writers)));
 
 console.log(`test_music: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

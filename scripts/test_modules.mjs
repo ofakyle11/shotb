@@ -172,6 +172,41 @@ function fakeStore(init) {
   ok(txt.includes('DAILY PRODUCTION REPORT') && txt.includes('Lost 1h to rain'), 'dpr: text render');
   ok(txt.includes('Day 1') && txt.includes('shot 2/3') && txt.includes('NOT SHOT: 15'), 'dpr: text carries the day and the shortfall');
   ok(P.dprText(d4).includes('carry no shoot day'), 'dpr: text names the undated takes');
+
+  /* ── the join, checked against the record rather than restated ──────────
+     The report's numbers have to be the shoot-day record's numbers; if the
+     two ever answer differently, the DPR is fiction again. So the assertions
+     below compare dpr's output to what CShootDays says directly, through the
+     same store objects the page hands both of them. */
+  ok(SD.indexForDate(shootDays, '2026-08-20') === d.dayIdx, 'dpr/join: the report resolves the day the record does');
+  ok(SD.byIndex(shootDays, d.dayIdx).date === d.date, 'dpr/join: index and date are two names for one day');
+  ok(SD.firstShootDate(plan) === d.dayOneDate, 'dpr/join: day one is the plan\'s, weekend rule included');
+  ok(SD.scheduledOn(board, 0).length === d.scheduledScenes, 'dpr/join: scheduled is scheduledOn(board, day)');
+  const takeStores = { takeLog: takeLog, dailies: dailies };
+  ok(SD.takesOn(takeStores, '2026-08-20').length === d.takeCount, 'dpr/join: takes are takesOn(date), both stores');
+  ok(SD.circledTakes(SD.takesOn(takeStores, '2026-08-20')).length === d.printedCount, 'dpr/join: prints are the circled takes');
+  ok(SD.allTakes(takeStores).length === 5 && SD.allTakes(takeStores).length > d.takeCount,
+    'dpr/join: the whole log is bigger than one day — which is what the old report reported');
+
+  /* sync() is the call the page makes; the report must read the same record. */
+  const ls = { _d: {}, getItem(k) { return k in this._d ? this._d[k] : null; }, setItem(k, v) { this._d[k] = String(v); } };
+  ls.setItem('SB_ShootPlan_v1', JSON.stringify(plan));
+  ls.setItem('SB_ScheduleBoard_v1', JSON.stringify(board));
+  ls.setItem('SB_Dailies_v1', JSON.stringify(dailies));
+  const synced = SD.sync(ls);
+  ok(synced.length === 2 && synced[0].date === '2026-08-20', 'dpr/join: sync builds the record the page passes in');
+  ok(P.dpr(Object.assign({}, stores, { shootDays: synced }), { date: '2026-08-20' }).dayIdx === 0,
+    'dpr/join: the report reads a synced record the same way');
+}
+
+/* ── production: timecode ────────────────────────────────────────────────
+   tcOf stamps the cue sheet a PRO will be sent; it had never been called by a
+   suite in its own right, only through cueSheet. */
+{
+  ok(P.tcOf(0) === '00:00:00:00', 'tcOf: zero');
+  ok(P.tcOf(1.5) === '00:00:01:12', 'tcOf: half a second at 24fps is 12 frames');
+  ok(P.tcOf(3661.5, 30) === '01:01:01:15', 'tcOf: hours, minutes and frames at 30fps');
+  ok(P.tcOf(1, 25) === '00:00:01:00', 'tcOf: fps is honoured');
 }
 
 /* ── production: cue sheet ── */

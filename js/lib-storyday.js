@@ -121,7 +121,7 @@
      own reason in words a supervisor can argue with.                       */
   /* `prev` is either the previous scene record or, from derive(), the CARRIED
      time of day — the last one the script actually printed. That distinction
-     is load-bearing: a run of CONTINUOUS headings has no clock of its own, and
+     carries the weight here: a run of CONTINUOUS headings has no clock of its own, and
      comparing against the literal previous scene made "NIGHT, CONTINUOUS, DAY"
      read as SAME -> DAY and miss the sunrise entirely. */
   function boundaryFor(prev, sc, i) {

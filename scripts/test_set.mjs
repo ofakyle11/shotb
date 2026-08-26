@@ -74,6 +74,9 @@ t('a bigger sensor is a wider view at the same focal length',
 t('a new plan carries a format', S.planSensor(p).key === 'super35');
 t('planSensor names the sensor it used', /Super 35/.test(S.planSensor(p).label));
 t('a plan saved before the field existed still answers', S.planSensor({ w: 1, h: 1 }).key === 'super35');
+t('sensorOf resolves a key against the shared table',
+  S.sensorOf('s16').w === M.SENSORS.s16.w && S.sensorOf('s16').label === M.SENSORS.s16.label);
+t('sensorOf falls back rather than returning nothing', S.sensorOf(null).key === 'super35');
 t('switching a plan to full frame widens every cone', (function () {
   const wide = { w: 24, h: 18, sensor: 'fullframe', items: [] };
   return S.fovDeg(35, wide.sensor) > S.fovDeg(35, p.sensor);

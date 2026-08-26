@@ -143,6 +143,22 @@ t('normSub defaults a bare row', (() => {
 })());
 t('normBuyer keeps an existing id', F.normBuyer({ id: 'keepme', name: 'X' }).id === 'keepme');
 
+/* The Tools register owns its own row array and REPLACES it on delete, so the
+   store has to be re-pointed at the register's array on every write — the
+   whole point being that neither writer can clobber the other. */
+t('setSubs re-points the store at a caller-owned array', (() => {
+  const store = F.migrate(LEGACY_OBJ);
+  const rows = store.subs.slice();                       // what a Register holds
+  rows.push(F.newSub({ festival: 'Locarno', fee: '55' }));
+  F.setSubs(store, rows);
+  const kept = store.subs.length === 2 && store.buyers.length === 1 &&
+    store.premiereStatus === 'us-premiered';
+  F.setSubs(store, store.subs.filter(s => s.festival !== 'SXSW'));  // a delete
+  return kept && store.subs.length === 1 && store.subs[0].festival === 'Locarno';
+})());
+t('setSubs normalises what a text input typed', F.setSubs(F.blank(),
+  [{ name: 'Venice', fee: '120', submitted: '2026-06-01' }]).subs[0].fee === 120);
+
 /* load()/save() round-trip through whatever localStorage is there */
 t('load without localStorage is a blank store', F.load().subs.length === 0);
 globalThis.localStorage = (() => {

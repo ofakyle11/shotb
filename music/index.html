@@ -42,6 +42,19 @@
 .mu-note{font-size:11px;color:var(--dim);line-height:1.6}
 .mu-text{width:100%;min-height:220px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.6;white-space:pre}
 .mu-spacer{flex:1}
+.mu-cue{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 13px;margin-bottom:8px}
+.mu-cue.bad{border-color:#E08A8A}
+.mu-cue h4{font-family:var(--mono);font-size:11px;color:var(--gold);margin:0 0 7px;letter-spacing:.05em}
+.mu-fields{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:7px}
+.mu-fields label{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.mu-fields input,.mu-fields select{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 6px;font-size:11.5px;max-width:150px}
+.mu-side{border-top:1px dashed var(--border);padding-top:6px;margin-top:4px}
+.mu-party{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px}
+.mu-party input{max-width:150px}
+.mu-party input.sh{max-width:64px;text-align:right}
+.mu-bad{color:#E08A8A}
+.mu-good{color:#9BCB9B}
+.mu-issues{background:var(--surface);border:1px solid var(--gold);border-radius:10px;padding:11px 14px;font-size:11.5px;line-height:1.7;margin-bottom:10px}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
 </head>
@@ -92,13 +105,18 @@
     <textarea class="mu-text" id="muLetter" spellcheck="false"></textarea>
     <p class="mu-note">Address it to the publisher for the sync side and the label for the master side — often two different letters. A cue marked <b>quote requested</b> keeps the list honest about what is still out for pricing.</p>
 
-    <h2>4 · Cue sheet export</h2>
+    <h2>4 · Cue sheet — PRO submission</h2>
     <div class="mu-bar">
-      <span class="mu-note">Delivery cue sheet — timings and publisher/master-owner fields are placeholders to fill at picture lock.</span>
+      <button class="tb-btn" id="muPullCut" title="Read the Editor timeline's audio track: real TC in/out and duration per cue">⚡ Pull timings from the cut</button>
+      <button class="tb-btn" id="muImportOffice" title="Bring in rows from the old Office › Cue sheet register (SB_CueSheet_v1)">↧ Import the office cue register</button>
       <span class="mu-spacer"></span>
       <button class="tb-btn" id="muCopySheet">Copy</button>
-      <button class="tb-btn gold" id="muDownloadSheet">⬇ Download .txt</button>
+      <button class="tb-btn" id="muDownloadSheet">⬇ .txt</button>
+      <button class="tb-btn gold" id="muDownloadCsv">⬇ Cue sheet CSV</button>
     </div>
+    <p class="mu-note">A performing-rights society pays from this document, and it cannot pay from one composer name in a text box. Every cue needs a <b>duration</b>, every writer and publisher named with a <b>share</b> — each side totalling 100% — and a <b>PRO affiliation</b> per party. ISWC identifies the composition, ISRC the recording; both are worth asking the publisher and label for.</p>
+    <div id="muIssues"></div>
+    <div id="muPro"></div>
     <textarea class="mu-text" id="muSheet" spellcheck="false" readonly></textarea>
   </main>
 </div>
@@ -256,11 +274,130 @@
   });
 
   /* ── cue sheet ── */
-  function renderSheet() {
-    $('muSheet').value = M.cueSheet(st.cues, {
-      production: $('muProd').value || (readLS('CIN_Projects_v1') || {}).active || 'Untitled production',
-      date: new Date().toISOString().slice(0, 10)
+  function sheetOpts() {
+    return { production: $('muProd').value || (readLS('CIN_Projects_v1') || {}).active || 'Untitled production',
+             date: new Date().toISOString().slice(0, 10) };
+  }
+  function party(cueId, side, i, p) {
+    var roles = side === 'w'
+      ? '<select data-f="role">' + M.WRITER_ROLES.map(function (r) {
+          return '<option' + (r === p.role ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select>'
+      : '<span class="mu-tag">publisher</span>';
+    return '<div class="mu-party" data-cue="' + esc(cueId) + '" data-side="' + esc(side) + '" data-idx="' + esc(i) + '">' +
+      '<input data-f="name" value="' + esc(p.name) + '" placeholder="' + (side === 'w' ? 'Writer name' : 'Publisher') + '">' +
+      roles +
+      '<select data-f="pro"><option value="">— PRO —</option>' + M.PROS.map(function (x) {
+        return '<option' + (x === p.pro ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select>' +
+      '<input data-f="ipi" value="' + esc(p.ipi) + '" placeholder="IPI/CAE" style="max-width:92px">' +
+      '<input class="sh" data-f="share" type="number" min="0" max="100" step="0.01" value="' + esc(p.share) + '">' +
+      '<span class="mu-note">%</span>' +
+      '<button class="tb-btn" data-rmparty="1">✕</button></div>';
+  }
+  function renderPro() {
+    var issues = M.cueSheetIssues(st.cues, sheetOpts());
+    var byCue = {};
+    issues.forEach(function (x) { (byCue[x.cueId] = byCue[x.cueId] || []).push(x); });
+    $('muIssues').innerHTML = !st.cues.length ? '' : issues.length
+      ? '<div class="mu-issues"><b class="mu-bad">NOT READY TO SUBMIT — ' + esc(issues.length) + ' item' +
+        (issues.length === 1 ? '' : 's') + '.</b> ' +
+        '<span class="mu-note">A society returns a sheet with a missing share or affiliation, and the writers on that cue are not paid.</span></div>'
+      : '<div class="mu-issues"><b class="mu-good">READY — every cue carries a duration, 100% on each side, and a PRO for every party.</b></div>';
+    $('muPro').innerHTML = st.cues.filter(function (c) { return c.status !== 'replaced'; }).map(function (c) {
+      var tot = M.shareTotals(c);
+      var probs = byCue[c.id] || [];
+      return '<div class="mu-cue' + (probs.length ? ' bad' : '') + '" data-cue="' + esc(c.id) + '">' +
+        '<h4>' + esc(c.title) + (c.artist ? ' — ' + esc(c.artist) : '') + '</h4>' +
+        '<div class="mu-fields">' +
+          '<label>Use code</label><select data-cf="useCode">' + M.USE_CODES.map(function (u) {
+            return '<option value="' + esc(u.id) + '"' + (u.id === M.useCodeFor(c) ? ' selected' : '') + '>' +
+              esc(u.id) + ' — ' + esc(u.label) + '</option>'; }).join('') + '</select>' +
+          '<label>TC in</label><input data-cf="tcIn" value="' + esc(c.tcIn) + '" placeholder="00:00:00:00" style="max-width:110px">' +
+          '<label>TC out</label><input data-cf="tcOut" value="' + esc(c.tcOut) + '" placeholder="00:00:00:00" style="max-width:110px">' +
+          '<label>Duration</label><span class="mu-note">' + esc(M.cueDuration(c) ? M.mmss(M.cueDuration(c)) + ' (' + M.cueDuration(c) + 's)' : '—') + '</span>' +
+          '<label>ISWC</label><input data-cf="iswc" value="' + esc(c.iswc) + '" placeholder="T-000.000.000-0" style="max-width:130px">' +
+          '<label>ISRC</label><input data-cf="isrc" value="' + esc(c.isrc) + '" placeholder="CCXXXYYNNNNN" style="max-width:130px">' +
+          '<label>Label</label><input data-cf="recordLabel" value="' + esc(c.recordLabel) + '" placeholder="master owner" style="max-width:130px">' +
+        '</div>' +
+        '<div class="mu-side"><span class="mu-note">Writers — total <b class="' +
+          (tot.writers === 100 ? 'mu-good' : 'mu-bad') + '">' + esc(tot.writers) + '%</b></span>' +
+          (c.writers || []).map(function (w, i) { return party(c.id, 'w', i, w); }).join('') +
+          '<button class="tb-btn" data-addparty="w">+ writer</button></div>' +
+        '<div class="mu-side"><span class="mu-note">Publishers — total <b class="' +
+          (tot.publishers === 100 ? 'mu-good' : 'mu-bad') + '">' + esc(tot.publishers) + '%</b></span>' +
+          (c.publishers || []).map(function (p, i) { return party(c.id, 'p', i, p); }).join('') +
+          '<button class="tb-btn" data-addparty="p">+ publisher</button></div>' +
+        (probs.length ? '<p class="mu-note mu-bad">' + probs.map(function (x) { return '· ' + esc(x.msg); }).join('<br>') + '</p>' : '') +
+        '</div>';
+    }).join('') || '<p class="mu-note">No cues yet.</p>';
+  }
+  $('muPro').addEventListener('change', function (e) {
+    var f = e.target.getAttribute('data-f'), cf = e.target.getAttribute('data-cf');
+    var block = e.target.closest('.mu-cue'); if (!block) return;
+    var c = cueById(block.getAttribute('data-cue')); if (!c) return;
+    if (cf) { c[cf] = cf === 'durSec' ? +e.target.value || 0 : e.target.value; }
+    else if (f) {
+      var row = e.target.closest('.mu-party'); if (!row) return;
+      var list = row.getAttribute('data-side') === 'w' ? c.writers : c.publishers;
+      var p = list[+row.getAttribute('data-idx')]; if (!p) return;
+      p[f] = f === 'share' ? Math.max(0, +e.target.value || 0) : e.target.value;
+    } else return;
+    save(); renderPro(); renderSheet();
+  });
+  $('muPro').addEventListener('click', function (e) {
+    var block = e.target.closest('.mu-cue'); if (!block) return;
+    var c = cueById(block.getAttribute('data-cue')); if (!c) return;
+    var add = e.target.getAttribute('data-addparty');
+    if (add) {
+      if (add === 'w') c.writers.push(M.normWriter({ share: c.writers.length ? 0 : 100 }));
+      else c.publishers.push(M.normPublisher({ share: c.publishers.length ? 0 : 100 }));
+      save(); renderPro(); renderSheet(); return;
+    }
+    if (e.target.getAttribute('data-rmparty')) {
+      var row = e.target.closest('.mu-party');
+      var list = row.getAttribute('data-side') === 'w' ? c.writers : c.publishers;
+      list.splice(+row.getAttribute('data-idx'), 1);
+      save(); renderPro(); renderSheet();
+    }
+  });
+  $('muPullCut').addEventListener('click', function () {
+    var fresh = M.cuesFromCut(readLS('SB_Cut_v1'));
+    if (!fresh.length) return toast('No audio on the Editor timeline yet');
+    var byTitle = {};
+    st.cues.forEach(function (c) { byTitle[String(c.title).toLowerCase()] = c; });
+    var timed = 0, added = 0;
+    fresh.forEach(function (f) {
+      var hit = byTitle[String(f.title).toLowerCase()];
+      if (hit) { hit.tcIn = f.tcIn; hit.tcOut = f.tcOut; hit.durSec = f.durSec; timed++; }
+      else { st.cues.push(f); added++; }
     });
+    save(); renderRows();
+    toast(timed + ' cue' + (timed === 1 ? '' : 's') + ' timed from the cut, ' + added + ' new');
+  });
+  $('muImportOffice').addEventListener('click', function () {
+    var rows = readLS('SB_CueSheet_v1');
+    if (!rows || !rows.length) return toast('Nothing in the office cue register');
+    var have = {};
+    st.cues.forEach(function (c) { have[String(c.title).toLowerCase() + '|' + c.tcIn] = 1; });
+    var added = 0;
+    M.importCueRows(rows).forEach(function (c) {
+      if (have[String(c.title).toLowerCase() + '|' + c.tcIn]) return;
+      st.cues.push(c); added++;
+    });
+    save(); renderRows();
+    toast(added + ' cue' + (added === 1 ? '' : 's') + ' imported — add the shares and each party\'s PRO');
+  });
+  $('muDownloadCsv').addEventListener('click', function () {
+    var blob = new Blob([M.cueSheetCsv(st.cues, sheetOpts())], { type: 'text/csv' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'cue-sheet.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    toast('Cue sheet CSV downloaded — one row per writer and publisher share');
+  });
+  function renderSheet() {
+    $('muSheet').value = M.cueSheet(st.cues, sheetOpts());
+    renderPro();
   }
   $('muCopySheet').addEventListener('click', function () {
     navigator.clipboard.writeText($('muSheet').value).then(function () { toast('Cue sheet copied'); });

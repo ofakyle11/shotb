@@ -92,6 +92,8 @@ t('cueName rejects lowercase', W.cueName('Tom walks in.') === null);
    That is precisely why the costume plot below keys on the printed identity. */
 t('the numeric character scene list collapses 4A onto 4',
   byName.TOM.scenes.indexOf(4) >= 0 && byName.TOM.scenes.length === 4);
+t('the printed key list does not — TOM speaks in 4A, not in 4',
+  byName.TOM.sceneKeys.join(',') === '1,2,3,4A' && byName.MAGGIE.sceneKeys.join(',') === '1,3,4');
 
 /* ── scene number parsing ── */
 t('parseSceneNums expands ranges', W.parseSceneNums('1, 4-6, 12').join(',') === '1,4,5,6,12');
@@ -100,6 +102,8 @@ t('parseSceneNums ignores junk', W.parseSceneNums('a, -2, 0, 7').join(',') === '
 t('the legacy numeric parse DROPS A-scenes', W.parseSceneNums('4, 4A, 7').join(',') === '4,7');
 t('parseSceneKeys keeps A-scenes and returns printed identities',
   W.parseSceneKeys('4, 4A, 7-9').join(',') === '4,4A,7,8,9');
+t('a typed scene number resolves through the one normNum every module uses',
+  CS.normNum(' sc 4a ') === '4A' && W.parseSceneKeys('sc 4a').join(',') === '4A');
 t('uniqScenes dedupes, sorts and drops the impossible',
   W.uniqScenes([3, 1, 3, 0, -2, '2']).join(',') === '1,2,3');
 

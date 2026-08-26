@@ -185,8 +185,9 @@ t('clearing an override restores the derivation', (function () {
   return Object.keys(s.overrides).length === 0 && SD.dayOf(SD.derive(SCRIPT, s), '8') === SD.dayOf(res, '8');
 })());
 t('override keys normalise the way a human types them', (function () {
+  /* the same normNum every other module resolves a typed scene number with */
   const s = SD.setOverride(SD.blankStore(), ' sc 4a ', 'NEW');
-  return Object.prototype.hasOwnProperty.call(s.overrides, '4A');
+  return Object.prototype.hasOwnProperty.call(s.overrides, '4A') && CS.normNum(' sc 4a ') === '4A';
 })());
 t('nameDay with an empty name clears it', (function () {
   const s = SD.nameDay(SD.nameDay(SD.blankStore(), 2, 'Wedding'), 2, '');

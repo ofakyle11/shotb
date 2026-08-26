@@ -98,7 +98,23 @@
   function now() { return new Date().toISOString().slice(0, 10); }
 
   var st = readLS(KEY) || D.blank();
+  st.screeners = st.screeners || []; st.windows = st.windows || [];
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+
+  /* The gate. Everything it needs is already in the building: the cue list
+     and its licence status in SB_Music_v1, the script findings in
+     SB_ClearScan_v1, the cut identity in SB_Screening_v1. */
+  function currentCut() {
+    var sc = readLS('SB_Screening_v1') || {};
+    var sess = (sc.sessions || []).filter(function (s) { return s.id === sc.active; })[0] ||
+               (sc.sessions || [])[0] || null;
+    var cut = (sess && sess.cut) || {};
+    return { id: cut.id || '', label: cut.label || cut.file || '', version: cut.version || '' };
+  }
+  function currentGate() {
+    return D.rightsGate(readLS('SB_Music_v1'), readLS('SB_ClearScan_v1'),
+      { scope: $('scScope').value, checkedAt: now() });
+  }
 
   $('dtBuyer').innerHTML = Object.keys(D.BUYER_PRESETS).map(function (k) {
     return '<option value="' + esc(k) + '"' + (k === st.buyer ? ' selected' : '') + '>' + esc(D.BUYER_PRESETS[k].label) + '</option>';
@@ -115,18 +131,39 @@
             (it.done ? '✅' : '☐') + ' <span>' + esc(it.label) + '</span></div>';
         }).join('') + '</div>';
     }).join('');
-    var conflicts = {};
-    D.windowConflicts(st).forEach(function (x) { conflicts[x.a] = conflicts[x.b] = x.key; });
+    var conflicts = {}, undated = {};
+    D.windowConflicts(st).forEach(function (x) {
+      var bag = x.kind === 'overlap' ? conflicts : undated;
+      bag[x.a] = bag[x.b] = x.key + ' — ' + x.detail;
+    });
     $('wRows').innerHTML = st.windows.map(function (w) {
       return '<div class="dt-row' + (conflicts[w.id] ? ' dt-conflict' : '') + '"><b>' + esc(w.territory) + '</b> · ' + esc(w.channel) +
         (w.window ? ' · ' + esc(w.window) : '') + (w.start ? ' · from ' + esc(w.start) : '') +
+        (w.end ? ' to ' + esc(w.end) : '') +
         (w.licensee ? ' · ' + esc(w.licensee) : '') +
-        (conflicts[w.id] ? ' <span class="dt-mono" style="color:#E08A8A">exclusivity clash: ' + esc(conflicts[w.id]) + '</span>' : '') +
+        (conflicts[w.id] ? ' <span class="dt-mono" style="color:#E08A8A">exclusivity clash: ' + esc(conflicts[w.id]) + '</span>'
+          : undated[w.id] ? ' <span class="dt-mono" style="color:#C9A86C">term missing: ' + esc(undated[w.id]) + '</span>' : '') +
         '<span style="flex:1"></span><button class="tb-btn" data-del="' + esc(w.id) + '">✕</button></div>';
     }).join('') || '<p class="dt-note">No windows planned yet.</p>';
+
+    var gate = currentGate();
+    $('scGate').innerHTML = '<span class="dt-mono" style="color:' +
+      (gate.level === 'blocked' ? '#E08A8A' : gate.level === 'caution' ? '#C9A86C' : '#9BCB9B') + '">' +
+      esc(gate.level.toUpperCase()) + ' — ' + esc(gate.summary) + '</span>' +
+      (gate.blockers.length ? '<br>' + gate.blockers.map(function (b) {
+        return '· <b>' + esc(b.label) + '</b> — ' + esc(b.detail); }).join('<br>') : '') +
+      (gate.cautions.length ? '<br>' + gate.cautions.map(function (b) {
+        return '· ' + esc(b.label) + ' — ' + esc(b.detail); }).join('<br>') : '');
+
     $('scRows').innerHTML = st.screeners.map(function (s) {
-      return '<div class="dt-row"><b>' + esc(s.recipient) + '</b>' + (s.company ? ' · ' + esc(s.company) : '') +
-        ' <span class="dt-mono">sent ' + esc(s.sentAt) + (s.link ? ' · ' + esc(s.link) : '') + '</span>' +
+      var r = s.rights;
+      return '<div class="dt-row' + (r && r.ok === false ? ' dt-conflict' : '') + '"><b>' + esc(s.recipient) + '</b>' +
+        (s.company ? ' · ' + esc(s.company) : '') +
+        ' <span class="dt-mono">sent ' + esc(s.sentAt) + (s.link ? ' · ' + esc(s.link) : '') +
+        ' · cut: ' + esc(s.cutLabel || 'not recorded') + ' · ' + esc(s.scope || 'all-media') + '</span>' +
+        (r ? '<br><span class="dt-mono" style="color:' + (r.ok ? '#9BCB9B' : '#E08A8A') + '">rights at send: ' +
+          esc(r.summary || r.level) + (r.blockers && r.blockers.length ? ' — ' + esc(r.blockers.join('; ')) : '') + '</span>' : '') +
+        (s.overrideReason ? '<br><span class="dt-mono" style="color:#E08A8A">sent anyway: ' + esc(s.overrideReason) + '</span>' : '') +
         '<span style="flex:1"></span>' +
         '<button class="tb-btn" data-watch="' + esc(s.id) + '">' + (s.watched ? '👁 watched' : 'mark watched') + '</button>' +
         '<button class="tb-btn" data-del="' + esc(s.id) + '">✕</button></div>';
@@ -140,14 +177,34 @@
   });
   $('wAdd').addEventListener('click', function () {
     D.addWindow(st, { territory: $('wTerr').value, channel: $('wChan').value,
-      window: $('wWin').value, start: $('wStart').value, licensee: $('wWho').value });
+      window: $('wWin').value, start: $('wStart').value, end: $('wEnd').value,
+      licensee: $('wWho').value });
     save(); render();
   });
+  $('scScope').addEventListener('change', render);
   $('scAdd').addEventListener('click', function () {
     if (!$('scWho').value.trim()) return toast('Who is it going to?');
-    D.addScreener(st, { recipient: $('scWho').value, company: $('scCo').value, link: $('scLink').value, sentAt: now() });
+    var cut = currentCut();
+    var gate = currentGate();
+    var res = D.sendScreener(st, {
+      recipient: $('scWho').value, company: $('scCo').value, link: $('scLink').value,
+      sentAt: now(), cutId: cut.id, cutLabel: cut.label || 'not recorded', scope: $('scScope').value
+    }, gate);
+    if (res.refused) {
+      var why = prompt('This cut is NOT cleared to leave:\n\n' +
+        gate.blockers.map(function (b) { return '• ' + b.label + ' — ' + b.detail; }).join('\n') +
+        '\n\nSending anyway is a decision that goes on the record. Type the reason to proceed, or Cancel.', '');
+      if (!why || !why.trim()) { render(); return toast('Screener not sent — ' + gate.summary); }
+      res = D.sendScreener(st, {
+        recipient: $('scWho').value, company: $('scCo').value, link: $('scLink').value,
+        sentAt: now(), cutId: cut.id, cutLabel: cut.label || 'not recorded',
+        scope: $('scScope').value, overrideReason: why.trim()
+      }, gate);
+    }
     $('scWho').value = ''; $('scCo').value = ''; $('scLink').value = '';
-    save(); render(); toast('On the record');
+    save(); render();
+    toast(res.overridden ? 'Sent with a recorded override — the blockers are on the row'
+      : 'On the record — ' + gate.summary);
   });
   document.addEventListener('click', function (e) {
     var del = e.target.getAttribute && e.target.getAttribute('data-del');

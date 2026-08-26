@@ -82,6 +82,79 @@ t('blankLocation defaults', loc.permitStatus === 'none' && loc.releaseStatus ===
   Array.isArray(loc.photos) && loc.photos.length === 0 && loc.id.length > 3);
 t('blankLocation keeps fields', loc.name === 'Farmhouse' && loc.scenes === '1, 3' && loc.hospital === '');
 t('blankLocation ids unique', S.blankLocation().id !== S.blankLocation().id);
+t('a location carries its own pin and its own UTC offset', 'lat' in loc && 'lon' in loc &&
+  loc.tzOffsetMin === null && loc.tzSource === '');
+t('a recorded offset survives on the record so no network call is needed',
+  S.blankLocation({ lat: 47.5, lon: 19.04, tzOffsetMin: 120, tzSource: 'api' }).tzOffsetMin === 120);
+t('a location carries a structured supply and a fixture order', loc.supplyAmps === null &&
+  loc.supplyVolts === 120 && loc.supplyPhases === 1 && Array.isArray(loc.fixtures) && loc.fixtures.length === 0);
+
+/* ── electrical load ──────────────────────────────────────────────────────
+   Blowing the house service is the most common electrical incident on a
+   small set, and "power: ask the super" is what the record used to hold.
+   Line current is per LEG at 120V, which is how a distro is actually
+   loaded; the 80% ceiling is the continuous-load derate a shoot day always
+   triggers. */
+const FX = S.FIXTURES;
+t('the fixture list is real hardware with real wattages', FX.length >= 15 &&
+  FX.every(f => f.id && f.name && f.watts > 0 && f.kind && f.draw >= 1));
+t('the list spans practicals to a 12K', FX.some(f => f.watts <= 100) && FX.some(f => f.watts >= 10000));
+t('HMI ballast draw is above the lamp rating, tungsten and LED are not',
+  FX.filter(f => f.kind === 'hmi').every(f => f.draw > 1) &&
+  FX.filter(f => f.kind === 'tungsten' || f.kind === 'led').every(f => f.draw === 1));
+t('fixtureById finds one and refuses an unknown', S.fixtureById('hmi-1800').watts === 1800 &&
+  S.fixtureById('nope') === null && S.fixtureById('') === null);
+t('support loads nobody budgets for are on the list — HMU, heaters, video village',
+  ['hmu-station', 'heater', 'video-vill'].every(id => S.fixtureById(id)));
+
+/* free text → a number the gaffer can use */
+t('parseSupply reads a plain amperage', (() => { const p = S.parseSupply('100A service in the basement'); return p.amps === 100 && p.phases === 1 && p.volts === 120; })());
+t('parseSupply reads 3-phase', (() => { const p = S.parseSupply('200 amp 3-phase, 120/208'); return p.amps === 200 && p.phases === 3 && p.volts === 120; })());
+t('parseSupply reads a circuit count', (() => { const p = S.parseSupply('2 x 20A wall circuits'); return p.circuits === 2 && p.amps === 20; })());
+t('parseSupply returns null on a note with no number in it',
+  S.parseSupply('lots of power, ask the super') === null && S.parseSupply('') === null && S.parseSupply(null) === null);
+
+/* the order against the supply */
+const ORDER = [{ fixture: 'hmi-1800', qty: 2 }, { fixture: 'tung-1k', qty: 2 }, { fixture: 'led-panel', qty: 4 }];
+const d1 = S.powerDemand(ORDER, { amps: 100, phases: 1, volts: 120 });
+t('demand sums nameplate watts with the ballast factor', d1.watts === 1800 * 1.2 * 2 + 2000 + 1800, d1.watts);
+t('demand reports kW to a tenth', d1.kw === Math.round(d1.watts / 100) / 10);
+t('amps per leg is watts over 120 on a single phase', d1.ampsPerLeg === Math.round(d1.watts / 120 * 10) / 10);
+t('usable amps is the 80% continuous derate', d1.usableAmps === 80 && d1.supplyAmps === 100);
+t('an 8.1kW order on a 100A service is TIGHT — 67.7A of 80 usable', d1.verdict === 'tight' && d1.ampsPerLeg === 67.7, d1.verdict);
+t('one more HMI pushes it past the 80% derate but still inside the service',
+  S.powerDemand(ORDER.concat([{ fixture: 'hmi-1800', qty: 1 }]), { amps: 100 }).verdict === 'derate');
+t('two more trips the service outright',
+  S.powerDemand(ORDER.concat([{ fixture: 'hmi-1800', qty: 2 }]), { amps: 100 }).verdict === 'over');
+t('every line item is itemised', d1.lines.length === 3 && d1.lines[0].qty === 2 && d1.lines[0].watts === 4320);
+
+const SMALL = [{ fixture: 'led-panel', qty: 2 }, { fixture: 'practical', qty: 4 }];
+t('a small LED package clears a 100A service', S.powerDemand(SMALL, { amps: 100 }).verdict === 'ok');
+t('…and its headroom is stated in amps', S.powerDemand(SMALL, { amps: 100 }).headroomAmps > 60);
+
+const BIG = [{ fixture: 'tung-10k', qty: 1 }, { fixture: 'tung-5k', qty: 2 }];
+const over = S.powerDemand(BIG, { amps: 100, phases: 1 });
+t('20kW on a 100A single-phase service is OVER the service', over.verdict === 'over' && over.ampsPerLeg > 100);
+t('it says how many amps per leg it actually needs', over.needAmpsPerLeg === Math.ceil(over.ampsPerLeg / 0.8));
+t('the same order on 200A three-phase is fine — the phase count is the difference',
+  S.powerDemand(BIG, { amps: 200, phases: 3 }).verdict === 'ok');
+t('three-phase divides the load across three legs',
+  S.powerDemand(BIG, { amps: 200, phases: 3 }).ampsPerLeg === Math.round(over.ampsPerLeg / 3 * 10) / 10);
+
+const unknown = S.powerDemand(ORDER, null);
+t('an unrecorded supply is UNKNOWN, never assumed adequate',
+  unknown.verdict === 'unknown' && unknown.supplyAmps === null && unknown.headroomAmps === null);
+t('…and the draw is still computed so the gap is visible', unknown.watts === d1.watts && unknown.ampsPerLeg > 0);
+t('powerDemand accepts the free-text note directly',
+  S.powerDemand(ORDER, '200 amp 3-phase').ampsPerLeg === S.powerDemand(ORDER, { amps: 200, phases: 3 }).ampsPerLeg);
+t('an empty order draws nothing and claims nothing',
+  S.powerDemand([], { amps: 100 }).watts === 0 && S.powerDemand(null, null).lines.length === 0);
+t('a custom wattage with no catalogue entry still counts',
+  S.powerDemand([{ watts: 1500, qty: 2, name: 'Practical chandelier' }], { amps: 100 }).watts === 3000);
+t('a zero quantity contributes nothing', S.powerDemand([{ fixture: 'tung-10k', qty: 0 }], { amps: 100 }).watts === 0);
+t('the verdict is a sentence a producer can act on', /generator|panel|usable|trips/i.test(S.powerVerdictText(over)) &&
+  /tech scout/i.test(S.powerVerdictText(unknown)));
+t('the note says what it did NOT account for', /[Ii]nrush/.test(d1.note) && /80%/.test(d1.note));
 
 /* ── screenplay mining ── */
 const SCRIPT = `INT. FARMHOUSE KITCHEN - NIGHT

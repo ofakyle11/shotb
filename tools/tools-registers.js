@@ -106,7 +106,9 @@
     /* Bound, not copied: the register edits the canonical store in place and
        persists the whole object, so neither writer can clobber the other. */
     reg.rows = store.subs;
-    reg.persist = function () { F.save(store); };
+    /* Register.remove() REPLACES rows with a filtered array, so the store has
+       to be re-pointed at it on every write or a delete would never persist. */
+    reg.persist = function () { F.save(F.setSubs(store, reg.rows)); };
     reg.render(section(el));
     el.insertAdjacentHTML('beforeend', '<p class="tk-note">Premiere-requirement column matters: an A-list world-premiere rule means submitting there first — sequence the plan around it. Strategy, buyer CRM and the majors directory are in <a class="fs-link" href="/festivals/">Festivals →</a></p>');
   };

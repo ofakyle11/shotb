@@ -103,8 +103,72 @@ t('clear: footage + artwork + signage caught', cats.includes('footage') && cats.
 t('clear: findings carry scene + action + excerpt', finds.every(f => f.scene === 1 && f.action && f.excerpt));
 let sum = C.summary(finds);
 t('clear: summary counts open', sum.open === finds.length && !sum.eoReady);
+
+/* ── E&O readiness is a representation made to an insurer ──
+   The old rule was `open === 0` counting only `pending`, so marking every
+   finding "accepted risk" turned the banner green having cleared NOTHING,
+   and the chain of title, the music licences and the certificate of insurance
+   were never consulted at all. */
+const EO_FILE = {
+  rights: [{ material: 'Night Harvest (novel)', kind: 'Option', party: 'A. Sayer', status: 'Executed' },
+           { material: 'Screenplay', kind: 'Writer agreement', party: 'K. Francis', status: 'Executed' }],
+  music: { cues: [{ title: 'Blue Moon', status: 'licensed', scope: 'all-media' }] },
+  insurance: [{ kind: 'E&O', carrier: 'Chubb', policy: 'EO-1', expiry: '2027-06-30' }],
+  todayISO: '2026-08-23'
+};
+const idsOf = (s) => s.blockers.map(b => b.id).join();
+finds.forEach(f => { f.status = 'accepted risk'; });
+const risky = C.summary(finds, EO_FILE);
+t('clear: accepted risk is NOT cleared', risky.acceptedRisk === finds.length &&
+  risky.open === finds.length && risky.resolved === 0);
+t('clear: accepted risk still blocks nothing but is disclosed',
+  risky.eoReady === true && risky.disclosures.some(d => d.id === 'accepted-risk'));
+finds[0].status = 'pending';
+t('clear: one pending finding blocks E&O', !C.summary(finds, EO_FILE).eoReady);
 finds.forEach(f => { f.status = 'cleared'; });
-t('clear: all cleared → E&O ready', C.summary(finds).eoReady);
+t('clear: cleared + full file → E&O ready', C.summary(finds, EO_FILE).eoReady);
+t('clear: isResolved is the one rule', C.isResolved({ status: 'rewritten' }) &&
+  !C.isResolved({ status: 'accepted risk' }) && !C.isResolved({ status: 'pending' }));
+t('clear: no context → blockers say so rather than passing', (() => {
+  const s = C.summary(finds);
+  return !s.eoReady && !s.checked && s.blockers.filter(b => b.unknown).length === 3;
+})());
+t('clear: empty chain of title blocks', (() => {
+  const s = C.summary(finds, Object.assign({}, EO_FILE, { rights: [] }));
+  return !s.eoReady && idsOf(s).includes('chain');
+})());
+t('clear: an unexecuted agreement is a chain gap', (() => {
+  const s = C.summary(finds, Object.assign({}, EO_FILE, {
+    rights: EO_FILE.rights.concat([{ material: 'Archive clip', kind: 'Archival license', status: 'Negotiating' }]) }));
+  return !s.eoReady && idsOf(s).includes('chain-gaps');
+})());
+t('clear: an unlicensed cue blocks E&O', (() => {
+  const s = C.summary(finds, Object.assign({}, EO_FILE, {
+    music: { cues: [{ title: 'Blue Moon', status: 'quoted' }] } }));
+  return !s.eoReady && s.blockers.some(b => b.id === 'music' && /Blue Moon/.test(b.detail));
+})());
+t('clear: a replaced cue needs no licence', C.summary(finds, Object.assign({}, EO_FILE, {
+  music: { cues: [{ title: 'Blue Moon', status: 'replaced' }] } })).eoReady);
+t('clear: a festival-only licence is disclosed, not silent', (() => {
+  const s = C.summary(finds, Object.assign({}, EO_FILE, {
+    music: { cues: [{ title: 'Blue Moon', status: 'licensed', scope: 'festival' }] } }));
+  return s.eoReady && s.disclosures.some(d => d.id === 'music-scope');
+})());
+t('clear: no E&O certificate blocks', (() => {
+  const s = C.summary(finds, Object.assign({}, EO_FILE, { insurance: [] }));
+  return !s.eoReady && idsOf(s).includes('eo-policy');
+})());
+t('clear: an expired E&O policy blocks', (() => {
+  const s = C.summary(finds, Object.assign({}, EO_FILE, {
+    insurance: [{ kind: 'E&O', carrier: 'Chubb', expiry: '2026-01-01' }] }));
+  return !s.eoReady && s.blockers.some(b => /expired/i.test(b.label));
+})());
+t('clear: expiry is judged against the caller\'s date, never Date.now()', (() => {
+  const late = C.summary(finds, Object.assign({}, EO_FILE, { todayISO: '2027-12-01' }));
+  return !late.eoReady && C.summary(finds, EO_FILE).eoReady;
+})());
+t('clear: STATUSES is the shared vocabulary', C.STATUSES.length === 4 &&
+  C.STATUSES.indexOf('accepted risk') >= 0 && C.RESOLVED.length === 2 && C.CHAIN_KINDS.length === 5);
 t('clear: sync letter names the work', /Blue Moon/.test(C.syncRequest({ item: 'Blue Moon', production: 'X' })));
 t('clear: location release carries address', /12 Harbor Lane/.test(C.locationRelease({ address: '12 Harbor Lane' })));
 
@@ -151,6 +215,22 @@ t('screen: progress counts open/done', prog.open === 1 && prog.done === 1 && !pr
 const marks = R.toMarkers(sess);
 t('screen: only open notes become markers, with author+tc', marks.length === 1 && /HZ465/.test(marks[0].text) && /00:01:32/.test(marks[0].text));
 t('screen: export text carries status', /\[DONE\]/.test(R.exportText(sess)) && /\[OPEN\]/.test(R.exportText(sess)));
+/* Notes are notes against A CUT — a session that records no cut identity
+   cannot say which picture was reviewed, and the screener registry next door
+   cannot say what it sent. */
+t('screen: a session with no cut says so plainly', R.cutLabel(sess) === 'unidentified cut');
+const withCut = R.newSession(rs, 'DC2', 'HZ465', 'now',
+  { id: 'nh-v3|91231', label: 'night-harvest-v3.mp4', version: 'v3', durSec: 5340 });
+t('screen: newSession records the cut', withCut.cut.version === 'v3' && withCut.cut.durSec === 5340);
+t('screen: cutLabel names it', R.cutLabel(withCut) === 'night-harvest-v3.mp4 v3');
+t('screen: setCut re-identifies a session', (() => {
+  R.setCut(sess, { label: 'night-harvest-v4.mp4', version: 'v4' });
+  return R.cutLabel(sess) === 'night-harvest-v4.mp4 v4' && R.setCut(null, {}) === null;
+})());
+t('screen: normCut copes with junk', R.normCut(null).id === '' && R.normCut({ durSec: 'x' }).durSec === 0);
+t('screen: the cut is on the exported notes', /night-harvest-v4/.test(R.exportText(sess)));
+R.removeSession(rs, withCut.id);
+t('screen: removeSession drops it', rs.sessions.length === 1);
 
 /* ══ CDist ══ */
 const dsx = X.blank();
@@ -161,12 +241,107 @@ t('dist: festival needs 5', ck.required === 5 && ck.pct === 0);
 X.toggle(dsx, 'dcp'); X.toggle(dsx, 'trailer');
 ck = X.checklist(dsx);
 t('dist: progress tracks required only', ck.complete === 2 && ck.pct === 40);
-X.addWindow(dsx, { territory: 'Canada', channel: 'SVOD', start: '2027-01-01' });
-X.addWindow(dsx, { territory: 'Canada', channel: 'SVOD', start: '2027-03-01' });
-t('dist: exclusivity clash detected', X.windowConflicts(dsx).length === 1);
-const scn = X.addScreener(dsx, { recipient: 'A. Buyer', company: 'Festco', sentAt: '2026-08-23' });
-t('dist: screener logged unwatched', scn.watched === false && dsx.screeners.length === 1);
-t('dist: removeRow clears either table', X.removeRow(dsx, scn.id) && dsx.screeners.length === 0);
+
+/* ── exclusivity: territory × channel × TERM ──
+   The old key was `territory|channel` lowercased with no dates, so it was
+   wrong in both directions. Each row below is one of the three cases. */
+const winStore = (rows) => { const s = X.blank(); rows.forEach(r => X.addWindow(s, r)); return s; };
+const kinds = (s) => X.windowConflicts(s).map(c => c.kind).join();
+t('dist: Worldwide/SVOD collides with Germany/SVOD', kinds(winStore([
+  { territory: 'Worldwide', channel: 'SVOD', start: '2027-01-01', end: '2028-01-01' },
+  { territory: 'Germany', channel: 'SVOD', start: '2027-06-01', end: '2027-12-01' }])) === 'overlap');
+t('dist: "United States" collides with "USA"', kinds(winStore([
+  { territory: 'United States', channel: 'Theatrical', start: '2027-01-01', window: '90 days' },
+  { territory: 'USA', channel: 'Theatrical', start: '2027-02-01', window: '90 days' }])) === 'overlap');
+t('dist: Canada 2027 and Canada 2035 do NOT collide', X.windowConflicts(winStore([
+  { territory: 'Canada', channel: 'SVOD', start: '2027-01-01', window: '2 years' },
+  { territory: 'Canada', channel: 'SVOD', start: '2035-01-01', window: '2 years' }])).length === 0);
+t('dist: no term on record is reported, not guessed', kinds(winStore([
+  { territory: 'Canada', channel: 'SVOD', start: '2027-01-01' },
+  { territory: 'Canada', channel: 'SVOD', start: '2035-01-01' }])) === 'undated');
+t('dist: North America contains the US; France does not', (() => {
+  const hit = winStore([{ territory: 'North America', channel: 'SVOD', start: '2027-01-01', end: '2029-01-01' },
+                        { territory: 'US', channel: 'SVOD', start: '2028-01-01', end: '2028-06-01' }]);
+  const miss = winStore([{ territory: 'France', channel: 'SVOD', start: '2027-01-01', end: '2029-01-01' },
+                         { territory: 'US', channel: 'SVOD', start: '2028-01-01', end: '2028-06-01' }]);
+  return kinds(hit) === 'overlap' && X.windowConflicts(miss).length === 0;
+})());
+t('dist: "All media" swallows every channel, SVOD and Theatrical do not meet', (() => {
+  const hit = winStore([{ territory: 'Canada', channel: 'All media', start: '2027-01-01', end: '2029-01-01' },
+                        { territory: 'Canada', channel: 'AVOD', start: '2028-01-01', end: '2028-06-01' }]);
+  const miss = winStore([{ territory: 'Canada', channel: 'Theatrical', start: '2027-01-01', end: '2029-01-01' },
+                         { territory: 'Canada', channel: 'SVOD', start: '2028-01-01', end: '2028-06-01' }]);
+  return kinds(hit) === 'overlap' && X.windowConflicts(miss).length === 0;
+})());
+t('dist: a non-exclusive grant never clashes', X.windowConflicts(winStore([
+  { territory: 'Canada', channel: 'SVOD', start: '2027-01-01', end: '2028-01-01' },
+  { territory: 'Canada', channel: 'SVOD', start: '2027-02-01', end: '2027-06-01', exclusive: false }])).length === 0);
+t('dist: normTerritory folds the spellings', X.normTerritory('u.s.a.') === 'US' &&
+  X.normTerritory('Worldwide') === 'WORLD' && X.normTerritory('Ruritania') === 'RURITANIA');
+t('dist: normChannel folds TV onto broadcast', X.normChannel('television') === 'BROADCAST' &&
+  X.normChannel(' svod ') === 'SVOD');
+t('dist: territoryOverlap/channelOverlap are the two axes', X.territoryOverlap('DACH', 'Austria') &&
+  !X.territoryOverlap('Japan', 'Brazil') && X.channelOverlap('Digital', 'TVOD') && !X.channelOverlap('DCP', 'SVOD'));
+t('dist: parseTerm reads days/weeks/months/years and perpetuity',
+  X.parseTerm('90 days') === 90 && X.parseTerm('2 weeks') === 14 &&
+  Math.round(X.parseTerm('18 months')) === 548 && X.parseTerm('in perpetuity') === Infinity &&
+  X.parseTerm('') === null && X.parseTerm('soon') === null);
+t('dist: windowRange knows when it is undated', (() => {
+  const a = X.windowRange({ start: '2027-01-01', window: '90 days' });
+  const b = X.windowRange({ start: '2027-01-01' });
+  return a.dated === true && b.dated === false && a.end - a.start === 90 && X.termsOverlap(a, b);
+})());
+
+/* ── the rights gate: what leaves the building ──
+   A screener could go out carrying an unlicensed cue while the platform held
+   every fact needed to stop it. rightsGate is that join. */
+const MUSIC = { cues: [
+  { id: 'm1', title: 'Blue Moon', status: 'identified' },
+  { id: 'm2', title: 'Main Title', status: 'licensed', scope: 'all-media' },
+  { id: 'm3', title: 'Bar Band', status: 'licensed', scope: 'festival' },
+  { id: 'm4', title: 'Cut Cue', status: 'replaced' }] };
+const CLEAR_OPEN = [
+  { id: 'f1', cat: 'footage', term: 'news footage', risk: 'high', status: 'pending', sceneLabel: '4A', action: 'License it' },
+  { id: 'f2', cat: 'signage', term: 'billboard', risk: 'low', status: 'pending', sceneLabel: '7', action: 'Greek it' },
+  { id: 'f3', cat: 'brand', term: 'Coca-Cola', risk: 'medium', status: 'cleared', sceneLabel: '1', action: 'x' }];
+const gate = X.rightsGate(MUSIC, CLEAR_OPEN, { scope: 'all-media', checkedAt: '2026-08-23' });
+t('gate: an unlicensed cue blocks', gate.blockers.some(b => b.kind === 'music' && /Blue Moon/.test(b.label)));
+t('gate: a replaced cue is not counted', gate.cues === 3 && !/Cut Cue/.test(JSON.stringify(gate)));
+t('gate: a festival-only licence blocks an all-media send',
+  gate.blockers.some(b => b.kind === 'music-scope' && /Bar Band/.test(b.label)));
+t('gate: an open HIGH-risk finding blocks', gate.blockers.some(b => b.kind === 'clearance' && /4A/.test(b.label)));
+t('gate: a low-risk finding cautions, a cleared one says nothing',
+  gate.cautions.some(b => /billboard/.test(b.label)) && !/Coca-Cola/.test(JSON.stringify(gate)));
+t('gate: blocked is blocked', gate.level === 'blocked' && gate.ok === false && /not cleared to leave/.test(gate.summary));
+const festGate = X.rightsGate({ cues: [MUSIC.cues[1], MUSIC.cues[2]] }, [], { scope: 'festival' });
+t('gate: a festival licence covers a festival screener',
+  festGate.ok && festGate.level === 'caution' && festGate.cautions.length === 1);
+t('gate: an accepted risk is a caution, not a block', X.rightsGate({ cues: [] },
+  [{ id: 'f9', risk: 'high', status: 'accepted risk', cat: 'brand', term: 'Nike', sceneLabel: '3' }], {}).ok);
+t('gate: nothing to check is clear', X.rightsGate(null, null, {}).level === 'clear');
+t('gate: a bare cue array is accepted too', X.rightsGate([{ title: 'x', status: 'identified' }], [], {}).blockers.length === 1);
+t('gate: scope defaults to all-media, bogus scope too',
+  X.rightsGate(null, null, { scope: 'zap' }).scope === 'all-media' && X.SCOPES.length === 2);
+
+/* ── the door ── */
+const blocked = X.sendScreener(dsx, { recipient: 'A. Buyer', company: 'Festco', sentAt: '2026-08-23',
+  cutId: 'nh-v3', cutLabel: 'night-harvest-v3.mp4' }, gate);
+t('dist: a blocked cut is refused, and nothing is logged',
+  blocked.refused === true && blocked.screener === null && dsx.screeners.length === 0);
+const forced = X.sendScreener(dsx, { recipient: 'A. Buyer', company: 'Festco', sentAt: '2026-08-23',
+  cutId: 'nh-v3', cutLabel: 'night-harvest-v3.mp4', overrideReason: 'Sales agent needs it; cues are being replaced' }, gate);
+t('dist: an override is allowed and RECORDED', forced.ok && forced.overridden &&
+  /Sales agent/.test(forced.screener.overrideReason));
+t('dist: the screener records WHAT went out, not just who',
+  forced.screener.cutLabel === 'night-harvest-v3.mp4' && forced.screener.cutId === 'nh-v3' &&
+  forced.screener.rights.ok === false && forced.screener.rights.blockers.length === gate.blockers.length);
+const cleanSend = X.sendScreener(dsx, { recipient: 'B. Programmer', sentAt: '2026-08-24',
+  cutId: 'nh-v4', cutLabel: 'night-harvest-v4.mp4' }, X.rightsGate({ cues: [MUSIC.cues[1]] }, [], { scope: 'all-media' }));
+t('dist: a clean cut goes straight out', cleanSend.ok && !cleanSend.overridden &&
+  cleanSend.screener.rights.ok === true);
+const scn = X.addScreener(dsx, { recipient: 'C. Late', company: 'Festco', sentAt: '2026-08-25' });
+t('dist: screener logged unwatched', scn.watched === false && dsx.screeners.length === 3);
+t('dist: removeRow clears either table', X.removeRow(dsx, scn.id) && dsx.screeners.length === 2);
 
 console.log(`test_ops: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

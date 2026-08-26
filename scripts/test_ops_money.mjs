@@ -100,6 +100,9 @@ t('bad call/wrap surfaces as an error and posts nothing', (() => {
 
 /* ══ 5. the summary the Money Room prints ══ */
 const cards = [gaffer, scheduled, legacy, P.cardFromLog({ name: 'B. Time', role: 'Gaffer', rate: '42.75', call: 'noon', wrap: '20:30' })];
+const flat = P.postingsFor(cards);
+t('postingsFor: one flat list, errors and voids dropped', flat.length === 6 &&
+  flat.every((p) => p.source === 'payroll' && Number.isInteger(p.cents) && p.cents !== 0));
 const sum = P.payrollSummary(cards);
 t('summary: three costable cards, one flagged', sum.cards === 3 && sum.errors.length === 1);
 t('summary: two people', sum.people === 2);

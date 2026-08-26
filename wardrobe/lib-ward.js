@@ -63,16 +63,21 @@
           if (sc.body[j].replace(/\s+/g, '')) { nxt = sc.body[j]; break; }
         }
         if (!nxt || CS.isSlug(nxt)) continue;      /* a cue needs dialogue after it */
-        if (!found[name]) found[name] = { name: name, lines: 0, sceneSet: {} };
+        if (!found[name]) found[name] = { name: name, lines: 0, sceneSet: {}, keySet: {} };
         found[name].lines++;
         found[name].sceneSet[sc.n] = true;
+        /* `scenes` stays the legacy integer list every existing reader expects;
+           `sceneKeys` carries the printed identity, so a character who only
+           speaks in 4A is not filed under 4. */
+        if (sc.key) found[name].keySet[sc.key] = true;
       }
     });
     return Object.keys(found).map(function (k) {
       var f = found[k];
       var list = Object.keys(f.sceneSet).map(function (n) { return +n; })
         .sort(function (a, b) { return a - b; });
-      return { name: f.name, scenes: list, lines: f.lines };
+      var keys = Object.keys(f.keySet).sort(function (a, b) { return CS.keyWeight(a) - CS.keyWeight(b); });
+      return { name: f.name, scenes: list, sceneKeys: keys, lines: f.lines };
     }).sort(function (a, b) {
       return b.lines - a.lines || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
     });
@@ -401,7 +406,7 @@
     ordered.forEach(function (sc) {
       characters.forEach(function (c) {
         ((wear[c] || {})[sc.key] || []).forEach(function (w) {
-          var id = c + ' ' + w.lookId;
+          var id = c + '|' + w.lookId;
           if (!changeNo[id]) {
             nextNo[c] = (nextNo[c] || 0) + 1;
             changeNo[id] = nextNo[c];
@@ -465,7 +470,7 @@
         if (w.length > 1) conflicts.push({ scene: sc.key, character: c,
           looks: w.map(function (x) { return x.lookName; }) });
         row.cells.push({ character: c, worn: w.map(function (x) {
-          return { lookId: x.lookId, lookName: x.lookName, changeNo: changeNo[c + ' ' + x.lookId] || 0 };
+          return { lookId: x.lookId, lookName: x.lookName, changeNo: changeNo[c + '|' + x.lookId] || 0 };
         }) });
       });
       byDay[d].scenes.push(row);
@@ -489,8 +494,8 @@
           quickChanges.push({ character: c, day: d.day,
             fromScene: d.scenes[i - 1].key, toScene: d.scenes[i].key,
             fromLook: a[0].lookName, toLook: b[0].lookName,
-            fromChange: changeNo[c + ' ' + a[0].lookId] || 0,
-            toChange: changeNo[c + ' ' + b[0].lookId] || 0,
+            fromChange: changeNo[c + '|' + a[0].lookId] || 0,
+            toChange: changeNo[c + '|' + b[0].lookId] || 0,
             sameShootDay: (shoot[d.scenes[i - 1].key] && shoot[d.scenes[i].key])
               ? shoot[d.scenes[i - 1].key].shootDay === shoot[d.scenes[i].key].shootDay : null });
         }
@@ -505,7 +510,7 @@
                  shootDay: shoot[sc.key].shootDay, shootPos: shoot[sc.key].pos,
                  wearing: characters.map(function (c) {
                    return { character: c, worn: ((wear[c] || {})[sc.key] || []).map(function (x) {
-                     return { lookName: x.lookName, changeNo: changeNo[c + ' ' + x.lookId] || 0 }; }) };
+                     return { lookName: x.lookName, changeNo: changeNo[c + '|' + x.lookId] || 0 }; }) };
                  }).filter(function (x) { return x.worn.length; }) };
       });
 
@@ -523,7 +528,7 @@
   /* ── 7 · continuity photos: project namespacing and orphans ─────────────
      The bytes of a continuity photo live in IndexedDB and the vault snapshots
      localStorage only, so the photos are outside the project, outside the
-     archive and outside cloud sync — while the photo REFERENCES (look.photoIds)
+     archive and outside the studio cloud back-up — while the photo REFERENCES
      are inside all three. Two consequences, both real:
 
        * switching projects wipes and rewrites localStorage and leaves the

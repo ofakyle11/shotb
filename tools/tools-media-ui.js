@@ -45,9 +45,12 @@
       var rec = SD.currentDay(SD.load(root.localStorage), C.today());
       return (rec && rec.date) || C.today();
     }
+    function nowHM() {
+      var n = new Date();
+      return String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0');
+    }
     var log = new C.Register({
       key: 'SB_TakeLog_v1',
-      blank: function () { return { day: shootDay(), time: '', scene: sl.scene, take: sl.take, roll: sl.roll, grade: '—', note: '' }; },
       fields: [
         { id: 'day', label: 'Shoot day', type: 'date', width: '112px' },
         { id: 'time', label: 'Time', width: '80px' },
@@ -58,9 +61,17 @@
         { id: 'note', label: 'Note' }
       ],
       summary: function (rows) {
-        var circ = rows.filter(function (r) { return /Circled/.test(r.grade || ''); }).length;
-        return '<b>' + rows.length + '</b> takes logged · <b>' + circ + '</b> circled';
-      }
+        var SD = root.CShootDays;
+        var circ = rows.filter(function (r) {
+          return SD ? SD.isCircledGrade(r.grade) : /^\s*circled\b/i.test(String(r.grade || ''));
+        }).length;
+        var undated = rows.filter(function (r) { return !r.day; }).length;
+        return '<b>' + rows.length + '</b> takes logged · <b>' + circ + '</b> circled' +
+          (undated ? ' · <b>' + undated + '</b> with no shoot day — they appear on no daily report' : '');
+      },
+      /* A row added by hand starts on the day the slate is on, not blank: an
+         undated take is invisible to the daily production report. */
+      blank: function () { return { day: shootDay(), time: nowHM(), scene: sl.scene, take: sl.take, roll: sl.roll, grade: '—', note: '' }; }
     });
     log.render('tkLogWrap');
 
@@ -83,8 +94,7 @@
         g.gain.setValueAtTime(0.25, ac.currentTime);
         o.start(); o.stop(ac.currentTime + 0.08);
       } catch (e) {}
-      var now = new Date();
-      log.add({ day: shootDay(), time: String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'), scene: sl.scene, take: sl.take, roll: sl.roll, grade: '—', note: '' });
+      log.add({ day: shootDay(), time: nowHM(), scene: sl.scene, take: sl.take, roll: sl.roll, grade: '—', note: '' });
       log.render('tkLogWrap');
       sl.take = (parseInt(sl.take, 10) || 0) + 1;
       C.$('slTake').textContent = sl.take;

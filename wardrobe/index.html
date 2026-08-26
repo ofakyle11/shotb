@@ -57,6 +57,19 @@
 .wd-photo img{display:block;width:150px;height:110px;object-fit:cover}
 .wd-photo .wd-cap{font-family:var(--mono);font-size:9.5px;color:var(--dim);padding:3px 6px;display:block}
 .wd-photo button{position:absolute;top:4px;right:4px}
+.wd-grid tr.wd-dayrow td{background:rgba(139,163,184,.10);font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;color:var(--gold)}
+.wd-grid td.chg{font-family:var(--mono);color:var(--dim)}
+.wd-flag.unc{color:#8fb0c9;border-color:#8fb0c9}
+.wd-flag.match{color:#6fbf8a;border-color:#6fbf8a}
+.wd-sd{width:100%;border-collapse:collapse;font-size:11.5px}
+.wd-sd th{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)}
+.wd-sd td{padding:4px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.wd-sd td.k{font-family:var(--mono);color:var(--gold);white-space:nowrap}
+.wd-sd select,.wd-sd input{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 6px;font-size:11px}
+.wd-sd tr.unc td.k{color:#8fb0c9}
+.wd-scan{font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.7;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:10px}
+.wd-scan b{color:var(--text)}
+.wd-scan .bad{color:#e8b34b}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
 </head>
@@ -82,12 +95,24 @@
     <div class="wd-bar" id="wdChars"><span class="wd-note">No characters yet — seed from the script, or just add a look and type a name.</span></div>
     <div id="wdLooks"></div>
 
-    <h2>2 · Change plot</h2>
-    <p class="wd-note">Scene-by-scene grid of who wears which look. <span class="wd-flag qc">quick change</span> — same character changes looks between adjacent scenes: stage the change near set. <span class="wd-flag span">continuity span</span> — a look returns after a gap: photograph it on the first day it works.</p>
+    <h2>2 · Story days</h2>
+    <p class="wd-note">Scenes grouped into the days the STORY takes place over — the only order in which continuity has to match. Derived from the script's own time-of-day and its <span style="font-family:var(--mono)">CONTINUOUS</span> / <span style="font-family:var(--mono)">LATER</span> / <span style="font-family:var(--mono)">NEXT DAY</span> cues. Where the script does not say, the boundary is marked <span class="wd-flag unc">uncertain</span> rather than guessed: read those with the script supervisor and set them by hand. A hand-set day always wins and is saved.</p>
+    <div class="wd-bar">
+      <span class="wd-note" id="wdDayStat"></span>
+      <button class="tb-btn" id="wdDayReset" title="Drop every hand-set story day and go back to what the script implies">↺ Clear all overrides</button>
+    </div>
+    <div class="wd-gridwrap" style="max-height:340px;overflow-y:auto"><table class="wd-sd" id="wdDays"></table></div>
+
+    <h2>3 · Costume plot</h2>
+    <p class="wd-note">Character × scene, ordered by STORY day and cross-referenced to the shooting order from the stripboard, so a supervisor can see what must match what. Cells read <span style="font-family:var(--mono)">#change · look</span>. <span class="wd-flag qc">quick change</span> — a change inside one story day. <span class="wd-flag match">must match</span> — one change worn across more than one shooting day: photograph it. <span class="wd-flag unc">uncertain</span> — its story day is not stated in the script.</p>
+    <div class="wd-bar">
+      <label class="wd-note"><input type="checkbox" id="wdShoot"> Show in shooting order instead of story order</label>
+      <span class="wd-note" id="wdBoardStat"></span>
+    </div>
     <div class="wd-gridwrap"><table class="wd-grid" id="wdGrid"></table></div>
     <div id="wdFlags"></div>
 
-    <h2>3 · Budget rollup</h2>
+    <h2>4 · Budget rollup</h2>
     <div class="wd-total" id="wdTotals"></div>
     <div id="wdRollup" style="margin-top:10px"></div>
     <div class="wd-bar" style="margin-top:10px">
@@ -95,13 +120,21 @@
       <span class="wd-note">Piece costs are your estimates until quotes land — verify before relying on the rollup for the cost report.</span>
     </div>
 
-    <h2>4 · Photo continuity</h2>
+    <h2>5 · Photo continuity</h2>
     <div class="wd-bar">
       <select id="wdPhotoLook"></select>
       <input id="wdPhotoFile" type="file" accept="image/*" style="max-width:230px">
-      <span class="wd-note">Photos are resized and kept in this browser (IndexedDB) — attached to the look, stamped with the date taken in.</span>
+      <span class="wd-note">Photos are resized and kept in this browser (IndexedDB), attached to the look and stamped with the date and the active project.</span>
     </div>
     <div class="wd-photos" id="wdPhotos"></div>
+    <p class="wd-note" style="margin-top:12px"><b>Read this before you rely on it.</b> The project vault snapshots <span style="font-family:var(--mono)">localStorage</span> only. The photo <i>references</i> travel with the project and into every <span style="font-family:var(--mono)">.cinamate</span> archive; the photo <i>bytes</i> never do — they stay in this browser. Switching projects therefore leaves them behind. Every photo taken from now on is stamped with the project that took it so they no longer bleed between productions, and the scan below counts what is stranded. Until the vault carries the bytes, the pack file is the only way to move them to another device.</p>
+    <div class="wd-bar">
+      <button class="tb-btn" id="wdPack" title="Download every photo this project still references as one file">⇩ Export photo pack</button>
+      <input id="wdPackFile" type="file" accept="application/json,.json" style="max-width:230px" title="Restore a photo pack into this project">
+      <button class="tb-btn" id="wdAdopt" title="Stamp photos taken before this page namespaced them with the active project">Stamp legacy photos</button>
+      <button class="tb-btn" id="wdPurge" title="Delete photo bytes no project references any more">Purge orphans</button>
+    </div>
+    <div class="wd-scan" id="wdScan">Scanning the photo store…</div>
   </main>
 </div>
 
@@ -109,7 +142,8 @@
 <script src="/js/project-badge.js?v=20260823a"></script>
 <script src="/finance/lib-money.js?v=20260823a"></script>
 <script src="/js/lib-scenes.js?v=20260826a"></script>
-<script src="lib-ward.js?v=20260823a"></script>
+<script src="/js/lib-storyday.js?v=20260826a"></script>
+<script src="lib-ward.js?v=20260826a"></script>
 <script>
 (function () {
   'use strict';
@@ -121,14 +155,50 @@
   function toast(m) { var el = $('wdToast'); el.textContent = m; el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3200); }
   function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
 
+  var SD = window.CStoryDay;
   var st = readLS(KEY) || { chars: [], looks: [] };
   if (!st.chars) st.chars = [];
   if (!st.looks) st.looks = [];
+  /* Old records carry integer scenes only. Mirror them into printed keys once,
+     so 4A stops being read as 4 from here on. */
+  st.looks.forEach(function (l) {
+    if (!l.sceneKeys || !l.sceneKeys.length) l.sceneKeys = (l.sceneNums || []).map(function (n) { return String(n); });
+  });
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
 
   function script() { return String((readLS('SB_Timeline_v1') || {}).scriptText || ''); }
-  var hazards = W.sceneHazards(script());
+  var scenes = CScenes.parse(script()).scenes;
+  var hazards = W.sceneHazardsByKey(script());
+  var days = SD.readDays();
+  var story = SD.derive(scenes, days);
+  var showShoot = false;
   function lookById(id) { return st.looks.filter(function (l) { return l.id === id; })[0]; }
+
+  /* The stripboard identifies a strip by its ordinal and its heading, never by
+     the printed scene number, so the join is made here and its misses are
+     reported rather than hidden. */
+  function shootOrder() {
+    return W.shootOrderFromBoard(readLS('SB_ScheduleBoard_v1') || { scenes: [] }, scenes);
+  }
+
+  /* ── the active project, and every project's photo references ────────────
+     The vault keeps each project's snapshot of SB_Wardrobe_v1 inside its own
+     meta, which is what makes an honest orphan count possible from this page
+     without touching projects/lib-vault.js. */
+  var VAULT_META = 'CIN_Projects_v1';
+  function activeProject() {
+    var m = readLS(VAULT_META);
+    return (m && m.active) || 'Project 1';
+  }
+  function refsAcrossProjects() {
+    var m = readLS(VAULT_META) || {}, states = {}, active = activeProject();
+    Object.keys((m && m.slots) || {}).forEach(function (name) {
+      var s = m.slots[name] && m.slots[name].stores;
+      if (s && s[KEY] != null) states[name] = s[KEY];
+    });
+    states[active] = st;                     /* live workspace beats its snapshot */
+    return W.referencedPhotoIds(states);
+  }
 
   /* ── IndexedDB photo store ── */
   var DB = 'cinamate_wardrobe', STORE = 'photos', dbPromise = null;
@@ -171,12 +241,29 @@
       });
     });
   }
+  /* Every record in the store, whichever project put it there. This is the
+     only way to see what the vault leaves behind on a project switch. */
+  function idbAll() {
+    return idb().then(function (db) {
+      return new Promise(function (res) {
+        var out = [];
+        var rq = db.transaction(STORE, 'readonly').objectStore(STORE).openCursor();
+        rq.onsuccess = function () {
+          var c = rq.result;
+          if (!c) { res(out); return; }
+          out.push(c.value); c.continue();
+        };
+        rq.onerror = function () { res(out); };
+      });
+    }).catch(function () { return []; });
+  }
 
   /* ── 1 · characters & looks ── */
   function renderChars() {
     $('wdChars').innerHTML = st.chars.length ? st.chars.map(function (c) {
-      return '<button class="wd-chip" data-char="' + esc(c.name) + '" title="Add a look for ' + esc(c.name) + ' — appears in ' + (Number(c.scenes && c.scenes.length) || 0) + ' scene(s)">' +
-        esc(c.name) + ' · ' + (Number(c.scenes && c.scenes.length) || 0) + ' sc</button>';
+      var n = Number((c.sceneKeys || c.scenes || []).length) || 0;
+      return '<button class="wd-chip" data-char="' + esc(c.name) + '" title="Add a look for ' + esc(c.name) + ' — appears in ' + n + ' scene(s)">' +
+        esc(c.name) + ' · ' + n + ' sc</button>';
     }).join('') : '<span class="wd-note">No characters yet — seed from the script, or just add a look and type a name.</span>';
   }
   function pieceRows(l) {
@@ -190,12 +277,12 @@
   }
   function renderLooks() {
     $('wdLooks').innerHTML = st.looks.map(function (l) {
-      var adv = W.multiplesAdvice(l, hazards);
+      var adv = W.multiplesFor(l, hazards);
       return '<div class="wd-look" data-id="' + esc(l.id) + '">' +
         '<div class="wd-look-head">' +
         '<input class="wd-char" data-f="character" value="' + esc(l.character) + '" placeholder="Character">' +
         '<input class="wd-lname" data-f="lookName" value="' + esc(l.lookName) + '" placeholder="Look name">' +
-        '<input class="wd-scenes" data-f="sceneNums" value="' + esc(l.sceneNums.join(', ')) + '" placeholder="Scenes 1, 4-6">' +
+        '<input class="wd-scenes" data-f="sceneKeys" value="' + esc(W.lookSceneKeys(l).join(', ')) + '" placeholder="Scenes 1, 4A, 6-9">' +
         '<input class="wd-sizes" data-f="sizes" value="' + esc(l.sizes) + '" placeholder="Sizes / fittings">' +
         '<span class="wd-cost">$' + W.lookCost(l).toLocaleString() + '</span>' +
         '<button class="tb-btn" data-dellook="' + esc(l.id) + '" title="Remove this look (and its photos)">✕</button>' +
@@ -213,29 +300,36 @@
   $('wdSeed').addEventListener('click', function () {
     var sc = script();
     if (sc.trim().length < 40) return toast('No screenplay found — load one in the Studio or Writer first');
-    hazards = W.sceneHazards(sc);
+    scenes = CScenes.parse(sc).scenes;
+    hazards = W.sceneHazardsByKey(sc);
+    story = SD.derive(scenes, days);
     st.chars = W.charactersFromScript(sc).map(function (c) { return { name: c.name, scenes: c.scenes }; });
     save(); renderAll();
-    toast(st.chars.length + ' characters found across ' + W.splitScenes(sc).length + ' scenes');
+    toast(st.chars.length + ' characters across ' + scenes.length + ' scenes · ' +
+      story.dayCount + ' story day(s), ' + story.uncertain.length + ' boundary(s) uncertain');
   });
-  function addLook(character, scenes) {
+  function addLook(character, sceneKeys) {
     var n = st.looks.filter(function (l) { return l.character === character; }).length + 1;
-    st.looks.push(W.newLook({ character: character, lookName: 'Look ' + n, sceneNums: scenes || [] }));
+    st.looks.push(W.newLook({ character: character, lookName: 'Look ' + n, sceneKeys: sceneKeys || [] }));
     save(); renderAll();
   }
   $('wdAddLook').addEventListener('click', function () { addLook('', []); });
   $('wdChars').addEventListener('click', function (e) {
     var c = e.target.getAttribute('data-char'); if (!c) return;
     var ch = st.chars.filter(function (x) { return x.name === c; })[0];
-    addLook(c, ch ? ch.scenes : []);
+    addLook(c, ch ? (ch.sceneKeys || ch.scenes || []) : []);
     toast('Look added for ' + c + ' — set its scenes and pieces');
   });
   $('wdLooks').addEventListener('change', function (e) {
     var card = e.target.closest('.wd-look'); if (!card) return;
     var l = lookById(card.getAttribute('data-id')); if (!l) return;
     var f = e.target.getAttribute('data-f'), p = e.target.getAttribute('data-p');
-    if (f === 'sceneNums') l.sceneNums = W.parseSceneNums(e.target.value);
-    else if (f) l[f] = e.target.value;
+    if (f === 'sceneKeys') {
+      /* Both lists are written: the printed keys the plot joins on, and the
+         legacy integers older readers of SB_Wardrobe_v1 still expect. */
+      l.sceneKeys = W.parseSceneKeys(e.target.value);
+      l.sceneNums = W.uniqScenes(l.sceneKeys);
+    } else if (f) l[f] = e.target.value;
     else if (p) {
       var pc = l.pieces[+e.target.getAttribute('data-i')];
       if (pc) { if (p === 'cost') pc.cost = +e.target.value || 0; else pc[p] = e.target.value; }
@@ -258,39 +352,133 @@
     }
   });
 
-  /* ── 2 · change plot ── */
-  function renderPlot() {
-    var plot = W.changePlot(st.looks, W.splitScenes(script()).length);
-    var qcAt = {};
-    plot.quickChanges.forEach(function (q) { qcAt[q.character + '@' + q.toScene] = true; qcAt[q.character + '@' + q.fromScene] = true; });
-    if (!plot.sceneCount || !plot.characters.length) {
-      $('wdGrid').innerHTML = '<tr><td class="wd-note" style="padding:10px">Give looks scene numbers and the grid fills in.</td></tr>';
-    } else {
-      var head = '<tr><th>Sc</th>' + plot.characters.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>';
-      var rows = plot.grid.map(function (row) {
-        var by = {};
-        row.wearing.forEach(function (w) { (by[w.character] = by[w.character] || []).push(w.lookName); });
-        return '<tr><td class="sc">' + esc(row.scene) + '</td>' + plot.characters.map(function (c) {
-          var cls = qcAt[c + '@' + row.scene] ? ' class="qc"' : '';
-          return '<td' + cls + '>' + (by[c] ? esc(by[c].join(' + ')) : '·') + '</td>';
-        }).join('') + '</tr>';
-      }).join('');
-      $('wdGrid').innerHTML = head + rows;
+  /* ── 2 · story days ── */
+  function renderDays() {
+    var host = $('wdDays');
+    if (!story.rows.length) {
+      host.innerHTML = '<tr><td class="wd-note" style="padding:10px">No screenplay parsed yet — seed from the script above.</td></tr>';
+      $('wdDayStat').textContent = '';
+      return;
     }
+    var max = story.dayCount + 1;
+    var head = '<tr><th>Sc</th><th>Heading</th><th>Story day</th><th>Where it came from</th><th>Set by hand</th></tr>';
+    host.innerHTML = head + story.rows.map(function (r) {
+      var unc = r.confidence !== SD.CERTAIN;
+      var ov = days.overrides[r.key], pins = '', i;
+      for (i = 1; i <= max; i++) {
+        pins += '<option value="' + esc(i) + '"' + (+ov === i ? ' selected' : '') + '>pin to day ' + esc(i) + '</option>';
+      }
+      /* The whole last cell, closing tags included, is built here: every
+         value inside it goes through esc() and everything else is a literal
+         written on these lines, so no caller has to decide whether a
+         half-built fragment is safe to interpolate. */
+      var sel = '<td><select data-sd="' + esc(r.key) + '">' +
+        '<option value=""' + (r.source === 'MANUAL' ? '' : ' selected') + '>auto</option>' +
+        '<option value="SAME"' + (ov === 'SAME' ? ' selected' : '') + '>same day as previous</option>' +
+        '<option value="NEW"' + (ov === 'NEW' ? ' selected' : '') + '>starts a new day</option>' +
+        pins + '</select></td></tr>';
+      return '<tr' + (unc ? ' class="unc"' : '') + '>' +
+        '<td class="k">' + esc(r.label) + '</td>' +
+        '<td>' + esc(r.slug || '(no heading)') + '</td>' +
+        '<td class="k">' + esc(r.day) + (unc ? ' <span class="wd-flag unc">uncertain</span>' : '') + '</td>' +
+        '<td class="wd-note">' + esc(r.reason) + '</td>' + sel;
+    }).join('');
+    $('wdDayStat').textContent = story.dayCount + ' story day(s) across ' + story.sceneCount +
+      ' scenes · ' + story.certainCount + ' boundaries the script settles, ' + story.uncertain.length +
+      ' it does not' + (story.overridden.length ? ' · ' + story.overridden.length + ' set by hand' : '');
+  }
+  function reDerive() {
+    story = SD.derive(scenes, days);
+    renderDays(); renderPlot();
+  }
+  $('wdDays').addEventListener('change', function (e) {
+    var k = e.target.getAttribute('data-sd'); if (!k) return;
+    SD.setOverride(days, k, e.target.value);
+    SD.writeDays(days, new Date().toISOString());
+    reDerive();
+    toast('Story day set for scene ' + k);
+  });
+  $('wdDayReset').addEventListener('click', function () {
+    days = SD.blankStore();
+    SD.writeDays(days, new Date().toISOString());
+    reDerive();
+    toast('Back to the story days the script implies');
+  });
+
+  /* ── 3 · costume plot ── */
+  function cellText(cell) {
+    if (!cell.worn.length) return '·';
+    return cell.worn.map(function (w) { return '#' + w.changeNo + ' ' + w.lookName; }).join(' + ');
+  }
+  function renderPlot() {
+    var so = shootOrder();
+    var plot = W.costumePlot({ looks: st.looks, scenes: scenes, story: story, shootOrder: so.order });
+    $('wdBoardStat').textContent = so.order.length
+      ? so.order.length + ' of ' + scenes.length + ' scenes are on the stripboard' +
+        (so.unmatched.length ? ' · ' + so.unmatched.length + ' strip(s) match no scene in the script' : '')
+      : 'No stripboard yet — build one in the Producer suite and the shooting order fills in here.';
+
+    var qcAt = {};
+    plot.quickChanges.forEach(function (q) { qcAt[q.character + '@' + q.toScene] = true; });
+    if (!plot.characters.length || !plot.sceneCount) {
+      $('wdGrid').innerHTML = '<tr><td class="wd-note" style="padding:10px">Give looks scene numbers and the plot fills in.</td></tr>';
+    } else if (showShoot) {
+      var h2 = '<tr><th>Shoot</th><th>Day</th><th>Sc</th><th>Story day</th>' +
+        plot.characters.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>';
+      $('wdGrid').innerHTML = h2 + (plot.shootOrdered.length ? plot.shootOrdered.map(function (r) {
+        var by = {};
+        r.wearing.forEach(function (w) { by[w.character] = w.worn; });
+        return '<tr><td class="sc">' + esc(r.shootPos) + '</td><td class="sc">D' + esc(r.shootDay + 1) + '</td>' +
+          '<td class="sc">' + esc(r.label) + '</td>' +
+          '<td class="chg">' + esc(r.day) + (r.dayConfidence === SD.CERTAIN ? '' : ' ?') + '</td>' +
+          plot.characters.map(function (c) {
+            return '<td class="chg">' + (by[c] ? esc(by[c].map(function (w) { return '#' + w.changeNo + ' ' + w.lookName; }).join(' + ')) : '·') + '</td>';
+          }).join('') + '</tr>';
+      }).join('') : '<tr><td class="wd-note" style="padding:10px">Nothing is scheduled on the stripboard yet.</td></tr>');
+    } else {
+      var head = '<tr><th>Sc</th><th>Time</th><th>Shoot</th>' +
+        plot.characters.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>';
+      var span = plot.characters.length + 3;
+      $('wdGrid').innerHTML = head + plot.days.map(function (d) {
+        var label = d.label + (d.certain ? '' : ' — boundary uncertain');
+        return '<tr class="wd-dayrow"><td colspan="' + esc(span) + '">' + esc(label) + '</td></tr>' +
+          d.scenes.map(function (r) {
+            return '<tr><td class="sc">' + esc(r.label) + '</td>' +
+              '<td class="sc">' + esc(r.tod || r.iu || '—') + '</td>' +
+              '<td class="sc">' + esc(r.shootPos ? r.shootPos + ' (D' + (r.shootDay + 1) + ')' : '—') + '</td>' +
+              r.cells.map(function (c) {
+                var cls = qcAt[c.character + '@' + r.key] ? ' class="qc"' : ' class="chg"';
+                return '<td' + cls + '>' + esc(cellText(c)) + '</td>';
+              }).join('') + '</tr>';
+          }).join('');
+      }).join('');
+    }
+
     var flags = '';
     plot.quickChanges.forEach(function (q) {
       flags += '<p class="wd-note"><span class="wd-flag qc">quick change</span> ' + esc(q.character) +
-        ' — sc ' + q.fromScene + ' “' + esc(q.fromLook) + '” → sc ' + q.toScene + ' “' + esc(q.toLook) + '”. Stage the change near set with a dresser standing by.</p>';
+        ' — story day ' + esc(q.day) + ', sc ' + esc(q.fromScene) + ' “' + esc(q.fromLook) + '” (#' + esc(q.fromChange) + ') → sc ' +
+        esc(q.toScene) + ' “' + esc(q.toLook) + '” (#' + esc(q.toChange) + ')' +
+        (q.sameShootDay === true ? ' — and both scenes shoot on the same day: stage the change near set with a dresser standing by.'
+          : q.sameShootDay === false ? ' — the two scenes shoot on different days, so it is a change on the truck, not on the floor.'
+          : '.') + '</p>';
     });
-    plot.continuitySpans.forEach(function (s) {
-      flags += '<p class="wd-note"><span class="wd-flag span">continuity span</span> ' + esc(s.character) +
-        ' — “' + esc(s.lookName) + '” returns across scenes ' + s.scenes.join(', ') + ': ' + esc(s.note) + ' before it wraps for the day.</p>';
+    plot.changes.filter(function (c) { return c.mustMatch || c.dayUncertain; }).forEach(function (c) {
+      flags += '<p class="wd-note"><span class="wd-flag ' + (c.dayUncertain ? 'unc' : 'match') + '">' +
+        (c.dayUncertain ? 'uncertain' : 'must match') + '</span> ' + esc(c.character) + ' #' + esc(c.changeNo) +
+        ' “' + esc(c.lookName) + '” — ' + esc(c.note) + '.</p>';
     });
     plot.conflicts.forEach(function (c) {
-      flags += '<p class="wd-note"><span class="wd-flag">conflict</span> ' + esc(c.character) + ' has two looks down for scene ' + c.scene + ' — pick one.</p>';
+      flags += '<p class="wd-note"><span class="wd-flag">conflict</span> ' + esc(c.character) +
+        ' has two looks down for scene ' + esc(c.scene) + ' (' + esc(c.looks.join(', ')) + ') — pick one.</p>';
     });
-    $('wdFlags').innerHTML = flags || '<p class="wd-note">No quick changes or continuity spans flagged yet.</p>';
+    plot.unplaced.forEach(function (u) {
+      flags += '<p class="wd-note"><span class="wd-flag">not in the script</span> ' + esc(u.character) +
+        ' “' + esc(u.lookName) + '” is down for scene ' + esc(u.scene) + ', which this screenplay does not contain.</p>';
+    });
+    $('wdFlags').innerHTML = flags || '<p class="wd-note">Nothing flagged yet.</p>';
   }
+  $('wdShoot').addEventListener('change', function () { showShoot = !!this.checked; renderPlot(); });
 
   /* ── 3 · budget rollup ── */
   function renderBudget() {
@@ -318,7 +506,7 @@
     toast('Committed $' + t.total.toLocaleString() + ' to Money Room acct 10000 (' + po.num + ')');
   });
 
-  /* ── 4 · photo continuity ── */
+  /* ── 5 · photo continuity ── */
   function renderPhotoLooks() {
     $('wdPhotoLook').innerHTML = st.looks.map(function (l) {
       return '<option value="' + esc(l.id) + '">' + esc((l.character || '?') + ' — ' + l.lookName) + '</option>';
@@ -356,9 +544,12 @@
         var cv = document.createElement('canvas');
         cv.width = fit.w; cv.height = fit.h;
         cv.getContext('2d').drawImage(img, 0, 0, fit.w, fit.h);
-        var rec = { id: 'ph' + Date.now() + Math.random().toString(36).slice(2, 6),
-                    lookId: l.id, dataUrl: cv.toDataURL('image/jpeg', 0.82),
-                    date: new Date().toISOString().slice(0, 10) };
+        /* Stamped with the active project. The bytes still cannot enter the
+           vault, but two productions can no longer collide in this store and
+           the scan below can tell whose photo is whose. */
+        var rec = W.photoRecord({ project: activeProject(), lookId: l.id,
+                                  dataUrl: cv.toDataURL('image/jpeg', 0.82),
+                                  date: new Date().toISOString().slice(0, 10) });
         idbPut(rec).then(function () {
           l.photoIds = l.photoIds || [];
           l.photoIds.push(rec.id);
@@ -374,15 +565,109 @@
     var id = e.target.getAttribute('data-delphoto'); if (!id) return;
     idbDel(id).then(function () {
       st.looks.forEach(function (l) { l.photoIds = (l.photoIds || []).filter(function (x) { return x !== id; }); });
-      save(); renderPhotos(); toast('Photo removed');
+      save(); renderPhotos(); scanPhotos(); toast('Photo removed');
     });
   });
 
+  /* ── the honest photo scan ──────────────────────────────────────────────
+     What is in this browser, versus what any project still points at. The
+     vault cannot see any of it, so this page has to say so plainly. */
+  function kb(n) { return (Math.round(n / 102.4) / 10) + ' KB'; }
+  function scanPhotos() {
+    return idbAll().then(function (recs) {
+      var scan = W.orphanScan(recs, refsAcrossProjects(), activeProject());
+      var html = '<b>' + esc(activeProject()) + '</b> — ' + scan.mine.length + ' photo(s) here, ' + esc(kb(scan.mineBytes)) + '.';
+      html += '<br>This browser holds ' + esc(scan.total) + ' photo(s) in total (' + esc(kb(scan.bytes)) + ') across ' +
+        scan.projects.length + ' known project(s).';
+      if (scan.foreign.length) html += '<br>' + scan.foreign.length + ' belong to another production and are not shown here.';
+      if (scan.orphans.length) html += '<br><span class="bad">' + scan.orphans.length + ' orphan(s), ' + esc(kb(scan.orphanBytes)) +
+        ' — no project references them any more. This is what a project switch leaves behind.</span>';
+      if (scan.legacy.length) html += '<br><span class="bad">' + scan.legacy.length +
+        ' photo(s) predate project stamping — "Stamp legacy photos" claims the ones this project references.</span>';
+      if (scan.missing.length) html += '<br><span class="bad">' + scan.missing.length +
+        ' reference(s) in this project have no bytes on this device — those photos were taken on another machine, and the vault did not carry them.</span>';
+      $('wdScan').innerHTML = html;
+      return scan;
+    });
+  }
+  $('wdPurge').addEventListener('click', function () {
+    scanPhotos().then(function (scan) {
+      if (!scan.orphans.length) return toast('Nothing to purge — every photo still belongs to a project');
+      if (!confirm('Delete ' + scan.orphans.length + ' orphaned photo(s) (' + kb(scan.orphanBytes) +
+        ')? No project references them. This cannot be undone.')) return;
+      Promise.all(scan.orphans.map(function (r) { return idbDel(r.id); })).then(function () {
+        scanPhotos(); renderPhotos(); toast(scan.orphans.length + ' orphan(s) deleted');
+      });
+    });
+  });
+  $('wdAdopt').addEventListener('click', function () {
+    scanPhotos().then(function (scan) {
+      var mine = {}, n = 0;
+      st.looks.forEach(function (l) { (l.photoIds || []).forEach(function (id) { mine[id] = true; }); });
+      var claim = scan.legacy.filter(function (r) { return mine[r.id]; });
+      if (!claim.length) return toast('No unstamped photo belongs to this project');
+      Promise.all(claim.map(function (r) {
+        r.project = activeProject(); n++; return idbPut(r);
+      })).then(function () { scanPhotos(); toast(n + ' photo(s) stamped ' + activeProject()); });
+    });
+  });
+  $('wdPack').addEventListener('click', function () {
+    idbAll().then(function (recs) {
+      var pack = W.photoPack(activeProject(), st.looks, recs, new Date().toISOString());
+      if (!pack.photos.length) return toast('No photos to export yet');
+      var blob = new Blob([JSON.stringify(pack)], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'wardrobe-photos-' + W.projectSlug(activeProject()) + '.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      toast(pack.photos.length + ' photo(s) exported — the vault cannot carry these, so keep the file');
+    });
+  });
+  $('wdPackFile').addEventListener('change', function () {
+    var file = this.files && this.files[0]; if (!file) return;
+    var input = this, rd = new FileReader();
+    rd.onload = function () {
+      var pack;
+      try { pack = W.readPhotoPack(String(rd.result)); }
+      catch (err) { input.value = ''; return toast(err.message); }
+      var byId = {}, byName = {};
+      st.looks.forEach(function (l) {
+        byId[l.id] = l;
+        byName[(l.character || '') + '|' + (l.lookName || '')] = l;
+      });
+      var packLook = {};
+      (pack.looks || []).forEach(function (l) { packLook[l.id] = l; });
+      var placed = 0, loose = 0;
+      var work = pack.photos.map(function (p) {
+        var rec = W.photoRecord({ id: p.id, project: activeProject(), lookId: p.lookId,
+                                  dataUrl: p.dataUrl, date: p.date });
+        var pl = packLook[p.lookId];
+        var target = byId[p.lookId] ||
+          (pl ? byName[(pl.character || '') + '|' + (pl.lookName || '')] : null);
+        if (target) {
+          target.photoIds = target.photoIds || [];
+          if (target.photoIds.indexOf(rec.id) < 0) target.photoIds.push(rec.id);
+          placed++;
+        } else loose++;
+        return idbPut(rec);
+      });
+      Promise.all(work).then(function () {
+        save(); renderAll(); renderPhotos(); scanPhotos(); input.value = '';
+        toast(placed + ' photo(s) restored' + (loose ? ', ' + loose + ' had no matching look here' : '') +
+          (pack.dropped ? ', ' + pack.dropped + ' unreadable and skipped' : ''));
+      });
+    };
+    rd.readAsText(file);
+  });
+
   /* ── init ── */
-  function renderAll() { renderChars(); renderLooks(); renderPlot(); renderBudget(); renderPhotoLooks(); }
+  function renderAll() { renderChars(); renderLooks(); renderDays(); renderPlot(); renderBudget(); renderPhotoLooks(); }
   renderAll();
   renderPhotos();
-  window.WardrobeApp = { render: renderAll, renderPhotos: renderPhotos, state: st };
+  scanPhotos();
+  window.WardrobeApp = { render: renderAll, renderPhotos: renderPhotos, scan: scanPhotos, state: st,
+                         story: function () { return story; } };
 })();
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>

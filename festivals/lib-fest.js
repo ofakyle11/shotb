@@ -97,6 +97,16 @@
     return store;
   }
 
+  /* setSubs(store, rows) — the write path for a caller that owns its own row
+     array (the Tools register replaces its array on delete rather than
+     splicing, so the store has to be re-pointed at it). Every row is
+     normalised on the way in, which is also what keeps a text input's "85"
+     from becoming the stored fee. */
+  function setSubs(store, rows) {
+    store.subs = (rows || []).filter(function (r) { return r && typeof r === 'object'; }).map(normSub);
+    return store;
+  }
+
   /* The two pages read and write through these, so neither can invent a shape
      the other cannot read. load() migrates on the way in. */
   function load() {
@@ -299,7 +309,7 @@
     BANNER: BANNER, MAJORS: MAJORS, TIERS: TIERS, TIER_LABELS: TIER_LABELS, RESULTS: RESULTS,
     KEY: KEY, STORE_VERSION: STORE_VERSION, PREMIERE_STATUSES: PREMIERE_STATUSES,
     LEGACY_STAGES: LEGACY_STAGES,
-    blank: blank, normSub: normSub, normBuyer: normBuyer, migrate: migrate,
+    blank: blank, normSub: normSub, normBuyer: normBuyer, migrate: migrate, setSubs: setSubs,
     load: load, save: save,
     searchLink: searchLink, byTier: byTier, strategy: strategy,
     newSub: newSub, setResult: setResult, feesTotal: feesTotal, upcoming: upcoming,

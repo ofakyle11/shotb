@@ -59,6 +59,7 @@
     </tr></thead><tbody id="mrRows"></tbody></table>
     <h2>Payroll <span class="mr-chip" id="mrPayChip"></span></h2>
     <p class="mr-note" id="mrPayroll"></p>
+    <p class="mr-note mr-over" id="mrPayErr"></p>
 
     <p class="mr-note">Actual = paid/invoiced POs + petty cash + worked timecards. Committed = open POs, signed deals and scheduled crew days. ETC defaults to the money left in the plan — override it per line when you know better. EFC = Actual + Committed + ETC; red variance means the account lands over budget <b>unless something changes now</b>. Every actual quietly calibrates the estimators for your next film.</p>
 
@@ -181,20 +182,26 @@
     var s = P.payrollSummary(cards());
     $('mrPayChip').textContent = s.cards + (s.cards === 1 ? ' timecard' : ' timecards');
     if (!s.cards) {
-      $('mrPayroll').innerHTML = 'No timecards logged yet — log them in <a href="/tools/#timecards">Tools → Timecards</a> ' +
-        'and every day of labour posts itself here: gross and penalties to the department account, fringes to 20000. ' +
-        'Until then this cost report is understating the film by the size of the crew.';
+      $('mrPayroll').textContent = 'No timecards logged yet — log them in Tools → Timecards ' +
+        'and every day of labour posts itself here: gross and penalties to the department account, ' +
+        'fringes to 20000. Until then this cost report is understating the film by the size of the crew.';
+      $('mrPayErr').textContent = '';
       return;
     }
+    /* textContent, not innerHTML: none of this needs markup, and a crew
+       member's name reaches the page through it. Nothing to escape because
+       nothing is parsed. */
     var where = Object.keys(s.byAcct).map(function (a) {
-      return esc(a) + ' ' + fm(s.byAcct[a]);
+      return a + ' ' + fm(s.byAcct[a]);
     }).join(' · ');
-    $('mrPayroll').innerHTML =
-      '<b>' + fm(s.total) + '</b> of labour on the report — ' + fm(s.labor) + ' gross + penalties, ' +
+    $('mrPayroll').textContent =
+      fm(s.total) + ' of labour on the report — ' + fm(s.labor) + ' gross + penalties, ' +
       fm(s.fringes) + ' fringes (acct 20000) · ' + s.people + ' people · ' + s.workedHours + ' worked hours · ' +
-      fm(rep.labor.actual) + ' actual, ' + fm(rep.labor.committed) + ' committed<br>' + where +
-      (s.errors.length ? '<br><span class="mr-over">' + s.errors.length + ' card' + (s.errors.length === 1 ? '' : 's') +
-        ' could not be costed: ' + esc(s.errors[0].person + ' — ' + s.errors[0].error) + '</span>' : '');
+      fm(rep.labor.actual) + ' actual, ' + fm(rep.labor.committed) + ' committed · ' + where;
+    $('mrPayErr').textContent = s.errors.length
+      ? s.errors.length + ' card' + (s.errors.length === 1 ? '' : 's') + ' could not be costed: ' +
+        s.errors[0].person + ' — ' + s.errors[0].error
+      : '';
   }
 
   $('poAdd').addEventListener('click', function () {

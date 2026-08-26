@@ -438,7 +438,10 @@
   });
 
   renderAll();
-  window.CSetApp = { doc: doc, render: renderAll };
+  /* The viewport handle is exposed so the browser harness can ask what the
+     frame actually is — aspect, format, coverage — rather than inferring it
+     from pixels. */
+  window.CSetApp = { doc: doc, render: renderAll, gl: function () { return gl3d; } };
 })();
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>

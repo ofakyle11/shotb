@@ -60,7 +60,7 @@ function check(label, csv) {
 }
 
 for (const f of ['js/lib-money-math.js', 'js/lib-money-accounts.js', 'js/lib-money-sheet.js',
-                 'js/lib-scenes.js', 'finance/lib-money.js', 'production/lib-prod.js', 'boards/lib-shots.js',
+                 'js/lib-scenes.js', 'js/lib-shootdays.js', 'finance/lib-money.js', 'production/lib-prod.js', 'boards/lib-shots.js',
                  'tools/tools-core.js', 'producer/budget-sheet.js']) {
   (0, eval)(readFileSync(join(ROOT, f), 'utf8'));
 }
