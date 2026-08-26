@@ -113,3 +113,33 @@ Findings surfaced by the build that the 40-agent audit MISSED:
 - cylinderQuads had no bottom cap — every table and lamp an open shell.
 - The gate's CSP is a second copy; fixing _headers alone changes nothing.
 - The IndexedDB blindness covers THREE databases, not one.
+
+---
+
+# COMPLETION — 2026-08-26
+
+The programme is closed. Every phase ran; where the plan and reality diverged,
+reality is what is recorded here.
+
+| Phase | Outcome |
+|---|---|
+| 1 · 40-agent analysis | 51 cross-cutting findings — **roughly half of the ones checked were wrong**; every finding acted on this run was re-verified against source first, and `LANDING-CLAIMS.md` documents the worst cluster |
+| 2 · Build | All ten territories landed; the schedule learning loop was inert (nothing set `wrapped`) until the wrap controls were wired |
+| 3 · UI | Blue Patina kit implemented and **enforced by `test_brand.mjs`** — fake-bold Cinzel, negative tracking, off-kit colours, and token drift all fail the build |
+| 4 · Self-learning | Both learning gates reachable (`wrapDay` on /today/, project wrap in the vault); metrics report honestly, including when calibration makes estimates worse |
+| 5 · Landing | Two fabricated claims removed, four "false" claims proven true and kept, copy tightened, `// 05 — THE CURRENT CUT` added. Live. |
+| 6 · Security | Four adversarial finders + fix waves. Real finds: auto-sync deleted photographs, cloud delete leaked them, EDL injection ×3 exporters, three tests that could not fail, a scanner blind to 12 sinks. The planned 50-agent four-sub-wave structure was **not** run in full — recorded as remaining work, not claimed. |
+| 7 · Manual | `docs/manual/manual.pdf` — 20 chapters, 103 pages, verified contents page and outline. Authors surfaced 10+ real defects; all fixed. |
+
+**Final state:** 65/65 suites · 32/32 pages · sink scan 136/0 unreviewed ·
+assurance 0 unlisted · public partition 31 files · live at
+cinamate-studio.netlify.app and verified serving this build · full 588-commit
+history on both `ofakyle11/shotb` and `ofakyle11/cinamate` (main).
+
+**Owner actions outstanding:** rotate the Netlify token pasted in-session ·
+revoke the leaked GitHub PAT (`ghp_P6rR…`) · delete the stale ungated
+`cinamate.netlify.app` on the third account · the `--text-dim`/`--text-faint`
+AA decision (BRAND.md §3) · optional: scrub `Shotbreak-main (1).zip` and the
+WhatsApp image from history.
+
+The hourly autonomous trigger is deleted; this document is the record.
