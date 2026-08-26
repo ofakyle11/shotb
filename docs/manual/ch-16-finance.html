@@ -1,0 +1,239 @@
+<h1 class="ch">The Money Room — Purchase Orders, Payroll &amp; Cost Report</h1>
+<span class="mk">@@CH16@@</span>
+
+<p class="lede">Chapter 08 describes how a budget is arrived at. This chapter
+describes what happens to that budget once the production starts spending against
+it: how a dollar is committed, how it becomes an actual, and how the weekly cost
+report decides that an account is going to land over.</p>
+
+<div class="note"><strong>How this chapter was written.</strong> Every statement
+below comes from reading the files it names — nothing here was observed on a
+running screen. Cinamate is worked on continuously. Where the page in front of
+you contradicts a sentence here, believe the page.</div>
+
+<h2>What the Money Room is, and what it is not</h2>
+
+<p>The Money Room is <span class="path">finance/index.html</span>, driven by
+<span class="path">finance/lib-money.js</span> (<code>CMoney</code>). It keeps a
+register of committed and spent money, joins that register to the budget sheet by
+account number, and produces the weekly cost report a line producer takes to the
+studio and the completion bond.</p>
+
+<p>It is not a general ledger: no double entry, no journal, no trial balance, no
+period close. It files nothing with anyone. It does not talk to a bank, a card
+processor or a payroll bureau — no money moves because you typed it here. And it
+is not accounting advice; the timecard engine's own docstring in
+<span class="path">tools/lib-money.js</span> says as much, calling its rules
+published industry conventions parameterised for your own agreements and
+explicitly "not payroll or legal advice". Every figure here is a production's
+working estimate of its own position, to be reconciled against the books your
+accountant actually keeps.</p>
+
+<h2>The one store</h2>
+
+<p>Everything the room owns lives in browser storage under
+<code>SB_Money_v1</code>, in the shape <code>CMoney.blank()</code> returns:
+<code>{ v, pos, petty, etc, labor, snapshots, nextPo }</code>. It is local to the
+browser you are sitting at — there is no server copy, and a second machine sees
+a different Money Room. Purchase orders are numbered from <code>nextPo</code>,
+which starts at 1001, so the first PO a production raises is <code>PO-1001</code>.</p>
+
+<h2>Purchase orders</h2>
+
+<p>Raise one from the Purchase orders bar: vendor, what for, an account from the
+dropdown, an amount. The page refuses to issue a PO with a non-positive amount.
+A new PO is created with status <code>open</code>, and the status select offers
+four values in a deliberate order:</p>
+
+<table>
+  <tr><th>Status</th><th>Column on the cost report</th><th>Meaning</th></tr>
+  <tr><td><code>open</code></td><td>Committed</td><td>Raised, not yet billed. The money is spoken for.</td></tr>
+  <tr><td><code>invoiced</code></td><td>Actual</td><td>Billed. Treated as real money whether or not it is paid.</td></tr>
+  <tr><td><code>paid</code></td><td>Actual</td><td>Identical treatment to <code>invoiced</code>.</td></tr>
+  <tr><td><code>void</code></td><td>none</td><td>Skipped entirely — neither committed nor actual.</td></tr>
+</table>
+
+<p><strong>Petty cash</strong> is the other half of the same register: who, what
+for, an account, an amount. A petty line is <em>always</em> an actual. There is no
+open state for a receipt, because a receipt is money that has already gone.</p>
+
+<p>The Money Room is not the only place POs are raised. Other modules write
+directly into <code>SB_Money_v1</code> as work is awarded, each naming its own
+account: casting on committing an offer (4000), deal memos on being marked
+signed, VFX on awarding a shot bid, Post and Music (15000), Locations on a permit
+fee (13000), Wardrobe (10000), and Safety for paid-duty police (3000) and an
+animal coordinator (9000). Most stamp the PO number back onto the record that
+raised it, so a shot or a cue can be matched to its commitment later.</p>
+
+<div class="note"><strong>Removing a line is immediate and final.</strong> The ✕
+button on a PO or a petty row asks once and then drops the row from
+<code>SB_Money_v1</code>. There is no undo and no history — a deleted commitment
+is simply gone from the next report.</div>
+
+<h2>The chart, and the account that is not in it</h2>
+
+<p>Account numbers come from <span class="path">js/lib-money-accounts.js</span>
+(<code>CAccounts</code>), which is the single chart every module that posts money
+shares. It holds <strong>twenty major accounts</strong> — 1000 Story &amp; Rights
+through 19000 Contingency, plus 20000 Payroll Fringes — and <strong>fourteen
+detail accounts</strong> that roll up to them: 4100, 4200, 4400 and 4500 under
+Cast; 8500 under Grip &amp; Electric; 9100 and 9900 under the Art Department;
+13500 under Locations; 15200, 15400, 15600 and 15800 under Post-Production; 16500
+and 16800 under Insurance &amp; Legal. A posting on a detail account is shown
+against its major account's budget line when only the major line is budgeted, so
+a department can be precise without becoming unbudgeted.</p>
+
+<p>An account the chart does not recognise rolls up to <em>itself</em>. It does
+not vanish into a neighbouring line and it is not silently dropped: it appears on
+the cost report as its own row, named <code>Unbudgeted · &lt;acct&gt;</code>, with
+a budget of zero. Because variance is budget minus estimated final cost, a zero
+budget makes that row permanently and unfixably over. Cast is <strong>4000</strong>.
+There was a period when the casting office committed offers to <strong>1400</strong>,
+which exists nowhere in the chart, and every cast offer therefore surfaced as a
+permanently over-budget <code>Unbudgeted · 1400</code> line that nothing could
+reconcile. That is the exact shape of the mistake this row exists to expose.</p>
+
+<p>How to tell: scan the Category column for the word <em>Unbudgeted</em>. A row
+carrying it is either an account you never budgeted, or a typo. Both are worth
+finding on a Tuesday rather than at the bond's audit.</p>
+
+<div class="note"><strong>The account dropdown is seeded from your budget sheet,
+not from the chart.</strong> <span class="path">finance/index.html</span> builds
+the PO and petty-cash selects from the accounts present in the saved
+<code>SB_BudgetSheet_v1</code>. With no sheet saved it falls back to a hardcoded
+list of <code>1100</code>, <code>2000</code>, <code>3000</code> and
+<code>5000</code> — and <code>1100</code> is not an account in the chart. On a
+brand-new production, build the top sheet first, or the first PO you raise from
+that empty fallback lands as <code>Unbudgeted · 1100</code>.</div>
+
+<h2>Payroll and timecards</h2>
+
+<p>Labour is half to two-thirds of a picture, and it reaches the report through
+<span class="path">js/lib-payroll.js</span> (<code>CPayroll</code>), which joins
+the timecard log to the cost report and does nothing else. Cards are logged in
+Tools → Timecards and live under <code>SB_Timecards_v1</code>; the overtime,
+meal-penalty and turnaround arithmetic is <code>TMoney.timecard</code>'s and is
+not reimplemented here (see Chapter 19).</p>
+
+<p>Labour postings are <em>derived</em>, not stored. They are rebuilt from the
+cards on every render, so <code>SB_Money_v1</code> never holds a stale copy of a
+card you have since corrected — and, conversely, you cannot delete a labour line
+from the Money Room. Fix the timecard.</p>
+
+<p>One day of one person produces up to two postings:</p>
+
+<ul>
+  <li><strong>Labour</strong> — gross plus penalties, on the department's own
+  account. The account comes from the card if it carries one <em>and</em> that
+  account exists in the chart; otherwise <code>CAccounts.forRole</code> reads the
+  role. A gaffer lands on 8000, not on Direction. Unmatched crew defaults to 5000,
+  unmatched cast to 4000.</li>
+  <li><strong>Fringes</strong> — on 20000, never on the department. Fringes are
+  cross-departmental; posting them into the department would overstate every
+  department and hide the single number a completion bond asks for first.</li>
+</ul>
+
+<p>A card's status decides the column: <code>scheduled</code>, <code>committed</code>
+or <code>projected</code> post as committed — the crew is hired and the day is on
+the board — anything else posts as actual, and <code>void</code> posts nothing.
+Older rows that carry only the "gross+fringe total" column are still postable: the
+total is split back into its halves with fringes as the <em>residual</em>, so the
+two postings add back to the logged figure exactly. A card with no rate, call and
+wrap, no gross and no total is reported as an error under the payroll panel rather
+than posted as a silent zero, and a bad call or wrap time behaves the same way.</p>
+
+<h2>Hot costs</h2>
+
+<p>Tools → Hot Costs is a daily actual-versus-budget view with its own posting
+register, keyed <code>SB_HotCost_v1</code>, reported by <code>TMoney.hotCost</code>.
+It groups by account, splits actual from committed (a posting is <code>actual</code>
+or <code>po</code>), seeds its budget column from the saved top sheet, and marks an
+account <em>HOT</em> above 85% used and <em>OVER</em> past 100%.</p>
+
+<div class="note"><strong>Hot costs and the Money Room are two separate sets of
+books.</strong> Nothing joins <code>SB_HotCost_v1</code> to
+<code>SB_Money_v1</code>. A PO raised in the Money Room does not appear in Hot
+Costs, and a hot-cost posting does not appear in the cost report. The daily
+production report reads the hot-cost store only. Pick one as your register of
+record and use the other as a working view, or the two will disagree.</div>
+
+<h2>The cost report</h2>
+
+<p>Six columns, per account, plus a TOTAL row:</p>
+
+<table>
+  <tr><th>Column</th><th>What it is</th></tr>
+  <tr><td>Budget</td><td>The budget sheet's estimate for that account, read through <span class="path">js/lib-money-sheet.js</span> so an Amt × Units × Rate line counts for what the calculator says it is worth.</td></tr>
+  <tr><td>Actual</td><td>Invoiced and paid POs, all petty cash, and worked timecards.</td></tr>
+  <tr><td>Committed</td><td>Open POs, signed deals and scheduled crew days.</td></tr>
+  <tr><td>ETC</td><td>Estimate to complete. Defaults to whatever is left in the plan — budget minus actual minus committed, floored at zero — and is editable per line.</td></tr>
+  <tr><td>EFC</td><td>Actual + Committed + ETC.</td></tr>
+  <tr><td>Variance</td><td>Budget − EFC. Negative is over.</td></tr>
+</table>
+
+<p><strong>What "over" means here is not "overspent".</strong> A row is marked
+over when its <em>projected final cost</em> exceeds its budget — money already
+gone, money committed, and the estimate of what is still to come. An account can
+be flagged over on a day when it has spent almost nothing, because everything it
+will spend is already committed. That is the point: an overrun surfaces while
+there is still a week in which to act on it.</p>
+
+<p>The ETC cell is the one place on the report you can overrule the arithmetic.
+Type a number and it is stored per account. Clear it and the default returns.
+A non-numeric entry is read as zero, which will quietly flatter the account, so
+type figures.</p>
+
+<p>The TOTAL row is not a sum of the rows you can see. Totals are accumulated from
+the cents that were actually posted, and total EFC and total variance are derived
+from those sums. This is load-bearing: three rows of $100.50, rounded per row and
+then added, come to $303; summed as posted, they come to $301.50. The report
+agrees with the second number.</p>
+
+<h2>Money is carried in cents</h2>
+
+<p>Every figure in this layer is an integer number of cents
+(<span class="path">js/lib-money-math.js</span>). Rounding is <em>half away from
+zero</em>, applied once, at the point a fraction of a cent is created — a
+multiplication or a percentage — and never on a sum. JavaScript's own
+<code>Math.round</code> is half-up, so it turns −2.5 into −2 and biases every
+negative variance toward zero; that is why it is not used.</p>
+
+<p>The rule at the edge is the one that matters most to you: <strong>a money
+figure leaving the platform is written as a string with exactly two decimal
+places.</strong> A raw float is never put in a cell. Fifteen units of $1,061.64
+is $15,924.60, but the float multiplication evaluates to
+<code>15924.600000000002</code>; two budget lines of $15,920.30 and $4.30 evaluate
+to <code>15924.599999999999</code>. Either one, written straight into a CSV, is
+what a producer's spreadsheet then adds up — and a column of those does not foot.
+The CSV writes <code>15924.60</code>. Negative zero is written as
+<code>0.00</code>, not <code>-0.00</code>, because a credit that is not there
+reads as a credit.</p>
+
+<p>The CSV also defends the machine that opens it: any cell whose text begins
+<code>=</code>, <code>+</code>, <code>-</code>, <code>@</code>, a tab or a carriage
+return is prefixed with an apostrophe, so a vendor name typed on this site is read
+by Excel and Sheets as literal text rather than as a formula to run.</p>
+
+<div class="note"><strong>The screen rounds; the export does not.</strong> Cost
+report figures are displayed to the whole dollar. The CSV carries the cents. When
+the two appear to disagree by a few dollars across a column, the CSV is the one
+that is exact.</div>
+
+<h2>Snapshots, and who reads this report</h2>
+
+<p><em>Take weekly snapshot</em> freezes the current totals into the record as
+week <em>n</em>, dated. Snapshots are written once and never edited afterwards.</p>
+
+<div class="note"><strong>The snapshot record is trimmed.</strong> Once more than
+sixty weeks are held, the list is cut back to the most recent fifty-two and the
+earliest weeks are discarded permanently. On a long production, export before you
+pass a year.</div>
+
+<p>Three things read this report without being asked. The Producer Suite's top
+sheet shows the Money Room's EFC and its over/under figure beneath the grand total
+once any PO exists. The investor update letter pulls EFC from it and says so, and
+says so honestly when there is no cost report to pull from. And every account with
+both a budget and an actual is fed to the estimator on each render, so this
+production's real costs calibrate the next one's estimates. Nothing about that is
+reversible from here — it is another reason to keep an account number correct
+before it becomes history.</p>

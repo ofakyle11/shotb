@@ -8,11 +8,30 @@
    HONESTY: permit entries below were verified against the official city fee
    schedules and application portals on 2026-08-23 (verified:true). Facility
    entries are verified:true only where the operator's own site confirmed
-   them; anything else stays
-   was built, so every entry ships verified:false, carries NO fees, phone
-   numbers, or application URLs, and points at a web search instead. Office
-   and facility names are long-standing institutional facts; everything
-   else is labeled guidance to confirm on the official page.
+   them; anything else stays verified:false, carries no fees, phone numbers or
+   application URLs, and points at a web search instead. Office and facility
+   names are long-standing institutional facts; everything else is labeled
+   guidance to confirm on the official page.
+
+   ── THE DESCRIPTIVE FIELDS IN THIS FILE ARE ABRIDGED ──────────────────────
+   Thirty-nine of them stop mid-sentence, and a few stopped mid-word: text was
+   lost when this file was written, not by any code that reads it. The
+   paragraph immediately above was cut the same way — it read "anything else
+   stays" and then jumped to "was built, so every entry ships verified:false",
+   with a clause missing in between; it has been repaired from the surrounding
+   sense, which is the only place in this file where that was possible.
+
+   The DATA could not be repaired that way. Restoring "Mega Stage ~45,900-
+   46,000 sq ft (b…" means knowing what the source said about a real
+   soundstage, and guessing at institutional facts is worse than an obvious
+   gap. So each truncated value now ends in an ellipsis: an abridged note reads
+   as abridged instead of as corruption, and nothing has been invented. Only
+   broken syntax was removed — an unclosed parenthetical — and every complete
+   word is exactly as it was.
+
+   TO RESTORE THESE PROPERLY the original source is needed. Until then, treat
+   every "…" as "confirm on the official page", which is what the paragraph
+   above already asks of anything verified:false.
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (root) {
   'use strict';
@@ -100,7 +119,7 @@
             {
                 "name": "Pinewood Toronto Studios",
                 "kind": "major purpose-built studio lot",
-                "stages": "16 purpose-built stages, 450,000+ sq ft of stage space; Mega Stage ~45,900-46,000 sq ft (b",
+                "stages": "16 purpose-built stages, 450,000+ sq ft of stage space; Mega Stage ~45,900-46,000 sq ft …",
                 "notable": "Canada's largest purpose-built complex, in the Port Lands",
                 "website": "https://pinewoodgroup.com/toronto-studios/stages-and-support-spaces/",
                 "verified": true
@@ -108,7 +127,7 @@
             {
                 "name": "Cinespace Studios (Toronto)",
                 "kind": "major multi-campus studio operator",
-                "stages": "29 active stages, ~1.4 million sq ft across three campuses: Kipling (Studios A-N, FX East/",
+                "stages": "29 active stages, ~1.4 million sq ft across three campuses: Kipling …",
                 "notable": "Ontario's largest stage provider",
                 "website": "https://cinespace.com/cinespace-toronto/",
                 "verified": true
@@ -116,7 +135,7 @@
             {
                 "name": "Revival Film Studios (Revival 629)",
                 "kind": "independent soundstage campus (former Toronto Film Studios)",
-                "stages": "10 stages plus 9 support spaces on an 18.5-acre site (official site); industry press cites",
+                "stages": "10 stages plus 9 support spaces on an 18.5-acre site (official site); industry press cites …",
                 "notable": "East-end campus at 629 Eastern Ave",
                 "website": "https://revivalfilmstudios.ca/",
                 "verified": true
@@ -124,7 +143,7 @@
             {
                 "name": "TriBro Studios",
                 "kind": "independent full-service soundstages",
-                "stages": "3 sound stages at 6 Curity Ave plus the Sandy Beach Studio site in Toronto East (dimension",
+                "stages": "3 sound stages at 6 Curity Ave plus the Sandy Beach Studio site in Toronto East …",
                 "notable": "Mid-size full-service operator near the downtown core with production offices, wardrobe, carpentry/paint shops",
                 "website": "https://tribrostudios.com/",
                 "verified": true
@@ -132,7 +151,7 @@
             {
                 "name": "William F. White Studios / Studio City Toronto (Sunbelt Rentals)",
                 "kind": "equipment-vendor-operated stage network",
-                "stages": "Company materials cite 32 stages across nine facilities (~1M+ sq ft network-wide); acquire",
+                "stages": "Company materials cite 32 stages across nine facilities (~1M+ sq ft network-wide); acquire …",
                 "notable": "Canada's dominant grip/lighting vendor (a Sunbelt Rentals company) that bundles stages with equipment",
                 "website": null,
                 "verified": false
@@ -140,13 +159,13 @@
             {
                 "name": "Studio Toronto (formerly Downsview Park Studios)",
                 "kind": "independent enclosed studio campus",
-                "stages": "10 certified sound stages, ~300,000 sq ft, per Cinelease and Hollywood Reporter (2022 rela",
+                "stages": "10 certified sound stages, ~300,000 sq ft, per Cinelease and Hollywood Reporter …",
                 "notable": "Fully-enclosed Downsview campus near Downsview Park Station with parking for ~1,000 cast/crew and 250 trucks",
                 "website": null,
                 "verified": false
             }
         ],
-        "booking": "Toronto's major stages are booked direct with each studio's stage/booking team - none of the majors publish rates. You email or call the operator (e.g. stages@cinespace.com / 416-406-4000; Pinewood Toronto via its contact page; Revival at info@revivalfilmstudios.ca / 416-461-4500; TriBro at info@tri"
+        "booking": "Toronto's major stages are booked direct with each studio's stage/booking team - none of the majors publish rates. You email or call the operator …"
     },
     {
         "hub": "Vancouver",
@@ -154,7 +173,7 @@
             {
                 "name": "Vancouver Film Studios",
                 "kind": "major independent studio lot (purpose-built)",
-                "stages": "13 purpose-built sound stages (site); Wikipedia lists sizes ~12,500-21,000 sq ft each, ~35",
+                "stages": "13 purpose-built sound stages (site); Wikipedia lists sizes ~12,500-21,000 sq ft each, ~35 …",
                 "notable": "East Vancouver flagship lot (McLean Group) at 3500 Cornett Rd",
                 "website": "https://vancouverfilmstudios.com/",
                 "verified": true
@@ -162,7 +181,7 @@
             {
                 "name": "Bridge Studios",
                 "kind": "major multi-campus studio operator (purpose-built)",
-                "stages": "38 sound stages across three Greater Vancouver campuses: Boundary (13 stages/15 acres), La",
+                "stages": "38 sound stages across three Greater Vancouver campuses: Boundary (13 stages/15 acres), La …",
                 "notable": "BC's original multi-stage campus, now 100% fossil-fuel-free",
                 "website": "https://bridgestudios.com/",
                 "verified": true
@@ -170,7 +189,7 @@
             {
                 "name": "North Shore Studios",
                 "kind": "purpose-built studio lot",
-                "stages": "8 purpose-built stages, 11,010-20,544 sq ft each (~132,000 sq ft total), 30-40 ft clear he",
+                "stages": "8 purpose-built stages, 11,010-20,544 sq ft each (~132,000 sq ft total), 30-40 ft clear he …",
                 "notable": "Industry-favourite North Vancouver lot founded 1989 by Stephen J. Cannell",
                 "website": "https://nsstudios.ca/north-shore-studios/stages/",
                 "verified": true
@@ -178,7 +197,7 @@
             {
                 "name": "Mammoth Studios",
                 "kind": "converted big-box mega-stages (operated with North Shore Studios)",
-                "stages": "278,771 sq ft of stage space; largest single stage 120,665 sq ft (among North America's bi",
+                "stages": "278,771 sq ft of stage space; largest single stage 120,665 sq ft …",
                 "notable": "Burnaby facility for the very largest builds — some of North America's largest sound stages under one roof",
                 "website": "https://nsstudios.ca/mammoth-studios/",
                 "verified": true
@@ -186,7 +205,7 @@
             {
                 "name": "Martini Film Studios",
                 "kind": "independent converted-warehouse studio campus with backlot and standing sets",
-                "stages": "~150,000 sq ft of converted sound stages (site currently presents Studios A/B/C; industry ",
+                "stages": "~150,000 sq ft of converted sound stages …",
                 "notable": "Langley campus known for standing sets (Boeing 767-200 interior, courthouse, hospital ER), 16-acre 'Martini To",
                 "website": "https://www.martinifilmstudios.com/",
                 "verified": true
@@ -194,13 +213,13 @@
             {
                 "name": "Canadian Motion Picture Park Studios (CMPP)",
                 "kind": "major independent studio park (purpose-built stages + backlot)",
-                "stages": "18 sound stages, ~7,000-42,000 sq ft each; 300,000+ sq ft of stages/support on 25 acres; 4",
+                "stages": "18 sound stages, ~7,000-42,000 sq ft each; 300,000+ sq ft of stages/support on 25 acres; 4 …",
                 "notable": "Burnaby studio park that hosted Godzilla (2014), TRON: Legacy, Watchmen, Twilight, Supernatural, Lucifer",
                 "website": null,
                 "verified": false
             }
         ],
-        "booking": "There is no centralized booking system for Vancouver soundstages, and major facilities do not publish rates — everything at the professional tier is quote/lease-based. The standard path: (1) The BC Film Commission at Creative BC maintains a free public Stages + Studio Facilities directory (creativeb"
+        "booking": "There is no centralized booking system for Vancouver soundstages, and major facilities do not publish rates — everything at the professional tier is quote/lease-based. The standard path: (1) The BC Film Commission at Creative BC maintains a free public Stages + Studio Facilities directory …"
     },
     {
         "hub": "Atlanta",
@@ -208,7 +227,7 @@
             {
                 "name": "Trilith Studios",
                 "kind": "major purpose-built studio lot",
-                "stages": "30+ soundstages (plus specialty stages Live A/B, Stage A, Town Stage), 15,000–40,000 sq ft",
+                "stages": "30+ soundstages (plus specialty stages Live A/B, Stage A, Town Stage), 15,000–40,000 sq ft …",
                 "notable": "Largest purpose-built studio campus in North America",
                 "website": "https://www.trilithstudios.com",
                 "verified": true
@@ -216,7 +235,7 @@
             {
                 "name": "Assembly Studios (Assembly Atlanta)",
                 "kind": "major studio lot (owned by Gray Media, operated/booked by Universal Production Services)",
-                "stages": "19 sound stages (site figure; some directories cite up to 22), roughly 15,000–30,000 sq ft",
+                "stages": "19 sound stages (site figure; some directories cite up to 22), roughly 15,000–30,000 sq ft …",
                 "notable": "Newest major Atlanta lot, built on the former GM Doraville plant",
                 "website": "https://assemblyatlanta.com/studios/assembly-studios/",
                 "verified": true
@@ -224,7 +243,7 @@
             {
                 "name": "Shadowbox Studios Atlanta (formerly Blackhall Studios)",
                 "kind": "large independent soundstage campus",
-                "stages": "9 soundstages, 19,200–38,400 sq ft (200,000+ sq ft stage space), 40-ft working heights, 65",
+                "stages": "9 soundstages, 19,200–38,400 sq ft (200,000+ sq ft stage space), 40-ft working heights, 65 …",
                 "notable": "As Blackhall it hosted Jumanji: The Next Level and Venom 2",
                 "website": "https://shadowboxstudios.com/atlanta/",
                 "verified": true
@@ -232,7 +251,7 @@
             {
                 "name": "Tyler Perry Studios",
                 "kind": "major private studio lot (rents to outside studios/networks, typically longer-term)",
-                "stages": "12 purpose-built sound stages, 10,000–38,500 sq ft, 4000A 3-phase power, on the 330-acre f",
+                "stages": "12 purpose-built sound stages, 10,000–38,500 sq ft, 4000A 3-phase power, on the 330-acre f …",
                 "notable": "One of the largest US studio lots",
                 "website": "https://tylerperrystudios.com",
                 "verified": true
@@ -240,7 +259,7 @@
             {
                 "name": "Eagle Rock Studios Atlanta (Norcross)",
                 "kind": "independent soundstage complex (single-roof TV/film facility)",
-                "stages": "4 soundstages of ~28,500–30,300 sq ft each (~119,000 sq ft combined) plus 34,000+ sq ft of",
+                "stages": "4 soundstages of ~28,500–30,300 sq ft each (~119,000 sq ft combined) plus 34,000+ sq ft of …",
                 "notable": "Workhorse for multi-cam TV and streaming series",
                 "website": "https://eaglerockstudiosatl.com",
                 "verified": true
@@ -248,13 +267,13 @@
             {
                 "name": "Electric Owl Studios",
                 "kind": "independent purpose-built soundstage campus (sustainability-focused)",
-                "stages": "140,000 sq ft of purpose-built stages plus 50,000 sq ft production offices, 90,000 sq ft m",
+                "stages": "140,000 sq ft of purpose-built stages plus 50,000 sq ft production offices, 90,000 sq ft m …",
                 "notable": "Bills itself as the world's first purpose-built LEED Gold certified film & TV studio",
                 "website": "https://www.electricowlstudios.com",
                 "verified": true
             }
         ],
-        "booking": "Atlanta's major stages are not bookable off a rate card — every large facility (Trilith, Assembly, Shadowbox, Tyler Perry, Eagle Rock, Electric Owl) works on direct quotes negotiated with an in-house sales/booking team, and none publishes day rates. The normal path: (1) contact the facility's sales "
+        "booking": "Atlanta's major stages are not bookable off a rate card — every large facility (Trilith, Assembly, Shadowbox, Tyler Perry, Eagle Rock, Electric Owl) works on direct quotes negotiated with an in-house sales/booking team, and none publishes day rates. The normal path: (1) contact the facility's sales …"
     },
     {
         "hub": "Los Angeles",
@@ -270,7 +289,7 @@
             {
                 "name": "Sony Pictures Studios",
                 "kind": "major studio lot",
-                "stages": "18 stages, 7,600-42,000 sq ft; Stage 15 (42,000 sq ft, historically North America's larges",
+                "stages": "18 stages, 7,600-42,000 sq ft; Stage 15 …",
                 "notable": "Culver City lot of The Wizard of Oz-era MGM heritage",
                 "website": "https://www.sonypicturesstudios.com/",
                 "verified": true
@@ -278,7 +297,7 @@
             {
                 "name": "Sunset Studios (Sunset Gower / Sunset Bronson / Sunset Las Palmas)",
                 "kind": "independent multi-campus studio operator (Hudson Pacific Properties)",
-                "stages": "Three historic Hollywood campuses (est. 1918-1919); newer Sunset Glenoaks campus adds 7 st",
+                "stages": "Three historic Hollywood campuses (est. 1918-1919); newer Sunset Glenoaks campus adds 7 st …",
                 "notable": "Largest independent stage operator in Hollywood proper",
                 "website": "https://sunsetstudios.com/",
                 "verified": true
@@ -286,7 +305,7 @@
             {
                 "name": "LA Center Studios",
                 "kind": "independent full-service studio campus",
-                "stages": "Six 18,000 sq ft audience-rated stages with floating wood floors and silent air",
+                "stages": "Six 18,000 sq ft audience-rated stages with floating wood floors and silent air …",
                 "notable": "20-acre downtown LA campus with 450,000 sq ft of production office space and closable public streets",
                 "website": "https://lacenterstudios.com/",
                 "verified": true
@@ -294,7 +313,7 @@
             {
                 "name": "Santa Clarita Studios",
                 "kind": "independent studio lot with backlot",
-                "stages": "35 stages, 6,000-48,000 sq ft; clear-span, audience-rated, min 3,600 amps and 60 tons AC e",
+                "stages": "35 stages, 6,000-48,000 sq ft; clear-span, audience-rated, min 3,600 amps and 60 tons AC e …",
                 "notable": "One of the largest independent facilities in the LA 30-mile zone, with a downtown backlot",
                 "website": "https://www.sc-studios.com/",
                 "verified": true
@@ -302,13 +321,13 @@
             {
                 "name": "Mack Sennett Studios",
                 "kind": "historic boutique/converted soundstage complex",
-                "stages": "Two large stages within ~25,000 sq ft, plus event spaces; white cycs, green screens, up to",
+                "stages": "Two large stages within ~25,000 sq ft, plus event spaces; white cycs, green screens, up to …",
                 "notable": "Operating since 1916 (Mack Sennett's silent-era studio) in Silver Lake",
                 "website": "https://macksennettstudios.net/",
                 "verified": true
             }
         ],
-        "booking": "LA stage booking is almost entirely direct and quote-based — no major or mid-size facility publishes a rate card. Productions contact each lot's studio operations/leasing office (e.g. Warner Bros. studio.leasing@wbd.com; Sony Studio Operations 310-244-6926; independents often list named executives, "
+        "booking": "LA stage booking is almost entirely direct and quote-based — no major or mid-size facility publishes a rate card. Productions contact each lot's studio operations/leasing office …"
     },
     {
         "hub": "New York",
@@ -316,7 +335,7 @@
             {
                 "name": "Steiner Studios",
                 "kind": "major studio lot (Brooklyn Navy Yard)",
-                "stages": "30 stages, ~780,000 sq ft on a 50-acre gated lot; stages roughly 2,480–27,200 sq ft, grids",
+                "stages": "30 stages, ~780,000 sq ft on a 50-acre gated lot; stages roughly 2,480–27,200 sq ft, grids …",
                 "notable": "Largest purpose-built studio campus on the East Coast",
                 "website": "https://www.steinerstudios.com/",
                 "verified": true
@@ -324,7 +343,7 @@
             {
                 "name": "Silvercup Studios",
                 "kind": "major independent studio complex (3 lots: 2 in Long Island City, 1 in the Bronx)",
-                "stages": "23 stages totaling ~240,000 sq ft; individual stages 2,100–16,220 sq ft, ceilings to 50 ft",
+                "stages": "23 stages totaling ~240,000 sq ft; individual stages 2,100–16,220 sq ft, ceilings to 50 ft …",
                 "notable": "Operating since 1983",
                 "website": "http://www.silvercupstudios.com/",
                 "verified": true
@@ -332,7 +351,7 @@
             {
                 "name": "Kaufman Astoria Studios",
                 "kind": "major historic studio lot (Astoria, Queens)",
-                "stages": "11 stages totaling 147,000+ sq ft (7 column-free), plus NYC's only outdoor backlot (~34,80",
+                "stages": "11 stages totaling 147,000+ sq ft (7 column-free), plus NYC's only outdoor backlot …",
                 "notable": "1920 Paramount-era landmark lot",
                 "website": null,
                 "verified": true
@@ -340,7 +359,7 @@
             {
                 "name": "Broadway Stages",
                 "kind": "large independent multi-site stage operator (Brooklyn/Queens/Staten Island)",
-                "stages": "60+ soundstages across three boroughs; 4M+ sq ft of integrated space and 16+ acres of park",
+                "stages": "60+ soundstages across three boroughs; 4M+ sq ft of integrated space and 16+ acres of park …",
                 "notable": "NYC's biggest independent stage landlord — episodic TV workhorse (e.g. the FBI franchise) with unique owned lo",
                 "website": "https://broadway-stages.com/",
                 "verified": true
@@ -356,13 +375,13 @@
             {
                 "name": "York Studios",
                 "kind": "independent purpose-built soundstage facility (two campuses)",
-                "stages": "Michaelangelo Campus: 175,000 sq ft in Soundview, Bronx; Maspeth Campus: 40,000 sq ft in Q",
+                "stages": "Michaelangelo Campus: 175,000 sq ft in Soundview, Bronx; Maspeth Campus: 40,000 sq ft in Q …",
                 "notable": "Founded 2012",
                 "website": "https://www.yorkstudios.com/",
                 "verified": true
             }
         ],
-        "booking": "NYC is a direct-quote market: none of the major studios publish rates. Productions contact each facility's studio operations/booking office directly, and pricing is negotiated per project based on stage size, term (episodic series often hold stages for months or years, which drives scarcity), and bu"
+        "booking": "NYC is a direct-quote market: none of the major studios publish rates. Productions contact each facility's studio operations/booking office directly, and pricing is negotiated per project based on stage size, term (episodic series often hold stages for months or years, which drives scarcity), and bu …"
     },
     {
         "hub": "London",
@@ -370,7 +389,7 @@
             {
                 "name": "Pinewood Studios",
                 "kind": "major studio lot (Iver Heath, west of London)",
-                "stages": "30 sound stages of varying sizes, plus 3 exterior backlots and a permanently filled Underw",
+                "stages": "30 sound stages of varying sizes, plus 3 exterior backlots and a permanently filled Underw …",
                 "notable": "The UK's flagship lot for 90 years — home of the James Bond franchise and large-scale action/franchise filmmak",
                 "website": "https://www.pinewoodgroup.com/our-studios/pinewood-studios/",
                 "verified": true
@@ -378,7 +397,7 @@
             {
                 "name": "Warner Bros. Studios Leavesden",
                 "kind": "major studio lot (Watford, NW of London)",
-                "stages": "350,000 sq ft of sound stages (individual stage count not published on homepage), Europe's",
+                "stages": "350,000 sq ft of sound stages (individual stage count not published on homepage), Europe's …",
                 "notable": "Warner Bros.' UK production hub — the Harry Potter lot, now first-choice for tentpole features",
                 "website": "https://www.wbsl.com/",
                 "verified": true
@@ -394,7 +413,7 @@
             {
                 "name": "3 Mills Studios",
                 "kind": "independent soundstage campus (East London, E3)",
-                "stages": "9 main production stages totaling ~75,000 sq ft, plus rehearsal stages and 130+ offices",
+                "stages": "9 main production stages totaling ~75,000 sq ft, plus rehearsal stages and 130+ offices …",
                 "notable": "East London's iconic film/TV/theatre campus — London 2012 ceremonies, recent features incl. Blitz",
                 "website": "https://3mills.com/",
                 "verified": true
@@ -402,7 +421,7 @@
             {
                 "name": "Ealing Studios",
                 "kind": "historic independent studio lot (West London)",
-                "stages": "5 sound stages totaling ~37,000 sq ft, incl. a new 14,000 sq ft net-zero stage and three l",
+                "stages": "5 sound stages totaling ~37,000 sq ft, incl. a new 14,000 sq ft net-zero stage and three l …",
                 "notable": "The world's oldest continuously operating film studio (est. 1902) — Black Mirror, Darkest Hour, Last Night in ",
                 "website": "https://ealingstudios.com/",
                 "verified": true
@@ -410,13 +429,13 @@
             {
                 "name": "Garden Studios",
                 "kind": "independent soundstage campus with permanent virtual production stage (Park Royal, West London)",
-                "stages": "8 sound stages from 5,005 to 23,414 sq ft, plus a 7,815 sq ft permanent LED-volume Virtual",
+                "stages": "8 sound stages from 5,005 to 23,414 sq ft, plus a 7,815 sq ft permanent LED-volume Virtual …",
                 "notable": "London's leading virtual-production campus — permanent LED volume with wet-hire VP services alongside conventi",
                 "website": "https://gardenstudios.io/",
                 "verified": true
             }
         ],
-        "booking": "Feature/HETV soundstages in the London market are booked directly with each studio's in-house bookings/sales team and are almost universally quote-based — none of the major facilities publish rate cards. Quotes depend on stage size, hire duration, and ancillary space (production offices, workshops, "
+        "booking": "Feature/HETV soundstages in the London market are booked directly with each studio's in-house bookings/sales team and are almost universally quote-based — none of the major facilities publish rate cards. Quotes depend on stage size, hire duration, and ancillary space …"
     }
 ];
 
