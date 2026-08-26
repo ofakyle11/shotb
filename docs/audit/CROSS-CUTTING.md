@@ -789,3 +789,50 @@ platform can express five- or seven-day weeks and nothing else. Meanwhile
 `tools/lib-money.js:28` defines `sixthDayMult: 1.5` and `timecard()` applies it
 correctly, **but nothing in a schedule can ever trigger it.** Six-day weeks are
 the norm on low-budget features.
+
+## 40. Audition sides leak the entire screenplay (teamA-07) — CONFIDENTIALITY
+
+`production/lib-prod.js:110` is **the only one of ~12 slugline regexes in the
+repo missing the `^\s*(?:\d+[\s.]*)?` scene-number prefix**, so on any numbered
+shooting script it never splits. Verified: the output is one block containing
+the whole script — offered to the user as a `.txt` download at
+`production/production.js:110`.
+
+Sides go out to auditioning actors and their representation. The whole point of
+sides is that they are *not* the screenplay. This should be re-checked in Phase
+6 as a confidentiality issue, not only a correctness one.
+
+The character match at `:112` is a bare `indexOf`, so it also pulls scenes where
+the actor never speaks — "TOM" matches "TOMORROW".
+
+`CCastDesk.sidesFor` already does this correctly (finding 9, ~eleventh
+instance). **The fix is a deletion.**
+
+### The slugline count is now twelve
+
+Finding 1 opened at five parsers, went to six, and the full sweep puts it at
+**about twelve**. That single shared parser is no longer merely the
+highest-leverage change — it is the precondition for roughly a third of the
+backlog.
+
+## 41. An honest negative, recorded deliberately
+
+teamA-07 was asked whether `production/lib-prod.js` holding seven concerns in
+one file is costing anything, and answered: **no. 182 lines, five small pure
+functions. Do not split it.**
+
+Recording this because the brief asked agents to say when something is already
+fine, and because a refactor that "tidies" this file would consume Phase 2 time
+and change nothing. The duplication that actually hurts is *across* files — the
+twelve slugline regexes, the two `sidesFor` implementations, the three location
+stores, the two casting stores, the two budget engines.
+
+Several other genuine positives worth protecting through Phase 2 and 3, named by
+the agents that read them closely: the cent-exact reconciling investor
+waterfall, `docs/PRODUCTION_PRICING.md`'s sourcing, `festivals/lib-fest.js`
+premiere sequencing and its no-invented-dates discipline, `CPost.schedule`'s
+dependency graph and critical path, `tools/lib-sun.js`'s solar maths (92s off
+NOAA), `TMoney.timecard`'s overtime engine, the Editor's ripple timeline maths
+and its hand-written spec-correct ISO-BMFF muxer, `CCastDesk.charactersFromScript`,
+`sets/lib-set3d.js`'s ray/triangle intersection, and the props directory's
+refusal to invent a phone number — with a test that enforces it.
