@@ -1,11 +1,15 @@
+/* The token layer. Every module page <link>s this stylesheet, so importing
+   here is what gets tokens onto all 28 of them without touching their HTML.
+   The `:root` block that used to sit on this line declared the whole app's
+   palette — every other module's colours resolved out of the Studio's
+   stylesheet by accident of load order. It now lives in css/tokens.css; see
+   that file's header for the canonical names and the System B aliases.
+   @import must stay first in the file: a browser ignores one that follows a
+   rule. Replace with a real <link rel="stylesheet" href="/css/tokens.css">
+   ahead of this sheet when the HTML territory can carry it. */
+@import url("/css/tokens.css");
+
 *{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#0A1628;--surface:#0F1F33;--surface2:#12253A;--surface3:#1A2F4A;
-  --border:rgba(139,163,184,.12);--border2:rgba(139,163,184,.22);
-  --gold:#5B8DB8;--gold2:#7FA8CC;--green:#4A8B7A;--blue:#5B8DB8;
-  --red:#A65D5D;--text:#E8EEF2;--text2:#A0B4C8;--dim:#6A7E94;
-  --display:'Cinzel',serif;--body:'Inter',sans-serif;--mono:'IBM Plex Mono',monospace;
-}
 html,body{height:100%;margin:0;overflow-x:hidden;overflow-y:auto}
 body{background:var(--bg);color:var(--text);font-family:var(--body);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font-family:inherit}

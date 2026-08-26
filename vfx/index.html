@@ -90,7 +90,7 @@
     </tr></thead><tbody id="vxMoney"></tbody></table>
     <div class="vx-total" id="vxMoneyTotals"></div>
     <p class="vx-note vx-learned" id="vxLearned" style="display:none"></p>
-    <p class="vx-note">Ranges are internal <b>planning estimates</b> by complexity band — not quotes; real vendor bids always win. Award a bid to commit it to the Money Room under acct 15200 (VFX) as an open PO; each award commits once. Verify bids and vendor scope before relying on these figures — VFX pricing drifts with schedule and iteration count.</p>
+    <p class="vx-note">Ranges are internal <b>planning estimates</b> by complexity band — not quotes; real vendor bids always win. Award a bid to commit it to the Money Room under acct 15200 (VFX) as an open PO; each award commits once. When you mark that PO <b>paid</b> in the Money Room, the board records what the shot actually cost against the raw bid and corrects the band for the next shot of that complexity — after two finals, never on one. Verify bids and vendor scope before relying on these figures — VFX pricing drifts with schedule and iteration count.</p>
 
     <h2>4 · On-set VFX day sheet</h2>
     <div class="vx-bar">
@@ -112,7 +112,7 @@
 <script src="/js/lib-money-sheet.js?v=20260826a"></script>
 <script src="/finance/lib-money.js?v=20260823a"></script>
 <script src="/js/lib-scenes.js?v=20260826a"></script>
-<script src="lib-vfx.js?v=20260823a"></script>
+<script src="lib-vfx.js?v=20260826a"></script>
 <script>
 (function () {
   'use strict';
@@ -126,6 +126,9 @@
 
   var st = readLS(KEY) || { shots: [], sel: '', project: '' };
   if (!st.shots) st.shots = [];
+  /* The recorded finals — one observation per shot whose PO the owner has
+     marked paid. Money is carried in integer cents (js/lib-money-math.js). */
+  if (!Array.isArray(st.finals)) st.finals = [];
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
   function shotById(id) { return st.shots.filter(function (s) { return s.id === id; })[0]; }
   function money(n) { return '$' + (+n || 0).toLocaleString(); }
@@ -221,51 +224,96 @@
   }
 
   /* ── 3 · money ── */
+  /* VFX is 15200 in the chart (js/lib-money-accounts.js) and that is where the
+     estimator budgets it. Committing bids to 15000 — Post-Production entire —
+     meant the VFX budget line and the VFX spend never met, so cost-per-shot
+     could not be asked anywhere. 15200 rolls up to 15000 on the cost report,
+     so a sheet that only carries the major account still reconciles. The
+     account is CVfx.ACCT so the award and the legacy-PO recovery agree. */
+  var VFX_ACCT = V.ACCT;
+  function moneyStore() { try { return JSON.parse(localStorage.getItem('SB_Money_v1') || 'null'); } catch (e) { return null; } }
+
+  /* The board and the Money Room are joined by the PO number the award writes
+     onto the shot. Boards written before that stored `true` — the money was
+     committed and the number thrown away — so every sync first tries to
+     recover it from the Money Room, and flags what it cannot.
+     Nothing is learned until the owner marks a PO paid: that is the settled
+     final cost, so running this on every render records each shot once. */
+  function syncFinals() {
+    var m = moneyStore();
+    if (!m) return;
+    var mig = V.migratePoRefs(st.shots, m);
+    var fresh = V.observeFinals(st.shots, m, st.finals);
+    if (fresh.length) st.finals = V.mergeFinals(st.finals, fresh);
+    if (mig.migrated || fresh.length) save();
+  }
+
   function renderMoney() {
     $('vxMoney').innerHTML = st.shots.map(function (sh) {
-      var c = V.bidVsEst(sh);
+      var opts = { finals: st.finals, vendor: sh.vendor };
+      var c = V.bidVsEst(sh, opts);
       var verdict = c.status === 'no-bid' ? '<span class="vx-tag">no bid yet</span>'
         : c.status === 'within' ? '<span class="vx-under">within range</span>'
         : c.status === 'above' ? '<span class="vx-over">' + esc(money(c.delta)) + ' over range</span>'
         : '<span class="vx-under">' + esc(money(-c.delta)) + ' under range</span>';
       var canCommit = c.bid > 0 && !sh.committedPo;
+      var cal = c.est.learnedN
+        ? '<span class="vx-cal" title="' + esc('Corrected from ' + c.est.learnedN + ' recorded final' +
+            (c.est.learnedN === 1 ? '' : 's') + ' by ' + c.est.basis + ' — shipped band ' +
+            money(c.est.rawLo) + ' – ' + money(c.est.rawHi)) + '">×' + esc(c.est.mult.toFixed(2)) +
+            ' · n=' + esc(c.est.learnedN) + '</span>'
+        : '';
+      var ref = V.poRef(sh);
+      var po = ref ? '<span class="vx-tag" title="Committed to the Money Room">' + esc(ref) + '</span>'
+        : sh.committedPo ? '<span class="vx-tag" title="Committed before the PO number was kept — no PO in the Money Room matches this shot code, so its final cost cannot be joined back">PO committed · unjoinable</span>'
+        : '';
       return '<tr>' +
         '<td class="vx-code">' + esc(sh.code) + '</td>' +
         '<td><span class="vx-tag">' + esc(sh.complexity) + '</span></td>' +
-        '<td class="vx-num">' + esc(money(c.est.lo)) + ' – ' + esc(money(c.est.hi)) + '</td>' +
+        '<td class="vx-num">' + esc(money(c.est.lo)) + ' – ' + esc(money(c.est.hi)) + cal + '</td>' +
         '<td class="vx-num">' + (c.bid ? esc(money(c.bid)) : '—') + '</td>' +
         '<td>' + verdict + '</td>' +
         '<td><span class="vx-st vx-st-' + esc(sh.status) + '">' + esc(sh.status) + '</span></td>' +
-        '<td>' + (sh.committedPo ? '<span class="vx-tag">PO committed</span>'
+        '<td>' + (sh.committedPo ? po
           : canCommit ? '<button class="tb-btn gold" data-award="' + esc(sh.id) + '">Award → Money Room</button>'
           : '<span class="vx-note">enter a bid to award</span>') + '</td></tr>';
     }).join('') || '<tr><td colspan="7" class="vx-note">No shots on the board yet.</td></tr>';
-    var b = V.board(st.shots);
+    var b = V.board(st.shots, { finals: st.finals });
     $('vxMoneyTotals').innerHTML =
-      '<span>Planning range <b>' + esc(money(b.estLo)) + ' – ' + esc(money(b.estHi)) + '</b> <span class="vx-tag">planning estimate</span></span>' +
+      '<span>Planning range <b>' + esc(money(b.estLo)) + ' – ' + esc(money(b.estHi)) + '</b> <span class="vx-tag">planning estimate' +
+        (b.estLearned ? ' · ' + esc(b.estLearned) + ' band(s) corrected' : '') + '</span></span>' +
       '<span>Bids in <b>' + esc(money(b.totalBid)) + '</b></span>' +
       '<span>Awarded <b>' + esc(money(b.totalAwarded)) + '</b></span>' +
-      (b.uncommitted ? '<span class="vx-over">' + esc(b.uncommitted) + ' awarded bid(s) not yet committed</span>' : '');
+      (b.uncommitted ? '<span class="vx-over">' + esc(b.uncommitted) + ' awarded bid(s) not yet committed</span>' : '') +
+      (b.legacyPo ? '<span class="vx-over" title="Committed before the PO number was kept — no matching PO found in the Money Room">' +
+        esc(b.legacyPo) + ' PO(s) not joinable</span>' : '');
+    /* What the board has actually learned, per tier, with N in the sentence.
+       Nothing at all when nothing has finalled — silence is honest, a 1.00x
+       multiplier over no evidence is not. */
+    var lines = V.COMPLEXITIES.map(function (cx) { return V.finalNote(st.finals, cx, ''); }).filter(Boolean);
+    var el = $('vxLearned');
+    el.innerHTML = lines.length
+      ? '<b>Bid vs final</b> — learned from POs you marked paid:<br>' + lines.map(esc).join('<br>')
+      : '';
+    el.style.display = lines.length ? '' : 'none';
   }
-  /* VFX is 15200 in the chart (js/lib-money-accounts.js) and that is where the
-     estimator budgets it. Committing bids to 15000 — Post-Production entire —
-     meant the VFX budget line and the VFX spend never met, so cost-per-shot
-     could not be asked anywhere. 15200 rolls up to 15000 on the cost report,
-     so a sheet that only carries the major account still reconciles. */
-  var VFX_ACCT = '15200';
   $('vxMoney').addEventListener('click', function (e) {
     var id = e.target.getAttribute('data-award'); if (!id) return;
     var sh = shotById(id); if (!sh) return;
     if (sh.committedPo) return toast(sh.code + ' is already committed to the Money Room');
     if (!(+sh.bid > 0)) return toast('Enter the vendor bid first');
     if (V.statusRank(sh.status) < V.statusRank('awarded')) sh.status = 'awarded';
-    var money2 = JSON.parse(localStorage.getItem('SB_Money_v1') || 'null') || CMoney.blank();
+    var money2 = moneyStore() || CMoney.blank();
     var po = CMoney.addPO(money2, { vendor: sh.vendor || 'VFX vendor TBD', desc: sh.code + ' — ' + (sh.desc || 'VFX shot'),
       acct: VFX_ACCT, amount: sh.bid, date: new Date().toISOString().slice(0, 10) });
     localStorage.setItem('SB_Money_v1', JSON.stringify(money2));
-    sh.committedPo = true;
+    /* The PO NUMBER, not `true`. It is the only key that can match this shot
+       back to SB_Money_v1 when the invoice is settled, and what it cost is
+       the only thing that can correct the next planning band. */
+    sh.committedPo = po.num;
     save(); renderAll();
-    toast(po.num + ' committed — ' + money(sh.bid) + ' to acct ' + VFX_ACCT + ' (' + CAccounts.name(VFX_ACCT) + ') for ' + sh.code);
+    toast(po.num + ' committed — ' + money(sh.bid) + ' to acct ' + VFX_ACCT + ' (' + CAccounts.name(VFX_ACCT) + ') for ' + sh.code +
+      ' · mark it paid in the Money Room and the board learns what it cost');
   });
 
   /* ── 4 · day sheet ── */
@@ -277,7 +325,7 @@
     navigator.clipboard.writeText($('vxSheet').value).then(function () { toast('Copied — paste into the call sheet email'); });
   });
 
-  function renderAll() { renderRows(); renderPlates(); renderMoney(); renderSheet(); }
+  function renderAll() { syncFinals(); renderRows(); renderPlates(); renderMoney(); renderSheet(); }
 
   /* ── init ── */
   $('vxProj').value = st.project || '';

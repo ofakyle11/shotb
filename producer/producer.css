@@ -1,4 +1,12 @@
-/* CINAMATE Producer Suite — budget top sheet, stripboard, incentives */
+/* CINAMATE Producer Suite — budget top sheet, stripboard, incentives
+ *
+ * Declares no design tokens of its own, and must not start: --gold, --border,
+ * --surface2, --text2, --dim, --mono and the rest resolve from css/tokens.css,
+ * which timeline/timeline.css and css/cinamate-ui.css both @import. Every
+ * module page loads this sheet, so a token declared here would silently become
+ * the platform's palette — which is exactly the failure the token layer exists
+ * to end. See css/tokens.css for the canonical names to migrate toward.
+ */
 
 .ps-tabs{display:flex;gap:4px;margin-left:14px}
 .ps-tab{border:1px solid var(--border);background:var(--surface2);color:var(--text2);border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;cursor:pointer}

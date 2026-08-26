@@ -7,8 +7,14 @@ import { fileURLToPath } from 'url';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 /* the one scene model — lib-vfx.js reads its scenes from here */
 (0, eval)(readFileSync(join(ROOT, 'js/lib-scenes.js'), 'utf8'));
+/* the money substrate — the bid→final loop carries integer cents, and the page
+   loads this before lib-vfx.js for the same reason */
+(0, eval)(readFileSync(join(ROOT, 'js/lib-money-math.js'), 'utf8'));
+/* the real Money Room, so the PO join is tested against the store the page
+   actually writes rather than a hand-shaped stand-in */
+(0, eval)(readFileSync(join(ROOT, 'finance/lib-money.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'vfx/lib-vfx.js'), 'utf8'));
-const V = globalThis.CVfx;
+const V = globalThis.CVfx, CMoney = globalThis.CMoney;
 
 let pass = 0, fail = 0;
 function t(name, cond) {

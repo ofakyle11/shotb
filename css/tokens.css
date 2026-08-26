@@ -1,0 +1,384 @@
+/* ==========================================================================
+   CINAMATE — tokens.css
+   The single token source for the gated application (all 28 module pages).
+   --------------------------------------------------------------------------
+   WHY THIS FILE EXISTS
+
+   Cinamate ran two disjoint design systems. System A (css/theme.css) had a
+   documented ~75-token scale but was loaded by exactly three pages. System B
+   — every module page — ran on seventeen names that were declared in NO token
+   file at all: they leaked out of the `:root` block at the top of
+   timeline/timeline.css, so a module's colours depended on the accident that
+   every page happens to `<link>` the Studio's stylesheet. Drop that link and
+   28 pages lose their palette.
+
+   This file is the bridge. System A's scale is promoted here verbatim as the
+   CANONICAL vocabulary; System B's seventeen names are kept as ALIASES that
+   resolve onto it, so no module page or module stylesheet has to change to
+   keep rendering exactly as it does today. Migrate toward the canonical
+   names; the aliases are supported and will not be removed without notice.
+
+   --------------------------------------------------------------------------
+   HOW IT IS LOADED  (no <link> was added — HTML is owned by other territories)
+
+     css/tokens.css
+       ← @import at the top of timeline/timeline.css   (every module page)
+       ← @import at the top of css/cinamate-ui.css     (every module page)
+
+   Both import the same absolute URL, so the browser fetches it once. The
+   @import is a stopgap: it costs one serialised round trip. The right fix is
+   a `<link rel="stylesheet" href="/css/tokens.css">` in each module page,
+   ahead of the module's own sheets — that belongs to whoever owns the HTML.
+
+   --------------------------------------------------------------------------
+   WHY css/theme.css STILL DECLARES ITS OWN COPY
+
+   scripts/deploy_cinamate.mjs partitions the site: `css/theme.css` is one of
+   the handful of files that stay on the public CDN, because the signed-out
+   landing page needs it. Everything else — this file included — is moved
+   inside the gate function and is only served to a signed-in owner. A public
+   theme.css that `@import`ed a gated tokens.css would have that import
+   answered by the gate with a redirect, and the landing page would render
+   with no tokens at all for every anonymous visitor.
+
+   So theme.css keeps a self-contained copy of section 01 below. The two are
+   byte-equivalent by hand. To collapse them into one file, add
+   'css/tokens.css' to PUBLIC_FILES in scripts/deploy_cinamate.mjs and to
+   PUBLIC_EXACT in sw.js — both outside this territory — and then theme.css
+   can import instead of duplicate.
+
+   --------------------------------------------------------------------------
+   A NOTE ON THE ACCENT NAMES
+
+   --cyan / --violet / --magenta are historical. The Blue Patina palette long
+   ago repainted them: --cyan is a slate blue #5B8DB8, --violet a grey-blue
+   #8BA3B8, --magenta a champagne brass #C9A86C. The names are wrong and the
+   values are right; renaming is a separate, HTML-touching order.
+
+   --------------------------------------------------------------------------
+   CONTENTS
+     01 · Canonical — System A scale (mirrors css/theme.css section 01)
+     02 · Canonical — application extensions (values System A lacks)
+     03 · Canonical — RGB channel triplets (for rgba() tints)
+     04 · Canonical — application px ladders (font-size, radius, spacing)
+     05 · Canonical — application z-index ladder
+     06 · Canonical — breakpoint scale + media-query convention
+     07 · Aliases — System B names, resolved onto the canonical scale
+   ========================================================================== */
+
+:root {
+
+  /* ========================================================================
+     01 · CANONICAL — SYSTEM A SCALE
+     Mirror of css/theme.css section 01. Keep the two in step (see header).
+     `color-scheme: dark` is deliberately NOT mirrored here: theme.css sets it
+     on three pages, and adding it to the 28 module pages would repaint every
+     native <select>, date picker and scrollbar. That is a real visual change
+     and therefore a separate order, not a side effect of a token move.
+     ======================================================================== */
+
+  /* ---- Blacks & surfaces (deep-space stack) ---- */
+  --void:        #0A1628;   /* page background             */
+  --space:       #0C1A2E;   /* section alternation, footer */
+  --surface-1:   #12253A;   /* cards, panels (glass base)  */
+  --surface-2:   #1A2F4A;   /* raised panels, inputs, hover */
+  --line:        #233852;   /* hairline borders, dividers   */
+  --line-bright: #3A5876;   /* focused / active borders     */
+
+  /* ---- Holographic accents ---- */
+  --cyan:    #5B8DB8;
+  --violet:  #8BA3B8;
+  --magenta: #C9A86C;
+
+  --cyan-25:    rgba(91, 141, 184, 0.25);
+  --cyan-12:    rgba(91, 141, 184, 0.12);
+  --violet-12:  rgba(139, 163, 184, 0.12);
+  --magenta-12: rgba(201, 168, 108, 0.12);
+
+  /* ---- Text ---- */
+  --text-hi:    #E8EEF2;   /* headlines, primary copy       */
+  --text-mid:   #A0B4C8;   /* body copy                     */
+  --text-dim:   #7E92A8;   /* captions, meta, mono readouts */
+  --text-faint: #6A7E94;   /* lowest readable tier — 5.05:1 on --void */
+
+  /* ---- Semantic ---- */
+  --ok:    #4A8B7A;
+  --warn:  #C9A06C;
+  --error: #A65D5D;
+  --info:  var(--cyan);
+
+  /* ---- Gradients (thin strokes, text fills, 1px borders — never fills) ---- */
+  --grad-holo: linear-gradient(135deg, #5B8DB8 0%, #8BA3B8 50%, #C9A86C 100%);
+  --grad-holo-soft: linear-gradient(135deg,
+      rgba(91, 141, 184, 0.55) 0%,
+      rgba(139, 163, 184, 0.55) 50%,
+      rgba(201, 168, 108, 0.55) 100%);
+  --grad-flare: linear-gradient(90deg,
+      transparent 0%, var(--cyan-25) 50%, transparent 100%);
+
+  /* ---- Glows (atmospheric, never neon-sign bright) ---- */
+  --glow-cyan:   0 0 24px rgba(91, 141, 184, 0.25), 0 0 64px rgba(139, 163, 184, 0.12);
+  --glow-violet: 0 0 24px rgba(139, 163, 184, 0.25), 0 0 64px rgba(91, 141, 184, 0.10);
+  --glow-focus:  0 0 0 1px var(--cyan), 0 0 16px rgba(91, 141, 184, 0.35);
+
+  /* ---- Glass recipe ingredients ---- */
+  --glass-bg:        rgba(15, 19, 29, 0.55);
+  --glass-border:    rgba(51, 64, 92, 0.5);
+  --glass-highlight: rgba(244, 246, 251, 0.06);
+  --blur-glass:      18px;
+
+  /* ---- Typography (public shell stacks — long fallback chains) ---- */
+  --font-display: "Inter", "Avenir Next", "Helvetica Neue", "Segoe UI", sans-serif;
+  --font-mono:    "SF Mono", ui-monospace, "Cascadia Code", Menlo,
+                  Consolas, "Liberation Mono", monospace;
+
+  --fs-hero: clamp(2.75rem, 6vw, 5.5rem);    /* Hero H1  · w600 · -0.01em */
+  --fs-h2:   clamp(1.9rem, 3.5vw, 3rem);     /* H2       · w600           */
+  --fs-h3:   1.375rem;                        /* H3       · w600 · +0.01em */
+  --fs-lead: 1.25rem;                         /* lead     · lh 1.65        */
+  --fs-body: 1.0625rem;                       /* body     · lh 1.7         */
+  --fs-stat: clamp(2rem, 4vw, 3.25rem);       /* big stat · mono w300      */
+  --fs-data: 0.8125rem;                       /* data readout · mono       */
+  --fs-btn:  0.8125rem;                       /* button   · mono w600      */
+  --fs-xs:   0.75rem;                         /* eyebrow / caption         */
+
+  --track-eyebrow: 0.32em;
+  --track-btn:     0.18em;
+  --track-data:    0.08em;
+
+  /* ---- Spacing scale (4px base) — the canonical ladder ---- */
+  --sp-1: 0.25rem;   /*   4px */
+  --sp-2: 0.5rem;    /*   8px */
+  --sp-3: 0.75rem;   /*  12px */
+  --sp-4: 1rem;      /*  16px */
+  --sp-5: 1.5rem;    /*  24px */
+  --sp-6: 2rem;      /*  32px */
+  --sp-7: 3rem;      /*  48px */
+  --sp-8: 4.5rem;    /*  72px */
+  --sp-9: 7rem;      /* 112px */
+
+  /* ---- Radii ---- */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+
+  /* ---- Motion ---- */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-inout:    cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-hover:    cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-hover:  350ms;
+  --dur-reveal: 900ms;
+
+  /* ---- Background texture ---- */
+  --grid-size: 56px;
+
+  /* ---- Z-index scale — the marketing/dashboard ladder ---- */
+  --z-below: -1;    /* fixed background fx (starfield canvas, grid) */
+  --z-base: 0;      /* document flow                               */
+  --z-raised: 10;   /* cards hovering above siblings, glows        */
+  --z-nav: 100;     /* sticky navigation                          */
+  --z-status: 200;  /* gate status readouts, toasts               */
+
+
+  /* ========================================================================
+     02 · CANONICAL — APPLICATION EXTENSIONS
+     Values the 28 module pages genuinely need that System A never had a name
+     for. These are canonical, not aliases: nothing above resolves to them.
+     ======================================================================== */
+
+  /* One step below --surface-1: the chrome the app sits in — topbar, rails,
+     boneyard, side panels. System A has no equivalent. */
+  --surface-0: #0F1F33;
+
+  /* The app draws hairlines with a translucent patina rather than the opaque
+     --line, so a border reads the same over any surface tier. */
+  --line-soft:   rgba(139,163,184,.12);   /* default hairline          */
+  --line-soft-2: rgba(139,163,184,.22);   /* hover / section boundary  */
+
+  /* Hover-brightened --cyan. */
+  --cyan-lift: #7FA8CC;
+
+  /* --magenta at 55% — the brass tick / secondary rail label. */
+  --magenta-55: rgba(201, 168, 108, .55);
+
+  /* Application type stacks. Shorter than the public shell's --font-display /
+     --font-mono because the app ships its own webfonts (Cinzel, Inter,
+     IBM Plex Mono) from the Google Fonts <link> every module page carries.
+     Reconciling the two pairs changes computed font-family and is therefore
+     a separate order. */
+  --font-serif: 'Cinzel',serif;              /* display headings, logo   */
+  --font-sans:  'Inter',sans-serif;          /* UI / body                */
+  --font-code:  'IBM Plex Mono',monospace;   /* numerals, ids, readouts  */
+
+  /* Print / absolute anchors — the @media print blocks in producer.css,
+     boards.css and cinamate-ui.css need real black and white. */
+  --black: #000;
+  --white: #fff;
+
+
+  /* ========================================================================
+     03 · CANONICAL — RGB CHANNEL TRIPLETS
+     The module sheets are full of one-off tints: rgba(91,141,184,.08),
+     rgba(91,141,184,.25), rgba(74,139,122,.16) … all alpha variants of the
+     accents above, written by hand and impossible to grep as a palette.
+     Write rgba(var(--cyan-rgb), .25) instead and the tint follows the token.
+     ======================================================================== */
+
+  --void-rgb:     10,22,40;
+  --cyan-rgb:     91,141,184;
+  --violet-rgb:   139,163,184;
+  --magenta-rgb:  201,168,108;
+  --ok-rgb:       74,139,122;
+  --error-rgb:    166,93,93;
+  --text-hi-rgb:  232,238,242;
+
+
+  /* ========================================================================
+     04 · CANONICAL — APPLICATION PX LADDERS
+     The module pages are dense data tools laid out in px, not a marketing
+     page laid out in rem. These are the steps they actually use today, named
+     so a rule can stop hardcoding them. Numeric names on purpose: swapping
+     `font-size:11px` for `var(--fs-11)` cannot be got wrong.
+     ======================================================================== */
+
+  /* Type — 11px is the workhorse (66 uses), 10px the label, 9px the caption */
+  --fs-8:   8px;
+  --fs-9:   9px;
+  --fs-10: 10px;
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-16: 16px;   /* also the iOS Safari no-auto-zoom floor for inputs */
+  --fs-18: 18px;
+  --fs-22: 22px;
+  /* 15 / 17 / 24 / 26 / 44px each appear exactly once and stay literal. */
+
+  /* Radii — the ladder in use. --r-sm/--r-md/--r-lg/--r-pill above are the
+     System A names for 4 / 8 / 14 / 999px and remain canonical. */
+  --radius-3:   3px;
+  --radius-4:   4px;   /* == --r-sm  */
+  --radius-6:   6px;
+  --radius-8:   8px;   /* == --r-md  */
+  --radius-10: 10px;
+  --radius-12: 12px;
+  --radius-14: 14px;   /* == --r-lg  */
+  --radius-16: 16px;
+  --radius-full: 999px; /* == --r-pill */
+
+  /* Spacing — --sp-1..9 above is the canonical ladder and covers
+     4/8/12/16/24/32/48/72/112px. The module pages sit on a finer 2px grid;
+     these are the in-between steps that ladder has no name for. */
+  --sp-px-2:   2px;
+  --sp-px-3:   3px;
+  --sp-px-5:   5px;
+  --sp-px-6:   6px;
+  --sp-px-10: 10px;
+  --sp-px-14: 14px;
+
+
+  /* ========================================================================
+     05 · CANONICAL — APPLICATION Z-INDEX LADDER
+     System A's --z-below…--z-status ladder tops out at 200. The application
+     stacks far higher, because a native <select> inside a sticky settings bar
+     has to out-rank the bar AND the dropdown that opens over it. This is the
+     ladder the module sheets already run on, written down. Never use a raw
+     value; if a new layer is needed, add a rung here.
+     ======================================================================== */
+
+  --z-app-inline:      2;   /* in-component: clip trim handles            */
+  --z-app-marker:      5;   /* playhead, selected clip                    */
+  --z-app-raised:     10;   /* timeline playhead over clips               */
+  --z-app-overlay:    60;   /* boards lightbox backdrop                   */
+  --z-app-nav:       100;   /* login overlay                              */
+  --z-app-bar:       200;   /* settings bar, toast                        */
+  --z-app-modal:     250;   /* .modal                                     */
+  --z-app-bar-hi:    300;   /* settings bar, raised                       */
+  --z-app-toast:    9999;   /* tools toast — above everything but menus   */
+  --z-app-menu-bar: 10040;  /* settings bar while a dropdown is open      */
+  --z-app-menu-ctl: 10050;  /* the native <select> itself                 */
+  --z-app-menu:     10060;  /* the dropdown panel                         */
+
+
+  /* ========================================================================
+     06 · CANONICAL — BREAKPOINT SCALE
+     ------------------------------------------------------------------------
+     THE CONVENTION — read this before writing another media query.
+
+     1. MOBILE RULES ARE ADDITIVE AND MAX-WIDTH. Desktop is the base layer and
+        stays untouched; a breakpoint only ever narrows. This is what
+        css/cinamate-mobile.css already does and it is why the desktop
+        rendering has never regressed.
+
+     2. USE THE LITERAL PX IN THE QUERY, THE TOKEN EVERYWHERE ELSE.
+        `@media (max-width: var(--bp-sm))` DOES NOT WORK — a media query is
+        evaluated before custom properties resolve. That is a CSS limitation,
+        not an oversight here. So:
+
+            @media (max-width: 768px) { … }   /* --bp-sm */
+
+        The trailing comment is the contract: it is greppable, so renumbering
+        the scale is a find-and-replace rather than an archaeology exercise.
+        The tokens below are still live and usable in clamp(), in container
+        queries, and from JS via getComputedStyle(document.documentElement).
+
+     3. STYLE THE PATTERN, NOT THE MODULE. css/cinamate-mobile.css currently
+        hand-lists per-module class names — `.wr-layout`, `.pp-table`,
+        `.sd-side`, `.wf-stages` — which means every new module has to be
+        added to it by hand, and one that is forgotten simply has no mobile
+        layout. The migration target is a small set of layout hooks the module
+        markup opts into:
+
+            [data-stack]   multi-pane workspace → single column below --bp-md
+            [data-scroll]  wide table/board     → scrolls inside itself
+            [data-pad]     main content pad     → tightens below --bp-sm
+
+        Those attributes go in the HTML, which this order does not own. Add
+        the hook, then delete the module's line from cinamate-mobile.css —
+        one module at a time, never a big-bang rewrite.
+
+     4. FOUR BREAKPOINTS, NOT FOURTEEN. If a layout needs a fifth, the layout
+        is wrong. Prefer flex-wrap, minmax() grids and clamp() — they need no
+        breakpoint at all.
+     ======================================================================== */
+
+  --bp-xs:   480px;   /* small phone       — in use: css/cinamate-mobile.css   */
+  --bp-sm:   768px;   /* phone / tablet    — in use: css/cinamate-mobile.css   */
+  --bp-md:   820px;   /* split-pane collapse — in use: timeline.css, tools.css */
+  --bp-lg:  1100px;   /* narrow laptop     — not yet used                      */
+  --bp-xl:  1440px;   /* wide desktop      — not yet used                      */
+
+
+  /* ========================================================================
+     07 · ALIASES — SYSTEM B
+     ------------------------------------------------------------------------
+     The seventeen names the module pages run on, plus the two from
+     cinamate-ui.css. Every one resolves to a canonical token above and to the
+     exact same computed value it had when it lived in timeline.css, so no
+     module stylesheet and no module page had to change.
+
+     THESE ARE THE NAMES TO MIGRATE AWAY FROM. Canonical target on the right.
+     ======================================================================== */
+
+  --bg:         var(--void);          /* → --void        */
+  --surface:    var(--surface-0);     /* → --surface-0   */
+  --surface2:   var(--surface-1);     /* → --surface-1   */
+  --surface3:   var(--surface-2);     /* → --surface-2   */
+  --border:     var(--line-soft);     /* → --line-soft   */
+  --border2:    var(--line-soft-2);   /* → --line-soft-2 */
+  --gold:       var(--cyan);          /* → --cyan   (NOT gold: slate blue)  */
+  --gold2:      var(--cyan-lift);     /* → --cyan-lift                      */
+  --green:      var(--ok);            /* → --ok          */
+  --blue:       var(--cyan);          /* → --cyan   (same value as --gold)  */
+  --red:        var(--error);         /* → --error       */
+  --text:       var(--text-hi);       /* → --text-hi     */
+  --text2:      var(--text-mid);      /* → --text-mid    */
+  --dim:        var(--text-faint);    /* → --text-faint  (NOT --text-dim)   */
+  --display:    var(--font-serif);    /* → --font-serif  */
+  --body:       var(--font-sans);     /* → --font-sans   */
+  --mono:       var(--font-code);     /* → --font-code   */
+  --brass:      var(--magenta);       /* → --magenta     */
+  --brass-dim:  var(--magenta-55);    /* → --magenta-55  */
+
+}

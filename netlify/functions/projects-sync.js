@@ -9,12 +9,18 @@
 //      CIN_API_TOKEN        (Netlify API token — server-side only)
 //      CIN_SITE_ID          (this site's id, for the blobs endpoint)
 //
-// Ops:  GET  ?op=list                  → { productions: [{name, savedAt, savedBy, bytes}] }
-//       GET  ?op=pull&name=X           → { name, savedAt, savedBy, archive }
-//       POST {op:'push', name, archive, ifVer?} → { ok, savedAt, ver }  (409 if ver moved)
+// Ops:  GET  ?op=list                  → { productions: [{name, savedAt, savedBy, bytes, blobCount}] }
+//       GET  ?op=pull&name=X           → { name, savedAt, savedBy, archive, blobChunks }
+//       GET  ?op=pull-blobs&name=X&seq=n → { seq, total, blobs: [...] }
+//       POST {op:'push', name, archive, blobChunks?, ifVer?} → { ok, savedAt, ver }  (409 if ver moved)
+//       POST {op:'push-blobs', name, seq, total, blobs} → { ok, seq, count, bytes }
 //       POST {op:'delete', name}       → { ok, recoverable, deletedBy }
 //       GET  ?op=versions&name=X       → { versions: [...], deleted: {...}|null }
-//       POST {op:'restore', name, slot?}→ { ok, restoredFrom }
+//       POST {op:'restore', name, slot?}→ { ok, restoredFrom, mediaVersioned:false }
+//
+// The archive body carries the localStorage half of a production plus a
+// manifest of its media; the bytes travel as separate bounded chunks. See the
+// block above MAX_BLOB_RECORD_BYTES for the caps and why they are what they are.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const { createHmac, timingSafeEqual } = require('crypto');
@@ -22,7 +28,56 @@ const { createHmac, timingSafeEqual } = require('crypto');
 const NAMES = ['mz465', 'kz465', 'hz465', 'rz465', 'dz465'];
 const STORE = 'cinamate-projects';
 const INDEX_KEY = '_index';
-const MAX_ARCHIVE_BYTES = 4 * 1024 * 1024; // localStorage-sized projects, not media
+const MAX_ARCHIVE_BYTES = 4 * 1024 * 1024; // the localStorage half of a project
+
+/* ── media, and why it is chunked ────────────────────────────────────────────
+   A production's photographs live in IndexedDB, not localStorage, and they are
+   the department's continuity record — they have to travel with the project or
+   the archive is a lie. But a single scout JPEG data URL is 100-300 KB, so a
+   real production is tens of megabytes and no sane request limit survives it in
+   one body.
+
+   So the archive body carries a MANIFEST (ids and sizes) and the bytes go up
+   separately, one bounded request per chunk:
+
+     MAX_BLOB_RECORD_BYTES  900 KB   one record. 3x a full-size scout JPEG, and
+                                     far below any source master — the cloud
+                                     carries stills and short takes on purpose.
+     MAX_CHUNK_BYTES        1 MB     one request. Small enough to sit well
+                                     inside a function body limit even after
+                                     base64 and JSON overhead, and cheap to
+                                     retry when a phone drops a connection.
+     MAX_BLOB_CHUNKS        48       per production.
+
+   48 x 1 MB IS the 48 MB per-production ceiling: it holds by construction, not
+   by a running total that a caller could sidestep. Anything over any of these
+   is REFUSED with a message naming the file and offering the .cinamate export,
+   which has no limit. A truncated archive that reports success is the exact
+   failure this transport exists to remove.                                   */
+const MAX_BLOB_RECORD_BYTES = 900 * 1024;
+const MAX_CHUNK_BYTES = 1024 * 1024;
+const MAX_BLOB_CHUNKS = 48;
+/* Mirrors BLOB_DBS in projects/lib-vault.js. The client filters too, but the
+   client is not the security boundary: these records are written straight into
+   another owner's browser storage, so the store an archive may name is an
+   allow-list here as well. */
+const BLOB_STORES = new Set(['cinamate_wardrobe/photos', 'cinamate_scout/photos', 'cinamate_cut/media']);
+const BLOB_DATA_RE = /^data:(?:image\/(?:png|jpe?g|webp|gif|avif)|video\/(?:mp4|webm|quicktime)|audio\/(?:mpeg|mp4|wav|webm|ogg));base64,[A-Za-z0-9+/]*={0,2}$/;
+const BLOB_ID_RE = /^[A-Za-z0-9 ._:@#()+-]{1,200}$/;
+const blobKey = (name, n) => 'b:' + n + ':' + name;
+const kbOf = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
+
+/* A manifest entry: what the archive body records about a file it does not
+   itself carry. Bytes are stripped here rather than trusted from the caller. */
+function manifestEntry(r) {
+  if (!r || typeof r !== 'object') return null;
+  const ref = String(r.db) + '/' + String(r.store);
+  if (!BLOB_STORES.has(ref)) return null;
+  const id = String(r.id == null ? '' : r.id);
+  if (!BLOB_ID_RE.test(id)) return null;
+  return { db: String(r.db), store: String(r.store), id,
+           bytes: Number(r.bytes) || (typeof r.data === 'string' ? r.data.length : 0) };
+}
 /* How many superseded copies of a production to keep. A single "previous" slot
    was worthless in practice: background auto-sync pushes every few minutes, so
    two quiet cycles pushed the only recoverable copy off the end and a mistake
@@ -155,7 +210,7 @@ function cleanName(name) {
     .replace(/(^|[^\ud800-\udbff])([\udc00-\udfff])/g, '$1')
     .trim();
   if (!n || n === INDEX_KEY) return null;
-  if (/^(p:|prev:|v:|tomb:|_)/.test(n)) return null;  // never let a title impersonate a reserved key
+  if (/^(p:|prev:|v:|b:|tomb:|_)/.test(n)) return null;  // never let a title impersonate a reserved key
   if (n === '__proto__' || n === 'constructor' || n === 'prototype') return null;
   /* Proof rather than assumption: if it cannot be encoded it cannot be a blob
      key, and finding that out here beats finding it out at the fetch. */
@@ -198,7 +253,9 @@ exports.handler = async (event) => {
       const productions = Object.keys(idx.productions).sort().map((n) => {
         const p = idx.productions[n] || {};
         return { name: n, savedAt: p.savedAt || '', savedBy: p.savedBy || '',
-                 bytes: p.bytes || 0, ver: typeof p.ver === 'number' ? p.ver : 0 };
+                 bytes: p.bytes || 0, ver: typeof p.ver === 'number' ? p.ver : 0,
+                 blobCount: p.blobCount || 0, blobBytes: p.blobBytes || 0,
+                 blobChunks: p.blobChunks || 0 };
       });
       return respond(200, { productions });
     }
@@ -210,7 +267,83 @@ exports.handler = async (event) => {
       if (!r.ok) return respond(404, { error: 'No cloud production named "' + name + '"' });
       let env2;
       try { env2 = JSON.parse(r.text); } catch (e) { return respond(500, { error: 'Stored production unreadable' }); }
-      return respond(200, { name, savedAt: env2.savedAt || '', savedBy: env2.savedBy || '', archive: env2.archive });
+      return respond(200, { name, savedAt: env2.savedAt || '', savedBy: env2.savedBy || '',
+        archive: env2.archive,
+        blobChunks: Number(env2.blobChunks) || 0,
+        blobCount: Number(env2.blobCount) || 0,
+        blobBytes: Number(env2.blobBytes) || 0 });
+    }
+
+    /* One chunk of the media that goes with a production. Kept out of the
+       archive body so neither ever approaches a request limit. */
+    if (op === 'pull-blobs') {
+      const name = cleanName(q.name || body.name);
+      if (!name) return respond(400, { error: 'name required' });
+      const seq = Number(q.seq != null ? q.seq : body.seq);
+      if (!Number.isInteger(seq) || seq < 0 || seq >= MAX_BLOB_CHUNKS) {
+        return respond(400, { error: 'seq must be a whole number from 0 to ' + (MAX_BLOB_CHUNKS - 1) });
+      }
+      const r = await blob('GET', blobKey(name, seq));
+      if (!r.ok) {
+        /* An absent chunk is a hole in the production, not an empty one. Say
+           so: the caller has to be able to tell "no media" from "the media did
+           not all arrive". */
+        return respond(404, { error: 'Part ' + (seq + 1) + ' of "' + name + '" is not in the studio cloud — ' +
+          'that production did not finish uploading its media' });
+      }
+      let chunk;
+      try { chunk = JSON.parse(r.text); } catch (e) { return respond(500, { error: 'Stored media part unreadable' }); }
+      return respond(200, { name, seq, total: chunk.total, blobs: chunk.blobs || [] });
+    }
+
+    if (op === 'push-blobs') {
+      const name = cleanName(body.name);
+      if (!name) return respond(400, { error: 'name required' });
+      const seq = Number(body.seq), total = Number(body.total);
+      if (!Number.isInteger(total) || total < 1 || total > MAX_BLOB_CHUNKS) {
+        return respond(413, { error: 'This production needs ' + (Number.isInteger(total) ? total : '?') +
+          ' media parts; the studio cloud takes at most ' + MAX_BLOB_CHUNKS +
+          ' (' + kbOf(MAX_BLOB_CHUNKS * MAX_CHUNK_BYTES) + ' per production). ' +
+          'Nothing was saved — export a .cinamate backup instead, which has no size limit.' });
+      }
+      if (!Number.isInteger(seq) || seq < 0 || seq >= total) {
+        return respond(400, { error: 'seq must be a whole number from 0 to ' + (total - 1) });
+      }
+      const list = Array.isArray(body.blobs) ? body.blobs : null;
+      if (!list || !list.length) return respond(400, { error: 'That media part carried no files' });
+      const clean = [];
+      let bytes = 0;
+      for (const r of list) {
+        const ref = r && typeof r === 'object' ? String(r.db) + '/' + String(r.store) : '';
+        if (!BLOB_STORES.has(ref)) {
+          return respond(400, { error: 'A file in that part names a store this platform does not have — nothing was saved' });
+        }
+        const id = String(r.id == null ? '' : r.id);
+        if (!BLOB_ID_RE.test(id)) {
+          return respond(400, { error: 'A file in that part has an unusable id — nothing was saved' });
+        }
+        const data = String(r.data == null ? '' : r.data);
+        if (!BLOB_DATA_RE.test(data)) {
+          return respond(400, { error: '"' + id + '" is not an image, audio or video file — nothing was saved' });
+        }
+        if (data.length > MAX_BLOB_RECORD_BYTES) {
+          return respond(413, { error: '"' + id + '" is ' + kbOf(data.length) + ' on its own. The studio cloud ' +
+            'carries stills and short takes, not source masters (limit ' + kbOf(MAX_BLOB_RECORD_BYTES) +
+            ' each). Nothing was saved — export a .cinamate backup instead, which has no size limit.' });
+        }
+        bytes += data.length;
+        clean.push({ db: String(r.db), store: String(r.store), id, data,
+                     project: String(r.project == null ? '' : r.project).slice(0, 200),
+                     bytes: data.length });
+      }
+      const payload = JSON.stringify({ seq, total, savedBy: owner, blobs: clean });
+      if (payload.length > MAX_CHUNK_BYTES) {
+        return respond(413, { error: 'That media part is ' + kbOf(payload.length) + '; the studio cloud takes ' +
+          kbOf(MAX_CHUNK_BYTES) + ' per part. Nothing was saved — export a .cinamate backup instead.' });
+      }
+      const w = await blob('PUT', blobKey(name, seq), payload);
+      if (!w.ok) return respond(502, { error: 'Cloud store rejected media part ' + (seq + 1) + ' (' + w.status + ')' });
+      return respond(200, { ok: true, name, seq, total, count: clean.length, bytes });
     }
 
     if (op === 'push') {
@@ -240,9 +373,39 @@ exports.handler = async (event) => {
       if (!Object.keys(parsed.stores).length) {
         return respond(400, { error: 'That archive contains no production data — refusing to save an empty project over "' + name + '"' });
       }
+
+      /* The archive body carries the media MANIFEST, never the bytes: those go
+         up through push-blobs, one bounded request each. Stripping here rather
+         than trusting the caller means a client that forgets cannot push a
+         30 MB body and cannot leave a half-embedded, half-referenced archive in
+         the shared store. */
+      let manifest = [];
+      if (parsed.blobs != null) {
+        if (!Array.isArray(parsed.blobs)) {
+          return respond(400, { error: 'That archive’s media section is unreadable — nothing was saved' });
+        }
+        manifest = parsed.blobs.map(manifestEntry).filter(Boolean);
+      }
+      parsed.blobs = manifest;
+      const blobCount = manifest.length;
+      const blobBytes = manifest.reduce((a, r) => a + (Number(r.bytes) || 0), 0);
+      const declared = Number(body.blobChunks);
+      const blobChunks = Number.isInteger(declared) && declared >= 0 ? declared : 0;
+      if (blobChunks > MAX_BLOB_CHUNKS) {
+        return respond(413, { error: 'This production needs ' + blobChunks + ' media parts; the studio cloud ' +
+          'takes at most ' + MAX_BLOB_CHUNKS + ' (' + kbOf(MAX_BLOB_CHUNKS * MAX_CHUNK_BYTES) +
+          ' per production). Nothing was saved — export a .cinamate backup instead, which has no size limit.' });
+      }
+      if (blobCount && !blobChunks) {
+        return respond(400, { error: 'That archive lists ' + blobCount + ' media file(s) but declares no parts to ' +
+          'carry them. Nothing was saved — a production that arrives without its photographs must not look complete.' });
+      }
+
       const payload = JSON.stringify(parsed);
       if (payload.length > MAX_ARCHIVE_BYTES) {
-        return respond(413, { error: 'Production too large for the cloud (4 MB limit) — export a file instead' });
+        return respond(413, { error: 'The written record of this production is ' + kbOf(payload.length) +
+          '; the studio cloud takes ' + kbOf(MAX_ARCHIVE_BYTES) + ' (photos and media travel separately and do ' +
+          'not count towards it). Nothing was saved — export a .cinamate backup instead, which has no size limit.' });
       }
       const savedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
       const idxBefore = await readIndex();
@@ -272,16 +435,25 @@ exports.handler = async (event) => {
       }
       const ver = ((known && typeof known.ver === 'number') ? known.ver : 0) + 1;
       const w = await blob('PUT', 'p:' + name,
-        JSON.stringify({ savedAt, savedBy: owner, ver, archive: payload }));
+        JSON.stringify({ savedAt, savedBy: owner, ver, archive: payload, blobChunks, blobCount, blobBytes }));
       if (!w.ok) return respond(502, { error: 'Cloud store rejected the save (' + w.status + ')' });
+      /* Media parts left over from a larger previous save are not this
+         production any more. Left in place they would be handed back on the
+         next pull as if they belonged. Only the range the previous save
+         actually claimed is swept — a blind sweep of all 48 would put 48
+         requests on the wire behind every push. */
+      const hadChunks = Math.min(MAX_BLOB_CHUNKS,
+        Math.max(0, Number(known && known.blobChunks) || 0));
+      for (let n = blobChunks; n < hadChunks; n++) await blob('DELETE', blobKey(name, n));
       const idx = await readIndex();
       if (!idx.trusted) {
-        return respond(200, { ok: true, savedAt, savedBy: owner, ver,
+        return respond(200, { ok: true, savedAt, savedBy: owner, ver, blobChunks, blobCount,
           warning: 'Saved, but the catalog could not be updated — it will re-list on the next successful save.' });
       }
-      idx.productions[name] = { savedAt, savedBy: owner, bytes: payload.length, ver };
+      idx.productions[name] = { savedAt, savedBy: owner, bytes: payload.length, ver,
+        blobCount, blobBytes, blobChunks };
       await writeIndex(idx);
-      return respond(200, { ok: true, savedAt, savedBy: owner, ver });
+      return respond(200, { ok: true, savedAt, savedBy: owner, ver, blobChunks, blobCount, blobBytes });
     }
 
     if (op === 'delete') {

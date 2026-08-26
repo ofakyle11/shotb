@@ -2,9 +2,14 @@
  * Loaded after each module's own stylesheets: refines what exists,
  * never restructures. Deep Navy #0A1628 · cards #12253A / #1A2F4A ·
  * Blue Patina #8BA3B8 · Action Blue #5B8DB8 · Champagne #C9A86C.
- */
-
-:root { --brass: #C9A86C; --brass-dim: rgba(201, 168, 108, .55); }
+ *
+ * The token layer, imported here as well as in timeline/timeline.css: both
+ * sheets are on every module page and both name the same absolute URL, so it
+ * is fetched once, and neither sheet can be dropped without the other still
+ * supplying the palette. --brass / --brass-dim used to be declared on the
+ * line below; they are aliases in css/tokens.css now. @import must stay
+ * first in the file. */
+@import url("/css/tokens.css");
 
 /* ── ground ─────────────────────────────────────────────────────── */
 html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
