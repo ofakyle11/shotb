@@ -401,3 +401,89 @@ computed from inputs that are wrong by construction.
   caller and is not in the deploy set**.
 
 (crew-01)
+
+---
+
+## 20. "E&O-ready" can be reached having cleared nothing (crew-20)
+
+The most serious instance of finding 15, because the output is a representation
+made to an insurer.
+
+`clearance/lib-clear.js:105` counts only `pending` as open. Set every finding to
+**"accepted risk"** and `eoReady` returns **true**, with the green banner at
+`clearance/index.html:95` inviting you to *"Package the report with your E&O
+application"* — **zero items actually cleared**.
+
+It also ignores `SB_Rights_v1`, `SB_Music_v1` and `SB_Insurance_v1` entirely, so
+an empty chain of title, no licences and no certificate of insurance still reads
+**CLEAR**.
+
+## 21. Distribution exclusivity is wrong in both directions (crew-20)
+
+`distribution/lib-dist.js:86` keys on free-text strings and ignores dates.
+Verified:
+
+| Input | Correct | Actual |
+|---|---|---|
+| Worldwide/SVOD + Germany/SVOD | conflict | **0 conflicts** |
+| "United States" vs "USA" | conflict | **0 conflicts** |
+| Canada/SVOD 2027 + Canada/SVOD 2035 | no conflict | **1 false conflict** |
+
+This is the territory/term/media model finding 9 says already exists in
+`tools/tools-registers.js:128` `SB_Rights_v1`.
+
+## 22. Final confirmations from the last two crew reports
+
+Adding to existing findings rather than new ones — which is itself the point:
+twenty independent auditors converged on the same handful of root causes.
+
+- **Finding 1/17 (scene numbers):** `vfx/lib-vfx.js:58` rejects A-scenes while
+  `timeline/timeline-budget.js:282` accepts them. Verified: a 3-scene sample
+  with one A-scene returns 2 scenes and attributes the A-scene's explosion to
+  scene 1. **Every scene number after the first revision page is wrong —
+  exactly when a VFX supervisor needs it.** That is now **six** modules.
+- **Finding 10 (chart of accounts):** `vfx/index.html:247` commits POs to
+  `15000` (all of Post-Production) while `js/budget-engine.js:702` budgets VFX
+  at `15200`, so cost-per-shot against a VFX line cannot be asked anywhere.
+- **Finding 9 (correct version exists elsewhere):** `vfx/lib-vfx.js:107` stores
+  `committedPo` as a **boolean**, discarding the PO number, so a deleted shot
+  orphans its PO forever — while `post/lib-post.js:212` in the same codebase
+  stores `po.num` correctly.
+- **Finding 16 (two stores per concept):** `SB_VfxBoard_v1` (IDs by tens) vs
+  `SB_VfxShots_v1` (`production/production.js:260`, a **random** 101–990 ID) —
+  both visible to the same owner, neither read by anything else. Plus
+  `SB_Festivals_v1` and `SB_Deals_v1`, where the two writers use incompatible
+  shapes and **one silently destroys the other**: Tools-first and the
+  Strategist's save drops every submission, buyer and premiere status;
+  object-first and the Tools tab throws `rows.reduce is not a function`.
+- `detectShots` emits one shot per cue *per scene*, so a 14-cut dragon sequence
+  bids as **one shot**.
+
+**Cheapest high-value build found in the whole crew sweep:** `sets/gl.js:395`
+has a working lens-accurate `snapshot()` that nothing calls, and
+`boards/lib-shots.js:37` has an `img` field waiting for it. A "send frame to
+board" button is real previz for roughly thirty lines.
+
+---
+
+# What the crew sweep actually concluded
+
+Twenty auditors, twenty departments, and they converged rather than diverged.
+Almost every individual finding rolls up into six root causes:
+
+1. **The scene number is discarded at parse** (`timeline/parser.js:61`), so six
+   modules re-derive it differently and every department breaks down a
+   different film.
+2. **Page count is measured in newlines** (4.4× wrong), and it drives shootDays
+   and the budget.
+3. **The budget total is read from a field nothing writes**, in four places
+   including the learning layer.
+4. **There is no canonical project model**, so eight concepts have two stores
+   each and several silently destroy one another.
+5. **Money is posted to accounts that are not the department's**, so nothing
+   reconciles.
+6. **The correct implementation usually already exists in another module** —
+   which means much of the fix is deletion and wiring, not new code.
+
+Ranked honestly, fixing 1, 2 and 3 alone would change more about this platform's
+trustworthiness than any new module in the backlog.
