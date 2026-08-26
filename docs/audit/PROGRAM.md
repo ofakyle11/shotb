@@ -45,3 +45,43 @@ castdesk/safety.
 
 Netlify token for any live deploy · delete stale `cinamate.netlify.app` (third
 account) · buy `cinamate.studio`.
+
+---
+
+# STANDING AUTHORITY (2026-08-26, Kyle asleep)
+
+Kyle handed over with "approve all and make sure it gets fully finished." The
+director runs the remaining chain autonomously: finish Phase 2 -> integration
+pass -> T7 -> adversarial verify -> Phase 3 || Phase 4 -> Phase 5 -> Phase 6 ->
+Phase 7. No waiting for approval between phases. No no-change messages.
+An hourly trigger is armed as a fallback; DELETE IT when the chain completes.
+
+## What blanket approval does NOT cover
+
+These are irreversible, outward-facing, or impossible from here. They wait for
+Kyle with a written checklist, however broad the standing approval:
+
+1. **Deleting or archiving any GitHub repo.** Irreversible, and no tool exists
+   in this session for it. `ofakyle11/shotb` additionally carries the live
+   Netlify deploy and every branch of this programme — deleting it before the
+   new repo is verified complete would destroy the work.
+2. **Any live deploy.** The Netlify token is deliberately not on disk.
+3. **Revoking the leaked PAT** (`ghp_P6rR...`, pasted in chat 2026-08-26).
+   Only Kyle can do this and it should happen immediately.
+4. **Granting the Claude GitHub App access to `kylefrancis280-a11y`**, without
+   which the migration to `kylefrancis280-a11y/cin` cannot start.
+5. **Taking down the stale ungated `cinamate.netlify.app`** on the third
+   Netlify account, which is a live exposure and is NOT fixed by any repo work.
+
+A blanket "approve all" is authority to finish the BUILD. It is not consent to
+destroy repositories or publish to the world while nobody is watching.
+
+## Known structural issue for the integration pass
+
+Wave 1's throw-on-missing-dependency guards cross team boundaries: a team that
+adds a `requires` guard to a shared lib breaks every suite that evals that lib
+without the new prelude — including suites no team owns (T6's
+`js/lib-shootdays.js` guard on `production/lib-prod.js` broke
+`scripts/test_scenes.mjs`). The collision matrix partitioned FILE ownership but
+not DEPENDENCY ownership. Fix centrally in one pass; do not let teams scatter
+preludes locally.
