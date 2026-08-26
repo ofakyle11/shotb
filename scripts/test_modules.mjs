@@ -199,27 +199,17 @@ function fakeStore(init) {
     'dpr/join: the report reads a synced record the same way');
 }
 
-/* ── production: timecode ────────────────────────────────────────────────
-   tcOf stamps the cue sheet a PRO will be sent; it had never been called by a
-   suite in its own right, only through cueSheet. */
+/* ── production: the cue sheet has MOVED ─────────────────────────────────
+   CProd.cueSheet/cueCsv/tcOf are gone. They emitted a nine-column sheet with
+   one composer and one publisher per cue and no ISWC/ISRC — a form no
+   performing-rights society accepts — and the office pane's CSV writer
+   blanked the duration the engine had just computed. music/lib-music.js owns
+   the concept now, from the same Editor audio track, and scripts/test_music.mjs
+   pins it (cuesFromCut, cueSheetRows/Csv, cueSheetIssues, importCueRows).
+   Asserted here so the removal is deliberate rather than a silent gap: if a
+   copy comes back into CProd, this fails. */
 {
-  ok(P.tcOf(0) === '00:00:00:00', 'tcOf: zero');
-  ok(P.tcOf(1.5) === '00:00:01:12', 'tcOf: half a second at 24fps is 12 frames');
-  ok(P.tcOf(3661.5, 30) === '01:01:01:15', 'tcOf: hours, minutes and frames at 30fps');
-  ok(P.tcOf(1, 25) === '00:00:01:00', 'tcOf: fps is honoured');
-}
-
-/* ── production: cue sheet ── */
-{
-  const cues = P.cueSheet({ project: { fps: 24, audio: [
-    { label: 'Main theme', start: 0, in: 0, out: 30 },
-    { label: 'Chase', start: 45.5, in: 2, out: 62 }
-  ] } });
-  ok(cues.length === 2, 'cues: two cues');
-  ok(cues[0].tcIn === '00:00:00:00' && cues[0].tcOut === '00:00:30:00', 'cues: first timing');
-  ok(cues[1].tcIn === '00:00:45:12' && cues[1].durSec === 60, 'cues: second timing with frames');
-  const csv = P.cueCsv(cues);
-  ok(csv.includes('"Cue title"') && csv.includes('"Main theme"'), 'cues: csv');
+  ok(!P.cueSheet && !P.cueCsv && !P.tcOf, 'cues: the superseded cue API is gone from CProd');
 }
 
 /* ── production: sides ── */
