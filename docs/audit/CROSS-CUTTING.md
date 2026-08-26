@@ -899,3 +899,67 @@ genuinely distinct logic.** 8/8 pages redefine identical `$/esc/readLS/save/
 toast` (`esc()` appears in **38 files** repo-wide), 5/8 mint their own `uid()`,
 4/8 repeat the same delete idiom verbatim, and 26 hand-rolled table renders span
 the eight modules.
+
+## 44. The learning layer measures activity, not accuracy (teamA-20) — decisive for Phase 4
+
+`js/learn.js:82` `budgetSummary()` reports the **mean magnitude of the
+corrections it has applied**. `workflow/advisor-ui.js:96` prints that number to
+the owner as "Self-learning".
+
+**That metric goes UP as the system gets MORE wrong.** It is a measure of how
+much correcting it has had to do, presented as evidence of improvement. Nothing
+anywhere asks the only question that matters: *did the calibrated estimate beat
+the uncalibrated one?*
+
+This is the cleanest example in the whole audit of the platform's recurring
+failure — a confident label over a number that does not mean what the label
+says. And the fix is small and exact: **record `pred` inside `learnBudget()`
+before folding the observation in.** That single line turns the store into a
+walk-forward record, and walk-forward error is the honest accuracy metric.
+
+### The schedule loop is already closed on both ends and never compared
+
+- Planned: day and eighths, in `SB_ScheduleBoard_v1`.
+- Actual: scenes shot, in `dpr()` at `production/lib-prod.js:27`.
+
+Nobody compares them. So `autoScheduleModel`'s hardcoded
+`pagesPerDay || 4.5` (`producer/schedule-board.js:94`) **survives every film you
+miss it on** — the single most valuable number a scheduling tool could learn,
+with both inputs already sitting in the store.
+
+**This is what Phase 4 should actually be:** not a new learning system, but
+closing three loops whose two ends already exist — estimate vs actual cost,
+planned vs achieved pages per day, and bid vs final on VFX and post.
+
+## 45. The one module built for the phone cannot work on set (teamA-20)
+
+`today/` is the phone call sheet and renders entirely from localStorage — but it
+is gated (`scripts/deploy_cinamate.mjs:212`), so it ships `private, no-store`,
+so `sw.js:69` **correctly** refuses to cache it, so offline `sw.js:127` returns
+the login page.
+
+The module built for the set fails exactly where shoots happen — and it fails
+because two correct decisions (gate everything; never cache gated bytes)
+compose into a wrong outcome. Fix without weakening the gate: a public,
+data-free offline shell reading an `SB_TodayCache_v1` snapshot.
+
+## 46. There is no permission model (teamA-20)
+
+`SB_Roles_v1` and `SB_Crew_v1` are casting roles and a contact list — **not
+access control**. Five owners share god-mode over one flat namespace. Every
+owner can read and overwrite every other owner's production.
+
+Carrying this into Phase 6 as a design question, not a bug: the gate
+authenticates, and nothing authorises.
+
+## 47. Media does not travel with the project (teamA-20, confirms 34)
+
+`wardrobe/index.html:133` and `locations/index.html:132` store photos in
+IndexedDB. `projects/lib-vault.js:14` snapshots only localStorage `SB_*` — zero
+IDB awareness. The **references** are in the archive (`loc.photos`,
+`l.photoIds`); the **bytes** never are.
+
+So export and cloud pull silently drop every scout and wardrobe photo, and
+`locations/index.html:209` deletes the `img` element on a miss — no error, no
+placeholder, no indication anything was lost. Deleted project slots orphan the
+blobs forever.
