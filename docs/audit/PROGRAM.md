@@ -44,6 +44,11 @@ Tracked as tasks #56–62.
 15 stunts & safety · 16 VFX · 17 editorial & post · 18 music & sound post ·
 19 colour & finishing · 20 legal, distribution & festivals
 
+**Wave 2 status:** TEAM A DEVS **01-10 launched** (the "strengthen what exists"
+half) once crew slots freed — they read code directly and do not depend on the
+crew reports, so running them early saves hours of wall clock. **11-20 still to
+launch** when slots free.
+
 **Wave 2 — 20 TEAM A DEVS.** Assignments already written to
 `docs/audit/assignments/teamA-01..20.md`. Launch each as:
 
