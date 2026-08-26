@@ -83,12 +83,23 @@
       };
     });
   }
+  /* A cell that opens with = + - @ (or a tab or carriage return that scrolls
+     one into place) is a formula to Excel and Sheets, not text -- so a line
+     item typed on this site would run on the machine of whoever opens the
+     export. The leading apostrophe is what those programs read as "this is
+     literal", and they strip it on display. */
+  function csvCell(v) {
+    var s = String(v == null ? '' : v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+
   function cueCsv(cues) {
     var rows = [['#', 'Cue title', 'TC in', 'TC out', 'Secs', 'Use', 'Composer', 'Publisher', 'Society']];
     (cues || []).forEach(function (c) {
       rows.push([c.n, c.title, c.tcIn, c.tcOut, c.durSec, c.use, c.composer, c.publisher, c.society]);
     });
-    return rows.map(function (r) { return r.map(function (x) { return '"' + String(x).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+    return rows.map(function (r) { return r.map(csvCell).join(','); }).join('\n');
   }
 
   /* ── Audition sides from the screenplay ─────────────────────────── */

@@ -106,10 +106,21 @@
     return s;
   }
 
+  /* A cell that opens with = + - @ (or a tab or carriage return that scrolls
+     one into place) is a formula to Excel and Sheets, not text -- so a line
+     item typed on this site would run on the machine of whoever opens the
+     export. The leading apostrophe is what those programs read as "this is
+     literal", and they strip it on display. */
+  function csvCell(v) {
+    var s = String(v == null ? '' : v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+
   function csv(report) {
     var lines = ['Acct,Category,Budget,Actual,Committed,ETC,EFC,Variance'];
     report.rows.forEach(function (r) {
-      lines.push([r.acct, '"' + String(r.name).replace(/"/g, '""') + '"',
+      lines.push([csvCell(r.acct), csvCell(r.name),
         r.budget, r.actual, r.committed, r.etc, r.efc, r.variance].join(','));
     });
     var t = report.totals;

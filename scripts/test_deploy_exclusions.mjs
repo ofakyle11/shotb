@@ -189,6 +189,24 @@ for (const [label, plant, names] of PLANTS) {
   if (stagedAt) rmSync(stagedAt[1].trim(), { recursive: true, force: true });
 }
 
+/* 8. a git build must fail closed on BOTH halves. The publish directory was
+      already a placeholder, but functions pointed straight at the real
+      endpoint directory — so a git build would have deployed every prompt
+      relay, paid-model call and webhook with no owner check in front of it,
+      on the same site whose static half was serving a placeholder. */
+{
+  const toml = readFileSync(join(ROOT, 'netlify.toml'), 'utf8');
+  const val = (key) => (new RegExp('^\\s*' + key + '\\s*=\\s*"([^"]*)"', 'm').exec(toml) || [])[1];
+  t('a git build publishes the guard, not the repository', val('publish') === 'netlify-git-guard', val('publish'));
+  t('a git build deploys no real function', val('functions') !== 'netlify/functions', val('functions'));
+  const fnDir = val('functions');
+  const real = readdirSync(join(ROOT, 'netlify', 'functions')).filter((f) => f.endsWith('.js'));
+  t('there are real endpoints worth guarding', real.length > 10, real.length + ' found');
+  const shipped = fnDir && fnDir !== 'netlify/functions'
+    ? readdirSync(join(ROOT, fnDir)).filter((f) => f.endsWith('.js') || f.endsWith('.mjs')) : real;
+  t('the git-build function directory holds no endpoint', shipped.length === 0, shipped.join(', '));
+}
+
 rmSync(work, { recursive: true, force: true });
 console.log(`test_deploy_exclusions: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

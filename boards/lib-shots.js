@@ -96,9 +96,20 @@
     });
     return rows;
   }
+  /* A cell that opens with = + - @ (or a tab or carriage return that scrolls
+     one into place) is a formula to Excel and Sheets, not text -- so a line
+     item typed on this site would run on the machine of whoever opens the
+     export. The leading apostrophe is what those programs read as "this is
+     literal", and they strip it on display. */
+  function csvCell(v) {
+    var s = String(v == null ? '' : v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+
   function toCsv(project) {
     return toCsvRows(project).map(function (r) {
-      return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
+      return r.map(csvCell).join(',');
     }).join('\n');
   }
 

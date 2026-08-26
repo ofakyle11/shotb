@@ -8,7 +8,13 @@
 # ══════════════════════════════════════════════════════════════════════
 [build]
   publish = "netlify-git-guard"
-  functions = "netlify/functions"
+  # Functions fail closed for the same reason publish does. Pointing this at
+  # netlify/functions would have let a git build deploy all 23 endpoints —
+  # prompt relays, paid model calls, seeding, the Stripe webhook — with no
+  # owner check in front of them, while the static half of the very same
+  # build correctly served nothing but a placeholder. A release uploads the
+  # three endpoints it needs by hand: scripts/deploy_cinamate.mjs.
+  functions = "netlify-git-guard/functions"
 
 [functions]
   node_bundler = "esbuild"
