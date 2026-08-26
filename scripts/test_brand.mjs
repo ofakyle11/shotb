@@ -121,15 +121,66 @@ for (const re of [/var\(--display\)[^}]*letter-spacing:\s*-[0-9.]/g,
  * A brand kit does not govern a partner's colour. The exemption is keyed to
  * SB_PROVIDER_LABELS so it cannot silently widen — a new #a78bfa anywhere
  * else in app.html still fails. */
+/* The last three are a distinct and sneakier failure than a wrong colour: a
+   HALF-MIGRATION. All three lived on .tk-chip rules in css/cinamate-ui.css,
+   where someone had moved the `color` onto a Blue Patina token and left the
+   `background` literal from the previous palette behind. So each chip painted
+   a pre-palette fill under a post-palette text — .warn was a yellow-gold wash
+   with BLUE text sitting in it, two colours that were never meant to meet.
+   Nothing looks obviously broken in a half-migrated rule, which is exactly why
+   it survives a visual pass and needs a machine. */
 const BANNED = { eab308: 'neon yellow (use --warn #C9A06C)',
                  a78bfa: 'off-kit violet (use --violet #8BA3B8)',
-                 E8EEF4: 'typo of Soft Film White #E8EEF2' };
+                 E8EEF4: 'typo of Soft Film White #E8EEF2',
+                 D4A843: 'pre-palette gold (use --warn / --magenta)',
+                 F87171: 'pre-palette red (use --error #A65D5D)',
+                 '22C55E': 'pre-palette neon green (use --ok #4A8B7A)' };
+
+/* Comments are STRIPPED, not skipped over.
+   The first run of the three bans below went red on css/cinamate-ui.css — and
+   the only matches were inside the comment explaining why those hexes had just
+   been removed. A rule that forbids naming the thing it forbids makes the
+   defect undocumentable, so the ban has to apply to declarations and not to
+   prose. Same discipline as stripPrintBlocks: remove the text that is not
+   code, rather than notice it and hope.
+   `//` is stripped only when not preceded by `:`, so https:// URLs survive. */
+function stripComments(src) {
+  return String(src)
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+t('stripComments removes a block comment but keeps the declaration',
+  stripComments('a{color:#111}/* #eab308 */b{color:#222}').replace(/\s+/g, '')
+    === 'a{color:#111}b{color:#222}');
+t('stripComments keeps a URL containing //',
+  stripComments('@import url(https://x.test/a.css);').includes('https://x.test'));
+t('stripComments removes an HTML comment',
+  !stripComments('<p>x</p><!-- #eab308 -->').includes('eab308'));
+
+/* A banned colour must be banned IN EVERY NOTATION IT CAN BE WRITTEN.
+   The first version of this matched the hex string only — and every one of the
+   three chip defects was authored as `rgba(248, 113, 113, .18)`, not as
+   `#F87171`. Planting the rgba form to test the ban is what exposed it: the
+   guard came back green on the exact bug it was written to catch. So each ban
+   now matches the hex OR its decimal channel triplet, with optional spaces. */
+function bannedRe(hex) {
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.substr(i, 2), 16));
+  return new RegExp(hex + '|' + r + '\\s*,\\s*' + g + '\\s*,\\s*' + b, 'i');
+}
+/* Guard the guard: a typo in bannedRe would silently disarm every ban. */
+t('bannedRe matches the hex notation', bannedRe('F87171').test('color:#F87171'));
+t('bannedRe matches the rgba channel notation',
+  bannedRe('F87171').test('background: rgba(248, 113, 113, .18)'));
+t('bannedRe does not match an unrelated colour',
+  !bannedRe('F87171').test('background: rgba(166, 93, 93, .18)'));
 
 for (const [hex, why] of Object.entries(BANNED)) {
+  const re = bannedRe(hex);
   const hits = [];
   for (const { rel, src } of corpus) {
-    for (const line of src.split('\n')) {
-      if (!new RegExp(hex, 'i').test(line)) continue;
+    for (const line of stripComments(src).split('\n')) {
+      if (!re.test(line)) continue;
       if (/SB_PROVIDER_LABELS|'(?:xai|grok)-imagine':|'wavespeed':|'openai':/.test(line)) continue;
       hits.push(rel);
       break;

@@ -210,6 +210,17 @@
   /* Hover-brightened --cyan. */
   --cyan-lift: #7FA8CC;
 
+  /* Lifted --error and --ok, for SMALL TEXT SITTING ON ITS OWN TINT.
+     --error and --ok are mid-tone by design: they read correctly as a dot, a
+     border or a bar against --void. But a status chip puts 9px bold text on a
+     .16-.18 wash of that same colour, which lightens the background toward the
+     text and collapses the ratio — --error on its own tint is 2.7:1 and --ok
+     is 3.2:1, both under WCAG AA, which the kit requires. These are the same
+     hues lifted until they clear 4.5:1 there (5.3:1 and 5.3:1). Use them for
+     text on a self-tinted ground; use --error/--ok everywhere else. */
+  --error-lift: #D49494;
+  --ok-lift:    #6FB3A0;
+
   /* --magenta at 55% — the brass tick / secondary rail label. */
   --magenta-55: rgba(201, 168, 108, .55);
 
@@ -241,6 +252,7 @@
   --violet-rgb:   139,163,184;
   --magenta-rgb:  201,168,108;
   --ok-rgb:       74,139,122;
+  --warn-rgb:     201,160,108;
   --error-rgb:    166,93,93;
   --text-hi-rgb:  232,238,242;
 
