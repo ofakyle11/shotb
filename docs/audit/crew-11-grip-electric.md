@@ -608,4 +608,6 @@ Specific claims and where they are verifiable:
   ballast, dimmer, DMX, stinger, kelvin (outside the prompt dropdown), foot-candle,
   CTB, CTO, sandbag, speed rail, truss, menace arm, pre-rig, prelight, or working
   load limit. Verified by repo-wide `rg` excluding `node_modules`, `static/`,
-  `*.zip` and `*.pyc`.
+  `*.zip` and `*.pyc` — case-insensitive for the words, case-sensitive
+  whole-word (`\bCTB\b|\bCTO\b`) for the two acronyms so that "director" and
+  "factor" do not count as hits. Both return zero.
