@@ -109,8 +109,15 @@ const { CMoney, CShots, CMusic } = globalThis;
     }
   })(ROOT);
 
-  /* The tell-tale of a CSV writer: doubling a quote to escape it. */
-  const ESCAPES = /replace\(\/"\/g\s*,\s*'""'\)/;
+  /* The tell-tale of a CSV writer: doubling a quote to escape it.
+
+     This matched ONE spelling — replace(/"/g, '""') with single quotes around
+     the replacement. A writer spelled replace(/"/g, "\"\"") or
+     .split('"').join('""') was invisible to the sweep, so a NEW sixth exporter
+     could ship with no formula guard and never be looked at. The `>= 5` floor
+     below stayed satisfied by the five known writers either way, which is what
+     made the gap quiet. */
+  const ESCAPES = /replace\(\/"\/g\s*,\s*(?:'""'|"\\"\\""|`""`)\)|split\(\s*(?:'"'|"\\""|`"`)\s*\)\s*\.join\(\s*(?:'""'|"\\"\\""|`""`)\s*\)/;
   const GUARD = /\^\[=\+\\?-@\\t\\r\]/;
   const unguarded = [];
   for (const p of files) {
@@ -125,6 +132,59 @@ const { CMoney, CShots, CMusic } = globalThis;
      nothing would pass the test above without checking a single file. */
   const writers = files.filter((p) => ESCAPES.test(readFileSync(p, 'utf8')));
   t('the sweep found the CSV writers to check', writers.length >= 5, writers.length + ' found');
+}
+
+/* ── the sweep grades TEXT; these two grade BEHAVIOUR ─────────────────
+   The sweep above asserts the guard STRING is present in a file. It cannot
+   tell whether the guard RUNS. A reviewer proved the gap by rewriting
+   producer/budget-sheet.js:213 to `if (false && /^[=+\-@\t\r]/.test(s))` —
+   the source text still matched, and this suite plus all six others touching
+   that file stayed green.
+
+   Two exporters were covered by text alone. Both are exported, so both can be
+   driven for real, which is the only kind of coverage that survives someone
+   editing the condition rather than the pattern. */
+{
+  globalThis.window = globalThis.window || globalThis;
+  (0, eval)(readFileSync(join(ROOT, 'js/ui-table.js'), 'utf8'));
+  const CTable = globalThis.CTable;
+  t('CTable.Register is loaded', !!(CTable && CTable.Register));
+
+  const reg = new CTable.Register({
+    key: 'SB_TestOnly_v1',
+    fields: [{ id: 'name', label: 'Name' }, { id: 'note', label: 'Note' }],
+  });
+  reg.rows = ATTACKS.map((a, i) => ({ name: a, note: i === 0 ? '=cmd|calc' : 'ok' }));
+  const csv = reg.toCsv();
+  const bad = cellsOf(csv).filter(dangerous);
+  t('ui-table Register.toCsv neutralises every formula payload',
+    bad.length === 0, bad.slice(0, 3).join(' | '));
+  /* Counter-assertion: a guard that blanked everything would also pass. */
+  t('ui-table Register.toCsv keeps the payload text readable',
+    csv.includes('1+1') && csv.includes('HYPERLINK'));
+}
+
+{
+  (0, eval)(readFileSync(join(ROOT, 'producer/budget-sheet.js'), 'utf8'));
+  const BS = globalThis.SBBudgetSheet;
+  t('SBBudgetSheet.sheetToCsv is reachable', !!(BS && BS.sheetToCsv));
+  if (BS && BS.sheetToCsv) {
+    /* Money in CENTS, per the repo's fixture rule. */
+    const sheet = {
+      name: 'Attack', fringesPct: 0, bondPct: 0, insurancePct: 0, contingencyPct: 0,
+      categories: [{
+        acct: '1000', name: ATTACKS[0],
+        items: ATTACKS.map((a) => ({ desc: a, amt: 1, units: 1, rate: 100, notes: a, actual: 0 })),
+      }],
+    };
+    let out = '';
+    try { out = BS.sheetToCsv(sheet); } catch (e) { out = 'THREW: ' + e.message; }
+    t('budget-sheet sheetToCsv produced a sheet', out.length > 0 && !out.startsWith('THREW'), out.slice(0, 120));
+    const bad2 = cellsOf(out).filter(dangerous);
+    t('budget-sheet sheetToCsv neutralises every formula payload',
+      bad2.length === 0, bad2.slice(0, 3).join(' | '));
+    t('budget-sheet sheetToCsv keeps the payload text readable', out.includes('1+1'));
+  }
 }
 
 console.log(`test_csv_injection: ${pass} passed, ${fail} failed`);
