@@ -7,30 +7,28 @@ key, what the lock protects, how long a key stays warm, and what you are looking
 at once you are through.</p>
 
 <div class="note">
-<strong>About this manual.</strong> Every statement here was established by
-reading the source in this repository, not by operating a running site. The
-platform is under active development and the code moves faster than the page you
-are holding. Where this manual and the software disagree, the software is right.
-Where a behaviour could not be established from source, this manual says so
-rather than guessing.
+<strong>About this manual.</strong> Everything here was established by reading the
+source in this repository, not by operating a running site. The platform is under
+active development and the code moves faster than this page. Where the manual and
+the software disagree, the software is what runs. Where a behaviour could not be
+established from source, this chapter says so rather than guessing.
 </div>
 
 <h2>Two doors, and only one of them opens</h2>
 
-<p>A Cinamate deployment publishes two quite different things. The first is a
-small public shell: the landing page, <span class="path">login.html</span>, the
-brand assets, and a short allow-list of shared files the landing page itself
-loads. The second is the studio, and the studio is not published at all. It is
-bundled <em>inside</em> a serverless function.</p>
+<p>A deployment publishes two things. The first is a small public shell: the
+landing page, <span class="path">login.html</span>, the brand assets, and a short
+allow-list of files the landing itself loads. The second is the studio — and the
+studio is not published at all. It is bundled <em>inside</em> a serverless
+function: at release time <span class="path">scripts/deploy_cinamate.mjs</span>
+moves everything not on that allow-list into the payload of
+<span class="path">netlify/functions/gate.js</span> and rewrites the redirect
+rules so those paths resolve to it.</p>
 
-<p><span class="path">scripts/deploy_cinamate.mjs</span> makes that split at
-release time: anything not on the public allow-list is moved into the payload of
-<span class="path">netlify/functions/gate.js</span>, and the redirect rules are
-rewritten so those paths resolve to the function. The consequence is the security
-model in one sentence — <strong>there is no "view source" route into
-Cinamate.</strong> An anonymous visitor asking for a module page is not shown a
-page with the buttons greyed out. Those bytes are not on the public CDN at all.
-They exist only inside the function, and the function reads the cookie before it
+<p>That is the security model in one sentence: <strong>there is no "view source"
+route into Cinamate.</strong> An anonymous visitor asking for a module page is not
+shown a page with the buttons greyed out — those bytes are not on the public CDN
+at all. They exist only inside the function, which reads the cookie before it
 reads the file.</p>
 
 <h2>The sign-in page</h2>
@@ -40,17 +38,16 @@ the line <em>Production access — owners only</em> beneath it, fields labelled
 Login and Password, and a button reading <strong>Enter the studio</strong>.
 Submitting posts the name and password as JSON to
 <span class="path">/.netlify/functions/verify-owner</span>. Two query parameters
-change its behaviour: <code>?u=</code> pre-fills the Login field and moves the
-cursor to the password box, accepting only two letters followed by three digits;
-<code>?to=</code> is where you land afterwards, defaulting to
-<span class="path">/dashboard.html</span>. The page resolves that destination and
-refuses anything that is not a plain same-origin path, so a crafted link cannot
-use the sign-in card to bounce you off the site.</p>
+alter it: <code>?u=</code> pre-fills the Login field, and <code>?to=</code> sets
+where you land afterwards, defaulting to
+<span class="path">/dashboard.html</span> and refused unless it resolves to a
+plain same-origin path — so a crafted link cannot use the sign-in card to bounce
+you off the site.</p>
 
-<p>On success the page keeps only a display record — the owner short and a
-timestamp — in <code>sessionStorage</code> under <code>cinamate.session</code>.
-It never sees the session token, which is deliberately absent from the response
-body: anything this page's script can read, injected script could read too.</p>
+<p>On success the page keeps only a display record — owner short and timestamp —
+in <code>sessionStorage</code> under <code>cinamate.session</code>. It never sees
+the session token: that is deliberately absent from the response body, because
+anything this page's script can read, injected script could read too.</p>
 
 <h3>The five owner accounts</h3>
 
@@ -68,12 +65,10 @@ independently.</p>
 <tr><td><code>dz465</code></td><td><code>OWNER_PW_DZ465</code></td></tr>
 </table>
 
-<p>The passwords are Netlify environment variables on the deployed site. They are
-not in this repository, not in any page, and not in this manual. A sixth
-variable, <code>OWNER_TOKEN_SECRET</code>, is the HMAC key the system signs and
-verifies sessions with. Names are matched case-insensitively and both sides of
-the password are trimmed of edge whitespace, because a pasted secret often
-carries a stray newline.</p>
+<p>The passwords are Netlify environment variables on the deployed site — not in
+this repository, not in any page, and not in this manual. A sixth,
+<code>OWNER_TOKEN_SECRET</code>, is the HMAC key sessions are signed and verified
+with.</p>
 
 <h3>When sign-in refuses</h3>
 
@@ -82,22 +77,17 @@ after the same short random pause, whether the name exists or not, so the
 response cannot be used to discover which logins are real.</p>
 
 <p>Two throttles sit in front of it. The first counts failures per client
-address: more than <strong>12 in a 10-minute window</strong> and the endpoint
-answers <code>429</code> with <em>Too many attempts — wait a few minutes and try
-again</em>. That count is kept both in the function instance's memory and in a
-shared Netlify Blobs store named <code>cinamate-auth</code>, keyed by a digest of
-the address rather than the address itself. The second counts failures per
-<em>name</em> across every address: past <strong>20</strong> in the same window,
-answers for that name are delayed by 1.5 seconds. It is a delay and never a
-lockout, because a lockout would let anyone shut an owner out of their own studio
-by typing a wrong password often enough.</p>
-
-<div class="note">
-<strong>The throttle fails open by design.</strong> If the shared counter cannot
-be reached, the system falls back to the weaker in-memory limit rather than
-refusing everyone. A storage outage must not become a denial of service against
-the only five people who can get in.
-</div>
+address: more than <strong>12 in a 10-minute window</strong> answers
+<code>429</code> with <em>Too many attempts — wait a few minutes and try
+again</em>. That count is held in the function's memory and in a shared Netlify
+Blobs store, <code>cinamate-auth</code>, keyed by a digest of the address rather
+than the address itself. The second counts failures per <em>name</em> across every
+address: past <strong>20</strong> in the same window, answers for that name are
+delayed by 1.5 seconds. It is a delay and never a lockout — a lockout would let
+anyone shut an owner out of their own studio by typing a wrong password often
+enough. Both fail open: if the shared counter cannot be reached the system falls
+back to the weaker in-memory limit, because a storage outage must not become a
+denial of service against the only five people who can get in.</p>
 
 <h2>The twelve-hour session</h2>
 
@@ -112,59 +102,56 @@ returns as two cookies, both with a 43,200-second lifetime:</p>
 </table>
 
 <p>On every request the gate re-derives the HMAC, compares it in constant time,
-checks the expiry, and checks the name against the list of five. It reads
-<em>every</em> <code>cin_owner</code> the request carries, up to twelve, and
-accepts whichever verifies — so a planted cookie cannot stand in front of your
-real session and quietly sign you out.</p>
+checks the expiry, and checks the name against the five. It reads <em>every</em>
+<code>cin_owner</code> the request carries, up to twelve, accepting whichever
+verifies — so a planted cookie cannot stand in front of your real session and
+quietly sign you out.</p>
 
 <p>When the twelve hours lapse, nothing dramatic happens; things simply stop
-being served. A request for a page is redirected to
+being served. A page request is redirected to
 <span class="path">/login.html?to=</span> plus the path you were on, so signing in
-again returns you where you were. A request for a script, stylesheet or image
-gets a bare <code>401 Sign in required</code>. A call to the studio cloud comes
-back as <em>Sign in to use the studio cloud</em>.</p>
+again returns you where you were. A script, stylesheet or image gets a bare
+<code>401 Sign in required</code>. A call to the studio cloud comes back as
+<em>Sign in to use the studio cloud</em>.</p>
 
 <div class="note">
 <strong>Two limits of the expiry, both read from source.</strong> There is no
-renewal path — <span class="path">verify-owner.js</span> mints a token only for a
-POST carrying the password — so a long day means signing in twice. And a tab left
-open can look signed in when it is not: the Operator label is drawn from a
-<code>sessionStorage</code> record whose age nothing checks. Nothing in the source
-warns you before a session lapses, and this manual will not pretend otherwise. If
-a page starts failing to save, reload it; you will be sent to the sign-in card.
+renewal path — a token is minted only for a POST carrying the password — so a
+long day means signing in twice. And a tab left open can look signed in when it is
+not: the Operator label comes from a <code>sessionStorage</code> record whose age
+nothing checks. Nothing warns you before a session lapses. If a page starts
+failing to save, reload it; you will be sent to the sign-in card.
 </div>
 
 <p>The <strong>Exit</strong> control at the foot of the rail clears the display
 record, expires both cookies, posts a <code>logout</code> so the HttpOnly cookie
 is cleared authoritatively, deletes the service worker's caches so the next
-person at that browser starts cold, and returns to the public front page. That
-logout is same-origin only and is deliberately exempt from the throttle: ending a
-session on a shared machine must never be rate-limited.</p>
+person at that browser starts cold, and returns to the front page. That logout is
+same-origin only and exempt from the throttle: ending a session on a shared
+machine must never be rate-limited.</p>
 
 <h2>The dashboard, and the rail</h2>
 
 <p>Signing in lands you on <span class="path">/dashboard.html</span>. The status
-bar across the top carries four readings: a per-session identifier of the form
-<code>SES-</code> plus eight hex characters; <strong>Operator</strong>, showing
-your owner short; a workspace segment naming your local render bridge if
-<code>SB_LocalGPU_v1</code> holds one, and otherwise reading
-<em>WORKSPACE READY</em>; and a UTC clock.</p>
+bar carries a per-session identifier of the form <code>SES-</code> plus eight hex
+characters; <strong>Operator</strong>, showing your owner short; a workspace
+segment naming your local render bridge if <code>SB_LocalGPU_v1</code> holds one
+and otherwise reading <em>WORKSPACE READY</em>; and a UTC clock.</p>
 
 <p>Below it is the Producer Suite — portfolio tiles, a productions table, a stage
 badge per title. These read this browser's own saved module stores, refresh every
 thirty seconds and whenever the tab regains focus, and stay blank until real work
 exists. The header stamp reads <em>LIVE FROM THIS BROWSER</em>, and it means it:
-what you see here is the machine you are sitting at, not the studio's whole
-catalogue.</p>
+this is the machine you are sitting at, not the studio's whole catalogue.</p>
 
 <div class="note">
 <strong>A stale comment to ignore.</strong> <span class="path">dashboard.html</span>
-still carries a long header block describing a simulation engine that ticked
-invented figures upward on timers. The code below it does the opposite and says
-so. The tiles are real; the comment is a leftover.
+still carries a header block describing a simulation engine that ticked invented
+figures upward on timers. The code below it does the opposite and says so. The
+tiles are real; the comment is a leftover.
 </div>
 
-<p>Down the left is the rail, and the rail is how you reach everything. It holds
+<p>Down the left is the rail, and the rail is how you reach everything:
 twenty-nine entries in six labelled groups, resolving to twenty-eight distinct
 module pages — <em>Sales</em> is a deep link into the budget module rather than a
 page of its own. Under 900 pixels the rail becomes a bottom tab bar.</p>
@@ -181,24 +168,23 @@ page of its own. Under 900 pixels the rail becomes a bottom tab bar.</p>
 
 <h2>One studio, five owners</h2>
 
-<p>A <em>production</em> in Cinamate is a named slot holding a snapshot of every
-module store — screenplay, boards, budget, schedule, cast, cut — together with a
-manifest of its photographs. The vault engine at
-<span class="path">projects/lib-vault.js</span> creates them, switches between
-them, and packs them as portable <code>.cinamate</code> archive files.</p>
+<p>A <em>production</em> is a named slot holding a snapshot of every module store
+— screenplay, boards, budget, schedule, cast, cut — plus a manifest of its
+photographs. The vault engine at <span class="path">projects/lib-vault.js</span>
+creates them, switches between them, and packs them as portable
+<code>.cinamate</code> archive files.</p>
 
 <p>The Projects module also pushes a production to the <strong>studio
 cloud</strong>, and this is the fact that most changes how the platform feels:
-the cloud is shared, not personal. There is one catalogue for the site and all
-five owners see all of it. A pushed production is listed to everyone alongside
-the owner who last saved it; anyone signed in can open it, and anyone signed in
-can remove it from the shared list — earlier copies are retained, and the
-confirmation prompt says so. Pushing under an existing name replaces the cloud
-copy. The transport accepts up to 4 MB of written record per production and up to
-48 MB of media in at most 48 parts, with a 900 KB ceiling on any single file: it
-carries stills and short takes, not source masters. Anything over those limits is
-refused whole, with the offending file named, rather than uploaded down to
-whatever happened to fit.</p>
+the cloud is shared, not personal. One catalogue serves the site and all five
+owners see all of it. A pushed production is listed to everyone alongside the
+owner who last saved it; anyone signed in can open it, and anyone signed in can
+remove it from the shared list — earlier copies are kept, and the confirmation
+prompt says so. Pushing under an existing name replaces the cloud copy. The
+transport takes 4 MB of written record per production and 48 MB of media in at
+most 48 parts, with a 900 KB ceiling per file: stills and short takes, not source
+masters. Anything over is refused whole, naming the file, rather than uploaded
+down to whatever happened to fit.</p>
 
 <h2>What stays on this device</h2>
 
@@ -206,25 +192,22 @@ whatever happened to fit.</p>
 form <code>SB_&lt;Module&gt;_v1</code> in <code>localStorage</code> — sixty-odd
 across the twenty-eight modules — plus binary media in IndexedDB for wardrobe
 continuity photographs, scout photographs and cutting-room sources. The project
-index itself is <code>CIN_Projects_v1</code>.</p>
-
-<p>Two keys are deliberately excluded from every snapshot, archive file and cloud
-push: <code>SB_LocalGPU_v1</code>, holding your render bridge address and its API
-key, and <code>SB_TMDB_v1</code>, holding a personal API key. They belong to the
-machine, not to the film, and nothing carrying a credential travels to another
-owner.</p>
+index itself is <code>CIN_Projects_v1</code>. Two keys are deliberately excluded
+from every snapshot, archive and cloud push: <code>SB_LocalGPU_v1</code>, holding
+your render bridge address and its API key, and <code>SB_TMDB_v1</code>, holding
+a personal API key. They belong to the machine, not to the film, and nothing
+carrying a credential travels to another owner.</p>
 
 <div class="note">
-<strong>Clearing this browser's site data discards work.</strong> Any production
-not pushed to the studio cloud or exported to a <code>.cinamate</code> file exists
-nowhere else. Note also that a production opened on a second machine is a copy —
-it does not stay in step with the first until somebody pushes again.
+<strong>Clearing this browser's site data discards work.</strong> A production not
+pushed to the studio cloud or exported to a <code>.cinamate</code> file exists
+nowhere else. A production opened on a second machine is a copy, and does not stay
+in step with the first until somebody pushes again.
 </div>
 
 <h2>Where to begin</h2>
 
-<p>Sign in, and take the rail from the top. <strong>Writer</strong> is where a
+<p>Sign in and take the rail from the top. <strong>Writer</strong> is where a
 production acquires its first real content, and the dashboard tiles stay blank
 until it does. <strong>Projects</strong>, at the foot of the rail, is where a
-production is named, snapshotted, archived and shared. The chapters that follow
-take the modules in that order.</p>
+production is named, snapshotted, archived and shared.</p>

@@ -463,6 +463,91 @@
   /* sync(text, meta) → build + persist. Returns the store either way. */
   function sync(text, meta) { var st = build(text, meta); save(st); return st; }
   /* list() → the stored scenes, or [] when nothing has been parsed yet. */
+  /* ── cueName: is this line a character speaking? ───────────────────
+   * Promoted here because it was written twice, byte-identically, in
+   * casting/lib-castdesk.js and wardrobe/lib-ward.js — and because a THIRD
+   * consumer needed it and used a substring match instead, with real
+   * consequences.
+   *
+   * production/lib-prod.js decided which scenes belong in a performer's
+   * audition sides with `scene.toUpperCase().indexOf(NAME) < 0`. A plain
+   * substring over the whole scene, so:
+   *   · a character merely MENTIONED in an action line got the scene, though
+   *     they never appear in it; and
+   *   · a character named AL matched every scene containing CALL, HALL,
+   *     ALICE or GENERAL.
+   * Sides are sent to a performer's representative. Over-inclusion there
+   * means posting pages of an unreleased screenplay to someone who had no
+   * reason to receive them.
+   *
+   * casting/lib-castdesk.js had it right all along — a character is in a
+   * scene when they have a DIALOGUE CUE in it. That test now lives in one
+   * place, beside the scene model it already depended on.
+   *
+   * Returns the cue name, or null when the line is not a cue.
+   */
+  var NOT_CUES = /^(FADE IN|FADE OUT|FADE TO|CUT TO|DISSOLVE TO|SMASH CUT|MATCH CUT|JUMP CUT|CONTINUED|INTERCUT|MONTAGE|SERIES OF SHOTS|TITLE|SUPER|CHYRON|THE END|END OF|BLACK|LATER|BEAT|BACK TO|OMITTED|ANGLE ON|CLOSE ON|INSERT)\b/;
+
+  function cueName(line) {
+    var t = String(line == null ? '' : line).trim();
+    if (!t) return null;
+    if (isSlug(t)) return null;
+    var s = t.replace(/\s*\((?:V\.?\s?O\.?|O\.?\s?S\.?|O\.?\s?C\.?|CONT'?D\.?|VOICE OVER|OFF SCREEN|PRE-?LAP|FILTERED)\)\.?\s*$/i, '');
+    s = s.replace(/^\s+|\s+$/g, '');
+    if (s.length < 2 || s.length > 30) return null;
+    if (s !== s.toUpperCase()) return null;
+    if (!/[A-Z]/.test(s)) return null;
+    if (/[:;!?]$/.test(s)) return null;               /* transitions end in ':' */
+    if (NOT_CUES.test(s)) return null;
+    if (!/^[A-Z][A-Z0-9 .,'\-]*$/.test(s)) return null;
+    return s;
+  }
+
+  /* Two DIFFERENT questions, and conflating them is what caused the bug below.
+
+       speaksIn   does this character have a DIALOGUE CUE here?
+                  The question AUDITION sides ask — a performer auditions with
+                  the scenes they actually perform.
+       appearsIn  is this character PRESENT here, cue or action line?
+                  The question ON-SET sides and a day-out-of-days ask — an
+                  actor who wrestles Hank across a kitchen with no dialogue is
+                  still called that day, and still needs the pages.
+
+     production/lib-prod.js wants the second and had it, roughly: it tested
+     `scene.toUpperCase().indexOf(NAME) < 0`. The SEMANTICS were right and the
+     MATCH was not — a plain substring, so a character named AL was present in
+     every scene containing CALL, HALL, ALICE or GENERAL. Sides go to a
+     performer's representative, so that meant posting pages of an unreleased
+     screenplay to people with no reason to receive them.
+
+     appearsIn keeps the semantics and fixes the match: whole words only. */
+  function appearsIn(bodyLines, charName) {
+    if (!charName) return false;
+    var want = String(charName).toUpperCase().trim();
+    if (!want) return false;
+    if (speaksIn(bodyLines, charName)) return true;
+    var text = (Array.isArray(bodyLines) ? bodyLines.join('\n') : String(bodyLines || '')).toUpperCase();
+    /* Escaped, because a character can legitimately be called "MRS. HALE" or
+       "OFFICER #2", and an unescaped dot or hash would match the wrong thing.
+       The boundaries are explicit rather than \b so an apostrophe still ends a
+       name: MAGGIE'S COAT contains MAGGIE. */
+    var esc = want.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('(^|[^A-Z0-9])' + esc + '($|[^A-Z0-9])').test(text);
+  }
+
+  /* Does this character SPEAK in this scene? The question every AUDITION
+     sides feature is asking. */
+  function speaksIn(bodyLines, charName) {
+    if (!charName) return false;
+    var want = String(charName).toUpperCase().trim();
+    var lines = Array.isArray(bodyLines) ? bodyLines : String(bodyLines || '').split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var n = cueName(lines[i]);
+      if (n && n.toUpperCase() === want) return true;
+    }
+    return false;
+  }
+
   function list() { var st = load(); return (st && Array.isArray(st.scenes)) ? st.scenes : []; }
 
   root.CScenes = {
@@ -474,6 +559,7 @@
     eighthsOf: eighthsOf,
     byNumber: byNumber, index: index, sortScenes: sortScenes,
     parseSceneNums: parseSceneNums, normNum: normNum, keyWeight: keyWeight,
+    cueName: cueName, speaksIn: speaksIn, appearsIn: appearsIn, NOT_CUES: NOT_CUES,
     load: load, save: save, build: build, sync: sync, list: list
   };
 })(typeof window !== 'undefined' ? window : globalThis);

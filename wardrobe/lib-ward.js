@@ -31,22 +31,12 @@
      A character cue is a short ALL-CAPS line (2–30 chars), not a slugline,
      not a transition/format keyword, optionally suffixed (V.O.)/(O.S.)/
      (CONT'D), and followed by an actual line of dialogue.                  */
-  var NOT_CUES = /^(FADE IN|FADE OUT|FADE TO|CUT TO|DISSOLVE TO|SMASH CUT|MATCH CUT|JUMP CUT|CONTINUED|INTERCUT|MONTAGE|SERIES OF SHOTS|TITLE|SUPER|CHYRON|THE END|END OF|BLACK|LATER|BEAT|BACK TO|OMITTED|ANGLE ON|CLOSE ON|INSERT)\b/;
 
-  function cueName(line) {
-    var t = String(line == null ? '' : line).trim();
-    if (!t) return null;
-    if (CS.isSlug(t)) return null;
-    var s = t.replace(/\s*\((?:V\.?\s?O\.?|O\.?\s?S\.?|O\.?\s?C\.?|CONT'?D\.?|VOICE OVER|OFF SCREEN|PRE-?LAP|FILTERED)\)\.?\s*$/i, '');
-    s = s.replace(/^\s+|\s+$/g, '');
-    if (s.length < 2 || s.length > 30) return null;
-    if (s !== s.toUpperCase()) return null;
-    if (!/[A-Z]/.test(s)) return null;
-    if (/[:;!?]$/.test(s)) return null;               /* transitions end in ':' */
-    if (NOT_CUES.test(s)) return null;
-    if (!/^[A-Z][A-Z0-9 .,'\-]*$/.test(s)) return null;
-    return s;
-  }
+  /* Delegated to CScenes, which both this file and wardrobe/lib-ward.js
+     carried a byte-identical copy of. A third consumer needed the same test
+     and used a substring match instead — see the note above CScenes.cueName
+     for what that cost. One implementation, one place. */
+  function cueName(line) { return CS.cueName(line); }
 
   /* charactersFromScript(scriptText) → [{name, scenes:[nums], lines}]
      sorted by dialogue cues descending, then name.                         */

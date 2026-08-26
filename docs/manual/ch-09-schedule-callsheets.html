@@ -1,0 +1,286 @@
+<h1 class="ch">The Producer Suite II — Scheduling, DOOD &amp; Call Sheets</h1>
+<span class="mk">@@CH09@@</span>
+
+<p class="lede">A broken-down script is a list of scenes. A schedule is a claim
+about how many days those scenes will take, who is owed money on which of them,
+and what time a hundred people arrive tomorrow. The Schedule tab makes all three
+from the same board — and it will tell you, in as many words, when the first of
+them is still a guess.</p>
+
+<div class="note"><strong>How this chapter was written.</strong> By reading the
+platform's source, not by driving it. Cinamate is under active development. Where
+a screen and a paragraph here disagree, believe the screen.</div>
+
+<h2>The stripboard</h2>
+
+<p>The board lives in the Schedule tab of the Producer Suite and is stored under
+one key, <code>SB_ScheduleBoard_v1</code>. Everything below writes there.</p>
+
+<p><strong>Seed scenes from script</strong> builds the strips. Each slugline in
+the timeline's script becomes one strip, sized in eighths of a page at five
+script lines to the eighth (<code>LINES_PER_EIGHTH</code> in
+<span class="path">timeline/timeline-budget.js</span>), with a one-eighth floor.
+A strip is marked <em>night</em> when its slugline contains NIGHT, DUSK, EVENING,
+MIDNIGHT or PRE-DAWN, and <em>day</em> otherwise. Cast comes from the estimator's
+per-scene map — a ranked character name occurring in that scene's text. New
+strips land on day <code>-1</code>: the boneyard.</p>
+
+<div class="note"><strong>Seeding replaces the board.</strong> Seed scenes from
+script discards the existing strips outright and asks nothing first. Breakdown
+tags, extras counts, scene notes, hand-edited page counts and every day
+assignment go with them. Re-seed when the script has genuinely changed, not to
+refresh the view.</div>
+
+<p>Double-clicking a strip opens its breakdown: slugline, page count, day or
+night, background count, cast, notes, and six tags — stunts, SFX, VFX, water,
+animals, vehicles. The page field accepts what an AD actually writes:
+<code>1 7/8</code>, <code>7/8</code>, <code>15</code>, or a decimal like
+<code>2.5</code>. Deleting a scene from that panel asks first.</p>
+
+<p>Strips are ordered two ways. Drag them between the boneyard and any day —
+there is always one empty trailing day to drop into. Or press
+<strong>Auto-schedule</strong>, which fills days at the target pace in
+<em>script order</em>, or in <em>group by location</em> order, which sorts by the
+set name parsed out of the slugline and puts day work before night work at each
+location: fewer company moves, the way a board is really laid out. Scene numbers
+are preserved either way.</p>
+
+<div class="note"><strong>Unschedule all</strong> returns every strip on the
+board to the boneyard immediately, with no confirmation and no undo. The strips
+and their breakdowns survive; the day assignments do not.</div>
+
+<h2>Shoot days are keyed on date <em>and</em> unit</h2>
+
+<p>A day on the board is an index. A day on set is a date. The record that joins
+them is <code>SB_ShootDays_v1</code>, in <span class="path">js/lib-shootdays.js</span>,
+and it holds exactly this: <code>dayIdx</code>, <code>date</code> as
+<code>YYYY-MM-DD</code>, <code>unit</code>, the <code>sceneIds</code> scheduled
+that day, <code>wrapped</code>, and <code>pinned</code>.</p>
+
+<p>The identity is the pair — date and unit, never the date alone. Main unit and
+a splinter unit can both shoot one date; that is two days' work, two call sheets
+and two rows on the daily report. Lookups therefore take a unit alongside the
+date, and <code>unitsOnDate</code> lists every unit working a given date. Asked
+without a unit, the lookup answers with the first record on that date, which is
+the main unit because indices sort ascending. The default unit is
+<code>MAIN</code>.</p>
+
+<p>Dates come from the <strong>Day planner</strong>, the bar
+<span class="path">tools/sched-weather.js</span> injects above the board. It takes
+day 1's date, a city or a latitude and longitude, a skip-weekends switch and an
+optional day count, and saves them to <code>SB_ShootPlan_v1</code>. From there,
+day <em>n</em> is <em>n</em> shoot days forward of day 1, stepping over Saturdays
+and Sundays unless skip-weekends is off, and computed at noon UTC so a browser in
+any timezone lands on the same calendar day.</p>
+
+<p><strong>Pinning</strong> is the exception to that arithmetic. A record is
+pinned when a writer <em>stated</em> its date and unit rather than deriving them —
+which is what happens when Dailies names the day it is shooting. A rebuild
+recomputes the derived halves of every record and leaves the pinned halves alone,
+so a take dated to a day the stripboard has never heard of still resolves.</p>
+
+<h2>The pace, and why it stays a guess until you wrap a day</h2>
+
+<p>The board ships with a planning pace of <strong>4.5 pages per day</strong>. It
+is a default for a film nobody has shot yet, and it is deliberately the only
+place that number appears.</p>
+
+<p>The board can do better than that: it can learn the pace this production
+actually shoots. But it learns from one thing only — <strong>shoot days an
+operator has explicitly marked wrapped</strong>. Until three such days exist, the
+board reports the shipped default and says so in plain words on the chip beside
+the toolbar:</p>
+
+<pre>target 4.5 pg/day — the shipped default; nothing learned yet (no wrapped days)
+target 4.5 pg/day — the shipped default; 2 wrapped days so far, 3 needed to learn
+target 3.25 pg/day — learned from 4 wrapped days</pre>
+
+<p>An operator who never wraps a day will read the first of those lines for the
+whole shoot, and every day count on the board — and every number downstream of it
+— will rest on a figure nobody measured.</p>
+
+<h3>How to wrap a day</h3>
+
+<p>The control is on <strong>Today</strong>, the on-set page, not on the board.
+Beside the day selector is a button reading <strong>◉ Wrap day</strong>. Pick the
+day, press it, and confirm the prompt; the button then reads <strong>↺ Re-open
+day</strong> and reverses the same flag. That is the only shipped control that
+writes <code>wrapped</code>, and it is deliberately on the page the people
+standing on the day are looking at: whether a day with no takes logged against it
+is an unshot day or a wrapped one is something only they know.</p>
+
+<p>The board shows the result but does not set it. A wrapped day carries a small
+read-only WRAPPED chip in its header on the stripboard, and the same word appears
+on that day's call sheet. There is no toggle there.</p>
+
+<h3>What is learned, exactly</h3>
+
+<p>For every wrapped day, in index order, the board compares two numbers: the
+eighths <em>planned</em> on it from the strips, and the eighths it
+<em>achieved</em>, read from the take log. Takes are gathered from both stores
+that hold them — <code>SB_TakeLog_v1</code> and <code>SB_Dailies_v1</code> — and
+matched to the day by its calendar date. Each take names a scene; that scene's
+eighths are counted <strong>once for the production</strong>, however many takes
+it took and however many days it was touched on. A day that re-shoots a scene
+already in the can reports it as a pick-up worth zero new pages, because the pace
+being measured answers "how many days to cover the script".</p>
+
+<p>The learned pace is the <strong>median</strong> of the achieved column,
+divided by eight, clamped between 1 and 12 pages. A median, not a mean, because a
+single catastrophic day should not move the target on its own — and three is the
+smallest count at which the median is a real order statistic. A wrapped day whose
+take log is empty is not evidence at all: reading that as zero pages would teach
+the board that a production which does not log takes shoots nothing.</p>
+
+<p>A target you type always wins. Setting the Target pages/day field marks the
+pace as yours and the board schedules at it, while still reporting what your
+wrapped days achieved next to it. <strong>Use learned pace</strong> gives the
+override back.</p>
+
+<div class="note"><strong>One caveat on un-wrapping, established by reading.</strong>
+Re-opening a day reverses the flag in <code>SB_ShootDays_v1</code>, and the
+pace model recomputed from scratch drops that day's evidence — this is proved by
+the suites. The board, however, keeps its own merged pace log inside
+<code>SB_ScheduleBoard_v1</code>, and the merge can only retract a row when the
+caller tells it which day indices it examined. The board's single call site
+(<span class="path">producer/schedule-board.js</span>, in
+<code>syncLearning</code>) does not pass that argument, so a row written while a
+day was wrapped appears to survive the un-wrap in the stored log. Treat wrapping
+as a statement of fact rather than a switch to try.</div>
+
+<h2>Day-out-of-Days</h2>
+
+<p>The DOOD button opens a grid: one row per cast member, one column per shoot
+day, sorted by days worked. The letters <strong>compose</strong> rather than
+branch, so a cell can say everything true of that day at once:</p>
+
+<table>
+<tr><th>Code</th><th>Meaning</th></tr>
+<tr><td>S</td><td>Start — the performer's first day</td></tr>
+<tr><td>P</td><td>Pick-up — re-engaged after a drop</td></tr>
+<tr><td>W</td><td>Work</td></tr>
+<tr><td>D</td><td>Drop — released after this day</td></tr>
+<tr><td>F</td><td>Finish — the last day of the engagement</td></tr>
+<tr><td>H</td><td>Hold — an idle day inside an engagement, still billed</td></tr>
+<tr><td>—</td><td>Dropped — an idle day the production released, not billed</td></tr>
+</table>
+
+<p>So SW, WF and SWF read as they always did, and SWD ("starts, works and is
+dropped") or PWF ("picked up, works, finishes") can be said at all. The trailing
+columns are TOT span, WRK worked, HLD billed holds, DRP dropped days and WKS
+weeks billed, with the weeks a drop saved shown against the row.</p>
+
+<p>Which idle stretches qualify as a drop is not this board's decision. It calls
+<code>SBBudget.castWeeks</code> in <span class="path">timeline/timeline-budget.js</span>,
+the single implementation of that arithmetic on the platform, so the letters on
+the grid and the money on the budget cannot disagree. Its shipped terms: ten free
+days minimum before a gap is droppable, one drop per performer, one day's written
+notice, a one-week minimum per segment. Notice falling before day 1 is served at
+engagement and the drop stands; notice falling on a day already shot is refused,
+and those idle days stay billed as holds rather than quoting a saving nobody can
+legally take.</p>
+
+<p>The <strong>working week</strong> selector accepts 5, 6 or 7 days. It changes
+the calendar — the same days in fewer weeks — and the money: the sixth- and
+seventh-day premiums are read from the timecard engine's defaults, so a six-day
+week averages (5 + 1.5) ÷ 6 per crew day. If the money library is not loaded on
+the page, the premium is reported as unavailable rather than quietly applied
+as 1×.</p>
+
+<h2>Where day counts reach the estimate</h2>
+
+<p>When the Budget tab seeds from the script estimate, it asks the board for
+overrides first. A scheduled board hands back exact cast spans per performer, the
+working week, and special-unit day counts read off the breakdown tags — stunt,
+pyro, water and animal days, plus a background total — which override the
+estimator's keyword heuristics and its script-order guess at the DOOD. An
+unscheduled board hands back nothing, and the estimator falls back to its own
+model: page count over a scale pace, multiplied by a difficulty load, with a
+five-day floor. That fallback pace is the estimator's own, not the board's
+learned one.</p>
+
+<h2>The call sheet</h2>
+
+<p>Every day header carries a clipboard button, and it opens that day's sheet.
+Almost nothing on it is typed: the sheet is assembled from fields that already
+existed one hop away.</p>
+
+<table>
+<tr><th>Block</th><th>Comes from</th></tr>
+<tr><td>Date, unit, wrapped</td><td><code>SB_ShootDays_v1</code></td></tr>
+<tr><td>Scenes, pages, cast, tags</td><td>the strips on that day</td></tr>
+<tr><td>Sunrise, sunset, golden hours</td><td>computed locally from the pin on <code>SB_ShootPlan_v1</code>, at the location's civil offset</td></tr>
+<tr><td>Sets, addresses, parking, load-in, hospital</td><td><code>SB_ScoutBook_v1</code></td></tr>
+<tr><td>Department calls, walkie channels</td><td><code>SB_Crew_v1</code></td></tr>
+<tr><td>Meals, wrap, turnaround</td><td>the timecard engine's defaults</td></tr>
+<tr><td>Advance schedule</td><td>the next two days on the board</td></tr>
+</table>
+
+<p>The whole clock derives from one number you enter: the general crew call.
+Shooting call is 30 minutes after it, breakfast 30 before it, lunch six hours
+from call for 30 minutes, second meal six hours after that, estimated wrap on the
+twelve-hour convention plus the meal, and the earliest next call ten hours after
+wrap — the same rules the timecard engine bills against, so the sheet cannot
+promise a meal that payroll then penalises. Departments offset from the crew
+call: art and hair-and-make-up an hour early, wardrobe 45 minutes,
+grip-and-electric and production 30, camera and sound with the unit. Walkie
+channels go only to departments this show actually crews, production on
+channel 1.</p>
+
+<p>Individual cast calls come from the board: the eighths scheduled before a
+performer's first scene that day, pro-rated across the shooting window, backed off
+an hour for hair, make-up and wardrobe, rounded to five minutes. A per-name
+override stored on the day is honoured if present, though no shipped control
+writes one. Each DOOD letter is spelled out — START, WORK, PICK-UP, HOLD, DROP
+AFTER TODAY, FINISH — because the sheet goes to everyone, not only to an AD, and
+a drop day carries the date the notice is due.</p>
+
+<p>Anything the sheet was not handed is listed at the foot under <em>Not on this
+sheet, and why</em>, naming the store to fix: no crew directory, no hospital on
+file, no location pin, no call time. The forecast is the one line that cannot be
+computed on the machine; it is fetched live, and a blocked or failed request says
+so rather than impersonating clear skies.</p>
+
+<p><strong>Revisions</strong> are derived, not remembered. The sheet's content is
+reduced to a signature; re-printing an unchanged sheet is not a revision, while a
+sheet that has moved since its last issue is labelled REV. A PENDING until it is
+re-issued. Issue / print stamps the issue and prints; issues are kept on the day
+and capped at 26.</p>
+
+<h2>Getting it off the screen</h2>
+
+<p><strong>Print / PDF</strong> on the toolbar opens the Day-out-of-Days and
+prints the board with it; the call sheet has its own Issue / print. There is
+<em>no</em> CSV export on the Schedule tab. The Export CSV button in the Producer
+Suite belongs to the Budget tab and exports the top sheet, not the schedule —
+print to PDF is the schedule's export path.</p>
+
+<h2>What this scheduler does not do</h2>
+
+<ul>
+<li>It does not know about cast availability it was not told about. Nothing on
+the board says a performer is on another film in week three.</li>
+<li>It does not book, hire, hold or notify anyone. A drop notice date is
+arithmetic; serving the notice is a person's job.</li>
+<li>It does not send a call sheet. It draws one and prints it.</li>
+<li>It does not enforce a turnaround, a meal or a sixth day — it flags a short
+turnaround and quotes the rule it measured against.</li>
+<li>It does not know the weather. It quotes a forecast, or says it could not get
+one.</li>
+</ul>
+
+<p>A generated call sheet is a <strong>draft for a human first AD to check</strong>.
+It is assembled correctly from what the platform holds, which is a different claim
+from being right about tomorrow.</p>
+
+<h2>What is guaranteed</h2>
+
+<p>Two suites pin this chapter, both running offline against the libraries.
+<span class="path">scripts/test_shootdays.mjs</span> holds 95 assertions on the
+shoot-day record: the weekend-skipping calendar, the date-and-unit key, two units
+sharing one date, pinning surviving a rebuild, wrapping and un-wrapping through
+the store. <span class="path">scripts/test_schedule_learn.mjs</span> holds 145 on
+the schedule: that three takes of one scene count its pages once, that only
+wrapped days become evidence, that the learned pace is the median and not the
+mean, that a typed pace overrules a learned one, and that every block of the call
+sheet is what it claims to be.</p>

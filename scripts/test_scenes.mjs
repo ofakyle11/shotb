@@ -298,5 +298,78 @@ t('sides: carries the printed scene number', sides[0].scene === '1', sides[0].sc
 t('sides: empty for a character who never appears',
   globalThis.CProd.sidesFor(SHOOTING, 'NOBODY').length === 0);
 
+
+/* ── cueName / speaksIn — promoted here from two byte-identical copies ──
+   And the reason it moved: a THIRD consumer, production/lib-prod.js, decided
+   which scenes go into a performer's AUDITION SIDES with a plain substring
+   over the whole scene — `text.toUpperCase().indexOf(NAME) < 0`. That
+   over-included twice over, and sides are sent to a performer's
+   representative, so over-inclusion means posting pages of an unreleased
+   screenplay to someone with no reason to receive them. */
+{
+  const SIDES = 'FADE IN:\n\n1  INT. KITCHEN - NIGHT\n\n' +
+    "MAGGIE's coat hangs by the door. AL makes the CALL.\n\n" +
+    'TOM\nWhere is she?\n\n2  INT. HALL - DAY\n\nMAGGIE\nI am here.\n';
+  const sc = S.parse(SIDES).scenes;
+  t('the sides fixture parses to two scenes', sc.length === 2);
+
+  const speaks = (who) => sc.filter((s) => S.speaksIn(s.body || s.text, who)).map((s) => s.label);
+
+  /* MAGGIE is MENTIONED in scene 1's action and SPEAKS only in scene 2. */
+  t('a character mentioned in action is not in that scene',
+    JSON.stringify(speaks('MAGGIE')) === '["2"]', JSON.stringify(speaks('MAGGIE')));
+  t('a character with a real cue is in that scene',
+    JSON.stringify(speaks('TOM')) === '["1"]', JSON.stringify(speaks('TOM')));
+  /* AL appears inside "CALL" and as a bare word in an action line. Under the
+     old substring test this matched; a two-letter name matched HALL, ALICE
+     and GENERAL too. */
+  t('a short name does not match inside a longer word',
+    JSON.stringify(speaks('AL')) === '[]', JSON.stringify(speaks('AL')));
+
+  /* The cue parser itself, since three modules now depend on it. */
+  t('a bare cue is a cue', S.cueName('MAGGIE') === 'MAGGIE');
+  t("a (CONT'D) cue is stripped to the name", S.cueName("MAGGIE (CONT'D)") === 'MAGGIE');
+  t('a (V.O.) cue is stripped to the name', S.cueName('TOM (V.O.)') === 'TOM');
+  t('sentence-case action is not a cue', S.cueName('Maggie sets the table.') === null);
+  t('a transition is not a cue', S.cueName('CUT TO:') === null);
+  t('a slugline is not a cue', S.cueName('INT. KITCHEN - NIGHT') === null);
+  t('a lone letter is not a cue', S.cueName('A') === null);
+  /* Counter-assertion: a matcher that returned null for everything would
+     satisfy every rejection above and silently empty every sides export. */
+  t('cueName still accepts an ordinary two-word cue', S.cueName('OLD MAN') === 'OLD MAN');
+
+  /* appearsIn asks the OTHER question, and the difference is the point.
+     AUDITION sides want speaksIn — a performer auditions with what they
+     perform. ON-SET sides and a day-out-of-days want appearsIn — an actor who
+     wrestles Hank across a kitchen with no dialogue is still called that day
+     and still needs the pages. production/lib-prod.js wants the second and had
+     the right SEMANTICS with the wrong MATCH: a plain substring, so AL was
+     present in every scene containing CALL. */
+  const appears = (who) => sc.filter((s) => S.appearsIn(s.body || s.text, who)).map((s) => s.label);
+  t('appearsIn includes a mention that speaksIn excludes',
+    JSON.stringify(appears('MAGGIE')) === '["1","2"]', JSON.stringify(appears('MAGGIE')));
+  /* AL genuinely IS a whole word in "AL makes the CALL", so appearsIn is
+     right to find it there — that is the semantic difference from speaksIn,
+     which excludes it because AL has no dialogue cue. The substring bug needs
+     a line where AL occurs ONLY inside a longer word. My first version of this
+     assertion asserted [] against a fixture that contains a real bare AL, and
+     failed against correct code. */
+  t('appearsIn finds a genuine whole-word action mention',
+    JSON.stringify(appears('AL')) === '["1"]', JSON.stringify(appears('AL')));
+  t('appearsIn does NOT match a short name inside a longer word',
+    S.appearsIn(['He makes the CALL to HALL and ALICE.'], 'AL') === false);
+  t('...nor at a word start', S.appearsIn(['ALICE waits.'], 'AL') === false);
+  t('...nor at a word end', S.appearsIn(['He heard the CALL.'], 'AL') === false);
+  t('appearsIn matches a whole-word action mention',
+    S.appearsIn(['AL waits by the door.'], 'AL') === true);
+  t('appearsIn matches through a possessive',
+    S.appearsIn(["MAGGIE'S coat hangs there."], 'Maggie') === true);
+  t('appearsIn treats a dotted name literally, not as a wildcard',
+    S.appearsIn(['MRS. HALE enters.'], 'MRS. HALE') === true
+      && S.appearsIn(['MRSXHALE enters.'], 'MRS. HALE') === false);
+  t('appearsIn rejects an absent character',
+    S.appearsIn(['A truck rolls by.'], 'Edie') === false);
+}
+
 console.log(`scenes: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

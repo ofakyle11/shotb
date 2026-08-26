@@ -67,10 +67,9 @@ real line.</p>
 
 <h2>Line items — Amt × Units × Rate</h2>
 
-<p>Each line item stores a description, three calculator fields (Amt, Units,
-Rate), an Estimated figure, an Actual figure and free-text notes. The rule that
-decides what a line is worth lives once, in
-<span class="path">js/lib-money-sheet.js</span>:</p>
+<p>A line item stores a description, three calculator fields (Amt, Units, Rate),
+an Estimated figure, an Actual figure and free-text notes. The rule deciding what
+a line is worth lives once, in <span class="path">js/lib-money-sheet.js</span>:</p>
 
 <ul>
   <li>If <strong>all three</strong> of Amt, Units and Rate are greater than zero,
@@ -135,12 +134,12 @@ million, with a labour base of $400,000:</p>
 
 <p>Had contingency been taken on the direct subtotal instead — the order most
 hand-built spreadsheets use — it would be $100,000 and the grand total
-$1,257,000. The same inputs, $15,700 apart. When you quote a top sheet against
-someone else's, establish which order they used before arguing about the number.</p>
+$1,257,000. The same inputs, $15,700 apart. Before arguing about someone else's
+top sheet, establish which order produced it.</p>
 
-<p>All four percentages are edited in the header strip above the top sheet, and
-each is clamped: contingency 0–30%, fringes 0–45%, bond 0–6%, insurance 0–8%.
-A value outside the range is pulled back to the nearest end rather than rejected.</p>
+<p>All four percentages are edited in the header strip above the top sheet, each
+clamped: contingency 0–30%, fringes 0–45%, bond 0–6%, insurance 0–8%. A value
+outside the range is pulled back to the nearest end rather than rejected.</p>
 
 <div class="note"><strong>Fringes default to zero, on purpose.</strong> A new
 sheet's fringes, bond and insurance percentages are all zero, while the default
@@ -166,63 +165,60 @@ own columns by tens of dollars across a couple of hundred accounts — on the re
 that goes to the completion bond.</p>
 
 <p>Money therefore leaves the platform as a fixed two-decimal <em>string</em>, not
-as a raw number, and that is what makes an exported column safe to sum. The test
-suites assert it: <span class="path">scripts/test_ops_money.mjs</span> requires
-every money cell in an exported report to match <code>-?\d+\.\d{2}</code> with no
-cell anywhere carrying three or more decimals, and
-<span class="path">scripts/test_producer_suite.mjs</span> requires the 3 × 5 ×
-1061.64 line to export as <code>15924.60</code>.</p>
+as a raw number, and that is what makes an exported column safe to sum.
+<span class="path">scripts/test_ops_money.mjs</span> asserts it: every money cell
+in an exported report must match <code>-?\d+\.\d{2}</code>, with no cell anywhere
+carrying three or more decimals.</p>
 
 <h2>Actuals against estimates</h2>
 
-<p>Every line item carries an Actual column beside its estimate, and category and
-sheet actuals are summed from those. When the sheet holds any actual, the grand
-total row prints it alongside the estimate.</p>
+<p>Every line item carries an Actual beside its estimate, and category and sheet
+actuals are summed from those. When the sheet holds any actual, the grand total
+row prints it alongside the estimate.</p>
 
 <p>If the Money Room has posted anything — purchase orders, petty cash or payroll
 in <code>SB_Money_v1</code> — the top sheet also prints a one-line cost summary
 beneath the totals: estimated final cost, and the variance marked <em>over</em> or
-<em>under</em>, linking through to the finance page. That summary is computed by
-the Money Room's own cost report, not recomputed here.</p>
+<em>under</em>. It is computed by the Money Room's own cost report, not
+recomputed here.</p>
 
 <p>Actuals also feed the estimator's learning layer (<span class="path">js/learn.js</span>,
 stored under <code>CIN_Learn_v1</code>), which learns a per-account correction
-from lines that have both an estimate and a real actual. It is gated: a
-production teaches only once, when it has been marked wrapped in
-<code>CIN_Projects_v1</code>. Mid-shoot, a department that has spent 12% of its
-budget in week two looks like an 88% underrun, and folding that in would drag
-every future estimate down.</p>
+from lines carrying both an estimate and a real actual. It is gated: a production
+teaches once, when marked wrapped in <code>CIN_Projects_v1</code>. Mid-shoot, a
+department that has spent 12% of its budget in week two looks like an 88%
+underrun, and folding that in would drag every future estimate down.</p>
 
 <h2>Cash needed by phase</h2>
 
 <p>Below the grand total the sheet prints a three-way split — prep, shoot, post —
-of when the money actually leaves the bank. Each account has a fixed phase
-profile (rights are entirely prep, post-production is almost entirely post, cast
-is overwhelmingly shoot), and the derived layers that sit above the categories
-are split between shoot and post, with the last bucket absorbing the remainder so
-the three figures add back to the grand total exactly.</p>
+of when the money leaves the bank. Each account carries a fixed phase profile
+(rights entirely prep, post-production almost entirely post, cast overwhelmingly
+shoot); the derived layers are split between shoot and post, the last bucket
+absorbing the remainder so the three figures add back to the grand total
+exactly.</p>
 
 <h2>The norms advisor</h2>
 
 <p>Each top-sheet row is measured against a band of typical shares of the grand
 total for that account, held in the <code>NORMS</code> table in
 <span class="path">producer/budget-sheet.js</span>. A category outside its band
-gets a marker: <strong>▲</strong> for heavy, <strong>▽</strong> for light, with
-the band itself in the marker's tooltip, and a line beneath the totals counts how
-many accounts are flagged. Being outside a band is not an error. It is the
-question the bond company will ask, asked early.</p>
+gets a marker — <strong>▲</strong> heavy, <strong>▽</strong> light — with the
+band in the marker's tooltip, and a line beneath the totals counts how many
+accounts are flagged. Being outside a band is not an error. It is the question
+the bond company will ask, asked early.</p>
 
 <h2>Seeding from the script estimate</h2>
 
 <p><em>Seed from script estimate</em> runs the script-driven estimator over the
 current project, routes every estimated line to the top-sheet category its
-account rolls up to, and writes the <strong>midpoint</strong> of each estimated
-low–high range into the line, with the range itself preserved in that line's
-notes. Where the learning layer has at least two past actuals on an account and a
-correction other than 1.0, the seeded figure is multiplied by it and the note
-records by how much. Contingency lines are dropped, since contingency is derived.
-If the stripboard on the Schedule tab has real day assignments, the estimator
-uses them, and the confirmation reports what the cast drops saved in weeks.</p>
+account rolls up to, and writes the <strong>midpoint</strong> of each low–high
+range into the line, preserving the range in that line's notes. Where the
+learning layer holds at least two past actuals on an account and a correction
+other than 1.0, the seeded figure is multiplied by it and the note records by how
+much. Contingency lines are dropped, since contingency is derived. Where the
+Schedule tab's stripboard carries real day assignments the estimator uses them,
+and the confirmation reports what the cast drops saved in weeks.</p>
 
 <div class="note"><strong>Seeding replaces the whole sheet.</strong> Every line
 item in every category is deleted before the estimated lines are written, and the
@@ -232,25 +228,19 @@ you cannot retype.</div>
 
 <h2>The CSV export</h2>
 
-<p><em>Export CSV</em> downloads the sheet as
-<code>&lt;sheet name&gt;.csv</code>, with the name stripped of anything outside
-letters, digits, hyphen and space. The columns are <code>Account</code>,
-<code>Category</code>, <code>Line item</code>, <code>Amt</code>,
-<code>Units</code>, <code>Rate</code>, <code>Estimated</code>,
+<p><em>Export CSV</em> downloads the sheet as <code>&lt;sheet name&gt;.csv</code>,
+the name stripped of anything outside letters, digits, hyphen and space. Columns:
+<code>Account</code>, <code>Category</code>, <code>Line item</code>,
+<code>Amt</code>, <code>Units</code>, <code>Rate</code>, <code>Estimated</code>,
 <code>Actual</code>, <code>Notes</code>. Each category writes one row per line
-item, followed by a <code>SUBTOTAL</code> row when it holds anything. Then, at
-the foot: <code>SUBTOTAL (all categories)</code>; a fringes, bond and insurance
-row each, but only when that percentage produced a figure; a contingency row
-always; and <code>GRAND TOTAL</code>. The Actual column is left empty rather than
-written as <code>0.00</code> when there is nothing in it.</p>
-
-<p>Two things about that file are worth knowing before you open it.</p>
-
-<h3>The money columns are text-formatted numbers</h3>
+item followed by a <code>SUBTOTAL</code> row when it holds anything. At the foot:
+<code>SUBTOTAL (all categories)</code>; a fringes, bond and insurance row each,
+but only when that percentage produced a figure; a contingency row always; and
+<code>GRAND TOTAL</code>. The Actual column is left empty rather than written as
+<code>0.00</code> when there is nothing in it.</p>
 
 <p>Estimated and Actual are written as fixed two-decimal strings, for the reason
-given above. A spreadsheet reads them as numbers and sums them correctly. What
-you will not see is a float tail, and that is the point.</p>
+given above; a spreadsheet reads them as numbers and sums them correctly.</p>
 
 <h3>The leading apostrophe is deliberate</h3>
 
@@ -288,10 +278,10 @@ write straight to <code>SB_BudgetSheet_v1</code>. There is no undo.</div>
 assumption:</p>
 
 <ul>
-  <li><strong>It is not an accounting system.</strong> It holds one estimate and
-  one actual per line. It has no ledger, no double entry, no reconciliation and
-  no audit trail. The Money Room tracks commitments and spend; neither is a set
-  of books.</li>
+  <li><strong>It is not an accounting system.</strong> One estimate and one
+  actual per line, with no ledger, no double entry, no reconciliation and no
+  audit trail. The Money Room tracks commitments and spend; neither is a set of
+  books.</li>
   <li><strong>It files nothing.</strong> Nothing here is submitted to a
   jurisdiction, a payroll company, a guild, a bond company or a tax authority.
   Every export is a file that lands in your downloads folder.</li>
@@ -300,11 +290,11 @@ assumption:</p>
   credit rate against a stored table of headline program terms, and flags a
   budget below a program's minimum spend or above its cap. Real programs carry
   qualification rules, allocation queues, sunset dates and audits that no table
-  models. Treat the output as a shortlist to discuss with a production
-  accountant, never as advice.</li>
+  models. Treat the output as a shortlist for a production accountant, never as
+  advice.</li>
   <li><strong>The on-screen figures are abbreviated.</strong> The top sheet
-  displays money in shortened form — a grand total of $1,272,700 reads as
-  <code>$1.3M</code>, a line of $15,924.60 as <code>$15.9k</code> — and clamps a
-  negative to zero for display. The exact figures live in the CSV and the JSON.
-  Quote from the export, not from the screen.</li>
+  shortens money — a grand total of $1,272,700 reads as <code>$1.3M</code>, a
+  line of $15,924.60 as <code>$15.9k</code> — and clamps a negative to zero for
+  display. The exact figures live in the CSV and the JSON. Quote from the export,
+  not from the screen.</li>
 </ul>

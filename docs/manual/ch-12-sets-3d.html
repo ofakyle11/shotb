@@ -1,0 +1,314 @@
+<h1 class="ch">Set Design &amp; The 3D Builder</h1>
+<span class="mk">@@CH12@@</span>
+
+<p class="lede">A set plan is two drawings that must never disagree: the one the
+art department builds from, and the one the DP frames against. The Set Designer
+keeps them as a single record — the same feet, the same rotations, the same
+format — and stands one up from the other with no conversion step between.</p>
+
+<div class="note"><strong>How this chapter was produced.</strong> Every statement
+below was established by reading the files it names, not by operating the
+application. Cinamate is under continuous development; where a sentence here and
+the running software disagree, believe the software and treat this page as
+stale.</div>
+
+<h2>What this is, and what it is not</h2>
+
+<p>The Set Designer at <span class="path">sets/index.html</span> draws a stage in
+feet, places flats and dressing on it, puts real lenses at real marks, and stands
+the result up so a designer can see whether a doorway reads and a DP can see what
+a lens covers. It is not a CAD package: there is no dimension chain, no wall
+assembly, no tolerance and no structural calculation in
+<span class="path">sets/lib-set.js</span> or
+<span class="path">sets/lib-set3d.js</span>. A flat is a rectangular prism with a
+height; it has no studs. These are planning measurements, not construction
+drawings, and nothing leaving this module has been engineered.</p>
+
+<h2>The plan, and what the units are</h2>
+
+<p>Everything is measured in <strong>feet</strong> — the plan, the 3D geometry,
+both model exports. Neither module works in metres or in pixels; the only metric
+step is internal to the depth-of-field maths, which converts back before the
+number reaches you.</p>
+
+<p>A new document opens with one plan, <em>Set 1 — Untitled</em>, 24 ft by 18 ft,
+editable in the right-hand inspector. The stored value is floored at 6 ft; the
+field advertises a 200 ft ceiling, but that belongs to the form control rather
+than the model, so a larger value typed past it is kept.</p>
+
+<p>Snapping is a <strong>half-foot grid</strong> — a six-inch module — applied on
+every drop and drag. Dragging clamps an item's <em>centre</em> to the stage
+rectangle, so a ten-foot flat parked on the edge overhangs by five feet, which is
+what a wall on the edge of a stage does. Each plan carries a free-text
+<em>Scenes</em> field, tying the set to the scenes it serves.</p>
+
+<h2>The stencil catalog</h2>
+
+<p>Nineteen stencils are defined, each with a footprint in feet and a matching 3D
+profile giving it a height and a shape. Clicking a palette button drops the piece
+mid-stage; you then drag it into place.</p>
+
+<table>
+  <tr><th>Piece</th><th>Plan W×D ft</th><th>Height ft</th><th>3D shape</th>
+      <th>Piece</th><th>Plan W×D ft</th><th>Height ft</th><th>3D shape</th></tr>
+  <tr><td>Wall / flat</td><td>10 × 0.5</td><td>10</td><td>box</td>
+      <td>Rug</td><td>8 × 5</td><td>0.05</td><td>box</td></tr>
+  <tr><td>Door</td><td>3 × 0.5</td><td>6.75</td><td>opening</td>
+      <td>Plant</td><td>1.5 × 1.5</td><td>4</td><td>cylinder</td></tr>
+  <tr><td>Window</td><td>4 × 0.4</td><td>4, at 3 off floor</td><td>opening</td>
+      <td>Piano</td><td>5 × 6</td><td>3.3</td><td>box</td></tr>
+  <tr><td>Table</td><td>5 × 3</td><td>2.5</td><td>top + legs</td>
+      <td>Vehicle</td><td>15 × 6</td><td>5</td><td>box</td></tr>
+  <tr><td>Chair</td><td>1.6 × 1.6</td><td>3</td><td>seat + back</td>
+      <td>Green screen</td><td>12 × 0.5</td><td>12</td><td>box</td></tr>
+  <tr><td>Sofa</td><td>7 × 3</td><td>2.7</td><td>base, back, arms</td>
+      <td>Blocking mark</td><td>1.2 × 1.2</td><td>5.8</td><td>figure</td></tr>
+  <tr><td>Bed</td><td>6.5 × 5</td><td>2</td><td>box</td>
+      <td>Camera</td><td>1.6 × 1.6</td><td>5</td><td>body + lens</td></tr>
+  <tr><td>Desk</td><td>5 × 2.5</td><td>2.5</td><td>top + legs</td>
+      <td>Light</td><td>1.4 × 1.4</td><td>7</td><td>head + stand</td></tr>
+  <tr><td>Counter</td><td>8 × 2</td><td>3</td><td>box</td>
+      <td>Custom box</td><td>4 × 4</td><td>3</td><td>box</td></tr>
+  <tr><td>Shelf</td><td>3 × 1</td><td>6</td><td>box</td>
+      <td colspan="4"></td></tr>
+</table>
+
+<p>Every number there is a default. The inspector exposes W, D, rotation,
+<em>Height ft</em>, <em>Off floor ft</em> and a colour on any selected piece. A
+nonsensical height falls back to the profile default rather than producing a
+broken mesh, and an unrecognised stencil type resolves to <em>Custom box</em>.</p>
+
+<h3>Walls, flats and openings</h3>
+
+<p>A wall is a box, ten feet tall by default. Doors and windows are not solids:
+each is built as the frame <em>around</em> a hole — two jambs three-tenths of a
+foot wide, a header above the opening, a sill below it where the piece sits off
+the floor. A 6.75 ft door in a ten-foot wall gets a header and no sill; a 4 ft
+window raised 3 ft gets both. Those frames run to the tallest wall on the plan,
+or ten feet if that is taller, so raising one flat to sixteen feet raises every
+door frame with it.</p>
+
+<h2>Camera and lens</h2>
+
+<p>A Camera stencil carries a focal length in millimetres (35 mm by default) and
+an aperture (f/2.8), and the plan itself carries the <strong>format</strong> it
+is shot on. That one key answers every optical question the module asks — the
+cone on the plan, the frustum in the 3D view, the frame you look through — so the
+plan and the viewport cannot report different lenses. The format table lives
+once, in <span class="path">tools/lib-media.js</span> as
+<code>TMedia.SENSORS</code>, and both set modules read it rather than keeping
+copies. Nine formats are offered; the default is <code>super35</code>.</p>
+
+<table>
+  <tr><th>Key</th><th>Format</th><th>mm</th><th>Frame aspect</th><th>35 mm covers</th></tr>
+  <tr><td>super35</td><td>Super 35</td><td>24.9 × 18.7</td><td>1.33</td><td>39.2°</td></tr>
+  <tr><td>super35-17x9</td><td>Super 35 17:9</td><td>24.6 × 13.1</td><td>1.88</td><td>38.7°</td></tr>
+  <tr><td>fullframe</td><td>Full frame</td><td>36 × 24</td><td>1.50</td><td>54.4°</td></tr>
+  <tr><td>alexa-lf</td><td>ARRI LF</td><td>36.7 × 25.5</td><td>1.44</td><td>55.3°</td></tr>
+  <tr><td>alexa-65</td><td>ARRI 65</td><td>54.1 × 25.6</td><td>2.11</td><td>75.4°</td></tr>
+  <tr><td>red-vv</td><td>RED V-RAPTOR VV</td><td>40.96 × 21.6</td><td>1.90</td><td>60.7°</td></tr>
+  <tr><td>mft</td><td>Micro 4/3</td><td>17.3 × 13</td><td>1.33</td><td>27.8°</td></tr>
+  <tr><td>s16</td><td>Super 16</td><td>12.52 × 7.41</td><td>1.69</td><td>20.3°</td></tr>
+  <tr><td>iphone-main</td><td>Phone main cam</td><td>9.8 × 7.3</td><td>1.34</td><td>15.9°</td></tr>
+</table>
+
+<p>Field of view is plain thin-lens trigonometry: twice the arctangent of half
+the sensor dimension over the focal length — horizontally against the sensor's
+width, vertically against its height. The inspector prints both to one decimal
+beside the format's name, because a coverage figure with no format stated next to
+it is a number nobody can check.</p>
+
+<p>The frame's <em>shape</em> comes from the format and only from the format. In
+the 3D view the lens frame is letterboxed inside whatever shape the panel is;
+widening the browser window adds matte, never coverage.</p>
+
+<div class="note"><strong>A gap worth knowing about.</strong> The frame aspect is
+the sensor's physical aspect. Nothing in these files implements an anamorphic
+squeeze or a delivery-aspect crop, so a 2.39:1 extraction cannot be dialled in —
+choose the format closest in shape and read the safe-area guides described
+below.</div>
+
+<h3>Depth of field</h3>
+
+<p>Depth of field is computed in feet. The circle of confusion is the frame
+diagonal divided by 1500 — the convention yielding roughly 0.029 mm on full frame
+and 0.021 mm on Super 35. Hyperfocal distance follows from focal length, aperture
+and that circle; at or past it the far limit is reported as infinity rather than
+as a large fiction.</p>
+
+<p>What the camera is <em>focused on</em> defaults to the answer a 1st AC would
+give: the nearest Blocking mark the camera is pointed at — within sixty degrees
+of the lens axis, at least half a foot away, in front rather than behind. With no
+mark placed it falls back to 12 ft, and any camera may override it outright.</p>
+
+<p>On the plan the sharp band is two arcs struck across the camera's cone,
+clamped at 60 ft so a deep stop does not run off the stage; the inspector prints
+the same limits in feet and inches. The 3D view reports the band in its caption
+but does not blur — there is no defocus rendering in the viewport.</p>
+
+<div class="note"><strong>Where the numbers stop.</strong> Depth of field
+requires <span class="path">tools/lib-media.js</span>. The Set Designer loads it;
+a page that loads the set geometry alone — the Props module does — gets fields of
+view but no sharp band, and the arcs simply do not appear.</div>
+
+<h3>Lighting</h3>
+
+<p>A Light stencil draws a throw on the plan: a fixed wedge of about forty
+degrees, nine feet long, aimed by the piece's rotation. It is a placement
+indicator, not a photometric model — there is no intensity, colour temperature,
+falloff or beam-angle field in the source. The distinction carries into three
+dimensions, where the viewport is lit by two fixed directional lights baked into
+its shader — a key from high front-left, a cooler fill from behind, plus ambient
+— chosen so every face stays distinguishable. Placing a Light puts a 7 ft
+stand-and-head model in the scene; it illuminates nothing, and the viewport casts
+no shadows.</p>
+
+<h2>The 3D builder</h2>
+
+<p>The 3D view is a second way of looking at the same items: nothing is converted
+and nothing duplicated, so an edit in one appears in the other immediately.
+Furniture is built as furniture rather than as crates — a table is a top on four
+legs, a chair adds a back, a sofa is a base with a back and two arms — which is
+what makes a plan legible at a glance.</p>
+
+<p>The conventions are worth stating plainly, since they govern what an export
+looks like elsewhere:</p>
+
+<ul>
+  <li>Units are feet.</li>
+  <li>World axes are X right, <strong>Y up</strong>, Z toward the viewer —
+  right-handed, matching OpenGL. A plan point (x, y) becomes world (x, 0, y), so
+  the plan's depth axis is the world Z axis.</li>
+  <li>An item's rotation is degrees clockwise on the plan, which is a rotation
+  about the world Y axis, matching SVG's own <code>rotate()</code>. A camera at
+  rotation 0 points up the page, which is −Z.</li>
+  <li>Triangles wind <strong>counter-clockwise seen from outside</strong>, so a
+  face normal points away from the solid it belongs to. Back-face culling is
+  enabled in the renderer, which makes a winding mistake show up as a missing
+  wall rather than as nothing at all.</li>
+</ul>
+
+<p>The viewport draws a floor grid at one line per foot, brighter every ten, with
+the stage outline picked out, and draws every camera's frustum as wireframe so
+coverage reads without leaving free orbit. Drag orbits, shift-drag or right-drag
+pans, scroll dollies, a pinch zooms; clicking selects the same item a click on
+the plan would.</p>
+
+<h3>Looking through the lens</h3>
+
+<p><em>Look through</em> puts the viewport at a camera's mark, at that camera's
+real lens on the plan's format — the thing a general-purpose modeller cannot do,
+because it has no idea what a 35 mm on Super 35 covers. While locked, orbit and
+zoom input is refused, the image is letterboxed to the format's aspect, and the
+frame carries the guides every monitor on the floor has: the frame edge, a 90%
+action-safe box, an 80% title-safe box and a centre cross. The caption names the
+camera, focal length, format, horizontal and vertical coverage, aperture and
+sharp band. Delete that camera, or switch plans, and the lock releases itself and
+says so rather than claiming to be a lens it no longer has.</p>
+
+<div class="note"><strong>If WebGL will not start.</strong> The 3D panel reports
+that it is unavailable and the module carries on. The plan view and every export
+still work; nothing about the plan depends on the viewport.</div>
+
+<h2>Exports, and what each is for</h2>
+
+<p>Four buttons, all producing downloads named after the plan, lower-cased, with
+runs of non-alphanumeric characters becoming hyphens.</p>
+
+<h3>SVG — the plan</h3>
+
+<p>A vector top-down plan at 14 pixels to the foot, carrying the grid, every
+piece, camera cones with their depth-of-field arcs, light throws, the plan name
+and dimensions, the format's name, and a labelled 5 ft scale bar. It opens in
+Illustrator, Figma or a browser.</p>
+
+<p>This file is <strong>self-contained by design</strong>. Because it is
+downloaded and opened elsewhere, every fill and stroke is written as a literal
+colour rather than inherited from the application's theme — no stylesheet travels
+with it and there is no theme to inherit from. That includes the background,
+which is the same deep navy the application uses, so sending the file straight to
+a printer lays down a full-bleed dark field; a light plan for paper wants
+recolouring in your editor rather than a setting here. The export also never
+carries your current selection highlight.</p>
+
+<h3>PNG — the call sheet</h3>
+
+<p>The same plan, rasterised through a canvas at twice that size, for dropping
+into a call sheet or an email.</p>
+
+<h3>OBJ — the modeller</h3>
+
+<p>Plain text, in feet, with the units stated in a header comment, and one named
+group per piece. Faces carry three or four one-based indices, and each face
+declares its own corners: vertices are <em>not</em> shared between faces, so a
+six-sided box exports twenty-four vertices rather than eight. An importer will
+therefore show every edge as hard — weld or merge-by-distance for a smooth mesh.
+There is no material library and no <code>usemtl</code>, so the per-item colours
+set in the inspector live in the viewport only and do not survive the export.</p>
+
+<h3>STL — previz and printing</h3>
+
+<p>ASCII STL, one solid, every facet a triangle with its normal declared
+explicitly. Facets with no area are dropped rather than written, because a
+zero-length normal is not a direction and a slicer will believe whatever it is
+told.</p>
+
+<div class="note"><strong>STL declares no units.</strong> The format has no
+mechanism to. The numbers written are feet, and most slicers read STL as
+millimetres, so a ten-foot flat arrives as a ten-millimetre one. Scale on import
+— by 304.8 if the receiving tool works in millimetres.</div>
+
+<h3>Names are filtered on the way out</h3>
+
+<p>Every name written into an OBJ or an STL passes through a slug filter: any run
+of characters outside <code>A–Z a–z 0–9 _ -</code> becomes a single underscore,
+and the result is truncated to 60 characters. A set called
+<em>Kitchen — north wall</em> is written into the file as
+<code>Kitchen_north_wall</code>. This is not cosmetic tidying — a newline in a
+name would otherwise end an OBJ comment and let the rest be read as geometry.</p>
+
+<p>One thing to expect rather than discover: an OBJ group name is built from the
+piece's <em>internal identifier and its stencil type</em> — something of the form
+<code>i7k2m4a_wall</code> — not from the label typed in the inspector. Labels
+appear on the plan and in the SVG; they do not reach the model exports at all. If
+the receiving artist needs to know which flat is which, the SVG plan is the
+document that tells them.</p>
+
+<h3>What a receiving modeller should expect</h3>
+
+<p>Both exports wind counter-clockwise from outside, so face normals point
+outward and a default single-sided material renders correctly with back-face
+culling on. The suite pins that rather than trusting it: a box top is measured as
+pointing exactly +Y and its bottom exactly −Y, the STL is checked to declare
+<code>facet normal 0 1 0</code> and <code>facet normal 0 -1 0</code> for them, and
+every shape in the catalog is checked by the divergence theorem to enclose a
+positive volume, which an inside-out mesh cannot. Degenerate geometry is refused
+at source too: faces repeating a corner are cleaned before writing, cap fans go
+out as genuine triangles rather than quads with a doubled corner, and cylinders
+are capped at both ends, so a shape arrives as a closed solid a slicer will
+accept.</p>
+
+<h2>Where plans live</h2>
+
+<p>The document — every plan, every piece — is stored in this browser under the
+key <code>SB_SetDesign_v1</code>, written after each edit. It is local to the
+browser and the machine, and there is no version history.</p>
+
+<div class="note"><strong>Deletions are immediate and final.</strong> Deleting a
+set plan asks for confirmation once, then removes it and everything on it.
+Removing a piece — by the inspector's button, or by Delete or Backspace while a
+piece is selected and no text field has focus — asks nothing at all and cannot be
+undone. Export anything you would mind losing before clearing a browser's site
+data, which takes the whole document with it.</div>
+
+<h2>What the suites hold in place</h2>
+
+<p>Two node suites cover this module without a browser:
+<span class="path">scripts/test_set.mjs</span>, 69 assertions for the plan model,
+snapping, fields of view, depth of field and the SVG; and
+<span class="path">scripts/test_set3d.mjs</span>, 132 for geometry, matrices,
+orbit, picking, winding and both exports. The one worth knowing as an operator is
+the agreement assertion: the plan, the 3D frustum and the shared format table are
+each asked the same lens question at 18, 25, 35, 50, 85 and 100 mm, and must
+answer within a twentieth of a degree of one another. Changing a format in one
+module fails both suites until the other follows.</p>

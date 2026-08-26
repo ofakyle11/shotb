@@ -156,7 +156,21 @@
     var name = String(charName).toUpperCase();
     CS.parse(scriptText).scenes.forEach(function (sc) {
       var text = (sc.slug + '\n' + sc.text).replace(/^\n+|\n+$/g, '');
-      if (text.toUpperCase().indexOf(name) < 0) return;
+      /* appearsIn, NOT speaksIn — and the distinction is deliberate.
+
+         These are ON-SET sides: an actor who wrestles Hank across a kitchen
+         with no dialogue is still called that day and still needs the pages.
+         casting/lib-castdesk.js cuts AUDITION sides and correctly asks the
+         other question, whether the performer has a cue.
+
+         What was actually wrong here was the MATCH, not the semantics. The
+         test was `text.toUpperCase().indexOf(name) < 0` — a plain substring —
+         so a character named AL was present in every scene containing CALL,
+         HALL, ALICE or GENERAL. Sides go to a performer's representative, so
+         that meant pages of an unreleased screenplay reaching people with no
+         reason to receive them. appearsIn keeps the reading and matches whole
+         words. */
+      if (!CS.appearsIn(sc.body || text, name)) return;
       out.push({ scene: sc.label, number: sc.number, slug: sc.slug.slice(0, 70), text: text });
     });
     return out;

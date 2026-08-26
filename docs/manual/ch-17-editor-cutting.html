@@ -1,0 +1,321 @@
+<h1 class="ch">The Editor I — Cutting</h1>
+<span class="mk">@@CH17@@</span>
+
+<p class="lede">Everything in this chapter happens in your own browser. The bin,
+the sequence, the trims and the playhead are held on the machine in front of
+you; no frame is uploaded in order to cut it, and nothing here needs a network.
+That is the Editor's great convenience and its one real hazard.</p>
+
+<div class="note"><strong>On the accuracy of this chapter.</strong> It was
+written by reading the Editor's source, not by operating a finished product.
+Cinamate is still being built. Where this page and the running software
+disagree, believe the software, and treat the disagreement as a fault in the
+manual.</div>
+
+<h2>Two editors carry the name</h2>
+
+<p>The full Editor is <span class="path">/editor/</span>, whose page loads the
+cut engine <span class="path">editor/lib-cut.js</span> (publishing
+<code>window.CCut</code>), the MP4 writer <span class="path">editor/lib-mp4.js</span>
+and the cutting room itself, <span class="path">editor/cut-ui.js</span>. Three
+tracks, titles, undo, a persistent bin. That is what this chapter documents. The
+smaller editor in <span class="path">editor/timeline-engine.js</span> is mounted
+inside the Studio at <span class="path">/timeline/</span>, in the collapsible
+<em>Editor</em> panel: one video lane, no titles, no undo, its own storage key.
+Work done in one does not appear in the other.</p>
+
+<div class="note"><strong>Destructive.</strong> In the Studio's Editor panel,
+<em>Sync clips</em> and <em>Pro Cut</em> both begin by emptying that panel's bin
+and edit track and rebuilding them from the Studio's clip list. There is no undo
+there, so trims made by hand are gone. The full Editor is unaffected — it does
+not share that state.</div>
+
+<h2>Getting media in</h2>
+
+<p>The bin fills from two places, and the difference matters more than anything
+else on the page.</p>
+
+<p><strong>Load Studio clips</strong> reads <code>SB_Timeline_v1</code>, takes
+every clip that has a <code>videoUrl</code>, and adds one row each, named
+<code>SC01</code>, <code>SC02</code> and so on with the clip's label appended.
+The row records the <em>address</em> of the render; the bytes are not copied.</p>
+
+<p><strong>Import files</strong> opens a picker accepting <code>video/*</code>
+and <code>audio/*</code>. Each chosen file is written into IndexedDB before
+anything else happens, then added to the bin under an id of the form
+<code>f_c…</code>. The bytes are copied, and they are yours.</p>
+
+<p>Either way the source is then probed by a detached element for duration and,
+for picture, dimensions and a thumbnail. A source that refuses a pixel read — a
+cross-origin render, typically — yields no thumbnail; one that errors outright is
+marked <code>missing</code>.</p>
+
+<h3>Where the media actually lives</h3>
+
+<p>Imported files go into IndexedDB: database <code>cinamate_cut</code>, version
+1, object store <code>media</code>, out-of-line keys — the key is the bin id, the
+value is the raw <code>Blob</code>. On the next visit each flagged row is read
+back and given a fresh object URL; a row whose blob has gone is marked missing
+and says so, worded differently for a file than for a link.</p>
+
+<p>The cut itself does <em>not</em> live there. It is written to local storage
+under <code>SB_Cut_v1</code>: the project object, a stripped copy of the bin (id,
+name, kind, duration, dimensions, origin and the <code>idb</code> flag — the
+object URL is deliberately blanked for rows held in IndexedDB, since an object
+URL dies with the tab), and a note of the last export. A production's writing and
+its pictures therefore sit in two different stores, and they travel
+differently.</p>
+
+<h3>What that means for backup</h3>
+
+<p>The vault knows about the store. <span class="path">projects/lib-vault.js</span>
+carries a list called <code>BLOB_DBS</code>, and <code>cinamate_cut/media</code>
+is on it, labelled <em>cutting-room source</em>. A row is claimed for a
+production by reference: the vault reads <code>SB_Cut_v1</code>, walks its
+<code>bin</code> list, and takes the id of every row whose <code>idb</code> flag
+is set. Two consequences follow.</p>
+
+<ul>
+  <li>An <strong>imported file</strong> travels. Projects → Export backup packs
+  its bytes into the <span class="path">.cinamate</span> archive; Import backup
+  writes them back into <code>cinamate_cut/media</code> on the receiving
+  machine.</li>
+  <li>A <strong>Studio clip</strong> does not. It carries no <code>idb</code>
+  flag because it is a link and there are no bytes to carry. It restores as an
+  address, and whether that address still resolves is not a question about your
+  backup.</li>
+</ul>
+
+<p>Two ceilings apply. The vault's media adapter will not read any single record
+larger than 16 MB into memory; such a record is excluded from the archive's
+<code>blobs</code>, listed under <code>blobsMissing</code> instead, and the
+export message states how many files "had no bytes on this machine and are NOT
+in it". The studio cloud is far tighter — 900 KB per record, 48 MB per
+production — and refuses the whole push rather than truncating it. A source
+master is not going to the cloud.</p>
+
+<div class="note"><strong>An older cloud version comes back without its
+media.</strong> The cloud keeps eight superseded copies of a production in a
+rotating ring, but the ring holds the written record only. Media parts live under
+separate keys and are never versioned — the restore endpoint says so in its own
+reply, <code>mediaVersioned: false</code>. Restore last Tuesday's version and you
+get last Tuesday's cut list pointing at whatever media is currently on file; bin
+rows may come back missing. If a cut matters, export a
+<span class="path">.cinamate</span> backup. That is the only path carrying
+picture and cut list together.</div>
+
+<h2>The bin</h2>
+
+<p>Rows show a thumbnail, a name and a duration, with Studio rows marked
+<em>· studio</em>. Double-click a row to append it to the timeline, or drag it
+onto a track. A missing source keeps its row, marked, and refuses to be added —
+a cut is a list of references, and a row that quietly disappeared would leave the
+sequence pointing at nothing while looking shorter than it is. Nothing in the
+source removes a row: within one cut, the bin only grows.</p>
+
+<h2>The timeline model</h2>
+
+<p>A cut is a plain object with a name, a frame rate, a frame size and three
+lists.</p>
+
+<pre>video[]   {id, srcId, label, in, out, speed, trans:{type,dur}, color}
+titles[]  {id, text, sub, start, dur, pos, size}
+audio[]   {id, srcId, label, start, in, out, gain}</pre>
+
+<p><code>in</code> and <code>out</code> are positions in the <em>source</em>, in
+seconds. A video clip does not record where it sits on the timeline, and that
+omission is the design.</p>
+
+<h3>Effective duration, and the ripple</h3>
+
+<p>A clip's length on the timeline is not <code>out − in</code>. It is</p>
+
+<pre>effDur(c) = max(0, (c.out − c.in) / (c.speed || 1))</pre>
+
+<p>so a four-second selection played at 2× occupies two seconds. Start times come
+from walking the video list and accumulating those lengths: clip <em>n</em>
+begins at the sum of every effective duration before it. Nothing stores a start
+time, so nothing can disagree with one. Trim the head of clip 1 and every clip
+after it moves. That is the ripple, and it is not a mode you can switch off.</p>
+
+<p>The title and audio tracks work the other way: each entry carries an absolute
+<code>start</code> and stays where it is put. This is the trap. Retrim the
+picture and your titles and music do <em>not</em> follow — a title cued to a line
+of dialogue drifts the moment you tighten anything upstream of it, and only your
+eye will catch it. Overall length is the longest of the three.</p>
+
+<h3>Transitions</h3>
+
+<p>A transition belongs to the clip it plays <em>into</em>. <code>cut</code> has
+no duration; <code>crossfade</code> holds the outgoing clip's last frame over the
+incoming one at falling opacity; <code>fadeblack</code> is split down the middle,
+bringing the incoming clip up from black over its first half and darkening the
+outgoing clip's tail over the same half-length, so a dip reads across the join
+rather than only after it. The inspector allows 0 to 3 seconds, defaulting to
+0.5 s. Titles fade over a fixed 0.3 s and cannot be changed.</p>
+
+<h2>Trimming, splitting, rippling</h2>
+
+<p>Every clip on every track has a handle at each end. A drag converts the
+pointer's travel to seconds by dividing by the current zoom, then multiplies by
+the clip's speed, because a pixel of timeline is <code>speed</code> seconds of
+source. Dragging the left handle of an audio block also moves its
+<code>start</code>, so it trims from the head instead of sliding. Each drag is
+clamped as it goes: <code>in</code> is forced to zero or above, <code>out</code>
+is clamped to the source's known duration, and a floor of 0.1 s holds between
+them — a clip cannot be trimmed to nothing. Where the source duration is unknown,
+the upper clamp is not applied.</p>
+
+<p><strong>Split</strong> (the button, or <code>S</code>) cuts the video clip
+under the playhead in two: the first half takes the playhead's source time as its
+new <code>out</code>, and a second clip begins there with the same source, label
+and speed and a plain cut into it. A split refuses within 0.05 s of either end of
+a clip, and leaves total duration unchanged — which the checks in
+<span class="path">scripts/test_cut.mjs</span> assert.</p>
+
+<p><strong>Reordering</strong> is a drag of a clip onto another in the same
+track. On the video track that reorders the list and the ripple recomputes; on
+the other two it sets a new absolute start.</p>
+
+<div class="note"><strong>Destructive.</strong> <em>Remove clip</em> in the
+inspector, and the <code>Delete</code> and <code>Backspace</code> keys, delete
+the selected item immediately with no confirmation. Each takes an undo snapshot
+first, so <code>Ctrl+Z</code> brings it back — provided you have not since spent
+the sixty-step history.</div>
+
+<h2>Frame rate, and why timecode is counted in frames</h2>
+
+<p>The rate is a property of the <em>cut</em>, not of the export dialogue. The
+picker writes <code>project.fps</code> the moment it changes, and the ruler, the
+timecode readout and every turnover file are counted from that one number. One
+function, <code>normFps()</code>, decides what qualifies as a rate: anything
+finite and positive is accepted, 23.976 included, and anything else becomes 24.
+One default, in one place, so a cut that has never had a rate written to it
+cannot pick up a different assumption in each exporter. The picker offers 24 and
+30; a saved cut carrying a rate this build has no option for is corrected to
+match the picker rather than the two silently disagreeing, so check the rate when
+you open an old cut.</p>
+
+<p>The important part is the arithmetic. Timecode comes from
+<code>tc(seconds, fps)</code>, in this order:</p>
+
+<pre>rate   = max(1, round(fps))         // non-drop counts the NOMINAL rate
+totalF = max(0, round(sec × rate))  // ROUND ONCE, INTO FRAMES
+f = totalF % rate
+s = floor(totalF / rate) % 60
+m = floor(totalF / (rate × 60)) % 60
+h = floor(totalF / (rate × 3600))</pre>
+
+<p>Every field is derived from a single frame count, and nothing is rounded to
+whole seconds on the way. That is the whole point. Round to seconds first and
+every sub-second trim is discarded before the frames field is even computed: a
+half-second handle becomes zero, a twelve-frame overlap becomes nothing, and a
+run of small trims drifts silently against the picture it is meant to describe.
+The test suite pins this — <code>tc(0.5, 24)</code> must be
+<code>00:00:00:12</code> and <code>tc(1/30, 30)</code> must be
+<code>00:00:00:01</code>. The same discipline governs the interchange formats,
+where each lane keeps its cursor in frames and rounds once rather than
+accumulating rounded seconds. A fractional rate still prints against the nominal
+integer: at 23.976 the frames field runs 00–23 and one hour of media reads
+<code>01:00:00:00</code>. This is non-drop timecode, labelled as such.</p>
+
+<div class="note"><strong>What frames-based timecode does not do.</strong> The
+model stores <code>in</code>, <code>out</code> and <code>start</code> as
+floating-point seconds, and nothing in the source snaps them to frame
+boundaries. A trim handle can land at 4.3708 s and will stay there. The frame
+count is computed at the moment a number is displayed or written out, so what you
+read is always frame-accurate to the rate — but two operations that round
+separately can land a frame apart. If a cut must be frame-exact, set the rate
+before you trim and type figures into the inspector rather than dragging
+them.</div>
+
+<h2>Audio</h2>
+
+<p>Audio arrives two ways. A video clip brings its own — the preview element is
+unmuted, so picture and production sound play together. An audio file imported
+into the bin lands on the A1 track as a free-positioned block with its own in and
+out points and a gain from 0 to 1. Which track an item goes to is decided by the
+bin row, not by where you drop it: a source is classified once, at import, by
+MIME type, and an audio row always lands on A1, a picture row always on V1,
+wherever the pointer released it.</p>
+
+<p>In playback the A1 blocks are driven by their own hidden media elements,
+started when the playhead enters the block and nudged back if they drift more
+than a quarter of a second. Waveforms are drawn lazily — the source is fetched,
+decoded, reduced to 240 peak buckets and cached — and a source that cannot be
+decoded is marked as having no waveform and not attempted again that session. A
+blank strip therefore means the decode failed, not that the audio is silent.</p>
+
+<h2>Undo</h2>
+
+<p>Undo is a snapshot stack. Before each mutating action the whole project is
+serialised to JSON and pushed; the stack holds sixty entries and discards the
+oldest beyond that. Redo is cleared whenever a new snapshot is taken. A field
+committed without actually changing anything has its snapshot popped again, so
+the history does not fill with no-ops.</p>
+
+<p>Two limits are worth stating plainly. Undo restores the <em>project</em> — the
+three tracks, the name, the rate. It does not restore the bin, so it will not
+bring back a source, and it clears the current selection. And it is held in
+memory only: it does not survive a reload, however recent the change.
+<code>Ctrl+Z</code> and <code>Ctrl+Y</code> (or the Command key) are wired, as are
+the two toolbar buttons. <code>Ctrl+Shift+Z</code> is not.</p>
+
+<h2>What is saved, and when</h2>
+
+<p>There is no Save button, and none is needed. Every action that changes the cut
+writes <code>SB_Cut_v1</code> immediately: adding to the bin or a track, a trim
+released, a reorder dropped, a split, a title added, an inspector field
+committed, a rename, a rate change, an undo, a redo. A write that fails — a full
+quota, most often — is swallowed silently, and that is the one case where the
+page will not tell you something went wrong.</p>
+
+<p>What is <em>not</em> saved: the playhead, the zoom, the selection, the undo
+history and the object URLs. All are rebuilt from zero on the next load, with the
+playhead at the start.</p>
+
+<h2>What the Editor is not</h2>
+
+<p><strong>It is not a finishing tool.</strong> The per-clip colour controls are
+four sliders — exposure, contrast, saturation, warmth — compiled into a canvas
+filter of <code>brightness</code>, <code>contrast</code>, <code>saturate</code>
+and either <code>sepia</code> or <code>hue-rotate</code>. No curves, no
+per-channel control, no windows, no keyframes, no scopes; a setting applies flat
+across the whole clip for its whole length.</p>
+
+<p><strong>It does not conform to a master.</strong> There is no relink step and
+no concept of a camera original. What the Editor previews and what it renders are
+the same files that are in the bin: Studio renders at whatever size they were
+generated, or the files you imported. Turning over to a finishing suite is what
+the interchange formats are for, and they are the next chapter's subject.</p>
+
+<p><strong>It is not a substitute for a colour session.</strong> The export path
+is an 8-bit H.264 encode off a canvas, tagged Rec. 709 limited range — no log
+pipeline, no LUT, no wide-gamut or high-dynamic-range handling anywhere in it.
+Grade here to make an assembly readable, then grade properly elsewhere.</p>
+
+<h2>Keyboard</h2>
+
+<p>Shortcuts are ignored while a field has focus, so a clip name containing the
+letter <em>s</em> can be typed without splitting anything.</p>
+
+<table>
+  <tr><th>Key</th><th>Action</th></tr>
+  <tr><td><code>Space</code></td><td>Play or pause at 1×.</td></tr>
+  <tr><td><code>K</code></td><td>Play or pause at 1×, the same as Space.</td></tr>
+  <tr><td><code>L</code></td><td>Play; press again to shuttle 2×, then 4×, then back to 1×.</td></tr>
+  <tr><td><code>J</code></td><td>Step the playhead back one second. It does not shuttle in reverse.</td></tr>
+  <tr><td><code>S</code></td><td>Split the video clip under the playhead.</td></tr>
+  <tr><td><code>Delete</code> / <code>Backspace</code></td><td>Remove the selected clip, title or audio block.</td></tr>
+  <tr><td><code>Ctrl</code>/<code>Cmd</code> + <code>Z</code></td><td>Undo.</td></tr>
+  <tr><td><code>Ctrl</code>/<code>Cmd</code> + <code>Y</code></td><td>Redo.</td></tr>
+</table>
+
+<p>The zoom slider runs from 20 to 240 pixels per second and opens at 70. The
+ruler is clickable along its length to place the playhead; its labels show
+minutes and seconds, while the transport readout carries full timecode from hours
+to frames. Review notes sent from the Screening Room stand on the ruler as
+markers.</p>
+
+<p>The bin's Assistant buttons — rough cut, tighten, cut to beats — and every
+export and delivery format are the subject of the next chapter.</p>

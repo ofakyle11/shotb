@@ -1,0 +1,271 @@
+<h1 class="ch">The Timeline II — Estimation &amp; Exports</h1>
+<span class="mk">@@CH06@@</span>
+
+<p class="lede">A broken-down script is a list of obligations. This chapter is
+about turning that list into a number a financier will read, and then getting
+the work back out of Cinamate in a shape another machine will accept. Both
+halves are arithmetic performed on what Chapter 05 produced; neither invents
+anything the script did not already say.</p>
+
+<div class="note"><strong>How this chapter was written.</strong> Every statement
+below was established by reading the source files it names — no part of the
+platform was operated to produce it. Development continues, and if the software
+in front of you says something different from this page, believe the software.</div>
+
+<h2>Two estimates in one panel</h2>
+
+<p>The <em>Producer's Estimate</em> panel on the Timeline page
+(<span class="path">timeline/index.html</span>, the <code>budgetPanel</code>
+disclosure) is drawn by <span class="path">timeline/timeline-budget.js</span>,
+which exposes itself as <code>SBBudget</code>. It answers two questions from the
+same parsed script: what the AI rough-draft preview will bill and how long that
+render run takes, and what the same script would cost to shoot for real as a
+tiered line-item budget with a shoot-day schedule attached. Your tier selections
+persist under the storage key <code>SB_Budget_v1</code>. The panel recomputes
+only when script length, clip count, character count, location-bible length,
+model, quality or clip duration changed, and skips the work while it is closed.</p>
+
+<h2>The measurement pass</h2>
+
+<p><code>analyze()</code> runs first and everything downstream depends on it. It
+prefers <code>scriptText</code> when that is longer than 200 characters,
+otherwise it reassembles the text from the clips' headings, descriptions and
+dialogue.</p>
+
+<p><strong>Pages come from eighths.</strong> The text is split at sluglines
+(<code>INT.</code>, <code>EXT.</code>, <code>INT/EXT.</code>, <code>I/E.</code>)
+and each scene sized at five content lines to the eighth — the constant is
+<code>LINES_PER_EIGHTH = 5</code>. Pages is the sum of eighths over eight. The
+fallbacks matter: with fewer than two sluglines, page count reverts to a word
+count at roughly 200 words per page, and with barely any text, to clip seconds
+over sixty. Runtime in minutes is set equal to page count — the
+one-page-one-minute rule of thumb, stated as such.</p>
+
+<p><strong>Scenes and locations</strong> are read off the headings: each is
+classified interior or exterior, tested for
+<code>NIGHT</code>/<code>DUSK</code>/<code>EVENING</code>/<code>MIDNIGHT</code>/<code>PRE-DAWN</code>,
+and reduced to a location name. Unique locations is the larger of that set and
+your location bible. <strong>Cast is ranked, not counted</strong> — characters
+are ordered by how many clips they appear in, the top one or two become leads,
+the next six at most supporting, everything beyond that a day player. A script
+with forty speaking parts still models two leads and six supporting roles.</p>
+
+<p><strong>Budget drivers are keyword families</strong>, twelve of them, each a
+regular expression counted over the whole script and weighted out of ten: fire
+and explosions and VFX/creatures at 9; stunts, water work and period setting at
+8; vehicle action 7; weapons and crowds 6; animals 5; weather and child actors
+4; aerial work 3. The <em>complexity</em> figure shown as <code>n/100</code>
+caps each driver at ten hits and normalises against 72, the maximum weight sum.
+Genre is inferred the same way from seven keyword families, with Drama as the
+floor and Action taking over if the physical-action drivers outscore it.</p>
+
+<div class="note"><strong>These are word matches, not comprehension.</strong> A
+character named Hunter, dialogue about a storm that never appears on screen, or
+a metaphorical "explosion of laughter" all count. Read the driver chips before
+you trust the schedule they inflated.</div>
+
+<h2>The schedule the money hangs on</h2>
+
+<p>Shoot days are computed before any dollar figure, and almost every line item
+is a function of them. The pace is the production scale's pages-per-day —
+7 at micro-budget, 5.5 low, 4.5 indie, 3.5 mid-level, 3 studio, 2.2 tentpole —
+divided into the exact eighths measurement, then multiplied by a <em>driver
+load</em>: one, plus fifteen per cent of the night-scene fraction, plus small
+increments for stunts, pyro, water and crowds, plus a flat ten per cent when the
+VFX tier is heavy or above. The floor is five days. Prep is 1.1 times the shoot
+in weeks (1.6 on crews of 110 or more, minimum two); post is 2.4 times the shoot
+plus eight weeks for moderate VFX or sixteen for heavy, minimum eight. The week
+is five days unless you say otherwise; six- and seven-day weeks take their
+premium from <code>TMoney.TC_DEFAULTS</code> in
+<span class="path">tools/lib-money.js</span>, and if that file is absent the
+premium is reported unavailable rather than quietly applied as 1×.</p>
+
+<h3>Cast weeks, drops and pick-ups</h3>
+
+<p>Supporting cast are paid for the weeks they are <em>held</em>, not the days
+they work. <code>castWeeks()</code> takes the worked shoot days and returns
+billed weeks, holds and the drop/pick-up arithmetic. The defaults in
+<code>CAST_RULES</code> — five days per week, a minimum ten free days before a
+drop is permitted at all, one drop per performer, one day of written notice, a
+one-week minimum guarantee restarting on re-engagement, and
+<code>asOfDay: null</code> meaning nothing has been shot yet — are all
+parameters, because they are contract terms. A drop whose notice date is already
+past is <em>refused</em> into <code>refusedDrops</code> with its reason, and
+those idle days stay billed as holds, rather than the panel quoting a saving
+nobody can take.</p>
+
+<h2>The tiers, and what each assumes</h2>
+
+<table>
+  <tr><th>Selector</th><th>Default</th><th>What choosing it changes</th></tr>
+  <tr><td>Production scale</td><td>Indie ($2M–$10M)</td><td>Pages per day, crew size and day rate, art allowance, script rights, producers, sound, music, DI, editorial, casting fee</td></tr>
+  <tr><td>Director tier</td><td>Emerging</td><td>One flat fee range, first-time through legend</td></tr>
+  <tr><td>Star / lead tier</td><td>Rising talent</td><td>Flat run-of-picture fee × number of leads</td></tr>
+  <tr><td>Supporting cast</td><td>Scale / indie</td><td>The per-role band the schedule-derived weekly cost is clamped into</td></tr>
+  <tr><td>Crew / unions</td><td>Non-union</td><td>Fringe rate (28 / 32 / 40 %), a labour multiplier, and the performer day and week rates</td></tr>
+  <tr><td>Locations</td><td>Local practical</td><td>Per-day fee, per-location permit and restore, travel percentage</td></tr>
+  <tr><td>Camera &amp; equipment</td><td>Indie kit</td><td>A weekly rental band, applied to shoot weeks plus one prep week</td></tr>
+  <tr><td>VFX intensity</td><td>Auto</td><td>Shot count and per-shot cost; auto derives both from the VFX and pyro driver counts</td></tr>
+  <tr><td>Genre</td><td>Auto</td><td>Which real-film benchmark the total is compared against — nothing in the budget itself</td></tr>
+  <tr><td>Tax incentive</td><td>None</td><td>Estimated recovery and net cost; twenty-one jurisdictions are modelled</td></tr>
+</table>
+
+<p>Leads are dealt as flat fees because that is how they are actually dealt.
+Supporting roles are not: their weekly rate — $1,800 non-union, $2,812 on a SAG
+Low Budget Agreement, $4,326 on SAG Basic — is multiplied by the span weeks the
+day-out-of-days produced, then clamped into the chosen band. Day players are the
+day rate ($400 / $810 / $1,246) times worked days.</p>
+
+<p>Lines are grouped Above the line, Production, Post-production and Other on
+the Movie Magic-style account skeleton. Crew labour splits across department
+accounts by fixed percentages; equipment splits camera 45 %, grip and electric
+50 %, sound 5 %; the art allowance splits 55/30/15 across art, wardrobe, and
+makeup and hair. Insurance is 2.5 % of direct costs, legal and finance 1.5 %, a
+completion bond a further 2.5 % on indie-financed scales only, general expenses
+4 % of below-the-line, contingency a flat 10 %. The account number prefix on each
+label is load-bearing — the Producer Suite routes a seeded line by matching it.
+The headline is three numbers: low, high, and a "likely" that is simply the
+midpoint. Incentive recovery is total × qualifying-spend fraction × credit rate,
+with a warning when the estimate falls below a programme's minimum spend or
+above its cap.</p>
+
+<h2>How a producer corrects the model</h2>
+
+<p>Inside the panel the corrections are the ten selectors above, plus the retake
+multiplier and parallelism for the AI figure. The engine accepts more than the
+panel offers: per-scene breakdown tags (<code>unitOverrides</code>) replace the
+keyword-derived counts for extras, stunt, pyro, water and animal days; real day
+assignments from the stripboard (<code>castDood</code>) replace the script-order
+day-out-of-days entirely; <code>castRules</code> and <code>daysPerWeek</code>
+replace the default agreement terms. Those arrive from the Producer Suite, and
+the board's numbers win — one implementation of the cast arithmetic serving both
+surfaces rather than two files disagreeing.</p>
+
+<h2>Documentary mode</h2>
+
+<p>The panel carries a Feature Film / Documentary switch, and detection is
+automatic enough to prompt: when interview, archival and narration cues score 60
+or more, a scripted estimate offers to switch. Documentary numbers come from
+<span class="path">timeline/timeline-doc.js</span> (<code>SBDoc</code>), which
+returns the same groups-and-totals contract so the rest of the panel works
+unchanged. Nothing of the scripted model carries over. There are no cast tiers
+and no stunt units; instead four production scales from DIY to premium/streamer,
+an archival appetite priced in finished minutes at an all-media rate per minute,
+a music posture, a crew basis, and a shoot structure of interview days plus
+vérité days plus one travel day per region. Edit weeks come from
+weeks-per-finished-hour bands, a shooting ratio is blended from the interview
+share, and a grants panel lists funding offsets. Incentive eligibility is
+adjusted where documentary rules are known — New York excludes documentaries
+outright, Georgia gives the 20 % base without the logo uplift.</p>
+
+<div class="note"><strong>The switch writes outside this module.</strong>
+Flipping to Documentary also rewrites the <code>strategy</code> field inside the
+<code>SB_Sales_v1</code> storage key so the Sales tab follows, and flipping back
+resets a documentary strategy to <code>indie</code>. Any sales strategy you had
+chosen by hand is overwritten without a prompt.</div>
+
+<h2>An estimate is a model, not a quote</h2>
+
+<p>Say this to anyone you hand the panel to. The tables are calibrated against
+published 2025–26 union scale, permit schedules, rental price lists and
+trade-press deal reporting, and every figure is sourced by line in
+<span class="path">docs/PRODUCTION_PRICING.md</span>; the documentary constants
+the same way in <span class="path">docs/DOCUMENTARY_MODE.md</span>. Read them
+before you defend a number. Both publish their own limits, and these bite
+hardest: marketing and print costs are excluded entirely; fees above
+"established" are reported figures, not scale; cast fringes are approximated
+because pension and health caps out on large fees; the day-out-of-days schedules
+scenes in script order with no stripboard optimisation, so supporting spans run
+conservative; genre benchmarks are inflation-adjusted 2005-vintage data,
+order-of-magnitude context rather than forecast; and incentive recovery is
+modelled on headline terms, where the real number is a production accountant's
+opinion letter.</p>
+
+<p>The preview half of the panel is simpler and carries the same warning: clip
+count times average duration times the model's dollars-per-second, multiplied by
+a retake factor of 1.6 — the average generations per kept clip — with stills at
+four cents each. A local-render build prices at zero, because there the cost is
+electricity.</p>
+
+<h2>Getting the work back out</h2>
+
+<p><span class="path">timeline/timeline-export.js</span> (<code>SBExport</code>)
+produces four things, and only four.</p>
+
+<table>
+  <tr><th>Artifact</th><th>File</th><th>What a receiving application does with it</th></tr>
+  <tr><td>CMX-style EDL</td><td><code>cinamate-timeline.edl</code></td><td>An online bay, finishing house or NLE conforms the cut: each event carries a source in/out and a record in/out, and the reel names say what media to relink</td></tr>
+  <tr><td>Project JSON</td><td><code>cinamate-timeline-project.json</code></td><td>Cinamate reads it back — clips, characters, location bible, globals, assembly, project name, script text and parse result</td></tr>
+  <tr><td>Stitched master</td><td><code>cinamate-final.mp4</code></td><td>A finished single-file cut of the approved clips, assembled in the browser</td></tr>
+  <tr><td>Clip archive</td><td><code>cinamate-final.zip</code></td><td>The fallback when stitching is unavailable: each clip as <code>clip_NN.mp4</code></td></tr>
+</table>
+
+<p>The EDL opens <code>TITLE: CINAMATE TIMELINE</code>, then
+<code>FCM: NON-DROP FRAME</code>, then a comment stating the frame rate the
+numbers were counted in — an EDL carries no rate of its own beyond the FCM line,
+so a conform at the wrong rate is otherwise silent. Events are numbered from 001
+and butt together, each record-in the previous record-out, and a zero-length clip
+is floored to a single frame, because an event whose record-in equals its
+record-out is one no conform will accept. Duration honours sub-second trims and
+rounds to frames exactly once.</p>
+
+<p>Exporting from the Timeline sends only clips that are <em>approved and have
+video</em>; if none qualify, it falls back to every clip. The stitcher fetches
+each approved clip, hands the blobs to <code>SBFFmpeg.stitchBlobs</code>, and
+packages a ZIP through JSZip if that fails. Re-importing a project file goes
+through <code>CVault.scrubImported</code> and is refused outright if that safety
+layer did not load.</p>
+
+<div class="note"><strong>Formats this module does not produce.</strong> There is
+no OTIO, no FCPXML or Premiere XML, and no CSV anywhere in
+<span class="path">timeline/timeline-export.js</span>. If your finishing partner
+needs one, the EDL and the project JSON are what you convert from.</div>
+
+<h2>Why your labels come back without their line breaks</h2>
+
+<p>An EDL is line-oriented, and every field is interpolated into it by
+concatenation. A newline inside a clip label therefore does not produce a long
+label — it ends the comment and starts a record. A project name of "Heist"
+followed by a newline and <code>FCM: DROP FRAME</code> emits that line above the
+real one, and CMX readers take the first, reinterpreting the whole reel at the
+wrong timecode base; a label containing a plausible event line forges a cut that
+was never made. Every interpolated field therefore passes through
+<code>edlField</code> in <span class="path">js/safe-url.js</span> on its way into
+the file: carriage returns, newlines and the Unicode line separators U+2028 and
+U+2029 are folded to single spaces, control characters removed, the result
+trimmed and truncated at 200 characters. The reel identifier is separately
+synthesised as <code>CLIP_nn</code> from the clip number and capped at 32
+characters, with the event line's reel column taking the first eight.</p>
+
+<div class="note"><strong>This is deliberate, not corruption.</strong> A clip
+label that appears in an exported EDL with its line breaks flattened to spaces,
+or cut off at 200 characters, is the export doing exactly what it was built to
+do. Your labels in the project are untouched — only the copy inside the EDL is
+folded, and the full text still lives in the project JSON.</div>
+
+<h3>The frame rate</h3>
+
+<p>Every conversion in the exporter passes through <code>normFps</code>, so an
+absent, zero, negative or nonsensical rate becomes 24 in one place rather than
+differently at each call site. An unstated rate is therefore not treated as
+unknown — it is stamped as 24 with total confidence, and a 30 fps master turned
+over at 24 lands 25 per cent long with no error anywhere.</p>
+
+<div class="note"><strong>A gap this manual cannot close by reading.</strong>
+The Export panel offers a Master frame rate picker (<code>tlFps</code>, 23.976
+through 30). No code in the repository reads or writes that element, the
+<code>fps</code> field on the Timeline state is initialised to 24 and never read
+again, and both export calls in <span class="path">timeline/timeline.js</span>
+are made without a rate argument. On the source as it stands, the EDL and the
+project JSON are stamped at 24 whatever the picker shows. Check the
+<code>* FRAME RATE:</code> line in the exported file before you send it to a
+conform, and correct it there if it disagrees with your master.</div>
+
+<p>Two Node suites assert this behaviour directly rather than through a browser.
+<span class="path">scripts/test_timeline_export.mjs</span> checks the timecode
+arithmetic at real cut lengths — an hour, ninety minutes, sub-second trims —
+because under a minute a wrong hours field is indistinguishable from a right one.
+<span class="path">scripts/test_budget_engines.mjs</span> enforces that one file
+defines <code>SBBudget</code> and that every page loading it also loads
+<code>timeline-doc.js</code>, so a documentary cannot be priced differently on
+two screens.</p>

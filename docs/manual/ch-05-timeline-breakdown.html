@@ -1,0 +1,304 @@
+<h1 class="ch">The Timeline I — Script Import &amp; Breakdown</h1>
+<span class="mk">@@CH05@@</span>
+
+<p class="lede">The Timeline is where a screenplay stops being a document and
+becomes production data: a numbered scene list, a cast, a set list and a page
+measure. This chapter covers getting the script in and broken down. Estimating
+and exporting it is the chapter that follows.</p>
+
+<div class="note"><strong>On this text.</strong> Every statement here was
+established by reading the source — <span class="path">timeline/parser.js</span>,
+<span class="path">js/lib-scenes.js</span>, <span class="path">timeline/timeline.js</span>
+and the two node suites that pin them. The platform is under active development.
+Where this manual and the software disagree, the software is what runs.</div>
+
+<h2>Getting the screenplay in</h2>
+
+<p>The page is <span class="path">timeline/index.html</span>. Three routes lead
+into it, and all three end in the same parse.</p>
+
+<ul>
+  <li><strong>Import</strong> in the top bar, <strong>Import file</strong> on the
+  yellow script bar and <strong>Import Script</strong> in the empty-state panel
+  open the same picker, which accepts <code>.txt</code>, <code>.pdf</code> and
+  <code>.fdx</code>. Anything else is refused with <em>Unsupported file — use
+  .txt, .fdx, or .pdf</em>.</li>
+  <li><strong>Paste script</strong>, or the gold <strong>Script</strong> button,
+  opens the screenplay editor: one textarea, which is the screenplay of record.
+  The timeline is derived from it, never the other way round.</li>
+  <li><strong>Re-parse</strong> re-runs the parse over whatever that textarea
+  currently holds.</li>
+</ul>
+
+<p>A <code>.fdx</code> is read as XML and only six paragraph types survive:
+Scene Heading, Action, Character, Dialogue, Parenthetical and Transition.
+Anything Final Draft calls a Shot, a General element or a note is dropped before
+the parser sees it. A <code>.pdf</code> is read with the vendored pdf.js at
+<span class="path">static/vendor/pdf.min.js</span>: text items are sorted top to
+bottom then left to right and bucketed into lines within a vertical tolerance of
+five units. That is a reconstruction, not a transcript, and a PDF with no text
+layer yields nothing at all.</p>
+
+<p>Because pasted and extracted text arrives with its line breaks destroyed,
+<code>normalizeScriptText()</code> runs on every route. Text counts as flattened
+when it is one or two lines carrying hundreds of characters, when its average
+line runs past 130 characters, or when long lines dominate. The unflattener then
+rebuilds breaks before sluglines, character cues, parentheticals and transitions.
+<strong>Unflatten</strong> in the editor runs that pass on demand and reports the
+line count before and after.</p>
+
+<div class="note"><strong>Import replaces the timeline.</strong> Importing a file
+parses immediately and overwrites the clips, the parse result and the location
+bible with no confirmation. <strong>Re-parse</strong> asks first, warning that
+clips carrying generated video will be rebuilt. <strong>+ New script</strong>
+asks first, then clears the screenplay, the timeline, the characters and the
+parse result. Undo restores the previous state within the session only — the
+history is held in memory and does not survive a reload.</div>
+
+<h2>What counts as a scene heading</h2>
+
+<p>One grammar answers this for the whole platform:
+<code>CScenes.parseSlug()</code> in <span class="path">js/lib-scenes.js</span>.
+The Timeline delegates to it and keeps no second opinion. A heading opens with an
+interior/exterior token — <code>INT</code>, <code>EXT</code>, <code>EST</code>,
+or a two-sided form (<code>INT/EXT</code>, <code>EXT/INT</code>, <code>I/E</code>,
+<code>E/I</code>, with or without spaces and full stops) — followed by a space,
+dash, colon or full stop, and then somewhere to be. That separator requirement is
+what keeps <em>INTERCUT</em>, <em>EXTRAS fill the room</em> and <em>Interior
+designers argue</em> out of the scene list. A bare <code>INT.</code> with no
+location is not a scene.</p>
+
+<table>
+  <tr><th>Line</th><th>Read as</th></tr>
+  <tr><td>INT. KITCHEN - DAY</td><td>INT · KITCHEN · DAY</td></tr>
+  <tr><td>INT KITCHEN - DAY</td><td>accepted; the full stop is optional</td></tr>
+  <tr><td>EST. THE CAPITOL - DAY</td><td>EST · THE CAPITOL · DAY</td></tr>
+  <tr><td>I / E PATROL CAR - DUSK</td><td>INT/EXT · PATROL CAR · DUSK</td></tr>
+  <tr><td>INT. PARIS - LEFT BANK - NIGHT</td><td>location keeps both halves</td></tr>
+  <tr><td>24 INT. FARMHOUSE KITCHEN - NIGHT 24</td><td>number 24; right margin stripped</td></tr>
+  <tr><td>MONTAGE - THE TRAINING</td><td>a scene on this page only</td></tr>
+  <tr><td>1. KITCHEN - DAY</td><td>a scene on this page only; number 1</td></tr>
+</table>
+
+<p>The last two rows matter. <span class="path">timeline/parser.js</span> layers
+three heading forms of its own on top of the shared grammar, because a treatment
+or a documentary transcript prints no INT./EXT.: <em>SCENE 12 - KITCHEN</em>;
+the all-caps beats FLASHBACK, FLASH CUT, MONTAGE, DREAM, INTERCUT, BACK TO,
+LATER, TIME CUT and SERIES OF SHOTS; and the numbered form <em>1. KITCHEN -
+DAY</em>. These break scenes here and nowhere else on the platform. A beat
+heading has no location of its own, so <em>MONTAGE - THE TRAINING</em> produces
+a location row literally named MONTAGE, and a flashback heading one named
+FLASHBACK. Expect to rename or delete those.</p>
+
+<p>For flattened text the parser keeps one unanchored copy of the
+interior/exterior token, since the shared expression is anchored to the start of
+a line and a PDF paste runs three sluglines into one.
+<span class="path">scripts/test_parser_slug_agreement.mjs</span> stops that copy
+drifting: over 180 assertions require that what the shared model accepts is also
+found mid-line here, with the same number, location, time of day and
+interior/exterior value, and that what it rejects is rejected here too. Run it
+with <code>node</code>; it either passes or it names the disagreement.</p>
+
+<h2>Scene numbers, and the A-scene</h2>
+
+<p>A scene number is not a number. <em>4A</em> is a scene number; so is
+<em>A4</em>. Each scene therefore carries six identity fields, and the right one
+depends on what you are doing with it.</p>
+
+<table>
+  <tr><th>Field</th><th>Meaning</th><th>For 4A</th></tr>
+  <tr><td><code>ord</code></td><td>position in the file; preamble is 0</td><td>3</td></tr>
+  <tr><td><code>number</code></td><td>the script's own printed number, verbatim</td><td>4A</td></tr>
+  <tr><td><code>n</code></td><td>numeric, for arithmetic and filters</td><td>4</td></tr>
+  <tr><td><code>label</code></td><td>what a human reads, what goes on a call sheet</td><td>4A</td></tr>
+  <tr><td><code>key</code></td><td>stable identity, so 4 and 4A cannot collide</td><td>4A</td></tr>
+  <tr><td><code>sortKey</code></td><td>collation only: 4 &lt; 4A &lt; 4B &lt; 5</td><td>4.01</td></tr>
+</table>
+
+<p>The printed number always wins; the ordinal fills in only where the script
+printed none. Where a shooting script prints its numbers down both margins, the
+right-hand copy is stripped before anything reads the line, and only when it
+matches the number on the left, so a location genuinely ending in a numeral
+survives. A bare number on its own line above a heading — how PDF extraction
+routinely delivers it — is attached to the heading below, across blank lines.
+<code>SC</code> and <code>SCENE</code> prefixes are accepted and stripped.</p>
+
+<p>Two consequences to hold on to. A <code>FADE IN:</code> preamble is captured
+separately and is not a scene, so the first real scene is scene 1, not scene 2.
+And on a numbered script, asking for scene 3 when the printed numbers run 1, 2,
+4A returns nothing rather than the third scene in the file — the platform will
+not invent a scene the production does not have.
+<span class="path">scripts/test_scenes.mjs</span> pins this with over 150
+assertions, including that 4A is a real scene break and that its content is not
+swallowed into the scene above.</p>
+
+<h2>Time of day, and where the parser stops being certain</h2>
+
+<p>Time of day is taken from the tail of the heading after the last dash, and
+only when that tail begins with a recognised word: CONTINUOUS, MOMENTS LATER,
+LATER, SAME TIME, SAME, MORNING, AFTERNOON, EVENING, MIDNIGHT, PRE-DAWN, DAWN,
+DUSK, SUNSET, SUNRISE, NIGHT, DAY, MAGIC HOUR. Anything else in that position
+stays part of the location. CONTINUOUS and LATER are carried through verbatim
+rather than resolved to a clock time, which is correct — they are relative, and
+only the script supervisor can settle them.</p>
+
+<div class="note"><strong>Three cases that come back less certain than they
+look.</strong> A heading with no time of day leaves the scene's time of day
+empty — but the clip built from it is stamped <code>Day</code>, because the
+inference falls back to Day when it finds no NIGHT, DAWN or DUSK: the scene says
+unknown, the clip says Day. Second, <em>INT. KITCHEN - NEXT DAY</em> does not
+register, because NEXT DAY is not a recognised time word: the time of day comes
+back empty and the location becomes <em>KITCHEN - NEXT DAY</em>. Third,
+<em>INT. KITCHEN - DAY (FLASHBACK)</em> parses with a time of day of
+<em>DAY (FLASHBACK)</em> — the flashback rides inside that field rather than
+being flagged. Confirm all three against the script before anything is scheduled
+from them.</div>
+
+<p>The platform does model this uncertainty, in
+<span class="path">js/lib-storyday.js</span>, which marks every story-day
+boundary CERTAIN or UNCERTAIN. CONTINUOUS, SAME TIME, LATER, an explicit
+<em>next day</em> cue and a NIGHT-to-DAY transition are certain; DAY to DAY,
+NIGHT to NIGHT, DAY to NIGHT, a flashback and any heading with no printed time
+are guesses, defaulted to the same story day and reported as guesses. Note the
+scope honestly: of the shipped pages only
+<span class="path">wardrobe/index.html</span> loads that module. The Timeline
+page does not, and shows no story-day column.</p>
+
+<h2>The page measure: eighths</h2>
+
+<p>A screenplay page is 55 lines, so one eighth is 55/8 — about 6.875 lines. The
+measure counts blank lines, because a blank line occupies the page, and counts a
+long line as the rows it would occupy when wrapped at the standard element
+widths, 60 columns for action and 35 for dialogue. A scene is measured as its
+heading plus its body, rounded, with a floor of one: a scene that exists occupies
+at least an eighth on the board. Page count is the eighths total divided by
+eight, to one decimal place. The constant is anchored by test, not assumed — 55
+lines of content measures as one page, within an eighth.</p>
+
+<div class="note"><strong>Two measures exist.</strong> The Producer's Estimate
+panel on this same page does not use the measure above. It carries its own
+splitter, sizes a scene at roughly five content lines to the eighth with blank
+lines discarded, and requires the full stop after INT/EXT — so
+<em>INT KITCHEN - DAY</em>, <em>EST.</em> headings and prefixed A-scenes are
+invisible to it. Its page count will not always match the parser's.</div>
+
+<h2>From scenes to clips</h2>
+
+<p>The Timeline's visible unit is not the scene but the clip — one previsualised
+beat. One clip is emitted per shot, and a shot is either a dialogue block or a
+group of sentences from an action paragraph, gathered until the group reaches six
+words. Each clip carries its scene index, the scene heading verbatim, the
+location and time of day lifted from that heading, a shot type and camera move
+inferred by keyword, and a rotating label from a fixed list (Opening scene,
+Character intro, Dialogue, Action beat, and so on). The labels are decoration;
+the heading is load-bearing.</p>
+
+<p>Where the parser finds no heading at all it does not fail: it opens a single
+fallback scene called <code>SCENE 1</code> and files every shot into it. A
+feature that failed to unflatten therefore appears as one enormous scene with a
+hundred clips, not as zero scenes.</p>
+
+<div class="note"><strong>The quality warning is not a safety net.</strong>
+<code>parseQualityWarning()</code> holds two messages — no scene headings found,
+and many shots in a fallback SCENE 1 — but they require four and six fallback
+scenes respectively, and the parser creates at most one fallback scene per run.
+Neither can fire from a normal parse. Judge a parse by the clip count and by the
+Characters and Locations panels, not by the absence of a warning.</div>
+
+<h2>Characters</h2>
+
+<p>Names are gathered in several passes over the normalised text. A character cue
+is an all-caps line of 2 to 40 characters that is not a heading, not a
+transition, not a parenthetical and does not end in punctuation. Dual dialogue
+survives in both its forms — the Fountain caret, and the two columns a printed
+page merges onto one line — so a dual scene does not lose one actor's day.
+Fountain's <code>@NAME</code> and inline <em>NAME: dialogue</em> are read as
+cues. An action-line introduction registers when the parenthetical after the name
+is descriptive rather than a delivery note: <em>MERCER (50s, silver hair,
+ex-military)</em> yields both the name and the description, while <em>(V.O.)</em>,
+<em>(CONT'D)</em> and <em>(whispering)</em> yield nothing. Titled names (Mr, Dr,
+Det, Agent, Sgt, Officer, Captain) are picked up separately, and background roles
+such as FLIGHT ATTENDANT come in through a looser gate. Against all of that, a
+stop-list rejects the words that look like names and are not: INT, EXT, FADE,
+CUT, the times of day, the common location nouns, weather. The result is
+deliberately conservative and will miss people; <strong>+ Add Character</strong>
+is how you put them back.</p>
+
+<p>Each character holds a description, body type, wardrobe, voice profile,
+default emotion, cast role (lead, supporting, background, crowd, voice_only),
+face lock, lip-sync and a reference image. Role is inferred — a one-word name
+with dialogue reads as a lead, a multi-word name without dialogue as background.
+Typing into Description or Wardrobe marks that field as yours and the enricher
+will not overwrite it. <strong>Sync from parse</strong> re-runs the local
+extraction; signed in, it also requests an appearance-only character bible from
+the enrichment agent, falling back to the local extract when that is
+unavailable. Parsing itself needs no network.</p>
+
+<div class="note"><strong>Deleting a character is not local to the list.</strong>
+The control asks for confirmation, then removes that character from the list and
+from every clip that referenced them.</div>
+
+<h2>Locations</h2>
+
+<p>A location's key is its heading location, upper-cased with whitespace
+collapsed, so the INT. and EXT. of one set share an entry. The bible is assembled
+from three sources in order — the clips, the parsed scenes, and the screenplay
+text, the last of which also honours explicit <code>Location:</code> lines. Each
+entry carries a name, a description seeded from the heading, the indices of the
+clips that play there, a lock flag, a reference plate and a consistency phrase
+injected into the prompt when the location is locked.</p>
+
+<div class="note"><strong>Sync from clips rebuilds the bible from nothing.</strong>
+Both a fresh import and the Locations panel's sync button empty the location
+bible and reconstruct it. Rebuilt entries are unlocked, with no plate and no
+consistency phrase, so locks, uploaded plates and phrases entered by hand are not
+carried across. Lock a location after the breakdown is settled, not before.</div>
+
+<h2>Editing, splitting, merging and reordering</h2>
+
+<p>The screenplay text is the record, so the honest answer to "how do I split a
+scene" is: add the slugline in the script editor and re-parse. To merge two
+scenes, delete the second slugline and re-parse. There is no scene-level split,
+merge or renumber command on this page. Scene identity comes from what the script
+prints, which is the behaviour you want when the call sheet, the slate and the
+sides all have to agree.</p>
+
+<p>At clip level the controls are <strong>+ Clip</strong>, which appends an empty
+beat; <strong>Duplicate clip</strong>, which copies the selected clip as a draft
+with its video link cleared; drag and drop on the clip row to reorder; and
+<strong>Undo</strong> / <strong>Redo</strong>, holding up to fifty steps for the
+session. Reordering renumbers every clip and reassigns its identifier from the new
+position, but does not renumber scenes: each clip keeps the heading it was built
+from. There is no delete-clip control — to remove material, edit the screenplay
+and re-parse.</p>
+
+<p>The right-hand inspector edits one clip: its scene description, its emotion,
+and three groups of prompt parameters — Scene and setting (location, time,
+weather, season), Camera (angle, film grade, colour, saturation) and Atmosphere
+(lighting, mood, FX, sound), each with a toggle deciding whether it reaches the
+prompt. Editing here changes the clip alone: it does not write back to the
+screenplay, and the next re-parse overwrites it.</p>
+
+<h2>What is stored, and under which key</h2>
+
+<p>Everything on this page lives in this browser's local storage. None of it is a
+server-side record, and clearing site data clears the breakdown.</p>
+
+<table>
+  <tr><th>Key</th><th>Holds</th></tr>
+  <tr><td><code>SB_Timeline_v1</code></td><td>the project: clips, characters, location bible, global settings, assembly, parse result, project name, screenplay text</td></tr>
+  <tr><td><code>SB_Editor_embed_v1</code></td><td>the embedded editor's own timeline state</td></tr>
+  <tr><td><code>SB_LocalGPU_v1</code></td><td>local generation bridge URL and key, this browser only</td></tr>
+  <tr><td><code>SB_Timeline_script_hint_v2</code></td><td>a flag marking the one-time hint as shown</td></tr>
+  <tr><td><code>SB_Scenes_v1</code></td><td>the shared scene store defined by <code>CScenes</code></td></tr>
+</table>
+
+<p>One honest note on that table. <code>SB_Scenes_v1</code> is the canonical
+scene register — its shape, its helpers and its key are all defined and tested —
+but no shipped page was found to write it. The department modules that need
+scenes call the shared splitter on their own copy of the script text instead.</p>
+
+<p><strong>Save project</strong> writes the whole state out as a file, screenplay
+and parse result included, and <strong>Load project</strong> reads one back. That
+is the only copy of a breakdown that survives a cleared browser; take one before
+re-parsing a script that has had a day of hand work put into it.</p>

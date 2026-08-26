@@ -1,0 +1,307 @@
+<h1 class="ch">Tools &amp; Utilities</h1>
+<span class="mk">@@CH19@@</span>
+
+<p class="lede">Every production accumulates arithmetic that belongs to nobody in
+particular. What time does the light go. What does a fourteen-hour day cost once
+the meal was late. Is the copy off the card actually the same file. Who has the
+call sheet, and did they say so. The Tools module is where that arithmetic
+lives — nineteen tabs behind one rail at <span class="path">/tools/</span>, sharing
+four calculation engines and one table component between them.</p>
+
+<div class="note"><strong>On the accuracy of this chapter.</strong> It was
+compiled by reading the source files, not by operating the software. Cinamate
+changes week to week; if a screen contradicts a sentence here, the screen is the
+authority and this page is out of date.</div>
+
+<h2>How the module is assembled</h2>
+
+<p>The page is <span class="path">tools/index.html</span>. Its rail groups the
+tabs five ways — <em>On set</em> (Slate &amp; Takes, Timecards, Offload/MHL, Dailies
+Review), <em>The office</em> (Crew &amp; Call Sheets, Hot Costs, Insurance, Rights /
+Chain of Title, Finance Waterfall), <em>Story &amp; look</em> (Script Revisions,
+Story Bible, Moodboard, Lens &amp; Coverage, Look / LUTs), <em>Finishing</em>
+(Captions, Credit Roll) and <em>Selling</em> (Festivals, Buyers &amp; Investors,
+Press Kit). A tab builds itself the first time you open it and not before; the
+current tab is written into the URL fragment, so <code>#captions</code> reopens
+where you left off.</p>
+
+<p>Underneath, the split is deliberate: <em>lib-</em> files hold arithmetic that
+can be tested in node with no browser at all, and <em>tools-</em> files hold the
+screens that call it. <span class="path">tools/lib-media.js</span> (TMedia),
+<span class="path">lib-sun.js</span> (TSun), <span class="path">lib-money.js</span>
+(TMoney) and <span class="path">lib-script.js</span> (TScript) are the four
+engines; the four <span class="path">tools-*-ui.js</span> files and
+<span class="path">tools-registers.js</span> are the screens.</p>
+
+<p>The header of <span class="path">tools/tools-core.js</span> states a hard load
+order, and it is enforced rather than trusted. The page must load
+<span class="path">/js/safe-url.js</span>, then <span class="path">/js/ui-chrome.js</span>,
+then <span class="path">/js/ui-table.js</span>, and only then
+<code>tools-core.js</code>. <code>TCore</code> is not a second implementation of
+anything — it is a lazy re-export of eleven helpers from <code>CTable</code> plus
+<code>toast</code> from <code>CChrome</code>, each a getter that throws by name if
+its file is missing, so a broken load order reports the file to add instead of
+failing three modules later as an undefined function.</p>
+
+<h2>The Registers</h2>
+
+<p>Eleven of the nineteen tabs are built on one component — thirteen registers in
+all. A <strong>Register</strong> is defined in <span class="path">js/ui-table.js</span>
+and takes a schema: a storage key, a list of fields, and optionally a summary
+line, a blank-row shape, an expiry field and a flags function. Each field declares
+a type — <code>text</code>, <code>money</code>, <code>number</code>,
+<code>date</code>, <code>select</code> or <code>textarea</code> — and that decides
+how the cell is edited. Rows persist to <code>localStorage</code> under the
+schema's key on every change; <strong>+ Add</strong> puts a new row at the top.
+Where a schema names an <code>expiryField</code>, that date column grows a chip:
+days remaining once inside thirty, and <strong>EXPIRED</strong> once the date is
+past. Insurance keys that to <code>expiry</code>, Rights to <code>termEnd</code>,
+Festivals to <code>deadline</code>.</p>
+
+<table>
+<tr><th>Register</th><th>Storage key</th><th>What it holds</th></tr>
+<tr><td>Crew directory</td><td><code>SB_Crew_v1</code></td><td>Name, role, dept, union, rate, phone, email, dietary, emergency contact</td></tr>
+<tr><td>Call-sheet distribution</td><td><code>SB_CallDist_v1</code></td><td>Shoot day, recipient, sent via, sent date, status, notes</td></tr>
+<tr><td>Insurance &amp; certificates</td><td><code>SB_Insurance_v1</code></td><td>Type, carrier, policy no., limits, additional insured, dates, premium</td></tr>
+<tr><td>Rights / chain of title</td><td><code>SB_Rights_v1</code></td><td>Work, agreement type, counterparty, territory, media, term, fee, status</td></tr>
+<tr><td>Buyers &amp; investors</td><td><code>SB_Deals_v1</code></td><td>Contact, company, type, territory, stage, value, last contact</td></tr>
+<tr><td>Festival submissions</td><td><code>SB_Festivals_v1</code></td><td>Festival, category, tier, deadline, fee, result, premiere requirement</td></tr>
+<tr><td>Take log</td><td><code>SB_TakeLog_v1</code></td><td>Shoot day, time, scene, take, roll, grade, note</td></tr>
+<tr><td>Review notes</td><td><code>SB_ReviewNotes_v1</code></td><td>Clip, timecode, note, status</td></tr>
+<tr><td>Timecards</td><td><code>SB_Timecards_v1</code></td><td>Date, name, role, rate, call, wrap, worked, total</td></tr>
+<tr><td>Hot-cost postings</td><td><code>SB_HotCost_v1</code></td><td>Date, account, description, actual or PO, amount</td></tr>
+<tr><td>Story bible</td><td><code>SB_Bible_v1</code></td><td>Name, type, one-line, detail, appearances</td></tr>
+<tr><td>Investor classes</td><td><code>SB_FinClasses_v1</code></td><td>Class, invested, premium, corridor</td></tr>
+<tr><td>Deferrals</td><td><code>SB_FinDefs_v1</code></td><td>Deferral, amount</td></tr>
+</table>
+
+<div class="note"><strong>The Crew register is a file of personal data.</strong>
+<code>SB_Crew_v1</code> holds a full name, telephone number, email address,
+dietary requirement and emergency contact for every member of your crew. Export
+CSV writes all of it to <span class="path">Crew.csv</span> in plain text, with no
+password and no encryption. It is also an <code>SB_*</code> key, which means the
+vault sweeps it into every project snapshot and into every
+<span class="path">.cinamate</span> archive you hand to somebody else
+(<span class="path">projects/lib-vault.js</span> excludes only the two keys that
+carry API credentials). Treat that CSV and that archive as you would a printed
+crew list: know where the copies are, and do not attach either to anything you
+would not send to a stranger.</div>
+
+<div class="note"><strong>Deleting a row asks nothing.</strong> The ✕ at the end
+of a Register row removes it and rewrites the store immediately — no
+confirmation, no undo. On the Festivals tab the consequence reaches further: that
+register is bound to the same store the Festival Strategist reads, so a row
+deleted at <span class="path">/tools/#festivals</span> is gone from
+<span class="path">/festivals/</span> too.</div>
+
+<h3>Why the CSV has apostrophes in it</h3>
+
+<p>Export CSV writes a header row of the field labels and one row per record,
+naming the file after the store — <code>SB_Crew_v1</code> becomes
+<span class="path">Crew.csv</span>, <code>SB_Rights_v1</code> becomes
+<span class="path">Rights.csv</span>. Values are quoted and embedded quotes are
+doubled, in the ordinary way.</p>
+
+<p>Then there is one further step, and an operator who notices it should know it
+is deliberate. Excel and Google Sheets both treat a cell that <em>begins</em> with
+<code>=</code>, <code>+</code>, <code>-</code>, <code>@</code>, a tab or a carriage
+return as a formula rather than as text. A location note reading <code>-2 hours
+travel</code>, or a hostile string typed into a field by somebody who knew what
+they were doing, would therefore execute on the machine of whoever opened the
+export. <code>csvSafe</code> prefixes a single apostrophe to any such cell. Both
+spreadsheets strip that apostrophe on display, so the text stays readable and
+stays inert; nothing is removed. The guard is exercised for real — not merely
+grepped for — by <span class="path">scripts/test_csv_injection.mjs</span>, which
+drives <code>Register.toCsv</code> with seven live formula payloads and asserts
+both that none survives and that the original text is still legible.</p>
+
+<h2>Sun, daylight and weather</h2>
+
+<p><span class="path">tools/lib-sun.js</span> implements the standard NOAA/Meeus
+solar equations, and its own header claims ±2 minutes — ample for a call sheet,
+not a substitute for an ephemeris. It is the platform's only solar engine:
+<span class="path">/locations/</span>, <span class="path">/production/</span>, the
+Producer Suite and this module all load the same file.
+<code>sunTimes(date, lat, lon)</code> returns six moments for a calendar day:
+civil dawn and civil dusk (sun at −6°), sunrise and sunset (−0.833°, the
+refracted horizon), and the two golden-hour boundaries — <code>goldenEndAM</code>
+and <code>goldenStartPM</code>, both taken at the sun 6° above the horizon.
+<code>solarNoon</code> gives the day's peak, <code>daylightHours</code> the
+span between rise and set to one decimal, and <code>sunAngles</code> the sun's
+<em>direction</em> at each of those moments: an azimuth in degrees clockwise from
+true north, an altitude above the horizon, and a sixteen-point compass name.
+That is the number a gaffer actually asks for.</p>
+
+<div class="note"><strong>Timezone: the tool computes instants, you supply the
+clock.</strong> Every time above is returned as a UTC instant.
+<code>fmtLocal(ms, offsetMinutes)</code> renders it in whatever offset it is
+<em>given</em>, and if it is given none it silently uses the offset of the machine
+you are reading on. That is correct only if you are standing on the location. The
+authoritative offset is the location's own civil offset, read from the Open-Meteo
+forecast response (<code>timezone=auto</code> yields
+<code>utc_offset_seconds</code>) and then remembered on the saved plan. Until a
+forecast has ever been fetched for that pin, the fallback is an estimate from
+longitude — <code>round(lon / 15)</code> hours — which is solar mean time and knows
+nothing of political borders or daylight saving. It can be a full hour wrong, in
+the direction that puts a crew on a hillside at the wrong time. Any screen using
+the estimate is required to say so, and the day planner labels the column
+<code>UTC±hh:mm</code> with the source spelled out beneath. Read that label before
+you publish a call time.</div>
+
+<p>There is no separately named "magic hour" in the code. Golden hour is the 6°
+boundary; the −6° civil dawn and dusk figures are what bracket the shootable
+twilight either side of it.</p>
+
+<p>Weather is fetched by your browser from the keyless public Open-Meteo API —
+daily weather code, maximum and minimum temperature, maximum precipitation
+probability and maximum wind. <code>wmoLabel</code> turns the WMO code into
+English and reports <code>Code n</code> honestly for anything it does not know.
+<code>shootRisk</code> scores a day out of 100: precipitation probability
+weighted 0.6, a maximum wind above 30 in the forecast's own unit adding up to 25
+more, plus 30 for a thunderstorm code or 15 for the rain and snow codes between 61
+and 86. It is a triage number for reordering exteriors, not
+a forecast in itself, and a failed fetch is reported as a failure — a blocked
+request cannot masquerade as "beyond forecast".</p>
+
+<h2>Money: timecards, hot costs, waterfall</h2>
+
+<p><span class="path">tools/lib-money.js</span> carries three engines. The
+timecard is the one an operator meets first. Give it an hourly rate, a call and a
+wrap, and it splits the day under the published twelve-hour conventions held in
+<code>TC_DEFAULTS</code>: 1.5× beyond eight <em>worked</em> hours, 2× beyond twelve
+<em>elapsed</em> hours, 3× golden time beyond fifteen elapsed. Note which clock each
+threshold reads — overtime is measured on worked hours, double and golden time on
+elapsed, which is the industry convention and the reason meals move one figure
+and not the other. Up to two meals of thirty minutes each come off the worked
+total.</p>
+
+<p>The first meal is due within six hours of call; a late or missing meal accrues
+a penalty per violated half-hour on an escalating scale of 25, 30 then 50, capped
+at twelve half-hours. Turnaround is ten hours, and a short rest since yesterday's
+wrap bills the invaded hours at the crew member's rate. A sixth consecutive day
+multiplies every hour line by 1.5 and a seventh by 2.0. Fringes default to 28%
+of the subtotal. The engine's docstring is unambiguous that these are published
+conventions parameterised for your own agreement, and that this is neither payroll
+nor legal advice.</p>
+
+<div class="note"><strong>Only one rule is editable on the screen.</strong>
+<code>TMoney.timecard</code> accepts an override for every threshold above, but
+the Timecards tab wires just one of them: <em>Fringe %</em>. The tab's own footnote
+invites you to "edit the thresholds in the fields above", and the shipped fields
+do not include them — call, wrap, meals, first-meal hour, day-of-week, yesterday's
+wrap and fringe are the whole set. A production on a different sideletter should
+verify the split by hand rather than assume the defaults were changed.</div>
+
+<p><strong>Hot Costs</strong> groups postings by top-sheet account code, separates
+spend already invoiced from purchase orders merely committed, and reports total
+against budget with <em>HOT</em> above 85% used and <em>OVER</em> past 100; the
+budget column seeds from the saved top sheet. <strong>Finance Waterfall</strong>
+layers instruments on a lifetime revenue figure: deferrals paid first, then each
+investor class recouping its investment plus its premium, then the remaining pool
+split by corridor percentages with the balance to the producer and talent pool. A
+step that cannot be paid in full is shown short rather than rounded away.</p>
+
+<h2>Script utilities</h2>
+
+<p><span class="path">tools/lib-script.js</span> holds two unrelated things that
+happen to both be text. The first is a longest-common-subsequence line differ
+behind <strong>Script Revisions</strong>, which snapshots the Studio's current
+script as a locked draft and compares any two, generation by generation, in the
+production colour order: White, Blue, Pink, Yellow, Green, Goldenrod, Buff,
+Salmon, Cherry, 2nd Blue, 2nd Pink.</p>
+
+<p>The second is captions. <code>parseCaptions</code> reads SRT and WebVTT
+through the same path — it accepts both the comma and the full-stop decimal
+separator, tolerates a byte-order mark, skips <code>WEBVTT</code>,
+<code>NOTE</code> and <code>STYLE</code> blocks, and sorts cues by start time.
+<code>toSrt</code> and <code>toVtt</code> write either format back out, so the
+conversion between them is simply parse-then-write. <code>captionQc</code> checks
+each cue against the ordinary broadcast conventions and reports what it finds:
+reading speed above roughly 20 characters per second, a line longer than about 42
+characters, three or more lines in one cue, a cue that overlaps its predecessor,
+and an end before its start. In the Captions tab, cues live in
+<code>SB_Captions_v1</code>, a line break inside a cue is typed as a space, a
+vertical bar and a space, and the exports land as
+<span class="path">captions.srt</span> and <span class="path">captions.vtt</span>.</p>
+
+<h2>Camera media: lenses, LUTs and offload verification</h2>
+
+<p><span class="path">tools/lib-media.js</span> is the module's camera maths, and
+it owns the platform's single sensor table — nine formats, each with its aperture
+in millimetres, read by the Set Designer's 2D plan and its 3D viewport as well as
+by the Lens tab, so one lens gives one answer everywhere.</p>
+
+<table>
+<tr><th>Key</th><th>Format</th><th>Key</th><th>Format</th></tr>
+<tr><td><code>super35</code></td><td>Super 35, 24.9 × 18.7</td><td><code>alexa-65</code></td><td>ARRI 65, 54.1 × 25.6</td></tr>
+<tr><td><code>super35-17x9</code></td><td>Super 35 17:9, 24.6 × 13.1</td><td><code>red-vv</code></td><td>RED V-RAPTOR VV, 40.96 × 21.6</td></tr>
+<tr><td><code>fullframe</code></td><td>Full frame, 36 × 24</td><td><code>mft</code></td><td>Micro 4/3, 17.3 × 13</td></tr>
+<tr><td><code>alexa-lf</code></td><td>ARRI LF, 36.7 × 25.5</td><td><code>s16</code></td><td>Super 16, 12.52 × 7.41</td></tr>
+<tr><td colspan="2"><code>iphone-main</code> — phone main camera, ~9.8 × 7.3</td><td colspan="2">Unknown or missing key resolves to <code>super35</code></td></tr>
+</table>
+
+<p>From a format and a focal length the Lens tab gives horizontal and vertical
+field of view, the frame's width and height at your subject distance, and the
+full-frame equivalent focal length, with a top-down frustum drawn for blocking
+conversations. Given an aperture, it adds depth of field. The circle of confusion
+is stated rather than buried: frame diagonal divided by 1500, which reproduces the
+familiar 0.029 mm on full frame; a house working to a different standard passes
+its own value instead of editing the file. Distances are metres, and the far limit
+at or past the hyperfocal is returned as infinity rather than as a large number
+pretending to be a measurement.</p>
+
+<p><strong>Look / LUTs</strong> parses the public IRIDAS/Adobe <code>.cube</code>
+text format and previews it over a still with an intensity blend. It is 3D only —
+a 1D LUT is refused with a message saying so, and a truncated file is refused
+naming how many rows were expected against how many arrived.</p>
+
+<p><strong>Offload / MHL</strong> is the one to know on a card day. Pick the
+files off a card and each is SHA-256 hashed in your browser — nothing is uploaded
+anywhere — into an XML sidecar manifest recording path, size and digest per file.
+Later, load that manifest and re-pick the copied files: the verifier reports each
+file as ok, changed, missing or extra, and declares the copy clean only when
+nothing has changed and nothing is missing. That is the difference between
+believing a copy and knowing it.</p>
+
+<div class="note"><strong>What this module does not contain.</strong> There is no
+media <em>storage</em> calculator here. Nothing in <span class="path">/tools/</span>
+holds a codec list, a data rate in megabits, a card capacity or a drive-sizing
+estimate, and no such table was found anywhere in the shipped tree. Any figure of
+that kind must come from your camera manufacturer's own tables. The manual will
+not invent one, and neither should a spreadsheet built from memory the night
+before a shoot.</div>
+
+<h2>The tabs that are neither a register nor a calculator</h2>
+
+<p><strong>Slate &amp; Takes</strong> is a tappable slate that flashes, sounds a
+short 1 kHz tone for sync, writes the take into the log and advances the take
+number. Every logged take carries the shoot day as a field, because a take with no
+date appears on no daily production report — the summary line counts the undated
+ones and says so. <strong>Dailies Review</strong> plays a clip locally, steps a
+frame at a time (at a fixed 1/24 s), lets you draw on the picture and logs notes
+against the running timecode. <strong>Moodboard</strong> holds dragged and resized
+reference images with notes, downscaled on import to keep the store manageable,
+and exports the arrangement as a PNG. <strong>Credit Roll</strong> builds its text
+from the project title, the script's characters and the Crew directory, previews
+the scroll at one of three speeds and records it out as a WebM. The
+<strong>Press Kit</strong> tab assembles title, logline, runtime, synopsis, stills
+and credits into a single self-contained HTML file you can send on. All of them
+run entirely in the browser; nothing is uploaded.</p>
+
+<h2>What is verified, and how</h2>
+
+<p>Four suites cover this module, and they matter because they say which numbers
+have been checked against something outside the code.
+<span class="path">scripts/test_tools.mjs</span> drives all four libraries — sun
+times against the NOAA calculator, the diff, the caption round-trip, the timecard
+split, the hot-cost roll-up, the waterfall, the LUT and the manifest.
+<span class="path">scripts/test_media.mjs</span> checks the sensor table, fields of
+view against published lens tables, and the depth-of-field algebra — including the
+definitional test that focusing at the hyperfocal puts the near limit at half of
+it and the far limit at infinity. <span class="path">scripts/test_sun.mjs</span>
+exists solely because the timezone defect was found three times and survived each
+time: its fixtures are all remote, and the offset assertions are re-run inside
+child processes pinned to three different machine timezones, because a suite that
+only asks about its own clock cannot see that class of bug.
+<span class="path">scripts/test_csv_injection.mjs</span> covers the export guard
+described above.</p>
