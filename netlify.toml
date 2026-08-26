@@ -31,6 +31,14 @@
 [functions."enrich-locations"]
   timeout = 60
 
+# These headers reach a git build only. netlify.toml is on the deploy exclusion
+# list (scripts/deploy_cinamate.mjs:80), and a git build publishes the
+# fail-closed placeholder — so this block hardens the placeholder, never the
+# studio. The real policies are `_headers` (public shell) and the CSP inside
+# netlify/functions/gate.js (every gated page); scripts/test_csp_parity.mjs
+# holds those two identical and checks this block is no looser than either.
+# Deliberately NO Content-Security-Policy here: two hand-maintained copies of
+# one policy have already drifted once, and a third would be worse.
 [[headers]]
   for = "/*"
   [headers.values]
@@ -109,5 +117,12 @@
   to = "/app.html"
   status = 200
 
-# For the full golden HTML deploy, the app.html is the main file (large single file golden pushed via web editor ritual as documented).
-# Functions auto-deploy on git push.
+# NOTHING here auto-deploys. `functions = "netlify-git-guard/functions"` above
+# is an empty directory on purpose, so a git build ships no endpoint at all,
+# and `publish` ships a placeholder rather than the studio. A release is an
+# explicit, hand-driven upload of the shell, the gate bundle and the three
+# endpoints it needs:
+#   node scripts/deploy_cinamate.mjs cinamate-studio
+# (test_deploy_exclusions.mjs pins both fail-closed settings. The comment that
+# used to sit here claimed the exact opposite and would have talked the next
+# reader straight through the guard.)

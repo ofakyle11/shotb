@@ -188,6 +188,13 @@
     try { a = JSON.parse(text); } catch (e) { throw new Error('Not a valid archive file'); }
     if (!a || a.format !== FORMAT) throw new Error('Not a Cinamate project archive (format missing)');
     if (!a.stores || typeof a.stores !== 'object') throw new Error('Archive has no project data');
+    /* `blobs` is optional — archives written before the vault carried media do
+       not have it. But a `blobs` that is present and is not a list is a broken
+       file, and reading past it would silently restore a production minus its
+       photographs while reporting success. */
+    if (a.blobs != null && Object.prototype.toString.call(a.blobs) !== '[object Array]') {
+      throw new Error('That archive’s media section is unreadable — restoring it would drop every photo');
+    }
     return a;
   }
 
@@ -305,6 +312,446 @@
     return scrub(obj, '', 0);
   }
 
+  /* ══ media: the bytes the vault used to leave behind ══════════════════════
+     Three modules put binary production data in IndexedDB. The vault only ever
+     snapshotted localStorage, so the photo REFERENCES travelled in every
+     archive and every cloud push and the BYTES never did — and a project switch
+     wiped localStorage and left the blobs where they lay, orphaned and growing.
+
+     This engine stays sync and pure: it never opens a database. Everything that
+     touches IndexedDB arrives as an injected adapter
+
+         { readAll()          -> Promise<[record]>      every record, every db
+           putAll(records)    -> Promise<{written, failed:[{id,why}]}>
+           deleteMany(refs)   -> Promise<{deleted}> }
+
+     where a record is the flat, portable envelope below. The DOM side of that
+     adapter lives in projects/index.html; node tests hand in an in-memory one.
+
+     WHERE THE BYTES LIVE, and why. An archive carries real bytes: it leaves the
+     device, so it must be self-contained. A project SLOT carries a manifest —
+     ids and sizes, no data. Slots live inside CIN_Projects_v1 in localStorage,
+     and a five-photo project is more than a megabyte; writing that into the one
+     record that indexes every project on the machine would blow the quota and
+     take all of them with it. The bytes do not need to move on a switch anyway:
+     IndexedDB is not cleared, every store is keyed by id, and the manifest is
+     what lets deleteSlot purge exactly one project's records and lets a switch
+     report honestly on bytes that are genuinely gone.                        */
+
+  /* A LIST, not a name. `ref` says where the localStorage side of a project
+     records which ids it owns, which is how a store whose records carry no
+     project stamp is still attributable to one production. */
+  var BLOB_DBS = [
+    { db: 'cinamate_wardrobe', store: 'photos', module: 'wardrobe',
+      keyPath: 'id', dataField: 'dataUrl', projectField: 'project',
+      keep: ['lookId', 'date'], label: 'continuity photo',
+      ref: { key: 'SB_Wardrobe_v1', list: 'looks', ids: 'photoIds' } },
+    { db: 'cinamate_scout', store: 'photos', module: 'locations',
+      keyPath: null, dataField: null, projectField: null,
+      keep: [], label: 'scout photo',
+      ref: { key: 'SB_ScoutBook_v1', list: 'locations', ids: 'photos' } },
+    { db: 'cinamate_cut', store: 'media', module: 'editor',
+      keyPath: null, dataField: null, projectField: null,
+      keep: ['name', 'kind'], label: 'cutting-room source',
+      ref: { key: 'SB_Cut_v1', list: 'bin', ids: 'id', flag: 'idb' } }
+  ];
+
+  /* Deliberate, stated caps. A JPEG data URL out of the scout book is 100-300
+     KB; a cutting-room source can be gigabytes. The cloud takes the former.
+     chunks x chunkBytes IS the per-production ceiling, so the ceiling holds by
+     construction rather than by an accounting step that can be skipped. */
+  var BLOB_LIMITS = {
+    recordBytes: 900 * 1024,          // one record — 3x a full-size scout JPEG
+    chunkBytes: 1024 * 1024,          // one request — well inside any function limit
+    chunks: 48,                       // per production
+    totalBytes: 48 * 1024 * 1024      // = chunks x chunkBytes
+  };
+
+  function kbOf(n) {
+    n = Number(n) || 0;
+    return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+  }
+  function specFor(db, store) {
+    for (var i = 0; i < BLOB_DBS.length; i++) {
+      if (BLOB_DBS[i].db === db && BLOB_DBS[i].store === store) return BLOB_DBS[i];
+    }
+    return null;
+  }
+  function blobKey(r) { return String(r.db) + '/' + String(r.store) + '/' + String(r.id); }
+
+  /* Which ids one project's localStorage snapshot claims, per store. */
+  function refsOf(stores, spec) {
+    var out = {};
+    if (!spec || !spec.ref) return out;
+    var r = spec.ref, raw = stores ? stores[r.key] : null, st = raw;
+    if (typeof raw === 'string') { try { st = JSON.parse(raw); } catch (e) { return out; } }
+    if (!st || typeof st !== 'object') return out;
+    var list = st[r.list];
+    if (Object.prototype.toString.call(list) !== '[object Array]') return out;
+    list.forEach(function (row) {
+      if (!row || typeof row !== 'object') return;
+      if (r.flag && !row[r.flag]) return;
+      var v = row[r.ids];
+      if (Object.prototype.toString.call(v) === '[object Array]') {
+        v.forEach(function (id) { if (id != null && id !== '') out[String(id)] = true; });
+      } else if (v != null && v !== '') out[String(v)] = true;
+    });
+    return out;
+  }
+  function referencedIds(stores) {
+    var out = {};
+    BLOB_DBS.forEach(function (spec) { out[spec.db + '/' + spec.store] = refsOf(stores, spec); });
+    return out;
+  }
+
+  function normalizeBlob(r) {
+    var spec = specFor(r.db, r.store);
+    if (!spec) return null;
+    var data = r.data == null ? '' : String(r.data);
+    var out = { db: spec.db, store: spec.store, id: String(r.id),
+                project: r.project == null ? '' : String(r.project),
+                data: data, bytes: Number(r.bytes) || data.length };
+    (spec.keep || []).forEach(function (k) { if (r[k] != null) out[k] = String(r[k]); });
+    return out;
+  }
+  /* The slot shape: what a project owns, without the bytes. */
+  function manifestOf(blobs) {
+    return (blobs || []).map(function (r) {
+      return { db: String(r.db), store: String(r.store), id: String(r.id),
+               bytes: Number(r.bytes || (r.data || '').length) || 0 };
+    });
+  }
+  function blobInventory(list) {
+    var bytes = 0;
+    (list || []).forEach(function (r) { bytes += Number(r.bytes || (r.data || '').length) || 0; });
+    return { count: (list || []).length, bytes: bytes, label: kbOf(bytes) };
+  }
+
+  /* records + one project's localStorage snapshot -> that project's media.
+     A stamped record (wardrobe) is claimed by its stamp; an unstamped one
+     (scout, cutting room) is claimed by whichever project's snapshot names it,
+     which is derivable and needs no migration of live owner data. */
+  function blobsFor(records, stores, project) {
+    var proj = String(project == null ? '' : project);
+    var refs = referencedIds(stores || {});
+    var out = [], seen = {};
+    (records || []).forEach(function (r) {
+      if (!r || r.id == null || r.id === '') return;
+      var spec = specFor(r.db, r.store);
+      if (!spec) return;
+      var owner = (spec.projectField && r.project != null) ? String(r.project) : '';
+      var mine = owner
+        ? owner === proj
+        : !!(refs[spec.db + '/' + spec.store] || {})[String(r.id)];
+      if (!mine) return;
+      var k = blobKey(r);
+      if (seen[k]) return;
+      seen[k] = true;
+      out.push(r);
+    });
+    return out;
+  }
+
+  /* Referenced by the restored production, present nowhere. This is the report
+     that replaces a silently removed <img>. */
+  function missingBlobs(stores, available) {
+    var have = {};
+    (available || []).forEach(function (r) { if (r && r.id != null) have[blobKey(r)] = true; });
+    var refs = referencedIds(stores || {});
+    var out = [];
+    BLOB_DBS.forEach(function (spec) {
+      var k = spec.db + '/' + spec.store;
+      Object.keys(refs[k] || {}).forEach(function (id) {
+        if (!have[k + '/' + id]) {
+          out.push({ db: spec.db, store: spec.store, id: id, module: spec.module, label: spec.label });
+        }
+      });
+    });
+    return out;
+  }
+
+  /* ── incoming media is untrusted, exactly like an incoming store ──
+     Note what is NOT done here: an id is not cleaned, it is refused. An id is a
+     REFERENCE — stripping a character out of it to make it attribute-safe would
+     quietly break the link from the look or the location that points at it, and
+     the archive would restore looking complete with a photo that can never be
+     found again. */
+  var BLOB_DATA_RE = new RegExp('^data:(?:image\\/(?:png|jpe?g|webp|gif|avif)|' +
+    'video\\/(?:mp4|webm|quicktime)|audio\\/(?:mpeg|mp4|wav|webm|ogg));base64,[A-Za-z0-9+/]*={0,2}$');
+  var BLOB_ID_RE = /^[A-Za-z0-9 ._:@#()+-]{1,200}$/;
+
+  function sanitizeBlobs(list, limits) {
+    var lim = limits || BLOB_LIMITS;
+    var ok = [], dropped = [];
+    if (Object.prototype.toString.call(list) !== '[object Array]') return { blobs: ok, dropped: dropped };
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      if (!r || typeof r !== 'object') { dropped.push({ id: '', why: 'not a media record' }); continue; }
+      var id = String(r.id == null ? '' : r.id);
+      var spec = specFor(r.db, r.store);
+      if (!spec) {
+        dropped.push({ id: id.slice(0, 60), why: 'names a store this platform does not have' });
+        continue;
+      }
+      if (!BLOB_ID_RE.test(id)) { dropped.push({ id: id.slice(0, 60), why: 'unusable record id' }); continue; }
+      var data = String(r.data == null ? '' : r.data);
+      if (!BLOB_DATA_RE.test(data)) {
+        dropped.push({ id: id, why: 'is not an image, audio or video data URL' });
+        continue;
+      }
+      if (data.length > lim.recordBytes) {
+        dropped.push({ id: id, why: 'is ' + kbOf(data.length) + ', over the ' + kbOf(lim.recordBytes) + ' per-record limit' });
+        continue;
+      }
+      var clean = { db: spec.db, store: spec.store, id: id, data: data,
+                    project: String(r.project == null ? '' : r.project).replace(/[<>"']/g, '') };
+      (spec.keep || []).forEach(function (k) {
+        if (r[k] != null) clean[k] = String(r[k]).replace(/[<>"']/g, '');
+      });
+      ok.push(normalizeBlob(clean));
+    }
+    return { blobs: ok, dropped: dropped };
+  }
+
+  /* ── chunking for the studio cloud ──
+     One request per chunk, sized so a retry is cheap and no single request can
+     approach a function's body limit. A record that cannot fit in one chunk is
+     REFUSED, never split and never dropped: a truncated archive that reports
+     success is the failure this whole order exists to remove. */
+  function planBlobUpload(blobs, limits) {
+    var lim = limits || BLOB_LIMITS;
+    var list = blobs || [];
+    var refused = [], chunks = [], cur = [], curBytes = 0, total = 0;
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      var n = Number(r.bytes || (r.data || '').length) || 0;
+      total += n;
+      if (n > lim.recordBytes) {
+        refused.push({ id: String(r.id), bytes: n, why: 'is ' + kbOf(n) + ' on its own' });
+        continue;
+      }
+      if (cur.length && curBytes + n > lim.chunkBytes) { chunks.push(cur); cur = []; curBytes = 0; }
+      cur.push(r); curBytes += n;
+    }
+    if (cur.length) chunks.push(cur);
+    var plan = { ok: true, error: '', chunks: chunks, count: list.length - refused.length,
+                 bytes: total, refused: refused, limits: lim };
+    if (refused.length) {
+      plan.ok = false;
+      plan.error = refused.length + ' file(s) are too large for the studio cloud — ' +
+        refused.slice(0, 3).map(function (x) { return '"' + x.id + '" ' + x.why; }).join('; ') +
+        (refused.length > 3 ? '; and ' + (refused.length - 3) + ' more' : '') +
+        '. The cloud carries stills and short takes, not source masters (limit ' +
+        kbOf(lim.recordBytes) + ' each). Nothing was sent — export a .cinamate backup instead, which has no size limit.';
+      return plan;
+    }
+    if (chunks.length > lim.chunks || total > lim.totalBytes) {
+      plan.ok = false;
+      plan.error = 'This production carries ' + kbOf(total) + ' of photos and media, in ' + chunks.length +
+        ' part(s). The studio cloud holds ' + kbOf(lim.totalBytes) + ' per production, in at most ' +
+        lim.chunks + ' parts. Nothing was sent — export a .cinamate backup instead (no size limit), ' +
+        'or purge orphaned media first.';
+    }
+    return plan;
+  }
+
+  function blobReport(r) {
+    var bits = [];
+    if (r.wrote) bits.push(r.wrote + ' media file(s) restored');
+    if (r.dropped && r.dropped.length) bits.push(r.dropped.length + ' unreadable and left out');
+    if (r.failed && r.failed.length) bits.push(r.failed.length + ' could not be written to this browser');
+    if (r.missing && r.missing.length) {
+      bits.push(r.missing.length + ' referenced file(s) have no bytes on this device — ' +
+        'that copy was made without them');
+    }
+    return bits.length ? bits.join('; ') : 'no media in this production';
+  }
+
+  /* ── promise-returning siblings ──
+     Same names, same argument order, plus the adapter. The sync originals are
+     untouched and still storage-only; anything that must carry bytes calls the
+     sibling. */
+  function needAdapter(a) {
+    if (!a || typeof a.readAll !== 'function' || typeof a.putAll !== 'function' ||
+        typeof a.deleteMany !== 'function') {
+      throw new Error('The vault needs a media adapter: {readAll, putAll, deleteMany}');
+    }
+    return a;
+  }
+  function P(v) { return Promise.resolve(v); }
+  function guard(fn) { try { return fn(); } catch (e) { return Promise.reject(e); } }
+  function wroteCount(res, fallback) {
+    return (res && typeof res.written === 'number') ? res.written : fallback;
+  }
+
+  function snapshotBlobs(store, adapter, project) {
+    return guard(function () {
+      var ad = needAdapter(adapter);
+      var stores = snapshot(store);
+      var proj = project == null ? meta(store).active : project;
+      return P(ad.readAll()).then(function (recs) {
+        return blobsFor(recs, stores, proj).map(normalizeBlob);
+      });
+    });
+  }
+
+  function archiveAsync(store, name, when, adapter) {
+    return guard(function () {
+      var ad = needAdapter(adapter);
+      var stores = snapshot(store);
+      var proj = meta(store).active;
+      return P(ad.readAll()).then(function (recs) {
+        var mine = blobsFor(recs, stores, proj).map(normalizeBlob);
+        return JSON.stringify({
+          format: FORMAT,
+          name: name || 'Untitled Project',
+          savedAt: when || '',
+          stores: stores,
+          blobs: mine,
+          /* Recorded at pack time, so a restore can tell "this backup never had
+             them" apart from "this restore lost them". */
+          blobsMissing: missingBlobs(stores, recs)
+        });
+      });
+    });
+  }
+
+  function restoreAsync(store, archiveObj, adapter) {
+    return guard(function () {
+      var ad = needAdapter(adapter);
+      var a = typeof archiveObj === 'string' ? parseArchive(archiveObj) : archiveObj;
+      var clean = sanitizeBlobs(a.blobs);
+      var keys = restore(store, a);           // throws on an empty archive, before any media is written
+      return P(clean.blobs.length ? ad.putAll(clean.blobs) : { written: 0, failed: [] })
+        .then(function (res) {
+          return P(ad.readAll()).then(function (all) {
+            var stores = snapshot(store);
+            var rep = {
+              keys: keys,
+              wrote: wroteCount(res, clean.blobs.length),
+              failed: (res && res.failed) || [],
+              dropped: clean.dropped,
+              missing: missingBlobs(stores, all),
+              packedWithout: (a.blobsMissing || []).length
+            };
+            rep.complete = !rep.missing.length && !rep.dropped.length && !rep.failed.length;
+            rep.note = blobReport(rep);
+            return rep;
+          });
+        });
+    });
+  }
+
+  function saveActiveAsync(store, when, adapter) {
+    return guard(function () {
+      var ad = needAdapter(adapter);
+      var stores = snapshot(store);
+      var active = meta(store).active;
+      return P(ad.readAll()).then(function (recs) {
+        var mine = blobsFor(recs, stores, active);
+        var m = saveActive(store, when);
+        m.slots[m.active].blobs = manifestOf(mine);
+        saveMeta(store, m);
+        return m;
+      });
+    });
+  }
+
+  function switchToAsync(store, name, when, adapter) {
+    return guard(function () {
+      var ad = needAdapter(adapter);
+      var m0 = meta(store);
+      var outgoing = m0.active;
+      if (name === outgoing) {
+        return P({ meta: m0, wrote: 0, dropped: [], missing: [], kept: 0, note: '' });
+      }
+      var live = snapshot(store);
+      return P(ad.readAll()).then(function (recs) {
+        /* Recorded from the LIVE workspace before it is overwritten — after the
+           switch the outgoing project's references are gone from localStorage
+           and an unstamped record could never be attributed again. */
+        var leaving = blobsFor(recs, live, outgoing);
+        var have = {};
+        recs.forEach(function (r) { if (r && specFor(r.db, r.store)) have[blobKey(r)] = true; });
+        /* A slot normally carries a manifest, not bytes. If one does carry
+           bytes — an imported archive stashed whole — write back whatever this
+           browser no longer holds. */
+        var back = ((m0.slots[name] || {}).blobs || []).filter(function (r) {
+          return r && r.data && !have[blobKey(r)];
+        });
+        var clean = sanitizeBlobs(back);
+        return P(clean.blobs.length ? ad.putAll(clean.blobs) : { written: 0, failed: [] })
+          .then(function (res) {
+            switchTo(store, name, when);
+            var m = meta(store);
+            if (m.slots[outgoing]) m.slots[outgoing].blobs = manifestOf(leaving);
+            if (m.slots[name] && !m.slots[name].blobs) m.slots[name].blobs = [];
+            saveMeta(store, m);
+            var after = recs.concat(clean.blobs);
+            var rep = {
+              meta: m, wrote: wroteCount(res, clean.blobs.length), dropped: clean.dropped,
+              missing: missingBlobs(snapshot(store), after),
+              kept: leaving.length, keptBytes: blobInventory(leaving).bytes
+            };
+            rep.note = blobReport(rep);
+            return rep;
+          });
+      });
+    });
+  }
+
+  function newProjectAsync(store, name, when, adapter) {
+    return guard(function () {
+      var ad = needAdapter(adapter);
+      var m0 = meta(store);
+      var outgoing = m0.active;
+      var live = snapshot(store);
+      return P(ad.readAll()).then(function (recs) {
+        var leaving = blobsFor(recs, live, outgoing);
+        newProject(store, name, when);        // throws on a duplicate name — nothing has moved yet
+        var m = meta(store);
+        if (m.slots[outgoing]) m.slots[outgoing].blobs = manifestOf(leaving);
+        m.slots[name].blobs = [];
+        saveMeta(store, m);
+        return m;
+      });
+    });
+  }
+
+  function deleteSlotAsync(store, name, adapter) {
+    return guard(function () {
+      var ad = needAdapter(adapter);
+      var m0 = meta(store);
+      if (name === m0.active) throw new Error('Switch to another project before deleting the active one');
+      if (!Object.prototype.hasOwnProperty.call(m0.slots, name)) {
+        throw new Error('There is no project named "' + name + '" on this machine');
+      }
+      return P(ad.readAll()).then(function (recs) {
+        var doomed = blobsFor(recs, (m0.slots[name] || {}).stores || {}, name);
+        /* A record another production still points at is not this slot's to
+           delete. Deleting the project must not reach into anyone else's. */
+        var keep = {};
+        blobsFor(recs, snapshot(store), m0.active).forEach(function (r) { keep[blobKey(r)] = true; });
+        Object.keys(m0.slots).forEach(function (other) {
+          if (other === name || other === m0.active) return;
+          blobsFor(recs, (m0.slots[other] || {}).stores || {}, other)
+            .forEach(function (r) { keep[blobKey(r)] = true; });
+        });
+        var purge = doomed.filter(function (r) { return !keep[blobKey(r)]; });
+        var m = deleteSlot(store, name);
+        return P(purge.length ? ad.deleteMany(manifestOf(purge)) : { deleted: 0 })
+          .then(function (res) {
+            return {
+              meta: m,
+              purged: (res && typeof res.deleted === 'number') ? res.deleted : purge.length,
+              purgedBytes: blobInventory(purge).bytes,
+              shared: doomed.length - purge.length
+            };
+          });
+      });
+    });
+  }
+
   root.CVault = {
     FORMAT: FORMAT,
     META_KEY: META_KEY,
@@ -321,6 +768,27 @@
     newProject: newProject,
     deleteSlot: deleteSlot,
     renameActive: renameActive,
-    inventory: inventory
+    inventory: inventory,
+
+    /* media — data, pure helpers, and the promise-returning siblings */
+    BLOB_DBS: BLOB_DBS,
+    BLOB_LIMITS: BLOB_LIMITS,
+    specFor: specFor,
+    blobKey: blobKey,
+    referencedIds: referencedIds,
+    blobsFor: blobsFor,
+    manifestOf: manifestOf,
+    blobInventory: blobInventory,
+    missingBlobs: missingBlobs,
+    sanitizeBlobs: sanitizeBlobs,
+    planBlobUpload: planBlobUpload,
+    blobReport: blobReport,
+    snapshotBlobs: snapshotBlobs,
+    archiveAsync: archiveAsync,
+    restoreAsync: restoreAsync,
+    saveActiveAsync: saveActiveAsync,
+    switchToAsync: switchToAsync,
+    newProjectAsync: newProjectAsync,
+    deleteSlotAsync: deleteSlotAsync
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -50,6 +50,8 @@
 .vx-over{color:#e74c3c} .vx-under{color:#7dcea0}
 .vx-sheet{width:100%;min-height:260px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.6;white-space:pre}
 .vx-selrow{outline:1px solid var(--gold)}
+.vx-learned{border-left:2px solid var(--gold);padding-left:10px;margin-top:8px}
+.vx-cal{font-family:var(--mono);font-size:9px;color:var(--gold);border:1px solid var(--gold);border-radius:4px;padding:1px 5px;white-space:nowrap;margin-left:6px}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
 </head>
@@ -87,6 +89,7 @@
       <th>Code</th><th>Complexity</th><th class="vx-num">Planning est. range</th><th class="vx-num">Bid $</th><th>Bid vs est.</th><th>Status</th><th></th>
     </tr></thead><tbody id="vxMoney"></tbody></table>
     <div class="vx-total" id="vxMoneyTotals"></div>
+    <p class="vx-note vx-learned" id="vxLearned" style="display:none"></p>
     <p class="vx-note">Ranges are internal <b>planning estimates</b> by complexity band — not quotes; real vendor bids always win. Award a bid to commit it to the Money Room under acct 15200 (VFX) as an open PO; each award commits once. Verify bids and vendor scope before relying on these figures — VFX pricing drifts with schedule and iteration count.</p>
 
     <h2>4 · On-set VFX day sheet</h2>

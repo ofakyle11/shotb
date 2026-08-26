@@ -135,11 +135,28 @@ exports.handler = async (event) => {
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
     // _headers never applies to function responses, so the gated app carries
     // its own policy. 'unsafe-inline' is required while pages ship inline
-    // script; everything else is locked to our own origin plus the two
-    // research APIs and the generation bridge on the operator's own machine —
+    // script; everything else is locked to our own origin plus the three
+    // research APIs (TMDB and Wikidata for production/production.js:418,432;
+    // Open-Meteo for tools/lib-sun.js:159, which sched-weather.js runs on
+    // /producer/ and /locations/ — both gated, so _headers alone never
+    // reached it) and the generation bridge on the operator's own machine —
     // which the page must be able to call AND to load rendered frames and
     // clips from, hence localhost in img-src and media-src as well.
-    'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: http://127.0.0.1:* http://localhost:*; media-src 'self' blob: data: http://127.0.0.1:* http://localhost:*; connect-src 'self' blob: data: https://api.themoviedb.org https://query.wikidata.org http://127.0.0.1:* http://localhost:*"
+    //
+    // THIS STRING AND THE `/*` BLOCK IN _headers MUST STAY IDENTICAL. They
+    // cover the same asset tree — the split between them is the sign-in wall,
+    // not a difference in what a page may load — and a fix applied to one
+    // copy is invisible in the other, which is how Open-Meteo shipped blocked.
+    // scripts/test_csp_parity.mjs fails the suite on any divergence.
+    //
+    // Generated stills and clips are NOT allowed in from a provider CDN here.
+    // The delivery host is whatever WaveSpeed/xAI put in the job JSON — never
+    // pinned anywhere in this repo — so there is no specific origin to name,
+    // and a wildcard would hand 'unsafe-inline' pages an arbitrary script-
+    // adjacent fetch surface. The supported route is the one Sora already
+    // uses: proxy the bytes through our own origin (serve-openai-video.js),
+    // which is 'self' and needs no widening at all.
+    'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: http://127.0.0.1:* http://localhost:*; media-src 'self' blob: data: http://127.0.0.1:* http://localhost:*; connect-src 'self' blob: data: https://api.themoviedb.org https://query.wikidata.org https://api.open-meteo.com http://127.0.0.1:* http://localhost:*"
   };
   // Legacy /app.html predates the gate and is built on Firebase, so it needs
   // that one vendor origin allowed. Scoped to this path — every current module
