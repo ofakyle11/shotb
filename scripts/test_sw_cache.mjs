@@ -98,5 +98,76 @@ t('a no-store public path is not cached', await visit('/login.html', 'no-store')
   }
 }
 
+/* ── an encoded path must be judged by what the SERVER will serve ──
+   url.pathname is still percent-encoded, and the origin decodes before it
+   decides what to answer with, so a path that reads as /assets/... here can
+   be the gated dashboard there.
+
+   The URL parser decodes %2e to "." and resolves the result, so the %2e forms
+   below arrive already normalised and were refused even before the fix — they
+   are here to pin that. The encoded SLASH is the one that got through: "..%2f"
+   leaves a segment that is not "..", so nothing normalised it away and the
+   prefix test still saw /assets/. */
+for (const p of ['/assets/%2e%2e/dashboard.html', '/assets/%2E%2E/app.html',
+                 '/static/%2e%2e/%2e%2e/dashboard.html', '/assets/..%2fdashboard.html',
+                 '/assets/x%2f..%2f..%2fdashboard.html', '/static/..%5cdashboard.html']) {
+  t(`an encoded traversal out of a public prefix is not cached: ${p}`,
+    await visit(p, 'public, max-age=3600') === false);
+}
+/* An UNencoded traversal never reaches the worker as written — the URL parser
+   resolves it first, so this arrives as /dashboard.html and is refused for
+   being gated rather than for containing "..". Worth pinning: it is the
+   reason only the encoded form was ever a way through. */
+t('a plain traversal resolves away and is not cached',
+  await visit('/assets/../dashboard.html', 'public, max-age=3600') === false);
+/* An object used as a map answers for everything on Object.prototype too. */
+t('a prototype key is not mistaken for a public path',
+  await visit('/__proto__', 'public, max-age=3600') === false);
+t('a malformed escape is not cached',
+  await visit('/assets/%zz', 'public, max-age=3600') === false);
+/* The guard must not have become "refuse everything": ordinary encoded
+   characters in a genuinely public path still cache. */
+t('an ordinary encoded character in a public path still caches',
+  await visit('/assets/my%20logo.svg', 'public, max-age=3600') === true);
+
+/* ── install writes through the same gate as fetch ──
+   cache.add() fetches and writes in one step, consulting neither the path
+   allow-list nor the response header. A gated path in SHELL was written to
+   disk regardless of both. */
+{
+  const installed = [];
+  const realOpen = cacheApi.open;
+  cacheApi.open = async () => ({
+    put: async (req, res) => { installed.push(typeof req === 'string' ? req : req.url); },
+    add: async (u) => { installed.push('ADD:' + u); },
+  });
+  fetchImpl = async (u) => ({
+    ok: true, type: 'basic',
+    headers: { get: (h) => (h.toLowerCase() === 'cache-control'
+      ? (String(u).indexOf('/js/auth.js') >= 0 ? 'private, no-store' : 'public, max-age=3600')
+      : null) },
+    clone: () => ({ cloned: u }),
+  });
+
+  /* Re-run the worker with a SHELL that has a gated path smuggled into it. */
+  const tampered = src.replace("'/', '/login.html',", "'/', '/login.html', '/dashboard.html', '/js/auth.js',");
+  t('the tampered SHELL fixture actually differs', tampered !== src);
+  const fn2 = new Function(...Object.keys(sandbox), tampered);
+  const l2 = {};
+  fn2(...Object.values({ ...sandbox, self: { ...self_, addEventListener: (n, f) => { l2[n] = f; } } }));
+  let waited;
+  await l2.install({ waitUntil: (p) => { waited = p; } });
+  if (waited) await waited;
+
+  t('install never uses cache.add', !installed.some((u) => u.startsWith('ADD:')), installed.join(', '));
+  t('install refuses a gated path smuggled into the shell',
+    !installed.some((u) => u.indexOf('/dashboard.html') >= 0), installed.join(', '));
+  t('install refuses a shell path the gate marks no-store',
+    !installed.some((u) => u.indexOf('/js/auth.js') >= 0), installed.join(', '));
+  t('install still caches the real shell',
+    installed.some((u) => u.indexOf('/login.html') >= 0), installed.join(', '));
+  cacheApi.open = realOpen;
+}
+
 console.log(`test_sw_cache: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -32,19 +32,63 @@ var PUBLIC_EXACT = {
 };
 var PUBLIC_PREFIX = ['/assets/', '/static/'];
 
+/* The pathname a URL gives back is still percent-encoded, and the server
+   decodes before deciding what to serve. "/assets/%2e%2e/dashboard.html"
+   therefore passed the /assets/ prefix test here while the origin answered it
+   with the gated dashboard — and those bytes were written to disk, which is
+   the one thing this file exists to prevent. Decode first, and refuse
+   anything that will not decode or that still carries a traversal. */
+function decodedPath(pathname) {
+  var p;
+  try { p = decodeURIComponent(String(pathname)); } catch (e) { return null; }
+  /* A backslash is a slash to a URL parser on a special scheme, so it is
+     another way to write a segment boundary this code would not see. */
+  if (p.indexOf('\\') !== -1) return null;
+  if (p.indexOf('//') !== -1) return null;
+  var parts = p.split('/');
+  for (var i = 0; i < parts.length; i++) {
+    if (parts[i] === '..' || parts[i] === '.') return null;
+  }
+  return p;
+}
+
 function isPublicPath(pathname) {
-  if (PUBLIC_EXACT[pathname]) return true;
+  var p = decodedPath(pathname);
+  if (p === null) return false;
+  /* hasOwnProperty, not a bare lookup: an object used as a map answers for
+     everything on Object.prototype as well as for its own keys. */
+  if (Object.prototype.hasOwnProperty.call(PUBLIC_EXACT, p)) return true;
   for (var i = 0; i < PUBLIC_PREFIX.length; i++) {
-    if (pathname.indexOf(PUBLIC_PREFIX[i]) === 0) return true;
+    if (p.indexOf(PUBLIC_PREFIX[i]) === 0) return true;
   }
   return false;
 }
 
+/* One place decides whether a response may be written, so the install path
+   and the fetch path cannot drift apart. */
+function mayCache(pathname, res) {
+  if (!res || !res.ok) return false;
+  if (res.type !== 'basic' && res.type !== 'default') return false;
+  var cc = res.headers.get('Cache-Control') || '';
+  if (/no-store|private/i.test(cc)) return false;
+  return isPublicPath(pathname);
+}
+
+/* Install used to call cache.add() straight down the SHELL list. add() fetches
+   and writes in one step, so neither the path allow-list nor the response's
+   own Cache-Control was consulted — the two checks the fetch handler runs and
+   describes as "both must agree before anything is written". A gated path
+   added to SHELL by mistake, or a shell path the gate started serving, was
+   written to disk regardless. Install now goes through the same gate. */
 self.addEventListener('install', function (e) {
   e.waitUntil(
     caches.open(VERSION).then(function (c) {
       return Promise.all(SHELL.map(function (u) {
-        return c.add(u).catch(function () { /* shell item unavailable — skip */ });
+        if (!isPublicPath(u)) return Promise.resolve();
+        return fetch(u, { credentials: 'omit' }).then(function (res) {
+          if (!mayCache(u, res)) return;
+          return c.put(u, res);
+        }).catch(function () { /* shell item unavailable — skip */ });
       }));
     }).then(function () { return self.skipWaiting(); })
   );
@@ -67,17 +111,14 @@ self.addEventListener('fetch', function (e) {
   if (url.pathname.indexOf('/.netlify/') === 0) return; // functions always live
   e.respondWith(
     fetch(req).then(function (res) {
-      if (res && res.ok && (res.type === 'basic' || res.type === 'default')) {
-        /* Never write gated bytes to disk. The gate marks everything it
-           serves "private, no-store"; honouring that keeps the application
-           out of on-device Cache Storage, where it would otherwise survive
-           sign-out and be replayable with no cookie. Only the public shell
-           is cached, which is all the offline start-up needs. */
-        var cc = res.headers.get('Cache-Control') || '';
-        if (isPublicPath(url.pathname) && !/no-store|private/i.test(cc)) {
-          var copy = res.clone();
-          caches.open(VERSION).then(function (c) { c.put(req, copy); });
-        }
+      /* Never write gated bytes to disk. The gate marks everything it serves
+         "private, no-store"; honouring that keeps the application out of
+         on-device Cache Storage, where it would otherwise survive sign-out
+         and be replayable with no cookie. Only the public shell is cached,
+         which is all the offline start-up needs. */
+      if (mayCache(url.pathname, res)) {
+        var copy = res.clone();
+        caches.open(VERSION).then(function (c) { c.put(req, copy); });
       }
       return res;
     }).catch(function () {
