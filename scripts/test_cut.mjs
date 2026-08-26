@@ -394,5 +394,34 @@ function elstOf(u8, n) {
   ok(/drawFrame\(/.test(exp), 'export renders through drawFrame, so it inherits the capture');
 }
 
+
+/* ── the preview must be the SHAPE of the export ──────────────────────
+   edCanvas is authored 1280x720 in the markup and nothing resized it, so
+   picking "Social 9:16" or "Social 1:1" changed only the exported file. And
+   drawCover CROP-FILLS a vertical or square target (H >= W takes the max
+   scale) while it letterboxes a widescreen one — so a 9:16 export of 16:9
+   footage discards most of each side, and the operator saw a comfortable
+   16:9 frame right up until the file was written.
+
+   Another wiring gap: lib-cut.js has no opinion about canvas size, so no
+   assertion driving the model could reach it. */
+{
+  const ui = readFileSync(join(ROOT, 'editor/cut-ui.js'), 'utf8');
+  const html = readFileSync(join(ROOT, 'editor/index.html'), 'utf8');
+
+  ok(/id="edRes"/.test(html), 'the resolution picker exists');
+  ok(/1080x1920|1080x1080/.test(html), 'it offers a non-16:9 social target');
+  ok(/\$\('edRes'\)\.addEventListener\('change'/.test(ui),
+    'changing the target re-shapes the preview');
+  ok(/cv\.width = W; cv\.height = H;/.test(ui),
+    'the preview canvas is resized to the chosen target');
+
+  /* drawCover's asymmetry is the reason this matters — pin it so a future
+     edit cannot quietly make both cases letterbox and hide the crop again. */
+  const cover = ui.slice(ui.indexOf('function drawCover'), ui.indexOf('function drawCover') + 400);
+  ok(/H >= W.*Math\.max.*Math\.min/s.test(cover),
+    'drawCover still crop-fills a tall target and letterboxes a wide one');
+}
+
 if (failed) { console.error('\nCut checks FAILED'); process.exit(1); }
 console.log('\nAll cut checks passed.');

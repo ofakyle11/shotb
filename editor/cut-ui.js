@@ -1015,6 +1015,29 @@
     wireTimeline();
   }
 
+  /* The preview must be the SHAPE of the export, or it is not a preview.
+
+     edCanvas is authored 1280x720 in the HTML and nothing ever resized it, so
+     choosing "Social 9:16" or "Social 1:1" changed only the exported file. And
+     drawCover crop-FILLS a vertical or square target (H >= W takes the max
+     scale) while it letterboxes a widescreen one — so a 9:16 export of 16:9
+     footage throws away most of each side, and the operator saw a comfortable
+     16:9 frame right up until the file was written. A social crop was never
+     previewed at all. Found by the chapter-18 author.
+
+     The canvas is resized to the chosen target and the frame redrawn. CSS
+     keeps it fitted to its container, so a tall canvas shows as a tall frame
+     rather than stretching the layout. */
+  function syncPreviewShape() {
+    if (!cv) return;
+    var res = String(($('edRes') || {}).value || '1280x720').split('x');
+    var W = +res[0] || 1280, H = +res[1] || 720;
+    if (cv.width === W && cv.height === H) return;
+    cv.width = W; cv.height = H;
+    cv.style.aspectRatio = W + ' / ' + H;
+    drawFrame(t, cx, cv.width, cv.height, true);
+  }
+
   async function init() {
     cv = $('edCanvas'); cx = cv.getContext('2d');
     await loadSaved();
@@ -1025,6 +1048,13 @@
     project.fps = C.fpsOf(project);
     $('edFps').value = String(project.fps);
     if (!$('edFps').value) { $('edFps').selectedIndex = 0; project.fps = C.normFps($('edFps').value); }
+    /* A saved cut carries its own target; show that, not the markup default. */
+    if (project.width && project.height) {
+      var want = project.width + 'x' + project.height;
+      if ([].some.call($('edRes').options, function (o) { return o.value === want; })) $('edRes').value = want;
+    }
+    if ($('edRes')) $('edRes').addEventListener('change', syncPreviewShape);
+    syncPreviewShape();
     wire();
     renderAll();
     seek(0);
