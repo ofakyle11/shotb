@@ -43,7 +43,7 @@
 .sd-insp h3:first-child{margin-top:0}
 .sd-field{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:11px;color:var(--dim)}
 .sd-field span{width:56px}
-.sd-field input{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 7px;font-size:11.5px;min-width:0}
+.sd-field input,.sd-field select{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 7px;font-size:11.5px;min-width:0}
 .sd-dim{font-size:11px;color:var(--dim);line-height:1.6}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
@@ -92,18 +92,22 @@
       <div class="sd-field"><span>Width ft</span><input id="sdPlanW" type="number" min="6" max="200"></div>
       <div class="sd-field"><span>Depth ft</span><input id="sdPlanH" type="number" min="6" max="200"></div>
       <div class="sd-field"><span>Scenes</span><input id="sdPlanScenes" placeholder="e.g. 4, 12, 18A"></div>
+      <div class="sd-field"><span>Format</span><select id="sdPlanSensor"></select></div>
       <h3>Selected piece</h3>
       <div id="sdSel"><p class="sd-dim">Nothing selected — click a piece on the plan.</p></div>
-      <p class="sd-dim">Camera cones show the true horizontal field of view for the lens (full-frame). Rotate the camera to aim it; the gaffer's light throws work the same way.</p>
+      <p class="sd-dim">Camera cones show the true horizontal field of view for the lens on the plan's format — the same format the 3D view and the look-through frame use. The brass arcs across a cone are the depth of field at that aperture. Rotate the camera to aim it; the gaffer's light throws work the same way.</p>
     </aside>
   </div>
 </div>
 
 <div class="toast" id="sdToast" aria-live="polite"></div>
 <script src="/js/project-badge.js?v=20260823a"></script>
-<script src="lib-set.js?v=20260823a"></script>
-<script src="lib-set3d.js?v=20260824a"></script>
-<script src="gl.js?v=20260824a"></script>
+<!-- TMedia carries THE sensor table. It loads first because both the plan and
+     the 3D viewport read their format out of it — one lens, one answer. -->
+<script src="/tools/lib-media.js?v=20260826a"></script>
+<script src="lib-set.js?v=20260826a"></script>
+<script src="lib-set3d.js?v=20260826a"></script>
+<script src="gl.js?v=20260826a"></script>
 <script>
 (function () {
   'use strict';
@@ -137,7 +141,16 @@
     }).join('');
     var p = plan();
     $('sdPlanName').value = p.name; $('sdPlanW').value = p.w; $('sdPlanH').value = p.h; $('sdPlanScenes').value = p.scenes || '';
+    $('sdPlanSensor').value = S.planSensor(p).key;
   }
+  /* The format list is the shared sensor table, not a second copy of it. */
+  (function fillSensors() {
+    var M = window.TMedia;
+    var list = M && M.sensorList ? M.sensorList() : [S.FALLBACK_SENSOR];
+    $('sdPlanSensor').innerHTML = list.map(function (s) {
+      return '<option value="' + esc(s.key) + '">' + esc(s.label) + '</option>';
+    }).join('');
+  })();
   function renderCanvas() {
     fitPPF();
     $('sdCanvas').innerHTML = S.toSVG(plan(), PPF, { sel: sel });
@@ -158,10 +171,33 @@
       '<div class="sd-field"><span>Height ft</span><input data-f="hgt" type="number" step="0.5" min="0.1" value="' + esc(P3.heightOf(it)) + '"></div>' +
       '<div class="sd-field"><span>Off floor ft</span><input data-f="z" type="number" step="0.5" min="0" value="' + esc(P3.elevationOf(it)) + '"></div>' +
       '<div class="sd-field"><span>Colour</span><input data-f="color" type="color" value="' + esc(P3.colorOf(it).slice(0, 7)) + '"></div>' +
-      (st.kind === 'camera' ? '<div class="sd-field"><span>Lens mm</span><input data-f="lens" type="number" min="8" max="300" value="' + esc(it.lens || 35) + '"></div>' +
-        '<p class="sd-dim">FOV ' + S.fovDeg(it.lens) + '°</p>' : '') +
+      (st.kind === 'camera' ? cameraFields(p, it) : '') +
       '<button class="tb-btn" id="sdDel" style="width:100%;margin-top:6px">🗑 Remove piece</button>';
   }
+  /* A lens is a focal length, a format and an aperture. The panel used to
+     print one number with no sensor beside it — and it was the wrong sensor.
+     Feet and inches, because that is how a 1st AC pulls focus on this stage. */
+  function ft(v) {
+    if (v == null) return '—';
+    if (v === Infinity) return '∞';
+    var f = Math.floor(v), inch = Math.round((v - f) * 12);
+    if (inch === 12) { f++; inch = 0; }
+    return f + '′' + (inch ? ' ' + inch + '″' : '');
+  }
+  function cameraFields(p, it) {
+    var sen = S.planSensor(p);
+    var band = S.dofFor(p, it);
+    var out = '<div class="sd-field"><span>Lens mm</span><input data-f="lens" type="number" min="8" max="300" value="' + esc(it.lens || 35) + '"></div>' +
+      '<div class="sd-field"><span>Aperture f/</span><input data-f="fstop" type="number" min="0.7" max="32" step="0.1" value="' + esc(it.fstop || 2.8) + '"></div>' +
+      '<div class="sd-field"><span>Focus ft</span><input data-f="focus" type="number" min="0.5" step="0.5" value="' + esc(band ? band.focus : S.focusFor(p, it)) + '"></div>' +
+      '<p class="sd-dim">' + esc(sen.label) + ' · ' + S.fovDeg(it.lens, sen.key) + '° H × ' + S.fovDegV(it.lens, sen.key) + '° V</p>';
+    if (band) {
+      out += '<p class="sd-dim">Sharp ' + esc(ft(band.near)) + ' – ' + esc(ft(band.far)) +
+        ' at f/' + esc(band.fstop) + ' · hyperfocal ' + esc(ft(band.hyperfocal)) + '</p>';
+    }
+    return out;
+  }
+
   /* ── 3D viewport ──────────────────────────────────────────────────
      The 2D plan stays exactly as it was — it is the drawing the art
      department builds from, and nothing here changes it. 3D is a second way
@@ -201,9 +237,16 @@
     var locked = gl3d.lockedCamera();
     if (locked) {
       var cam = S.itemById(plan(), locked);
-      var lens = cam && cam.lens ? cam.lens : 35;
+      var f = gl3d.lensFrame();
+      if (!f.sensor) { $('sdGLNote').textContent = 'Through camera'; return; }
+      /* The caption states the sensor it is actually using. It used to print
+         the 2D plan's full-frame number under a viewport rendering Super 35
+         at whatever aspect the window happened to be. */
+      var band = S.dofFor(plan(), cam);
       $('sdGLNote').textContent = 'Through ' + ((cam && cam.label) || 'camera') +
-        ' · ' + lens + 'mm · ' + S.fovDeg(lens) + '° horizontal';
+        ' · ' + (f.lens || 35) + 'mm · ' + f.sensor +
+        ' · ' + f.fovX.toFixed(1) + '° H × ' + f.fovY.toFixed(1) + '° V' +
+        (band ? ' · f/' + band.fstop + ' sharp ' + ft(band.near) + '–' + ft(band.far) : '');
     } else {
       $('sdGLNote').textContent = 'Drag to orbit · shift-drag or right-drag to pan · scroll to zoom';
     }
@@ -274,6 +317,12 @@
   $('sdNewPlan').addEventListener('click', function () {
     var p = S.newPlan(doc, 'Set ' + (doc.plans.length + 1), 24, 18);
     doc.active = p.id; sel = null; save(); renderAll();
+  });
+  /* Changing the format re-answers every cone, every frustum and the
+     look-through frame at once, because they all read this one key. */
+  $('sdPlanSensor').addEventListener('change', function () {
+    plan().sensor = S.sensorOf(this.value).key;
+    save(); renderAll(); updateGLNote();
   });
   [['sdPlanName', 'name'], ['sdPlanW', 'w'], ['sdPlanH', 'h'], ['sdPlanScenes', 'scenes']].forEach(function (pair) {
     $(pair[0]).addEventListener('change', function () {

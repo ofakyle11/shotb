@@ -17,7 +17,12 @@
        point (x, y) becomes world (x, 0, y).
      · An item's `rot` is degrees clockwise in the plan, which is a rotation
        about the world Y axis.
-     · Triangles wind counter-clockwise when seen from outside.
+     · Triangles wind counter-clockwise when seen from outside, so a face
+       normal points AWAY from the solid it belongs to. Every quad below used
+       to be wound the other way — the box top measured (0,−1,0) — which lit
+       every set from underneath and exported every OBJ and STL inside out.
+       gl.js now enables CULL_FACE, so getting this wrong again is visible on
+       screen instead of silent, and test_set3d.mjs measures it.
 
    All original code, written for Cinamate.
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -160,13 +165,15 @@
     ];
     var lo = corner.map(function (p) { return [p[0], y0, p[1]]; });
     var hi = corner.map(function (p) { return [p[0], y1, p[1]]; });
+    /* Each list reads counter-clockwise seen from OUTSIDE the box, so the
+       cross product in triangulate() points out of the solid. */
     return [
-      [hi[0], hi[1], hi[2], hi[3]],                 // top
-      [lo[3], lo[2], lo[1], lo[0]],                 // bottom
-      [lo[0], lo[1], hi[1], hi[0]],                 // sides
-      [lo[1], lo[2], hi[2], hi[1]],
-      [lo[2], lo[3], hi[3], hi[2]],
-      [lo[3], lo[0], hi[0], hi[3]]
+      [hi[3], hi[2], hi[1], hi[0]],                 // top      → +Y
+      [lo[0], lo[1], lo[2], lo[3]],                 // bottom   → −Y
+      [hi[0], hi[1], lo[1], lo[0]],                 // sides
+      [hi[1], hi[2], lo[2], lo[1]],
+      [hi[2], hi[3], lo[3], lo[2]],
+      [hi[3], hi[0], lo[0], lo[3]]
     ];
   }
 
@@ -177,8 +184,14 @@
       var a0 = i / seg * Math.PI * 2, a1 = (i + 1) / seg * Math.PI * 2;
       var p0 = [cx + r * Math.cos(a0), cz + r * Math.sin(a0)];
       var p1 = [cx + r * Math.cos(a1), cz + r * Math.sin(a1)];
-      out.push([[p0[0], y0, p0[1]], [p1[0], y0, p1[1]], [p1[0], y1, p1[1]], [p0[0], y1, p0[1]]]);
-      out.push([[cx, y1, cz], [p0[0], y1, p0[1]], [p1[0], y1, p1[1]], [cx, y1, cz]]);
+      /* Side, wound so the normal points out along the radius. */
+      out.push([[p0[0], y1, p0[1]], [p1[0], y1, p1[1]], [p1[0], y0, p1[1]], [p0[0], y0, p0[1]]]);
+      /* Cap fans, degenerate on their fourth corner: top faces up, bottom
+         faces down. The bottom used to be missing altogether, which with
+         face culling on is a hole you can see through, and which no slicer
+         will accept as a solid. */
+      out.push([[cx, y1, cz], [p1[0], y1, p1[1]], [p0[0], y1, p0[1]], [cx, y1, cz]]);
+      out.push([[cx, y0, cz], [p0[0], y0, p0[1]], [p1[0], y0, p1[1]], [cx, y0, cz]]);
     }
     return out;
   }
@@ -222,7 +235,12 @@
   }
   function cameraQuads(cx, cz, h, deg) {
     var body = boxQuads(cx, cz, 1.2, 1.8, h - 0.7, h, deg);
-    var lens = rotY(cx, cz + 1.1, cx, cz, deg);
+    /* The lens goes on the front, and the front is −Z at rot 0 — the same
+       direction cameraView() looks and the same way the 2D cone points, up
+       the page. It used to be built at +Z, so the model faced 180° away from
+       its own frustum and every "which way is A cam pointing" read backwards
+       off the 3D view. */
+    var lens = rotY(cx, cz - 1.1, cx, cz, deg);
     body = body.concat(cylinderQuads(lens[0], lens[1], 0.32, h - 0.55, h - 0.15, 8));
     return body.concat(boxQuads(cx, cz, 0.3, 0.3, 0, h - 0.7, deg));   // tripod column
   }
@@ -369,17 +387,39 @@
      The reason to build this at all. A camera item carries a real lens, so
      the viewport can show precisely what that lens sees from that mark —
      which no general-purpose modeller knows how to do, because it has no
-     idea what a 35mm on Super 35 means. */
-  var SENSOR_W = 24.89;      // Super 35 aperture width, mm
-  var SENSOR_H = 18.66;
+     idea what a 35mm on Super 35 means.
 
-  function lensFov(lensMm, vertical) {
+     THE sensor table is TMedia.SENSORS in tools/lib-media.js — the same one
+     the 2D plan reads, so the cone and the frustum are the same lens. This
+     file used to hold its own 24.89 × 18.66 while sets/lib-set.js held a
+     36 mm full frame; a 35 mm printed 54.4° under a viewport drawing 39.2°.
+
+     Soft dependency: props/index.html loads this module without the tools
+     bundle, so an absent TMedia falls back to the default format COPIED from
+     that table — and test_set3d.mjs asserts the copy still matches, so it
+     cannot drift into a second sensor. */
+  var FALLBACK_SENSOR = { key: 'super35', label: 'Super 35 (24.9×18.7)', w: 24.9, h: 18.7 };
+
+  function sensorFor(key) {
+    var M = root.TMedia;
+    if (M && M.SENSORS) {
+      var k = M.sensorKey ? M.sensorKey(key) : (M.SENSORS[key] ? key : 'super35');
+      var s = M.SENSORS[k];
+      if (s) return { key: k, label: s.label, w: s.w, h: s.h };
+    }
+    return FALLBACK_SENSOR;
+  }
+  /* The frame's shape comes from the FORMAT. The viewport letterboxes to it;
+     it never widens the lens to fill a wide browser window. */
+  function aspectFor(key) { var s = sensorFor(key); return s.w / s.h; }
+
+  function lensFov(lensMm, vertical, sensorKey) {
     var mm = +lensMm > 0 ? +lensMm : 35;
-    var dim = vertical ? SENSOR_H : SENSOR_W;
-    return 2 * Math.atan(dim / (2 * mm)) * 180 / Math.PI;
+    var s = sensorFor(sensorKey);
+    return 2 * Math.atan((vertical ? s.h : s.w) / (2 * mm)) * 180 / Math.PI;
   }
 
-  function cameraView(item, eyeHeightFt) {
+  function cameraView(item, eyeHeightFt, sensorKey) {
     var h = eyeHeightFt != null ? eyeHeightFt : Math.max(1, heightOf(item) - 0.5);
     var eye = [+item.x || 0, h, +item.y || 0];
     /* rot 0 points along +Z in the plan, which is "down the page"; a
@@ -389,7 +429,16 @@
        plan coordinates, which is (sin r, -cos r) in world X/Z. */
     var r = (+item.rot || 0) * Math.PI / 180;
     var target = [eye[0] + Math.sin(r) * 10, h, eye[2] - Math.cos(r) * 10];
-    return { eye: eye, target: target, fovY: lensFov(item.lens, true), lens: +item.lens || 35 };
+    var s = sensorFor(sensorKey);
+    /* fovY and aspect are one pair, taken from one format. The renderer used
+       to take fovY from here and aspect from the canvas, so the horizontal
+       coverage was the browser window's shape: a 35mm read 39.1° at 4:3,
+       50.7° at 16:9 and 63.8° at 21:9. Widening the window widened the lens. */
+    return { eye: eye, target: target,
+             fovY: lensFov(item.lens, true, s.key),
+             fovX: lensFov(item.lens, false, s.key),
+             aspect: s.w / s.h, sensor: s.label, sensorKey: s.key,
+             lens: +item.lens || 35 };
   }
 
   /* ── export ─────────────────────────────────────────────────────────
@@ -450,6 +499,7 @@
     itemMesh: itemMesh, buildScene: buildScene, triangulate: triangulate,
     hexToRgb: hexToRgb,
     rayTriangle: rayTriangle, pick: pick, screenRay: screenRay,
+    FALLBACK_SENSOR: FALLBACK_SENSOR, sensorFor: sensorFor, aspectFor: aspectFor,
     lensFov: lensFov, cameraView: cameraView,
     toOBJ: toOBJ, toSTL: toSTL
   };

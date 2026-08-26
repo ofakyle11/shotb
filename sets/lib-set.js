@@ -25,7 +25,7 @@
     vehicle:    { label: 'Vehicle',       w: 15,  h: 6,   kind: 'rect' },
     greenscreen:{ label: 'Green screen',  w: 12,  h: 0.5, kind: 'green' },
     person:     { label: 'Blocking mark', w: 1.2, h: 1.2, kind: 'person' },
-    camera:     { label: 'Camera',        w: 1.6, h: 1.6, kind: 'camera', lens: 35 },
+    camera:     { label: 'Camera',        w: 1.6, h: 1.6, kind: 'camera', lens: 35, fstop: 2.8 },
     light:      { label: 'Light',         w: 1.4, h: 1.4, kind: 'light' },
     custom:     { label: 'Custom box',    w: 4,   h: 4,   kind: 'rect' }
   };
@@ -38,8 +38,12 @@
     d.active = p.id;
     return d;
   }
-  function newPlan(doc, name, wFt, hFt) {
-    var p = { id: uid(), name: name || 'New set', w: wFt || 24, h: hFt || 18, scenes: '', items: [] };
+  function newPlan(doc, name, wFt, hFt, sensorKey) {
+    /* A plan carries the format it is shot on. Every field of view drawn on
+       it — and every frustum the 3D view stands up from it — is answered from
+       this one key, so the plan and the viewport cannot disagree. */
+    var p = { id: uid(), name: name || 'New set', w: wFt || 24, h: hFt || 18,
+              sensor: sensorOf(sensorKey).key, scenes: '', items: [] };
     doc.plans.push(p);
     return p;
   }
@@ -47,7 +51,7 @@
     var s = STENCILS[type] || STENCILS.custom;
     var it = { id: uid(), type: type, x: snap(x != null ? x : plan.w / 2), y: snap(y != null ? y : plan.h / 2),
                w: s.w, h: s.h, rot: 0, label: '' };
-    if (s.kind === 'camera') it.lens = s.lens;
+    if (s.kind === 'camera') { it.lens = s.lens; it.fstop = s.fstop; }
     plan.items.push(it);
     return it;
   }
@@ -76,25 +80,105 @@
     return null;
   }
 
-  /* Horizontal field of view for a full-frame 36mm-wide sensor. */
-  function fovDeg(lensMm) {
-    var f = +lensMm || 35;
-    return Math.round(2 * Math.atan(18 / f) * 180 / Math.PI * 10) / 10;
+  /* ── the sensor ───────────────────────────────────────────────────────
+     THE table is TMedia.SENSORS in tools/lib-media.js. This module used to
+     carry its own 36 mm full-frame assumption while the 3D engine carried a
+     Super 35 one, so a 35 mm lens printed 54.4° under a viewport drawing
+     39.2°. There is now one table and one answer.
+
+     It is a soft dependency, not a hard one: props/index.html loads the sets
+     geometry without the tools bundle, so an absent TMedia falls back to the
+     default format's numbers — COPIED from that table, with a test asserting
+     the copy still matches it, so the fallback cannot drift into a fourth
+     sensor. */
+  var FALLBACK_SENSOR = { key: 'super35', label: 'Super 35 (24.9×18.7)', w: 24.9, h: 18.7 };
+
+  function sensorOf(key) {
+    var M = root.TMedia;
+    if (M && M.SENSORS) {
+      var k = M.sensorKey ? M.sensorKey(key) : (M.SENSORS[key] ? key : 'super35');
+      var s = M.SENSORS[k];
+      if (s) return { key: k, label: s.label, w: s.w, h: s.h };
+    }
+    return FALLBACK_SENSOR;
+  }
+  /* The format a plan is shot on, defaulting for plans saved before the field
+     existed. */
+  function planSensor(plan) { return sensorOf(plan && plan.sensor); }
+
+  /* Horizontal field of view, on the plan's format. */
+  function fovDeg(lensMm, sensorKey) {
+    var f = +lensMm > 0 ? +lensMm : 35;
+    var s = sensorOf(sensorKey);
+    return Math.round(2 * Math.atan(s.w / (2 * f)) * 180 / Math.PI * 10) / 10;
+  }
+  function fovDegV(lensMm, sensorKey) {
+    var f = +lensMm > 0 ? +lensMm : 35;
+    var s = sensorOf(sensorKey);
+    return Math.round(2 * Math.atan(s.h / (2 * f)) * 180 / Math.PI * 10) / 10;
+  }
+
+  /* ── focus ────────────────────────────────────────────────────────────
+     What is the camera actually focused on? The blocking mark it is pointed
+     at, which is the answer a 1st AC would give. Falls back to a sane 12 ft
+     when nobody has marked the scene, and is overridable per camera. */
+  var FT_PER_M = 3.280839895;
+  function focusFor(plan, cam) {
+    if (cam && +cam.focus > 0) return +cam.focus;
+    var best = null;
+    var r = (+((cam && cam.rot) || 0)) * Math.PI / 180;
+    var ax = Math.sin(r), ay = -Math.cos(r);          // the way the cone points
+    ((plan && plan.items) || []).forEach(function (it) {
+      if (it.type !== 'person') return;
+      var dx = it.x - cam.x, dy = it.y - cam.y;
+      var d = Math.hypot(dx, dy);
+      if (d < 0.5) return;
+      if ((dx * ax + dy * ay) / d < 0.5) return;      // behind, or well off axis
+      if (best == null || d < best) best = d;
+    });
+    return best == null ? 12 : Math.round(best * 10) / 10;
+  }
+  /* Depth of field for a camera on a plan, in FEET — the unit the plan and
+     the tape measure on stage are both in. Null when TMedia is not loaded. */
+  function dofFor(plan, cam) {
+    var M = root.TMedia;
+    if (!M || !M.dof || !cam) return null;
+    var focusFt = focusFor(plan, cam);
+    var d = M.dof(planSensor(plan).key, +cam.lens || 35, +cam.fstop > 0 ? +cam.fstop : 2.8,
+                  focusFt / FT_PER_M);
+    var ft = function (v) { return v == null ? null : (v === Infinity ? Infinity : Math.round(v * FT_PER_M * 10) / 10); };
+    return { focus: focusFt, fstop: d.fStop, near: ft(d.near), far: ft(d.far),
+             hyperfocal: ft(d.hyperfocal), coc: d.coc };
   }
 
   /* ── SVG rendering ────────────────────────────────────────────────────── */
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
-  function itemSVG(it, ppf, selected) {
+  function itemSVG(it, ppf, selected, plan) {
     var s = STENCILS[it.type] || STENCILS.custom;
     var w = it.w * ppf, h = it.h * ppf, cx = it.x * ppf, cy = it.y * ppf;
     var stroke = selected ? '#C9A86C' : '#8BA3B8';
     var g = '<g data-id="' + esc(it.id) + '" transform="translate(' + cx + ' ' + cy + ') rotate(' + esc(it.rot || 0) + ')" style="cursor:move">';
     if (s.kind === 'camera') {
-      var fov = fovDeg(it.lens), half = fov / 2 * Math.PI / 180, len = 12 * ppf;
+      var fov = fovDeg(it.lens, plan && plan.sensor), half = fov / 2 * Math.PI / 180, len = 12 * ppf;
       g += '<path d="M0 0 L' + (Math.sin(-half) * len) + ' ' + (-Math.cos(-half) * len) +
            ' A' + len + ' ' + len + ' 0 0 1 ' + (Math.sin(half) * len) + ' ' + (-Math.cos(half) * len) +
            ' Z" fill="rgba(91,141,184,.12)" stroke="rgba(91,141,184,.5)" stroke-dasharray="4 3"/>';
+      /* The band that is actually sharp, drawn across the cone. A cone tells
+         you what is in frame; this tells you what is in focus, which is the
+         other half of "can I put the mark there". */
+      var band = dofFor(plan, it);
+      if (band && band.near) {
+        var arc = function (rFt) {
+          var r = Math.min(rFt, 60) * ppf;
+          return 'M' + (Math.sin(-half) * r) + ' ' + (-Math.cos(-half) * r) +
+                 ' A' + r + ' ' + r + ' 0 0 1 ' + (Math.sin(half) * r) + ' ' + (-Math.cos(half) * r);
+        };
+        g += '<path d="' + arc(band.near) + '" fill="none" stroke="rgba(201,168,108,.55)" stroke-width="1.5"/>';
+        if (band.far !== Infinity) {
+          g += '<path d="' + arc(band.far) + '" fill="none" stroke="rgba(201,168,108,.55)" stroke-width="1.5"/>';
+        }
+      }
       g += '<rect x="' + (-w / 2) + '" y="' + (-h / 2) + '" width="' + w + '" height="' + h + '" rx="2" fill="#1A2F4A" stroke="' + stroke + '" stroke-width="1.5"/>';
       g += '<text y="4" text-anchor="middle" font-size="' + (ppf * 0.9) + '" fill="#C9A86C" font-family="monospace">' + esc(it.lens || 35) + '</text>';
     } else if (s.kind === 'light') {
@@ -135,19 +219,26 @@
     for (var gy = 0; gy <= plan.h; gy++) {
       out += '<line x1="0" y1="' + gy * ppf + '" x2="' + W + '" y2="' + gy * ppf + '" stroke="' + (gy % 5 ? 'rgba(139,163,184,.07)' : 'rgba(139,163,184,.16)') + '"/>';
     }
-    plan.items.forEach(function (it) { out += itemSVG(it, ppf, opts.sel === it.id); });
+    plan.items.forEach(function (it) { out += itemSVG(it, ppf, opts.sel === it.id, plan); });
     /* scale bar: 5 ft */
     var bx = ppf, by = H - ppf;
     out += '<g font-family="monospace" font-size="' + (ppf * 0.9) + '" fill="#8BA3B8">' +
       '<line x1="' + esc(bx) + '" y1="' + by + '" x2="' + (bx + 5 * ppf) + '" y2="' + by + '" stroke="#C9A86C" stroke-width="2"/>' +
       '<text x="' + (bx + 5 * ppf + 4) + '" y="' + (by + 3) + '">5 ft</text>' +
-      '<text x="' + esc(bx) + '" y="' + (ppf * 1.4) + '">' + esc(plan.name) + ' — ' + esc(plan.w) + '′ × ' + esc(plan.h) + '′</text></g>';
+      '<text x="' + esc(bx) + '" y="' + (ppf * 1.4) + '">' + esc(plan.name) + ' — ' + esc(plan.w) + '′ × ' + esc(plan.h) + '′</text>' +
+      /* The plan states the format it was drawn for. A cone with no sensor
+         beside it is a number nobody can check. */
+      '<text x="' + esc(bx) + '" y="' + (ppf * 2.6) + '">' + esc(planSensor(plan).label) + '</text></g>';
     return out + '</svg>';
   }
 
   root.CSet = {
-    STENCILS: STENCILS,
+    STENCILS: STENCILS, FALLBACK_SENSOR: FALLBACK_SENSOR,
     newDoc: newDoc, newPlan: newPlan, addItem: addItem, removeItem: removeItem, itemById: itemById,
-    snap: snap, hitTest: hitTest, fovDeg: fovDeg, toSVG: toSVG
+    snap: snap, hitTest: hitTest,
+    sensorOf: sensorOf, planSensor: planSensor,
+    fovDeg: fovDeg, fovDegV: fovDegV,
+    focusFor: focusFor, dofFor: dofFor,
+    toSVG: toSVG
   };
 })(typeof window !== 'undefined' ? window : globalThis);

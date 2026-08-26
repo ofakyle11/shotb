@@ -52,7 +52,7 @@ select.cl-status{background:var(--surface2);border:1px solid var(--border);color
       <span class="cl-note" id="clMeta"></span>
     </div>
     <div id="clBanner"></div>
-    <div id="clRows"><p class="cl-note">Scans every scene for real brands and companies, music references, on-screen artwork, non-555 phone numbers, real people, broadcast/archival footage, currency reproduction and signage — each flagged with the standard fix. Work the list to pending-zero and you're E&amp;O-ready.</p></div>
+    <div id="clRows"><p class="cl-note">Scans every scene for real brands and companies, music references, on-screen artwork, non-555 phone numbers, real people, broadcast/archival footage, currency reproduction and signage — each flagged with the standard fix. Clearing the list is one of four things an underwriter asks for: the banner above also reads your chain of title, your music licences and your E&amp;O certificate, and names whatever is still missing.</p></div>
 
     <h2>Letters &amp; releases</h2>
     <div class="cl-bar">
@@ -87,14 +87,35 @@ select.cl-status{background:var(--surface2);border:1px solid var(--border);color
   var st = readLS(KEY) || { findings: [], scannedAt: '' };
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
 
+  /* The rest of the E&O file, from the stores that already hold it. Passing
+     todayISO in keeps the readiness rule pure — the module never asks the
+     clock itself. */
+  function eoContext() {
+    var music = readLS('SB_Music_v1');
+    return {
+      rights: readLS('SB_Rights_v1') || [],
+      music: music && music.cues ? music : { cues: (music && music.length ? music : []) },
+      insurance: readLS('SB_Insurance_v1') || [],
+      todayISO: new Date().toISOString().slice(0, 10)
+    };
+  }
+
   function render() {
-    var sum = C.summary(st.findings);
+    var sum = C.summary(st.findings, eoContext());
     $('clMeta').textContent = st.findings.length
-      ? sum.total + ' findings · ' + sum.open + ' open' + (st.scannedAt ? ' · scanned ' + st.scannedAt : '')
+      ? sum.total + ' findings · ' + sum.resolved + ' cleared · ' + sum.pending + ' pending' +
+        (sum.acceptedRisk ? ' · ' + sum.acceptedRisk + ' accepted risk' : '') +
+        (st.scannedAt ? ' · scanned ' + st.scannedAt : '')
       : '';
-    $('clBanner').innerHTML = !st.findings.length ? '' : sum.eoReady
-      ? '<div class="cl-banner cl-ready">CLEAR — every finding addressed. Package the report with your E&amp;O application.</div>'
-      : '<div class="cl-banner cl-open">' + esc(sum.open) + ' finding' + (sum.open === 1 ? '' : 's') + ' still open — E&amp;O underwriters will ask about every one.</div>';
+    var disc = !sum.disclosures.length ? '' :
+      '<div class="cl-banner cl-open"><b>Disclose on the application:</b><br>' + sum.disclosures.map(function (b) {
+        return '· ' + esc(b.label) + ' — <span class="cl-note">' + esc(b.detail) + '</span>'; }).join('<br>') + '</div>';
+    $('clBanner').innerHTML = (sum.eoReady
+      ? '<div class="cl-banner cl-ready">E&amp;O READY — every script finding cleared or rewritten, chain of title executed, every cue licensed, policy live. Package the report with your application.</div>'
+      : '<div class="cl-banner cl-open"><b>NOT E&amp;O ready — ' + esc(sum.blockers.length) + ' blocker' +
+        (sum.blockers.length === 1 ? '' : 's') + ':</b><br>' + sum.blockers.map(function (b) {
+          return '· ' + esc(b.label) + ' — <span class="cl-note">' + esc(b.detail) + '</span>'; }).join('<br>') +
+        '<br><span class="cl-note">Chain of title and the certificate live in <a href="/tools/" style="color:var(--gold)">Tools › Rights / Insurance</a>; cue licences in <a href="/music/" style="color:var(--gold)">Music</a>.</span></div>') + disc;
     $('clRows').innerHTML = st.findings.map(function (f) {
       return '<div class="cl-find">' +
         '<span class="cl-risk cl-' + esc(f.risk) + '">' + esc(f.risk) + '</span>' +
@@ -102,7 +123,7 @@ select.cl-status{background:var(--surface2);border:1px solid var(--border);color
         '<span class="cl-ex">' + esc(f.excerpt) + '</span>' +
         '<span class="cl-note">' + esc(f.action) + '</span> ' +
         '<select class="cl-status" data-fid="' + esc(f.id) + '">' +
-          ['pending', 'cleared', 'rewritten', 'accepted risk'].map(function (s2) {
+          C.STATUSES.map(function (s2) {
             return '<option' + (s2 === f.status ? ' selected' : '') + '>' + s2 + '</option>'; }).join('') +
         '</select></div>';
     }).join('') || (st.scannedAt

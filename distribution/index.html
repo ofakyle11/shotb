@@ -60,22 +60,26 @@
     <div class="dt-bar">
       <input id="wTerr" placeholder="Territory" style="width:130px" value="Worldwide">
       <select id="wChan"><option>Theatrical</option><option>Festival</option><option selected>SVOD</option><option>TVOD</option><option>AVOD</option><option>Broadcast</option><option>Airline</option></select>
-      <input id="wWin" placeholder="Window — e.g. 90 days" style="width:120px">
-      <input id="wStart" type="date" style="width:140px">
+      <input id="wWin" placeholder="Term — e.g. 90 days" style="width:120px">
+      <input id="wStart" type="date" style="width:140px" title="Term start">
+      <input id="wEnd" type="date" style="width:140px" title="Term end — or leave blank and state the term">
       <input id="wWho" placeholder="Licensee" style="width:140px">
       <button class="tb-btn gold" id="wAdd">+ Add window</button>
     </div>
     <div id="wRows"></div>
+    <p class="dt-note">An exclusivity clash is an overlap in all three dimensions at once — territory, channel and <b>term</b>. Worldwide overlaps Germany; "USA" and "United States" are the same country; Canada 2027 and Canada 2035 are not a clash. A grant with no end date on record is flagged amber, because until the term is written down nobody can say.</p>
 
     <h2>Screener registry</h2>
+    <div id="scGate" class="dt-note"></div>
     <div class="dt-bar">
       <input id="scWho" placeholder="Recipient" style="width:150px">
       <input id="scCo" placeholder="Company" style="width:150px">
       <input id="scLink" placeholder="Link / method sent" style="min-width:180px">
+      <select id="scScope" title="What this screener is for"><option value="festival">Festival / press</option><option value="all-media" selected>Buyer / delivery</option></select>
       <button class="tb-btn gold" id="scAdd">+ Log screener</button>
     </div>
     <div id="scRows"></div>
-    <p class="dt-note">Every screener on the record: who has the picture, since when, and whether they've confirmed watching. If a copy leaks, this list is where the conversation starts.</p>
+    <p class="dt-note">Every screener on the record: who has the picture, <b>which cut</b>, and what the rights state of that cut was when it went out. If a copy leaks, this list is where the conversation starts — and if the cut carries an unlicensed cue or an open high-risk clearance finding, the send is refused until you say why.</p>
   </main>
 </div>
 

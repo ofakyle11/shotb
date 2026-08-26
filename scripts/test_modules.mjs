@@ -7,10 +7,13 @@ import { fileURLToPath } from 'url';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 (0, eval)(readFileSync(join(ROOT, 'projects/lib-vault.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'boards/lib-shots.js'), 'utf8'));
-/* lib-prod.js cuts audition sides with the one scene model */
+/* lib-prod.js cuts audition sides with the one scene model, and joins the
+   day through the shoot-day record — both are load-order requirements it
+   throws on, exactly as the browser loads them. */
 (0, eval)(readFileSync(join(ROOT, 'js/lib-scenes.js'), 'utf8'));
+(0, eval)(readFileSync(join(ROOT, 'js/lib-shootdays.js'), 'utf8'));
 (0, eval)(readFileSync(join(ROOT, 'production/lib-prod.js'), 'utf8'));
-const V = globalThis.CVault, S = globalThis.CShots, P = globalThis.CProd;
+const V = globalThis.CVault, S = globalThis.CShots, P = globalThis.CProd, SD = globalThis.CShootDays;
 
 let failed = 0;
 function ok(cond, name) {
@@ -92,23 +95,83 @@ function fakeStore(init) {
   ok(csv.split('\n').length === 3 && csv.includes('"Lens (mm)"'), 'boards: csv rows');
 }
 
-/* ── production: DPR ── */
+/* ── production: DPR ──────────────────────────────────────────────────────
+   The fixture this replaced invented `{scene,take,status:'print',date}` — a
+   shape NO writer of SB_TakeLog_v1 has ever produced. The only writer is the
+   TCore.Register at tools/tools-media-ui.js:38, whose fields are
+   [day,time,scene,take,roll,grade,note], and a circled take is the <select>
+   option string 'Circled ⭕' in `grade`. Because the fixture invented `status`
+   and `date`, the suite went green while the shipped report filtered on a
+   field nobody wrote (so every take counted on every day) and counted prints
+   on two more (so printedCount was permanently 0). Every row below is the
+   shape a real writer emits, and the writer is named. */
 {
-  const d = P.dpr({
-    takes: [{ scene: '12', take: 1, status: 'print', date: '2026-08-20' }, { scene: '12', take: 2, date: '2026-08-20' }, { scene: '14', take: 1, date: '2026-08-21' }],
+  /* tools/tools-media-ui.js:38 — the take-log Register. */
+  const takeLog = [
+    { id: 'r1', day: '2026-08-20', time: '09:12', scene: '12', take: '1', roll: 'A001', grade: '—', note: '' },
+    { id: 'r2', day: '2026-08-20', time: '09:20', scene: '12', take: '2', roll: 'A001', grade: 'Circled ⭕', note: 'print' },
+    { id: 'r3', day: '2026-08-21', time: '08:40', scene: '14', take: '1', roll: 'A002', grade: 'Good', note: '' }
+  ];
+  /* dailies/index.html:185 → CDailies.makeTake, wrapped in {days,takes,cur}. */
+  const dailies = {
+    cur: { date: '2026-08-20', unit: 'MAIN' },
+    days: [{ date: '2026-08-20', unit: 'MAIN' }],
+    takes: [
+      { id: 'd1', day: '2026-08-20', scene: '13', slate: '13A', take: 1, camera: 'A', circled: true, ngReason: '', notes: 'the one', soundRoll: 'S1', lens: '35', tcIn: '' },
+      { id: 'd2', day: '2026-08-21', scene: '14', slate: '14A', take: 1, camera: 'B', circled: false, ngReason: 'plane', notes: '', soundRoll: 'S2', lens: '50', tcIn: '' }
+    ]
+  };
+  /* producer/schedule-board.js:84 — strips; day -1 is the boneyard. */
+  const board = { scenes: [
+    { id: 'sc12', num: 12, heading: 'INT. DINER - NIGHT', eighths: 12, day: 0 },
+    { id: 'sc13', num: 13, heading: 'EXT. LOT - NIGHT', eighths: 6, day: 0 },
+    { id: 'sc15', num: 15, heading: 'INT. STUDY - DAY', eighths: 8, day: 0 },
+    { id: 'sc14', num: 14, heading: 'EXT. RIVER - DUSK', eighths: 4, day: 1 },
+    { id: 'sc16', num: 16, heading: 'INT. CAR - DAY', eighths: 3, day: -1 }
+  ] };
+  /* tools/sched-weather.js:105 — the day plan. 2026-08-20 is a Thursday. */
+  const plan = { date: '2026-08-20', city: 'la', lat: 34.05, lon: -118.24, skipWk: true, n: '' };
+  const shootDays = SD.build(plan, board, { dailies: dailies });
+  const stores = {
+    takes: takeLog, dailies: dailies,
     timecards: { rows: [{ name: 'AC', date: '2026-08-20' }, { name: 'Gaffer', date: '2026-08-20' }] },
     hotcost: [{ amount: '1200' }, { amount: 800 }],
-    board: { scenes: [{ day: 0 }, { day: -1 }] },
-    plan: { date: '2026-09-14' },
+    board: board, plan: plan, shootDays: shootDays,
     timeline: { projectName: 'THE LAST DISPATCH' }
-  }, { date: '2026-08-20', notes: 'Lost 1h to rain' });
+  };
+  const d = P.dpr(stores, { date: '2026-08-20', notes: 'Lost 1h to rain' });
   ok(d.project === 'THE LAST DISPATCH', 'dpr: project name');
-  ok(d.scenesCovered.join() === '12', 'dpr: date-filtered scenes');
-  ok(d.takeCount === 2 && d.printedCount === 1, 'dpr: takes + prints');
+  ok(d.dayIdx === 0 && d.dayLabel === 'Day 1', 'dpr: the date resolves to a shoot day');
+  ok(d.scenesCovered.join() === '12,13', 'dpr: scenes covered come from BOTH take stores, that day only');
+  ok(d.takeCount === 3, 'dpr: takes on the day, across both stores');
+  ok(d.printedCount === 2, 'dpr: circled takes counted from grade AND the boolean');
   ok(d.crewOnCards === 2, 'dpr: crew count');
   ok(d.hotCostTotal === 2000, 'dpr: hot-cost sum');
+  ok(d.scheduledScenes === 3 && d.scheduledSceneNums.join() === '12,13,15', 'dpr: scheduled is THIS day, not the whole board');
+  ok(d.scenesShot === 2 && d.scenesUnshot.join() === '15', 'dpr: scheduled vs shot');
+  ok(d.pagesScheduled === 26, 'dpr: eighths scheduled for the day');
+  ok(d.dayOneDate === '2026-08-20', 'dpr: day one from the plan');
+
+  const d2 = P.dpr(stores, { date: '2026-08-21', notes: '' });
+  ok(d2.dayIdx === 1 && d2.takeCount === 2 && d2.printedCount === 0, 'dpr: the next day is a different day');
+  ok(d2.scenesCovered.join() === '14', 'dpr: yesterday does not bleed into today');
+
+  /* A Saturday: no strips, no takes, and the report says so instead of
+     reporting the entire schedule as scheduled. */
+  const d3 = P.dpr(stores, { date: '2026-08-22', notes: '' });
+  ok(d3.dayIdx === -1 && d3.scheduledScenes === 0 && d3.takeCount === 0, 'dpr: a date that is not a shoot day');
+
+  /* A take with no day — the shape still sitting in real browsers from before
+     the take log carried one — is on no report, and is reported as such. */
+  const d4 = P.dpr(Object.assign({}, stores, {
+    takes: takeLog.concat([{ id: 'r0', time: '17:44', scene: '99', take: '1', roll: 'A000', grade: 'Circled ⭕', note: '' }])
+  }), { date: '2026-08-20', notes: '' });
+  ok(d4.takeCount === 3 && d4.undatedTakes === 1, 'dpr: an undated take counts on no day and is flagged');
+
   const txt = P.dprText(d);
   ok(txt.includes('DAILY PRODUCTION REPORT') && txt.includes('Lost 1h to rain'), 'dpr: text render');
+  ok(txt.includes('Day 1') && txt.includes('shot 2/3') && txt.includes('NOT SHOT: 15'), 'dpr: text carries the day and the shortfall');
+  ok(P.dprText(d4).includes('carry no shoot day'), 'dpr: text names the undated takes');
 }
 
 /* ── production: cue sheet ── */

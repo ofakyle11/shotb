@@ -55,6 +55,7 @@
 <div class="toast" id="tdToast" aria-live="polite"></div>
 <script src="/js/project-badge.js?v=20260823a"></script>
 <script src="/js/lib-scenes.js?v=20260826a"></script>
+<script src="/js/lib-shootdays.js?v=20260826a"></script>
 <script src="/safety/lib-safety.js?v=20260823a"></script>
 <script>
 (function () {
@@ -69,14 +70,30 @@
   var maxDay = -1;
   scenes.forEach(function (s) { if (s.day != null && s.day > maxDay) maxDay = s.day; });
 
-  function todayGuess() {
-    var mmdd = (new Date().getMonth() + 1) + '/' + new Date().getDate();
-    var mmdd2 = ('0' + (new Date().getMonth() + 1)).slice(-2) + '/' + ('0' + new Date().getDate()).slice(-2);
-    for (var d = 0; d <= maxDay; d++) {
-      var m = (board.dayMeta || {})[d];
-      if (m && m.date && (m.date === mmdd || m.date === mmdd2)) return d;
-    }
-    return 0;
+  /* The shoot-day record (js/lib-shootdays.js) joins the stripboard's day
+     index to the real calendar date the day planner computes. This page used
+     to work out what day it was by string-matching a hand-typed "MM/DD" in
+     dayMeta against today's date in two guessed formats, and fell back to day
+     1 when neither matched — on set, that means the wrong call sheet. */
+  var SD = window.CShootDays;
+  var shootDays = SD.sync(window.localStorage);
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  }
+  function todayIndex() {
+    var idx = SD.todayIndex(shootDays, todayISO());
+    if (idx >= 0) return idx;
+    /* Not a shoot day (a turnaround day, or the shoot has not started): show
+       the next day that has not wrapped, and say so on the sheet. */
+    var next = SD.currentDay(shootDays, todayISO());
+    return next ? next.dayIdx : 0;
+  }
+  function dayDate(d) {
+    var rec = SD.byIndex(shootDays, d);
+    if (rec && rec.date) return SD.weekday(rec.date) + ' ' + rec.date;
+    var m = (board.dayMeta || {})[d];
+    return (m && m.date) || '';
   }
 
   function render(d) {
@@ -113,9 +130,15 @@
     } catch (e) {}
 
     var pages = scs.reduce(function (a, s) { return a + (+s.eighths || 0); }, 0);
+    var rec = SD.byIndex(shootDays, d);
+    var when = dayDate(d);
+    var isToday = !!(rec && rec.date && rec.date === todayISO());
     var h = '<div class="td-call"><div style="font:700 15px Cinzel,serif;color:var(--text)">' + esc(title) + '</div>' +
       '<div class="big">' + esc(meta.call || 'CALL TBD') + '</div>' +
-      '<div class="sub">DAY ' + (d + 1) + (meta.date ? ' · ' + esc(meta.date) : '') + ' · ' + eighths(pages) + ' PAGES</div></div>';
+      '<div class="sub">DAY ' + (d + 1) + (when ? ' · ' + esc(when) : '') +
+      (rec && rec.unit && rec.unit !== SD.DEFAULT_UNIT ? ' · ' + esc(rec.unit) + ' UNIT' : '') +
+      ' · ' + eighths(pages) + ' PAGES' +
+      (rec && rec.wrapped ? ' · WRAPPED' : (isToday ? '' : ' · NOT TODAY')) + '</div></div>';
 
     h += '<div class="td-sec"><h3>Scenes</h3>' + (scs.map(function (s) {
       return '<div class="td-row"><span class="td-num">' + esc(s.num) + '</span>' +
@@ -141,11 +164,11 @@
   else {
     var opts = [];
     for (var d = 0; d <= maxDay; d++) {
-      var m = (board.dayMeta || {})[d] || {};
-      opts.push('<option value="' + esc(d) + '">Day ' + (d + 1) + (m.date ? ' — ' + esc(m.date) : '') + '</option>');
+      var when = dayDate(d);
+      opts.push('<option value="' + esc(d) + '">Day ' + (d + 1) + (when ? ' — ' + esc(when) : '') + '</option>');
     }
     sel.innerHTML = opts.join('');
-    var g = todayGuess();
+    var g = todayIndex();
     sel.value = String(g);
     sel.addEventListener('change', function () { render(+sel.value); });
     render(g);

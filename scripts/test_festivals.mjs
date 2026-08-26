@@ -77,6 +77,90 @@ t('setResult rejects bogus result', F.setResult(subs, s2.id, 'maybe') === null &
 const counts = F.resultCounts(subs);
 t('resultCounts tallies', counts.accepted === 1 && counts.withdrawn === 1 && counts.pending === 3);
 
+/* ── THE STORE: one shape, and a migration that loses nothing ──
+   SB_Festivals_v1 had two writers with incompatible top-level types — the
+   Tools register wrote a bare ARRAY, this module's page wrote an OBJECT — so
+   whichever page was opened second destroyed the other's data. Both legacy
+   shapes must survive the upgrade, in both directions. */
+t('blank store is the object shape', (() => {
+  const b = F.blank();
+  return b.v === F.STORE_VERSION && b.premiereStatus === 'unpremiered' &&
+    Array.isArray(b.subs) && Array.isArray(b.buyers);
+})());
+t('KEY is the store key, unchanged', F.KEY === 'SB_Festivals_v1');
+t('migrate(null) is an empty store', F.migrate(null).subs.length === 0 && F.migrate(undefined).buyers.length === 0);
+
+/* direction 1 — an owner who only ever used Tools › Festivals */
+const LEGACY_ROWS = [
+  { id: 't1', name: 'Sundance', tier: 'A-list', deadline: '2026-09-20', fee: '85',
+    submitted: '2026-08-01', status: 'In consideration', premiere: 'World', notes: 'shorts programmer likes it' },
+  { id: 't2', name: 'Fantastic Fest', deadline: '2026-06-01', fee: 40, submitted: '',
+    status: 'Rejected', premiere: 'None', notes: '' },
+  { id: 't3', name: 'Hot Docs', fee: 60, status: 'Premiered' }
+];
+const fromArray = F.migrate(LEGACY_ROWS);
+t('legacy ARRAY migrates row for row', fromArray.subs.length === 3);
+t('legacy name→festival, submitted→submittedOn, premiere→premiereReq', (() => {
+  const s = fromArray.subs[0];
+  return s.festival === 'Sundance' && s.submittedOn === '2026-08-01' &&
+    s.premiereReq === 'World' && s.tier === 'A-list' && s.notes === 'shorts programmer likes it';
+})());
+t('legacy fee string becomes a number', fromArray.subs[0].fee === 85);
+t('legacy row ids are kept, not reminted', fromArray.subs.map(s => s.id).join() === 't1,t2,t3');
+t('legacy status maps to a result', fromArray.subs[0].result === 'pending' &&
+  fromArray.subs[1].result === 'rejected' && fromArray.subs[2].result === 'accepted');
+t('the exact legacy word is preserved in stage', fromArray.subs[0].stage === 'In consideration' &&
+  fromArray.subs[2].stage === 'Premiered');
+t('migrated rows read correctly through the tracker', (() => {
+  const fees = F.feesTotal(fromArray.subs);
+  const counts = F.resultCounts(fromArray.subs);
+  return fees.paid === 85 && fees.planned === 100 && counts.rejected === 1 && counts.accepted === 1;
+})());
+t('LEGACY_STAGES covers every Tools status option',
+  ['Planned', 'Submitted', 'In consideration', 'Accepted', 'Rejected', 'Premiered']
+    .every(s => F.RESULTS.indexOf(F.LEGACY_STAGES[s]) >= 0));
+
+/* direction 2 — an owner who only ever used the Strategist page */
+const LEGACY_OBJ = {
+  premiereStatus: 'us-premiered',
+  subs: [{ id: 'o1', festival: 'SXSW', category: 'Narrative', deadline: '2026-10-15', fee: 70, result: 'accepted' }],
+  buyers: [{ id: 'b1', name: 'A. Kim', company: 'Meridian Films', lastContact: '2026-08-20' }]
+};
+const fromObj = F.migrate(LEGACY_OBJ);
+t('legacy OBJECT keeps subs, buyers and premiere status', fromObj.subs.length === 1 &&
+  fromObj.buyers.length === 1 && fromObj.premiereStatus === 'us-premiered');
+t('object-shape buyer ids survive', fromObj.buyers[0].id === 'b1' && fromObj.buyers[0].company === 'Meridian Films');
+t('object-shape sub is untouched', fromObj.subs[0].festival === 'SXSW' && fromObj.subs[0].result === 'accepted');
+t('bogus premiereStatus falls back', F.migrate({ premiereStatus: 'zap' }).premiereStatus === 'unpremiered' &&
+  F.PREMIERE_STATUSES.length === 3);
+t('migrate is idempotent', JSON.stringify(F.migrate(fromArray).subs) === JSON.stringify(fromArray.subs));
+t('migrate survives junk rows', F.migrate([null, 7, 'x', { name: 'Real' }]).subs.length === 1);
+t('duplicate ids are separated, not merged away',
+  F.migrate([{ id: 'dup', name: 'A' }, { id: 'dup', name: 'B' }]).subs.length === 2);
+t('normSub defaults a bare row', (() => {
+  const s = F.normSub({});
+  return s.result === 'pending' && s.fee === 0 && s.festival === '' && !!s.id;
+})());
+t('normBuyer keeps an existing id', F.normBuyer({ id: 'keepme', name: 'X' }).id === 'keepme');
+
+/* load()/save() round-trip through whatever localStorage is there */
+t('load without localStorage is a blank store', F.load().subs.length === 0);
+globalThis.localStorage = (() => {
+  let v = null;
+  return { getItem: () => v, setItem: (k, x) => { v = x; }, removeItem: () => { v = null; } };
+})();
+globalThis.localStorage.setItem('SB_Festivals_v1', JSON.stringify(LEGACY_ROWS));
+const loaded = F.load();
+t('load migrates a legacy ARRAY off the wire', loaded.subs.length === 3 && loaded.subs[0].festival === 'Sundance');
+loaded.subs.push(F.newSub({ festival: 'Tribeca', fee: 60 }));
+F.save(loaded);
+t('save writes the object shape, and it reloads whole', (() => {
+  const back = F.load();
+  return back.subs.length === 4 && back.v === F.STORE_VERSION &&
+    back.subs[3].festival === 'Tribeca' && back.subs[0].stage === 'In consideration';
+})());
+delete globalThis.localStorage;
+
 /* ── buyer CRM ── */
 const b1 = F.newBuyer({ name: 'A. Kim', company: 'Meridian Films', territory: 'North America', focus: 'genre', lastContact: '2026-08-20' });
 const b2 = F.newBuyer({ name: 'L. Costa', company: 'Sul Media', territory: 'LatAm', lastContact: '2026-05-01' });

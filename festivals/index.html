@@ -119,7 +119,6 @@
 (function () {
   'use strict';
   var F = window.CFest;
-  var KEY = 'SB_Festivals_v1';
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   var toastTimer;
@@ -127,9 +126,11 @@
   function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
   function todayISO() { return new Date().toISOString().slice(0, 10); }
 
-  var st = readLS(KEY) || { premiereStatus: 'unpremiered', subs: [], buyers: [] };
-  st.subs = st.subs || []; st.buyers = st.buyers || [];
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  /* ONE store, read through the migration: an owner who only ever used the
+     Tools > Festivals tab has a bare ARRAY of rows under this key, and every
+     one of those submissions arrives here intact. See CFest.migrate. */
+  var st = F.load();
+  function save() { F.save(st); }
 
   /* ── 1 · majors + strategy ── */
   function renderMajors() {
@@ -169,15 +170,17 @@
     });
     $('fsSubRows').innerHTML = sorted.map(function (s) {
       return '<tr data-id="' + esc(s.id) + '">' +
-        '<td>' + esc(s.festival) + '</td>' +
-        '<td>' + esc(s.category) + '</td>' +
+        '<td>' + esc(s.festival) + (s.tier ? ' <span class="fs-tag acc">' + esc(s.tier) + '</span>' : '') + '</td>' +
+        '<td>' + esc(s.category) + (s.premiereReq && s.premiereReq !== 'None'
+          ? ' <span class="fs-tag">' + esc(s.premiereReq) + ' premiere</span>' : '') + '</td>' +
         '<td class="fs-num">' + esc(s.deadline || '—') +
           (pastById[s.id] ? ' <span class="fs-tag past">past</span>' : '') + '</td>' +
         '<td class="fs-num">' + (+s.fee || 0).toLocaleString() + '</td>' +
         '<td><input data-f="submittedOn" type="date" value="' + esc(s.submittedOn) + '"></td>' +
         '<td><select data-f="result">' + F.RESULTS.map(function (r) {
           return '<option' + (r === s.result ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>' +
-          (s.result === 'accepted' ? ' <span class="fs-tag acc">in!</span>' : '') + '</td>' +
+          (s.result === 'accepted' ? ' <span class="fs-tag acc">in!</span>' : '') +
+          (s.stage ? ' <span class="fs-tag" title="Logged in Tools › Festivals">' + esc(s.stage) + '</span>' : '') + '</td>' +
         '<td><button class="tb-btn" data-del="' + esc(s.id) + '">✕</button></td></tr>';
     }).join('') || '<tr><td colspan="7" class="fs-note">No submissions logged yet — add the first one above.</td></tr>';
     var fees = F.feesTotal(st.subs), counts = F.resultCounts(st.subs);

@@ -34,9 +34,22 @@
       '<div class="tk-field"><label>Roll</label><input id="slRollIn" value="' + esc(sl.roll) + '"></div></div>' +
       '</div><div id="tkLogWrap"></div></div>';
 
+    /* The shoot day is a FIELD on the take, not something a reader may guess.
+       Without it these rows carried only a wall-clock `time`, so the daily
+       production report had nothing to filter on and reported every take ever
+       logged on every date. `day` is the same 'YYYY-MM-DD' the shoot-day
+       record and /dailies/ use — one join key across all three. */
+    function shootDay() {
+      var SD = root.CShootDays;
+      if (!SD) return C.today();
+      var rec = SD.currentDay(SD.load(root.localStorage), C.today());
+      return (rec && rec.date) || C.today();
+    }
     var log = new C.Register({
       key: 'SB_TakeLog_v1',
+      blank: function () { return { day: shootDay(), time: '', scene: sl.scene, take: sl.take, roll: sl.roll, grade: '—', note: '' }; },
       fields: [
+        { id: 'day', label: 'Shoot day', type: 'date', width: '112px' },
         { id: 'time', label: 'Time', width: '80px' },
         { id: 'scene', label: 'Scene', width: '70px' },
         { id: 'take', label: 'Take', width: '60px' },
@@ -71,7 +84,7 @@
         o.start(); o.stop(ac.currentTime + 0.08);
       } catch (e) {}
       var now = new Date();
-      log.add({ time: String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'), scene: sl.scene, take: sl.take, roll: sl.roll, grade: '—', note: '' });
+      log.add({ day: shootDay(), time: String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'), scene: sl.scene, take: sl.take, roll: sl.roll, grade: '—', note: '' });
       log.render('tkLogWrap');
       sl.take = (parseInt(sl.take, 10) || 0) + 1;
       C.$('slTake').textContent = sl.take;

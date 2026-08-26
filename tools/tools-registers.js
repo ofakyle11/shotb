@@ -65,31 +65,50 @@
   };
 
   /* ── Festivals ────────────────────────────────────────────────── */
+  /* This tab and /festivals/ are two views of ONE store. They used to write
+     SB_Festivals_v1 with incompatible top-level types — a bare array here, an
+     object there — so opening one page destroyed the other's data. The shape
+     now lives in festivals/lib-fest.js (CFest.migrate reads both legacy
+     shapes); this register is BOUND to that store's `subs` array rather than
+     loading a private copy, and its field ids are the canonical field names,
+     so a row typed here is the same record the Strategist reads. */
   root.TTabs.festivals = function () {
+    var F = root.CFest;
+    if (!F) throw new Error('tools-registers.js festivals tab requires festivals/lib-fest.js');
     var el = pane('festivals', 'Festival Submissions',
-      'Deadlines, fees and outcomes for every festival on the strategy. Deadline chips go amber at 30 days and red past due.');
-    new C.Register({
+      'Deadlines, fees and outcomes for every festival on the strategy — the same records the Festival Strategist works from. Deadline chips go amber at 30 days and red past due.');
+    var store = F.load();
+    var reg = new C.Register({
       key: 'SB_Festivals_v1',
       expiryField: 'deadline',
       fields: [
-        { id: 'name', label: 'Festival' },
-        { id: 'tier', label: 'Tier', type: 'select', options: ['A-list', 'Major doc', 'Regional', 'Genre', 'Online'] },
+        { id: 'festival', label: 'Festival' },
+        { id: 'category', label: 'Category / section' },
+        { id: 'tier', label: 'Tier', type: 'select', options: ['', 'A-list', 'major', 'genre', 'docs'] },
         { id: 'deadline', label: 'Deadline', type: 'date', width: '150px' },
         { id: 'fee', label: 'Fee ($)', width: '70px' },
-        { id: 'submitted', label: 'Submitted', type: 'date', width: '130px' },
-        { id: 'status', label: 'Status', type: 'select', options: ['Planned', 'Submitted', 'In consideration', 'Accepted', 'Rejected', 'Premiered'] },
-        { id: 'premiere', label: 'Premiere req.', type: 'select', options: ['None', 'World', 'International', 'North American', 'US', 'Regional'] },
+        { id: 'submittedOn', label: 'Submitted', type: 'date', width: '130px' },
+        { id: 'result', label: 'Result', type: 'select', options: ['pending', 'accepted', 'rejected', 'withdrawn'] },
+        { id: 'premiereReq', label: 'Premiere req.', type: 'select', options: ['', 'None', 'World', 'International', 'North American', 'US', 'Regional'] },
         { id: 'notes', label: 'Notes' }
       ],
+      blank: function () { return F.newSub({}); },
       summary: function (rows) {
-        var fees = rows.reduce(function (s, r) { return s + num(r.fee); }, 0);
-        var due = rows.filter(function (r) { var d = C.daysUntil(r.deadline); return r.status === 'Planned' && d != null && d >= 0 && d <= 30; }).length;
-        var accepted = rows.filter(function (r) { return r.status === 'Accepted' || r.status === 'Premiered'; }).length;
-        return '<b>' + rows.length + '</b> festivals · fees ' + fm(fees) + ' · <b>' + esc(accepted) + '</b> accepted' +
+        var fees = F.feesTotal(rows), counts = F.resultCounts(rows);
+        var due = F.upcoming(rows, C.today()).filter(function (s) {
+          var d = C.daysUntil(s.deadline); return d != null && d >= 0 && d <= 30;
+        }).length;
+        return '<b>' + rows.length + '</b> festivals · fees ' + fm(fees.total) +
+          ' (' + fm(fees.paid) + ' paid) · <b>' + esc(counts.accepted) + '</b> accepted' +
           (due ? ' · <span class="tk-chip warn">' + esc(due) + ' deadline' + (due === 1 ? '' : 's') + ' within 30d</span>' : '');
       }
-    }).render(section(el));
-    el.insertAdjacentHTML('beforeend', '<p class="tk-note">Premiere-requirement column matters: an A-list world-premiere rule means submitting there first — sequence the plan around it.</p>');
+    });
+    /* Bound, not copied: the register edits the canonical store in place and
+       persists the whole object, so neither writer can clobber the other. */
+    reg.rows = store.subs;
+    reg.persist = function () { F.save(store); };
+    reg.render(section(el));
+    el.insertAdjacentHTML('beforeend', '<p class="tk-note">Premiere-requirement column matters: an A-list world-premiere rule means submitting there first — sequence the plan around it. Strategy, buyer CRM and the majors directory are in <a class="fs-link" href="/festivals/">Festivals →</a></p>');
   };
 
   /* ── Insurance / COI register ─────────────────────────────────── */

@@ -691,7 +691,14 @@
     chunks.forEach(function (c) { data2.set(c, o); o += c.length; });
     return {
       type: 'audio', timescale: rendered.sampleRate, durations: durs, sizes: sizes, data: data2,
-      description: desc || fallbackAsc(rendered.sampleRate, 2), channels: 2, sampleRate: rendered.sampleRate
+      description: desc || fallbackAsc(rendered.sampleRate, 2), channels: 2, sampleRate: rendered.sampleRate,
+      /* AAC-LC leads in with 1024 primed samples and can only emit whole
+         1024-sample frames, so the encoded stream is both late at the head and
+         long at the tail. Neither is fixed by throwing packets away — the last
+         frame carries real signal, and its MDCT overlap is what reconstructs
+         the one before it. We hand the muxer the two numbers instead and let
+         the edit list present exactly the mix we rendered. */
+      priming: 1024, presentDuration: rendered.length
     };
   }
 
@@ -699,7 +706,13 @@
     if (!project.video.length) return toast('Nothing on the timeline yet');
     var res = $('edRes').value.split('x');
     var W = +res[0], H = +res[1];
-    var fps = +$('edFps').value || 24;
+    /* The rate comes off the project, which the picker writes — so the EDL,
+       the OTIO and the MP4 are all counted at the same rate. It used to be
+       read straight off the <select> here and nowhere else, which is how a
+       30 fps master shipped with 24 fps turnover timecode. */
+    project.fps = C.normFps($('edFps').value);
+    project.width = W; project.height = H;
+    var fps = C.fpsOf(project);
     if (!window.VideoEncoder) return exportRealtime();
     var codecs = ['avc1.640028', 'avc1.4d401f', 'avc1.42001f'];
     var cfg = null;
@@ -754,9 +767,12 @@
     var totalB = sizes.reduce(function (a, b) { return a + b; }, 0);
     var vdata = new Uint8Array(totalB), o = 0;
     chunks.forEach(function (c2) { vdata.set(c2, o); o += c2.length; });
+    /* 90000 is the classic video timescale and divides 24/25/30 exactly, so a
+       frame is a whole number of ticks at every rate this editor offers. */
+    var VT = 90000;
     var tracks = [{
-      type: 'video', timescale: 90000,
-      durations: sizes.map(function () { return Math.round(90000 / fps); }),
+      type: 'video', timescale: VT,
+      durations: sizes.map(function () { return Math.round(VT / fps); }),
       sizes: sizes, data: vdata, sync: syncs,
       description: desc || new Uint8Array([1, 66, 0, 31, 255, 225, 0, 0]), width: W, height: H
     }];
@@ -764,7 +780,7 @@
     var mp4 = M.buildMp4(tracks);
     var name = (project.name || 'cinamate-cut').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'cinamate-cut';
     dl(name + '.mp4', new Blob([mp4], { type: 'video/mp4' }), 'video/mp4');
-    window.__cutLastExport = { when: new Date().toISOString(), dur: Math.round(total * 10) / 10, res: W + 'x' + H, audio: !!audioTrack };
+    window.__cutLastExport = { when: new Date().toISOString(), dur: Math.round(total * 10) / 10, res: W + 'x' + H, fps: fps, audio: !!audioTrack };
     save();
     prog(1, 'done');
     toast('Exported ' + name + '.mp4 (' + (mp4.length / 1048576).toFixed(1) + ' MB' + (audioTrack ? ', with audio' : ', video only') + ')');
@@ -776,7 +792,7 @@
     if (!window.MediaRecorder || !cv.captureStream) return toast('This browser cannot export video — try Chrome, Edge or Safari 26+');
     pause();
     var total = C.duration(project);
-    var stream = cv.captureStream(30);
+    var stream = cv.captureStream(C.fpsOf(project));
     var rec = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm' });
     var parts = [];
     rec.ondataavailable = function (e) { if (e.data.size) parts.push(e.data); };
@@ -830,6 +846,14 @@
       if (it) e.dataTransfer.setData('text/plain', it.getAttribute('data-bin'));
     });
     $('edName').addEventListener('change', function () { project.name = this.value || 'Untitled Cut'; save(); });
+    /* The frame rate is a property of the CUT, not of the export dialogue.
+       Writing it here is what makes the ruler, the EDL, the OTIO and the MP4
+       agree; before this, project.fps was created by CCut.blank() and never
+       written again, so every turnover assumed 24 whatever the picker said. */
+    $('edFps').addEventListener('change', function () {
+      project.fps = C.normFps(this.value);
+      renderAll(); save(); seek(t);
+    });
     $('edPlay').addEventListener('click', play);
     $('edToStart').addEventListener('click', function () { pause(); seek(0); });
     $('edSplit').addEventListener('click', function () { snap(); if (C.split(project, t)) { renderAll(); save(); } else toast('Park the playhead inside a clip to split'); });
@@ -942,6 +966,12 @@
     cv = $('edCanvas'); cx = cv.getContext('2d');
     await loadSaved();
     $('edName').value = project.name || 'Untitled Cut';
+    /* Show the rate the project is actually carrying. If a saved cut names a
+       rate this build has no option for, the picker falls back and the project
+       is corrected to match it rather than the two silently disagreeing. */
+    project.fps = C.fpsOf(project);
+    $('edFps').value = String(project.fps);
+    if (!$('edFps').value) { $('edFps').selectedIndex = 0; project.fps = C.normFps($('edFps').value); }
     wire();
     renderAll();
     seek(0);

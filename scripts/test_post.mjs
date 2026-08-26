@@ -126,17 +126,222 @@ t('awarded bid commits to acct 15000 as open PO', po.acct === '15000' && po.stat
 t('PO shows as committed in the cost report',
   M.costReport({ categories: [] }, money).rows.filter(r => r.acct === '15000')[0].committed === 9500);
 
-/* ── delivery readiness ── */
+/* ── delivery readiness (reads ACTUALS, never the plan) ── */
 const ready = P.distReadiness(fwd.rows);
 t('readiness lists exactly the 5 deliverables', ready.length === 5 &&
   ready.map(r => r.deliverable).sort().join('|') === '5.1 printmaster|DCP|M&E|ProRes master|QC report');
-t('grade → ProRes master with its end date',
+t('grade → ProRes master, planned date carried but NOT called ready',
   ready.filter(r => r.id === 'grade')[0].deliverable === 'ProRes master' &&
-  ready.filter(r => r.id === 'grade')[0].ready === '2026-02-20');
-t('readiness sorted by ready date', ready[0].id === 'grade' && ready[ready.length - 1].id === 'dcp');
+  ready.filter(r => r.id === 'grade')[0].planned === '2026-02-20' &&
+  ready.filter(r => r.id === 'grade')[0].ready === null);
+t('a plan alone makes NOTHING ready', ready.every(r => r.ready === null && r.status === 'planned'));
+t('readiness sorted by the date that matters', ready[0].id === 'grade' && ready[ready.length - 1].id === 'dcp');
 t('readiness tolerates undated rows', (() => {
   const r = P.distReadiness([{ id: 'mix', name: 'Final mix' }, { id: 'grade', name: 'Grade', end: '2026-02-20' }]);
-  return r.length === 2 && r[0].id === 'grade' && r[1].ready === null;
+  return r.length === 2 && r[0].id === 'grade' && r[1].planned === null && r[1].ready === null;
+})());
+
+/* ══ actuals layer — SB_PostActuals_v1, laid OVER the plan ══════════════ */
+t('blankActuals is an empty, versioned store', (() => {
+  const a = P.blankActuals();
+  return a.v === 1 && Object.keys(a.milestones).length === 0 && P.ACTUALS_KEY === 'SB_PostActuals_v1';
+})());
+t('actualFor always returns a full record', (() => {
+  const r = P.actualFor(P.blankActuals(), 'assembly');
+  return r.id === 'assembly' && r.status === 'not-started' && r.actualStart === '' && r.actualEnd === '';
+})());
+t('setActual records status + dates', (() => {
+  const a = P.blankActuals();
+  const r = P.setActual(a, 'assembly', { status: 'done', actualStart: '2026-01-05', actualEnd: '2026-01-07' });
+  return r.status === 'done' && r.actualEnd === '2026-01-07' && a.milestones.assembly.actualStart === '2026-01-05';
+})());
+t('"done" with no end date is REFUSED — a claim with no date is not evidence', (() => {
+  const a = P.blankActuals();
+  const r = P.setActual(a, 'assembly', { status: 'done', actualStart: '2026-01-05' });
+  const bare = P.setActual(a, 'mix', { status: 'done' });
+  return r.status === 'in-progress' && bare.status === 'not-started';
+})());
+t('status follows the evidence when none is given', (() => {
+  const a = P.blankActuals();
+  const started = P.setActual(a, 'grade', { actualStart: '2026-02-16' });
+  const ended = P.setActual(a, 'grade', { actualEnd: '2026-02-20' });
+  const reopened = P.setActual(a, 'grade', { actualEnd: '' });
+  return started.status === 'in-progress' && ended.status === 'done' && reopened.status === 'in-progress';
+})());
+t('setActual rejects junk dates and clears dates on not-started', (() => {
+  const a = P.blankActuals();
+  P.setActual(a, 'grade', { status: 'in-progress', actualStart: 'soon-ish' });
+  const back = P.setActual(a, 'grade', { status: 'not-started', actualStart: '2026-02-16' });
+  return a.milestones.grade.actualStart === '' && back.actualStart === '' && back.actualEnd === '';
+})());
+t('clearActual forgets a milestone entirely', (() => {
+  const a = P.blankActuals();
+  P.setActual(a, 'grade', { status: 'done', actualStart: '2026-02-16', actualEnd: '2026-02-20' });
+  const r = P.clearActual(a, 'grade');
+  return r.status === 'not-started' && a.milestones.grade === undefined;
+})());
+t('busSpan counts an observed interval inclusively, weekends skipped',
+  P.busSpan('2026-01-05', '2026-01-09') === 5 && P.busSpan('2026-01-05', '2026-01-05') === 1 &&
+  P.busSpan('2026-01-05', '2026-01-12') === 6);
+t('slipDays is signed: + late, − early, 0 on plan',
+  P.slipDays('2026-01-09', '2026-01-12') === 1 && P.slipDays('2026-01-12', '2026-01-09') === -1 &&
+  P.slipDays('2026-01-09', '2026-01-09') === 0 && P.slipDays('', '2026-01-09') === 0);
+t('effectiveMilestones substitutes observed duration and never mutates the input', (() => {
+  const a = P.blankActuals();
+  P.setActual(a, 'assembly', { status: 'done', actualStart: '2026-01-05', actualEnd: '2026-01-07' });
+  const src = P.template();
+  const eff = P.effectiveMilestones(src, a);
+  return eff.filter(m => m.id === 'assembly')[0].days === 3 &&
+         src.filter(m => m.id === 'assembly')[0].days === 5;
+})());
+
+/* — a milestone that finished EARLY — */
+const early = P.blankActuals();
+P.setActual(early, 'assembly', { status: 'done', actualStart: '2026-01-05', actualEnd: '2026-01-07' }); // 5 → 3 days
+const ovEarly = P.overlay(P.template(), early, '2026-01-05', 'forward');
+const E = {}; ovEarly.rows.forEach(r => { E[r.id] = r; });
+t('early: row carries planned AND actual side by side',
+  E.assembly.plannedStart === '2026-01-05' && E.assembly.plannedEnd === '2026-01-09' &&
+  E.assembly.actualEnd === '2026-01-07' && E.assembly.status === 'done' && E.assembly.actualDays === 3);
+t('early: slip is −2 business days on that milestone', E.assembly.slip === -2);
+t('early: downstream forecast pulls forward, plan is untouched',
+  E['editors-cut'].plannedStart === '2026-01-12' && E['editors-cut'].forecastStart === '2026-01-08' &&
+  ovEarly.plannedEnd === '2026-03-16' && ovEarly.forecastEnd === '2026-03-12');
+t('early: whole-project slip is −2 and the critical path has NOT moved',
+  ovEarly.slip === -2 && ovEarly.criticalMoved === false &&
+  ovEarly.actualPath.join(',') === ovEarly.path.join(','));
+t('early: counts by status', ovEarly.done === 1 && ovEarly.inProgress === 0 && ovEarly.notStarted === 13);
+
+/* — a milestone that finished LATE and MOVED the critical path — */
+/* The plan ties at 45 days into qc and routes through sound-edit → mix, with
+   vfx-final (15d off turnover) one tie-break away. VFX coming in at 30 days is
+   the ordinary post disaster: it takes the critical path off sound and mix. */
+const late = P.blankActuals();
+P.setActual(late, 'vfx-final', { status: 'done', actualStart: '2026-02-16', actualEnd: '2026-03-27' }); // 15 → 30 days
+const ovLate = P.overlay(P.template(), late, '2026-01-05', 'forward');
+const L = {}; ovLate.rows.forEach(r => { L[r.id] = r; });
+t('late: vfx-final ran 30 days against a 15-day estimate',
+  L['vfx-final'].days === 15 && L['vfx-final'].actualDays === 30 && L['vfx-final'].slip === 15);
+t('late: delivery forecast slips 15 business days past plan',
+  ovLate.plannedEnd === '2026-03-16' && ovLate.forecastEnd === '2026-04-06' && ovLate.slip === 15);
+t('late: downstream qc waits on the LATE parent, not the planned one',
+  L.qc.plannedStart === '2026-03-09' && L.qc.forecastStart === '2026-03-30' && L.qc.slip === 15);
+t('late: the critical path MOVED off sound-edit → mix onto vfx-final',
+  ovLate.criticalMoved === true &&
+  ovLate.path.indexOf('mix') >= 0 && ovLate.actualPath.indexOf('mix') < 0 &&
+  ovLate.actualPath.indexOf('vfx-final') >= 0 && ovLate.path.indexOf('vfx-final') < 0);
+t('late: rows flag critical THEN vs critical NOW separately',
+  L['vfx-final'].critical === false && L['vfx-final'].criticalNow === true &&
+  L['sound-edit'].critical === true && L['sound-edit'].criticalNow === false &&
+  L.mix.critical === true && L.mix.criticalNow === false);
+t('late: as-run critical path is longer than the planned one',
+  ovLate.criticalPath === 51 && ovLate.criticalPathActual === 66);
+
+/* — a milestone still IN PROGRESS — */
+const wip = P.blankActuals();
+P.setActual(wip, 'assembly', { status: 'done', actualStart: '2026-01-05', actualEnd: '2026-01-09' });
+P.setActual(wip, 'editors-cut', { status: 'in-progress', actualStart: '2026-01-14' }); // started 2 days late
+const ovWip = P.overlay(P.template(), wip, '2026-01-05', 'forward');
+const W = {}; ovWip.rows.forEach(r => { W[r.id] = r; });
+t('in-progress: actual start honoured, no end claimed',
+  W['editors-cut'].status === 'in-progress' && W['editors-cut'].actualStart === '2026-01-14' &&
+  W['editors-cut'].actualEnd === '' && W['editors-cut'].actualDays === null);
+t('in-progress: forecast end = actual start + the estimate still standing',
+  W['editors-cut'].forecastEnd === '2026-01-27' && W['editors-cut'].slip === 2);
+t('in-progress: an on-plan finished milestone slips 0', W.assembly.slip === 0 && W.assembly.status === 'done');
+t('in-progress: the whole project is forecast 2 days late, path unmoved',
+  ovWip.slip === 2 && ovWip.forecastEnd === '2026-03-18' && ovWip.criticalMoved === false);
+t('overlay counts in-progress separately', ovWip.done === 1 && ovWip.inProgress === 1 && ovWip.notStarted === 12);
+
+/* — readiness from actuals — */
+const rdyActual = P.distReadiness(ovLate.rows);
+t('readiness: only a milestone recorded DONE is ready', (() => {
+  const a = P.blankActuals();
+  P.setActual(a, 'grade', { status: 'done', actualStart: '2026-02-16', actualEnd: '2026-02-24' });
+  P.setActual(a, 'mix', { status: 'in-progress', actualStart: '2026-03-02' });
+  const r = P.distReadiness(P.overlay(P.template(), a, '2026-01-05', 'forward').rows);
+  const by = {}; r.forEach(x => { by[x.id] = x; });
+  return by.grade.status === 'ready' && by.grade.ready === '2026-02-24' && by.grade.slip === 2 &&
+         by.mix.status === 'in-progress' && by.mix.ready === null &&
+         by.dcp.status === 'planned' && by.dcp.ready === null && by.dcp.planned === '2026-03-13';
+})());
+t('readiness never calls a forecast ready — a 15-day slip is still only forecast',
+  rdyActual.every(r => r.ready === null && r.status === 'planned') &&
+  rdyActual.filter(r => r.id === 'dcp')[0].planned === '2026-03-13' &&
+  rdyActual.filter(r => r.id === 'dcp')[0].forecast === '2026-04-03');
+t('distReadiness also accepts plan rows + a separate actuals store', (() => {
+  const a = P.blankActuals();
+  P.setActual(a, 'qc', { status: 'done', actualStart: '2026-03-09', actualEnd: '2026-03-10' });
+  const r = P.distReadiness(fwd.rows, a);
+  const qc = r.filter(x => x.id === 'qc')[0];
+  return qc.status === 'ready' && qc.ready === '2026-03-10' && qc.planned === '2026-03-10' && qc.slip === 0;
+})());
+
+/* — the overlay must not touch the plan — */
+t('overlay never mutates the milestones or the plan it was given', (() => {
+  const src = P.template();
+  const before = JSON.stringify(src);
+  const a = P.blankActuals();
+  P.setActual(a, 'grade', { status: 'done', actualStart: '2026-02-16', actualEnd: '2026-03-06' });
+  P.overlay(src, a, '2026-01-05', 'forward');
+  const plain = P.schedule(P.template(), '2026-01-05', 'forward');
+  return JSON.stringify(src) === before &&
+         plain.rows.every(r => F[r.id].start === r.start && F[r.id].end === r.end);
+})());
+t('overlay on an empty actuals store == the plan, with nothing claimed', (() => {
+  const o = P.overlay(P.template(), P.blankActuals(), '2026-01-05', 'forward');
+  return o.rows.every(r => r.forecastStart === r.plannedStart && r.forecastEnd === r.plannedEnd &&
+                           r.slip === 0 && r.status === 'not-started') &&
+         o.slip === 0 && o.criticalMoved === false && o.done === 0;
+})());
+t('overlay with no anchor date invents no dates', (() => {
+  const a = P.blankActuals();
+  P.setActual(a, 'assembly', { status: 'done', actualStart: '2026-01-05', actualEnd: '2026-01-07' });
+  const o = P.overlay(P.template(), a, '', 'backward');
+  const asm = o.rows.filter(r => r.id === 'assembly')[0];
+  return o.plannedEnd === null && asm.plannedEnd === null && asm.forecastEnd === '2026-01-07' &&
+         asm.slip === 0 && o.criticalPath === 51;
+})());
+t('overlay passes a dependency cycle through as an error, not a hang', (() => {
+  const o = P.overlay([{ id: 'a', name: 'A', days: 1, after: ['b'] },
+                       { id: 'b', name: 'B', days: 1, after: ['a'] }], P.blankActuals(), '2026-01-05', 'forward');
+  return o.error === 'cycle' && o.rows.length === 0 && o.criticalMoved === false;
+})());
+t('a weekend actual date is tolerated, not counted as a working day', (() => {
+  const a = P.blankActuals();
+  P.setActual(a, 'assembly', { status: 'done', actualStart: '2026-01-05', actualEnd: '2026-01-10' }); // ends Sat
+  const o = P.overlay(P.template(), a, '2026-01-05', 'forward');
+  const asm = o.rows.filter(r => r.id === 'assembly')[0];
+  return asm.actualDays === 5 && asm.slip === 0 &&
+         o.rows.filter(r => r.id === 'editors-cut')[0].forecastStart === '2026-01-12';
+})());
+t('nextBusDay rolls a Saturday finish to Monday, not Tuesday',
+  P.nextBusDay('2026-01-10') === '2026-01-12' && P.nextBusDay('2026-01-09') === '2026-01-12' &&
+  P.nextBusDay('2026-01-05') === '2026-01-06');
+
+/* ── purity pin: the plan must never consult the clock ──────────────────
+   schedule() is the one function every other post surface trusts to give the
+   same answer twice. If it ever reads Date.now(), the same store renders two
+   different calendars on two different days and nothing downstream can be
+   reproduced or tested. Pin it here so a later edit has to argue with a test. */
+const SRC = readFileSync(join(ROOT, 'post/lib-post.js'), 'utf8');
+const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+t('lib-post.js contains no Date.now / new Date() / Date.parse anywhere',
+  !/Date\.now|new\s+Date\s*\(|Date\.parse|\.getTime\s*\(/.test(CODE.split('new Date(Date.UTC(').join('PURE_UTC_PARSE(')));
+t('the only Date construction in the file is the pure Date.UTC parse',
+  (SRC.match(/new Date\(/g) || []).length === 1 && /new Date\(Date\.UTC\(/.test(SRC));
+t('schedule is deterministic: same inputs, same answer, twice',
+  JSON.stringify(P.schedule(P.template(), '2026-01-05', 'forward')) ===
+  JSON.stringify(P.schedule(P.template(), '2026-01-05', 'forward')));
+t('schedule ignores the clock even when the clock lies', (() => {
+  const realNow = Date.now, realDate = globalThis.Date;
+  let touched = false;
+  Date.now = function () { touched = true; return realNow.call(Date); };
+  const A = JSON.stringify(P.schedule(P.template(), '2026-03-16', 'backward'));
+  const B = JSON.stringify(P.overlay(P.template(), P.blankActuals(), '2026-03-16', 'backward'));
+  Date.now = realNow;
+  globalThis.Date = realDate;
+  return !touched && A.indexOf('2026-01-05') > 0 && B.indexOf('2026-01-05') > 0;
 })());
 
 console.log(`test_post: ${pass} passed, ${fail} failed`);

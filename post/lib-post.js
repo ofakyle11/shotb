@@ -6,6 +6,12 @@
    commit-once guard for the Money Room, and delivery-readiness hints for
    the Distribution module. All durations are TEMPLATE ESTIMATES — real
    post schedules are negotiated with the facilities.
+
+   The plan and what actually happened are kept APART: schedule() is a pure
+   plan over SB_Post_v1, observed status and dates live in SB_PostActuals_v1,
+   and overlay() lays one over the other to produce planned-vs-actual, slip
+   and a moved critical path. Readiness is read from the ACTUALS — a
+   milestone with no recorded end is 'planned', never 'ready'.
    ═══════════════════════════════════════════════════════════════════════════ */
 (function (root) {
   'use strict';
@@ -227,7 +233,157 @@
     return rows.reduce(function (a, b) { return b.bid < a.bid ? b : a; });
   }
 
-  /* ── 6 · delivery readiness (hints only — never writes SB_Dist_v1) ───── */
+  /* ── 6 · actuals overlay (store SB_PostActuals_v1) ──────────────────────
+     The plan (schedule) stays a pure function of the template and the anchor
+     date. What actually happened lives in a SEPARATE store and is laid OVER
+     the plan — nothing here mutates a milestone, a plan row, or SB_Post_v1,
+     which is what keeps schedule() pure and re-derivable from scratch.
+
+     A record is { id, status:'not-started'|'in-progress'|'done',
+                   actualStart, actualEnd }. 'done' without an actualEnd is
+     not evidence that anything finished, so setActual refuses to record it —
+     a claimed completion with no date is exactly the confident label over
+     nothing this layer exists to stop.                                     */
+  var ACTUALS_KEY = 'SB_PostActuals_v1';
+  var STATUSES = ['not-started', 'in-progress', 'done'];
+
+  function blankActuals() { return { v: 1, milestones: {} }; }
+  function isISO(v) { return /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')); }
+
+  /* Read one milestone's record — always a full record, never undefined. */
+  function actualFor(actuals, id) {
+    var r = (actuals && actuals.milestones && actuals.milestones[id]) || null;
+    var start = r && isISO(r.actualStart) ? r.actualStart : '';
+    var end = r && isISO(r.actualEnd) ? r.actualEnd : '';
+    var st = r && STATUSES.indexOf(r.status) >= 0 ? r.status : 'not-started';
+    if (st === 'done' && !end) st = start ? 'in-progress' : 'not-started';
+    if (st === 'not-started' && start) st = 'in-progress';
+    return { id: id, status: st, actualStart: start, actualEnd: end };
+  }
+  /* Write one milestone's record. Mutates the ACTUALS store only. */
+  function setActual(actuals, id, fields) {
+    if (!actuals || !id) return null;
+    if (!actuals.milestones) actuals.milestones = {};
+    var f = fields || {};
+    var prev = actualFor(actuals, id);
+    var start = f.actualStart === undefined ? prev.actualStart : (isISO(f.actualStart) ? f.actualStart : '');
+    var end = f.actualEnd === undefined ? prev.actualEnd : (isISO(f.actualEnd) ? f.actualEnd : '');
+    var st = f.status === undefined ? prev.status : f.status;
+    if (STATUSES.indexOf(st) < 0) st = 'not-started';
+    /* No status given → the status follows the evidence, not the other way
+       round: an end date IS a completion, a start date IS work under way. */
+    if (f.status === undefined) {
+      if (end) st = 'done';
+      else if (start && st === 'not-started') st = 'in-progress';
+    }
+    if (st === 'done' && !end) st = start ? 'in-progress' : 'not-started';
+    if (st === 'not-started') { start = ''; end = ''; }
+    if (st === 'in-progress') end = '';
+    var row = { id: id, status: st, actualStart: start, actualEnd: end };
+    actuals.milestones[id] = row;
+    return row;
+  }
+  function clearActual(actuals, id) {
+    if (actuals && actuals.milestones) delete actuals.milestones[id];
+    return actualFor(actuals, id);
+  }
+
+  /* Business-day helpers over dates a human typed (which may be a weekend). */
+  function nextBusDay(iso) {
+    return isWeekend(iso) ? snapBusiness(iso, 1) : addBusDays(iso, 1);
+  }
+  /* Inclusive business-day span of a real, observed interval. */
+  function busSpan(a, b) {
+    if (!isISO(a) || !isISO(b)) return 0;
+    var s = snapBusiness(a, 1), e = snapBusiness(b, -1);
+    if (parseISO(e) < parseISO(s)) return 1;
+    return Math.abs(busDiff(s, e)) + 1;
+  }
+  /* Signed business-day slip: + is late, - is early, 0 is on plan. */
+  function slipDays(plannedISO, actualISO) {
+    if (!isISO(plannedISO) || !isISO(actualISO)) return 0;
+    return busDiff(snapBusiness(plannedISO, -1), snapBusiness(actualISO, -1));
+  }
+
+  /* Milestones with observed durations substituted for template estimates —
+     a fresh list, so the caller's milestones are untouched. */
+  function effectiveMilestones(milestones, actuals) {
+    var base = (milestones && milestones.length ? milestones : template());
+    return base.map(function (m) {
+      var a = actualFor(actuals, m.id);
+      var days = Math.max(1, Math.round(num(m.days)) || 1);
+      if (a.status === 'done' && a.actualStart && a.actualEnd) days = busSpan(a.actualStart, a.actualEnd) || days;
+      return { id: m.id, name: m.name || m.id, days: days, after: (m.after || []).slice() };
+    });
+  }
+
+  /* overlay(milestones, actuals, dateISO, direction)
+       plan  = schedule(...) exactly as before, untouched
+       + per row: status, actualStart/actualEnd, forecastStart/forecastEnd,
+         slip (business days, signed), criticalNow
+       + criticalMoved: does the critical path run through different
+         milestones once observed durations replace the estimates?          */
+  function overlay(milestones, actuals, dateISO, direction) {
+    var base = (milestones && milestones.length ? milestones : template());
+    var plan = schedule(base, dateISO, direction);
+    if (plan.error) {
+      return { rows: [], criticalPath: 0, path: [], actualPath: [], criticalPathActual: 0,
+               criticalMoved: false, plannedStart: null, plannedEnd: null,
+               forecastStart: null, forecastEnd: null, slip: 0,
+               done: 0, inProgress: 0, notStarted: 0, error: plan.error };
+    }
+    var asRun = schedule(effectiveMilestones(base, actuals), '', 'forward');
+    var actualPath = asRun.error ? plan.path.slice() : asRun.path.slice();
+    var criticalMoved = actualPath.join('>') !== plan.path.join('>');
+
+    var fStart = {}, fEnd = {}, counts = { 'done': 0, 'in-progress': 0, 'not-started': 0 };
+    var rows = plan.rows.map(function (r) {
+      var a = actualFor(actuals, r.id);
+      counts[a.status]++;
+      var latest = null;
+      r.blockedBy.forEach(function (p) {
+        if (fEnd[p] && (!latest || parseISO(fEnd[p]) > parseISO(latest))) latest = fEnd[p];
+      });
+      var s = null, e = null;
+      if (a.status === 'done' && a.actualStart && a.actualEnd) {
+        s = a.actualStart; e = a.actualEnd;
+      } else {
+        s = a.actualStart || (latest ? nextBusDay(latest) : r.start);
+        if (s) e = addBusDays(s, Math.max(1, r.days) - 1);
+      }
+      if (s) fStart[r.id] = s;
+      if (e) fEnd[r.id] = e;
+      return { id: r.id, name: r.name, days: r.days, blockedBy: r.blockedBy.slice(),
+               critical: r.critical, criticalNow: actualPath.indexOf(r.id) >= 0,
+               plannedStart: r.start, plannedEnd: r.end,
+               status: a.status, actualStart: a.actualStart, actualEnd: a.actualEnd,
+               actualDays: (a.actualStart && a.actualEnd) ? busSpan(a.actualStart, a.actualEnd) : null,
+               forecastStart: s || null, forecastEnd: e || null,
+               slip: slipDays(r.end, e) };
+    });
+
+    var fcEnd = null, fcStart = null;
+    rows.forEach(function (r) {
+      if (r.forecastEnd && (!fcEnd || parseISO(r.forecastEnd) > parseISO(fcEnd))) fcEnd = r.forecastEnd;
+      if (r.forecastStart && (!fcStart || parseISO(r.forecastStart) < parseISO(fcStart))) fcStart = r.forecastStart;
+    });
+    return { rows: rows, criticalPath: plan.criticalPath, path: plan.path.slice(),
+             actualPath: actualPath, criticalPathActual: asRun.criticalPath || 0,
+             criticalMoved: criticalMoved,
+             plannedStart: plan.start, plannedEnd: plan.end,
+             forecastStart: fcStart, forecastEnd: fcEnd,
+             slip: slipDays(plan.end, fcEnd),
+             done: counts['done'], inProgress: counts['in-progress'],
+             notStarted: counts['not-started'] };
+  }
+
+  /* ── 7 · delivery readiness (hints only — never writes SB_Dist_v1) ─────
+     READINESS COMES FROM ACTUALS. A deliverable is 'ready' only when its
+     milestone is recorded done WITH an actual end date; otherwise it is
+     'planned' (or 'in-progress') and `ready` is null. Reporting a template
+     estimate as "ready" is how a distributor gets promised a date nobody
+     ever verified. Accepts plan rows or overlay rows; a separate actuals
+     store may be passed alongside plan rows.                              */
   var DELIVERABLES = {
     'dcp':     'DCP',
     'mix':     '5.1 printmaster',
@@ -235,18 +391,26 @@
     'grade':   'ProRes master',
     'qc':      'QC report'
   };
-  function distReadiness(rows) {
+  function distReadiness(rows, actuals) {
     var out = [];
     (rows || []).forEach(function (r) {
-      if (DELIVERABLES[r.id]) {
-        out.push({ id: r.id, milestone: r.name || r.id,
-                   deliverable: DELIVERABLES[r.id], ready: r.end || null });
-      }
+      if (!DELIVERABLES[r.id]) return;
+      var a = actuals ? actualFor(actuals, r.id)
+                      : actualFor({ milestones: (function () { var o = {}; o[r.id] = r; return o; })() }, r.id);
+      var planned = r.plannedEnd !== undefined ? (r.plannedEnd || null) : (r.end || null);
+      var forecast = r.forecastEnd !== undefined ? (r.forecastEnd || null) : null;
+      var ready = a.status === 'done' && a.actualEnd ? a.actualEnd : null;
+      out.push({ id: r.id, milestone: r.name || r.id, deliverable: DELIVERABLES[r.id],
+                 status: ready ? 'ready' : a.status === 'in-progress' ? 'in-progress' : 'planned',
+                 ready: ready, actual: ready, planned: planned,
+                 forecast: forecast || (ready ? null : planned),
+                 slip: ready ? slipDays(planned, ready) : 0 });
     });
     out.sort(function (a, b) {
-      if (!a.ready) return 1;
-      if (!b.ready) return -1;
-      return a.ready < b.ready ? -1 : a.ready > b.ready ? 1 : 0;
+      var x = a.ready || a.forecast || a.planned, y = b.ready || b.forecast || b.planned;
+      if (!x) return 1;
+      if (!y) return -1;
+      return x < y ? -1 : x > y ? 1 : 0;
     });
     return out;
   }
@@ -259,6 +423,10 @@
     STAGE_ABBR: STAGE_ABBR, versionName: versionName,
     nextVersion: nextVersion, addVersion: addVersion,
     SERVICES: SERVICES, addBid: addBid, awardBid: awardBid, lowBid: lowBid,
+    ACTUALS_KEY: ACTUALS_KEY, STATUSES: STATUSES, blankActuals: blankActuals,
+    actualFor: actualFor, setActual: setActual, clearActual: clearActual,
+    busSpan: busSpan, slipDays: slipDays, nextBusDay: nextBusDay,
+    effectiveMilestones: effectiveMilestones, overlay: overlay,
     DELIVERABLES: DELIVERABLES, distReadiness: distReadiness
   };
 })(typeof window !== 'undefined' ? window : globalThis);

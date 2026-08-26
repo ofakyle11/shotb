@@ -148,8 +148,17 @@
       var d = $('prLocDate').value || new Date().toISOString().slice(0, 10);
       if (!isFinite(lat) || !isFinite(lon)) return T.toast('Enter lat/lon');
       var t = Sun.sunTimes(d, lat, lon);
-      $('prLocSunOut').innerHTML = 'sunrise ' + esc(Sun.fmtLocal(t.sunrise)) + ' · golden pm ' +
-        '<b style="color:var(--gold)">' + esc(Sun.fmtLocal(t.goldenStartPM)) + '</b> · sunset ' + esc(Sun.fmtLocal(t.sunset));
+      /* The LOCATION's offset, never the viewer's — fmtLocal with no offset
+         renders an LA sunset of 19:28 as 02:28 on a UTC machine. This page
+         has no forecast call to read utc_offset_seconds from, so it uses the
+         longitude estimate and labels it: solar mean time, no DST. */
+      var tz = Sun.tzOffsetFromLon(lon);
+      var a = Sun.sunAngles(d, lat, lon);
+      $('prLocSunOut').innerHTML = 'sunrise ' + esc(Sun.fmtLocal(t.sunrise, tz)) + ' · golden pm ' +
+        '<b style="color:var(--gold)">' + esc(Sun.fmtLocal(t.goldenStartPM, tz)) + '</b> · sunset ' +
+        esc(Sun.fmtLocal(t.sunset, tz)) +
+        esc(a.sunset ? ' toward ' + Sun.compass(a.sunset.azimuth) + ' ' + a.sunset.azimuth + '°' : '') +
+        esc(' · times ' + Sun.tzLabel(tz) + ' (estimated from longitude — no DST)');
     });
   };
 
@@ -207,27 +216,46 @@
 
   /* ── Daily Production Report ────────────────────────────────────── */
   PANES.dpr = function (pane) {
+    /* Refresh the shoot-day record from the schedule before the report asks it
+       anything: the stripboard and the day planner both move without telling
+       anyone, and the join key has to follow them. */
+    var SD = window.CShootDays;
+    var days = SD.sync(window.localStorage);
+    var todayIso = T.today();
+    var cur = SD.currentDay(days, todayIso);
+    var startDate = (SD.byDate(days, todayIso) ? todayIso : (cur && cur.date) || todayIso);
     pane.innerHTML = '<div class="pr-inline">' +
-      '<label>Report date <input type="date" id="prDprDate" value="' + T.today() + '"></label>' +
+      '<label>Report date <input type="date" id="prDprDate" value="' + esc(startDate) + '"></label>' +
+      '<span class="ps-hint" id="prDprDay"></span>' +
       '<label>Notes <input id="prDprNotes" style="width:280px" placeholder="Weather delays, incidents, visitors…"></label>' +
       '<button class="tb-btn gold" id="prDprGo">Build report</button>' +
       '<button class="tb-btn" id="prDprPrint">🖨 Print</button>' +
       '<button class="tb-btn" id="prDprDl">⬇ .txt</button></div>' +
-      '<div class="pr-report" id="prDprOut" style="margin:0 14px">Pick a date and build — the report assembles itself from the take log, timecards, hot costs and the stripboard.</div>';
+      '<div class="pr-report" id="prDprOut" style="margin:0 14px">Pick a date and build — the report assembles itself from both take logs, the timecards, the hot costs and the day\'s strips on the stripboard.</div>';
     var last = '';
+    function stamp() {
+      var rec = SD.byDate(days, $('prDprDate').value);
+      $('prDprDay').textContent = rec ? SD.label(rec) : 'not a scheduled shoot day';
+    }
     function build() {
+      days = SD.sync(window.localStorage);
       var d = P.dpr({
         takes: readLS('SB_TakeLog_v1'),
+        dailies: readLS('SB_Dailies_v1'),
         timecards: readLS('SB_Timecards_v1'),
         hotcost: readLS('SB_HotCost_v1'),
         board: readLS('SB_ScheduleBoard_v1'),
         plan: readLS('SB_ShootPlan_v1'),
+        shootDays: days,
         timeline: readLS('SB_Timeline_v1')
       }, { date: $('prDprDate').value, notes: $('prDprNotes').value });
       last = P.dprText(d);
       $('prDprOut').textContent = last;
+      stamp();
       T.toast('Report built from live production data');
     }
+    stamp();
+    $('prDprDate').addEventListener('change', stamp);
     $('prDprGo').addEventListener('click', build);
     $('prDprPrint').addEventListener('click', function () { window.print(); });
     $('prDprDl').addEventListener('click', function () {

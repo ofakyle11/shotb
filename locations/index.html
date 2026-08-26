@@ -54,6 +54,17 @@
 .sk-fee input{width:110px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:11.5px;font-family:var(--mono)}
 .sk-sug{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border);padding:7px 0;font-size:12px}
 .sk-sug .sk-scn{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.sk-pw{border:1px solid var(--border);border-radius:8px;padding:8px 10px;grid-column:1/-1}
+.sk-pwlbl{font-family:var(--mono);font-size:9.5px;color:var(--gold);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+.sk-pwgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.sk-fx{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.sk-fx select{flex:1;min-width:190px}
+.sk-fx input{width:64px}
+.sk-pwout{margin-top:9px;font-family:var(--mono);font-size:11.5px;line-height:1.6}
+.sk-pwout .sk-v-ok{color:var(--green)}
+.sk-pwout .sk-v-tight,.sk-pwout .sk-v-unknown{color:var(--gold)}
+.sk-pwout .sk-v-over,.sk-pwout .sk-v-derate{color:var(--red)}
+.sk-sun .sk-est{color:var(--red)}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
   <script src="/js/safe-url.js"></script>
@@ -98,24 +109,28 @@
 
     <h2>4 · Golden hour + tech scout checklist</h2>
     <div class="sk-bar">
+      <select id="skSunLoc" title="Take the pin and the recorded UTC offset from a location in the book"></select>
       <label class="sk-note">Latitude <input id="skLat" type="number" step="0.01" min="-90" max="90" placeholder="43.65" style="width:90px"></label>
+      <label class="sk-note">Longitude <input id="skLon" type="number" step="0.01" min="-180" max="180" placeholder="-79.38" style="width:96px"></label>
+      <label class="sk-note">UTC offset (min) <input id="skTz" type="number" step="15" min="-780" max="840" placeholder="-300" style="width:84px" title="The LOCATION's offset, in minutes. Blank estimates it from longitude — solar mean time, no DST."></label>
       <label class="sk-note">Date <input id="skDate" type="date"></label>
       <button class="tb-btn gold" id="skSun">Compute</button>
     </div>
     <div id="skSunOut"></div>
     <ul class="sk-check" id="skCheck"></ul>
-    <p class="sk-note">Checklist ticks are saved per production. Golden-hour figures are a solar-time approximation — no timezone, longitude, or DST correction — so treat them as planning shape, not clock truth: <b>verify locally before relying on them</b>.</p>
+    <p class="sk-note">Checklist ticks are saved per production. Sun times come from <b>tools/lib-sun.js</b> (NOAA/Meeus, ±2 min) and are rendered in <b>the location's</b> clock, not this browser's — the offset is the one on the location record, or, if none is recorded, an estimate from longitude that is labelled as such. Azimuth is degrees clockwise from true north.</p>
   </main>
 </div>
 
 <div class="toast" id="skToast" aria-live="polite"></div>
 <script src="/js/project-badge.js?v=20260823a"></script>
 <script src="/finance/lib-money.js?v=20260823a"></script>
-<script src="lib-scout.js?v=20260823a"></script>
+<script src="/tools/lib-sun.js?v=20260826a"></script>
+<script src="lib-scout.js?v=20260826a"></script>
 <script>
 (function () {
   'use strict';
-  var S = window.CScout;
+  var S = window.CScout, Sun = window.TSun;
   var KEY = 'SB_ScoutBook_v1';
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -167,8 +182,53 @@
   /* ── 1 · my locations ── */
   var FIELDS = [
     ['name', 'Location name'], ['address', 'Address'], ['scenes', 'Scenes (e.g. 4, 12, 13)'],
-    ['parking', 'Parking'], ['power', 'Power'], ['loadIn', 'Load-in'], ['notes', 'Notes']
+    ['parking', 'Parking'], ['power', 'Power (as scouted)'], ['loadIn', 'Load-in'], ['notes', 'Notes'],
+    ['lat', 'Latitude'], ['lon', 'Longitude'],
+    ['tzOffsetMin', 'UTC offset (min) — the location’s, not yours']
   ];
+
+  /* ── electrical load per location ──
+     Free text is what the scout writes; a number is what the gaffer needs.
+     parseSupply reads the number back out of the note, and powerDemand puts
+     the fixture order against it before the truck is loaded. */
+  function powerFor(loc) {
+    var sup = null;
+    if (loc.supplyAmps !== '' && loc.supplyAmps != null && isFinite(+loc.supplyAmps)) {
+      sup = { amps: +loc.supplyAmps, phases: +loc.supplyPhases === 3 ? 3 : 1, volts: 120, circuits: 1 };
+    }
+    return S.powerDemand(loc.fixtures || [], sup);
+  }
+  function powerPanel(loc) {
+    var d = powerFor(loc);
+    function fxOptions(sel) {
+      return '<option value="">— pick a fixture —</option>' + S.FIXTURES.map(function (f) {
+        return '<option value="' + esc(f.id) + '"' + (f.id === sel ? ' selected' : '') + '>' +
+          esc(f.name + ' — ' + f.watts + 'W') + '</option>';
+      }).join('');
+    }
+    var h = '<div class="sk-pw"><div class="sk-pwlbl">Power — supply on record vs. what you are plugging into it</div>' +
+      '<div class="sk-pwgrid">' +
+      '<div><label>Supply amps per leg</label><input data-f="supplyAmps" type="number" min="0" step="1" placeholder="e.g. 100" value="' + esc(loc.supplyAmps == null ? '' : loc.supplyAmps) + '"></div>' +
+      '<div><label>Phases</label><select data-f="supplyPhases">' +
+        ['1', '3'].map(function (v) { return '<option' + (String(loc.supplyPhases) === v ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('') +
+      '</select></div>' +
+      '<div><label>&nbsp;</label><button class="tb-btn" data-readpw="' + esc(loc.id) + '" title="Read amps and phase count out of the Power note above">⟳ Read from the note</button></div>' +
+      '</div>';
+    (loc.fixtures || []).forEach(function (r, i) {
+      h += '<div class="sk-fx"><select data-fx="' + esc(i) + '">' +
+        fxOptions(r.fixture) +
+        '</select><input data-fxq="' + esc(i) + '" type="number" min="0" max="99" step="1" value="' + esc(r.qty) + '">' +
+        '<span class="sk-note">' + esc('×  ' + ((S.fixtureById(r.fixture) || {}).watts || 0) + 'W') + '</span>' +
+        '<button class="tb-btn" data-fxdel="' + esc(i) + '" title="Remove this fixture">✕</button></div>';
+    });
+    h += '<div class="sk-fx"><button class="tb-btn" data-fxadd="' + esc(loc.id) + '">+ Fixture</button>' +
+      '<span class="sk-note">' + esc(d.lines.length ? d.lines.length + ' line item(s) on the order' : 'Nothing on the order yet') + '</span></div>' +
+      '<div class="sk-pwout"><b>' + esc(d.kw) + ' kW</b> · <b>' + esc(d.ampsPerLeg) + 'A</b> per leg at ' +
+      esc(d.volts + 'V ' + (d.phases === 3 ? '3-phase' : 'single phase')) +
+      '<br><span class="' + esc('sk-v-' + d.verdict) + '">' + esc(S.powerVerdictText(d)) + '</span>' +
+      '<br><span class="sk-note">' + esc(d.note) + '</span></div></div>';
+    return h;
+  }
   function locCard(loc) {
     var h = '<div class="sk-card" data-id="' + esc(loc.id) + '">' +
       '<div class="sk-bar" style="margin-bottom:0">' +
@@ -189,6 +249,7 @@
         return '<option' + (v === loc.permitStatus ? ' selected' : '') + '>' + v + '</option>'; }).join('') + '</select></div>' +
       '<div><label>Release status</label><select data-f="releaseStatus">' + ['none', 'sent', 'signed'].map(function (v) {
         return '<option' + (v === loc.releaseStatus ? ' selected' : '') + '>' + v + '</option>'; }).join('') + '</select></div>' +
+      powerPanel(loc) +
       '</div>' +
       '<div class="sk-photos" data-strip="' + esc(loc.id) + '">' + (loc.photos || []).map(function (pid) {
         return '<span class="sk-ph"><img data-photo="' + esc(pid) + '" alt="scout photo"><button class="tb-btn" data-delph="' + esc(pid) + '" data-ofloc="' + esc(loc.id) + '" title="Delete photo">✕</button></span>';
@@ -231,11 +292,25 @@
     st.locations.push(S.blankLocation({ name: f.name, scenes: f.scenes.join(', ') }));
     save(); renderLocations(); toast(f.name + ' added to the scout book');
   });
+  var NUMF = { supplyAmps: 1, supplyPhases: 1, tzOffsetMin: 1 };
   $('skLocs').addEventListener('change', function (e) {
     var card = e.target.closest('.sk-card'); if (!card) return;
     var loc = findLoc(card.getAttribute('data-id')); if (!loc) return;
     var f = e.target.getAttribute('data-f');
-    if (f) { loc[f] = e.target.value; save(); if (f === 'name' || f === 'permitStatus' || f === 'releaseStatus') renderLocations(); return; }
+    if (f) {
+      var v = e.target.value;
+      if (NUMF[f]) loc[f] = v === '' ? null : (isFinite(parseFloat(v)) ? parseFloat(v) : null);
+      else loc[f] = v;
+      if (f === 'tzOffsetMin') loc.tzSource = loc.tzOffsetMin == null ? '' : 'entered';
+      save();
+      if (f === 'name' || f === 'permitStatus' || f === 'releaseStatus') { renderLocations(); renderSunLocs(); }
+      else if (NUMF[f]) renderLocations();
+      return;
+    }
+    var fx = e.target.getAttribute('data-fx');
+    if (fx != null) { loc.fixtures[+fx].fixture = e.target.value; save(); renderLocations(); return; }
+    var fq = e.target.getAttribute('data-fxq');
+    if (fq != null) { loc.fixtures[+fq].qty = parseInt(e.target.value, 10) || 0; save(); renderLocations(); return; }
     var ph = e.target.getAttribute('data-photoin');
     if (ph && e.target.files && e.target.files[0]) addPhotoFile(loc, e.target.files[0]);
   });
@@ -254,6 +329,32 @@
     if (dph) {
       var owner = findLoc(e.target.getAttribute('data-ofloc'));
       if (owner) { owner.photos = owner.photos.filter(function (p) { return p !== dph; }); delPhoto(dph); save(); renderLocations(); }
+      return;
+    }
+    var fxAdd = e.target.getAttribute('data-fxadd');
+    if (fxAdd) {
+      var la = findLoc(fxAdd); if (!la) return;
+      if (!la.fixtures) la.fixtures = [];
+      la.fixtures.push({ fixture: '', qty: 1 });
+      save(); renderLocations();
+      return;
+    }
+    var fxDel = e.target.getAttribute('data-fxdel');
+    if (fxDel != null) {
+      var card2 = e.target.closest('.sk-card');
+      var ld = card2 && findLoc(card2.getAttribute('data-id')); if (!ld) return;
+      ld.fixtures.splice(+fxDel, 1); save(); renderLocations();
+      return;
+    }
+    var readPw = e.target.getAttribute('data-readpw');
+    if (readPw) {
+      var lp = findLoc(readPw); if (!lp) return;
+      var parsed = S.parseSupply(lp.power);
+      if (!parsed) return toast('No amperage in that note — write it as "100A", "200A 3-phase" or "2 x 20A"');
+      lp.supplyAmps = parsed.amps * (parsed.circuits || 1);
+      lp.supplyPhases = parsed.phases;
+      save(); renderLocations();
+      toast('Read ' + lp.supplyAmps + 'A, ' + parsed.phases + '-phase from the power note');
       return;
     }
     var fee = e.target.getAttribute('data-feego');
@@ -341,22 +442,70 @@
     toast('Advisor jurisdiction → ' + hub);
   });
 
-  /* ── 4 · golden hour + checklist ── */
-  function renderSun() {
-    var lat = parseFloat($('skLat').value), date = $('skDate').value;
-    if (!isFinite(lat) || !date) { $('skSunOut').innerHTML = '<p class="sk-note">Enter a latitude and a date — the result is local solar time, not clock time.</p>'; return; }
-    var g = S.goldenHour(lat, date);
-    if (g.error) { $('skSunOut').innerHTML = '<p class="sk-note">Could not compute — check the latitude and date.</p>'; return; }
-    if (g.polar) { $('skSunOut').innerHTML = '<div class="sk-sun"><span>' + esc(g.polar) + ' · ' + esc(g.note) + '</span></div>'; return; }
-    $('skSunOut').innerHTML = '<div class="sk-sun">' +
-      '<span>Sunrise <b>' + esc(g.sunrise) + '</b></span>' +
-      '<span>AM golden from <b>' + esc(g.goldenAmStart) + '</b></span>' +
-      '<span>PM golden from <b>' + esc(g.goldenPmStart) + '</b></span>' +
-      '<span>Sunset <b>' + esc(g.sunset) + '</b></span>' +
-      '<span>Day length <b>' + esc(g.dayLength) + 'h</b></span>' +
-      '<span class="sk-note" style="align-self:center">' + esc(g.note) + '</span></div>';
+  /* ── 4 · golden hour + checklist ──────────────────────────────────────
+     The approximate solar engine that used to live in lib-scout.js is gone.
+     This is tools/lib-sun.js — the tested NOAA/Meeus one — and every time is
+     rendered in the LOCATION's offset. A sunset rendered in the viewer's
+     timezone is not a small error: LA's 19:28 prints as 02:28 from a UTC
+     machine, and a call sheet built off it is wrong by seven hours.        */
+  function tzInUse() {
+    var v = parseFloat($('skTz').value);
+    if (isFinite(v)) return { min: Math.round(v), est: false };
+    var lon = parseFloat($('skLon').value);
+    var est = Sun.tzOffsetFromLon(lon);
+    return { min: est, est: true };
   }
-  $('skSun').addEventListener('click', function () { st.lat = $('skLat').value; st.date = $('skDate').value; save(); renderSun(); });
+  function renderSun() {
+    var lat = parseFloat($('skLat').value), lon = parseFloat($('skLon').value), date = $('skDate').value;
+    if (!isFinite(lat) || !isFinite(lon) || !date) {
+      $('skSunOut').innerHTML = '<p class="sk-note">Enter a latitude, a longitude and a date. Longitude is not optional — without it there is no clock time, only solar time.</p>';
+      return;
+    }
+    var t = Sun.sunTimes(date, lat, lon);
+    var a = Sun.sunAngles(date, lat, lon);
+    var z = tzInUse();
+    if (t.sunrise == null || t.sunset == null) {
+      var polar = t.sunrise == null && t.sunset == null
+        ? (lat > 0 === (date.slice(5, 7) > '03' && date.slice(5, 7) < '10') ? 'midnight sun — the sun never sets this date' : 'polar night — the sun never rises this date')
+        : 'the sun does not cross the horizon normally at this latitude on this date';
+      $('skSunOut').innerHTML = '<div class="sk-sun"><span>' + esc(polar) + '</span></div>';
+      return;
+    }
+    var src = z.est
+      ? 'offset ESTIMATED from longitude — solar mean time, no DST, no political border. Put the real offset on the location record.'
+      : 'the offset recorded for this location.';
+    $('skSunOut').innerHTML = '<div class="sk-sun">' +
+      '<span>Sunrise <b>' + esc(Sun.fmtLocal(t.sunrise, z.min)) + '</b></span>' +
+      '<span>AM golden until <b>' + esc(Sun.fmtLocal(t.goldenEndAM, z.min)) + '</b></span>' +
+      '<span>PM golden from <b>' + esc(Sun.fmtLocal(t.goldenStartPM, z.min)) + '</b></span>' +
+      '<span>Sunset <b>' + esc(Sun.fmtLocal(t.sunset, z.min)) + '</b></span>' +
+      '<span>Dusk <b>' + esc(Sun.fmtLocal(t.dusk, z.min)) + '</b></span>' +
+      '<span>Daylight <b>' + esc(Sun.daylightHours(t)) + 'h</b></span>' +
+      '</div><div class="sk-sun">' +
+      '<span>Rises <b>' + esc(Sun.compass(a.sunrise.azimuth) + ' ' + a.sunrise.azimuth + '°') + '</b></span>' +
+      '<span>Sets <b>' + esc(Sun.compass(a.sunset.azimuth) + ' ' + a.sunset.azimuth + '°') + '</b></span>' +
+      '<span>Noon <b>' + esc(a.noon ? Sun.fmtLocal(a.noon.time, z.min) + ' · ' + a.noon.altitude + '° up · ' + Sun.compass(a.noon.azimuth) : '—') + '</b></span>' +
+      '<span class="sk-note ' + esc(z.est ? 'sk-est' : '') + '" style="align-self:center">Times ' + esc(Sun.tzLabel(z.min)) + ' — ' + esc(src) + '</span></div>';
+  }
+  $('skSun').addEventListener('click', function () {
+    st.lat = $('skLat').value; st.lon = $('skLon').value;
+    st.tz = $('skTz').value; st.date = $('skDate').value;
+    save(); renderSun();
+  });
+  function renderSunLocs() {
+    $('skSunLoc').innerHTML = '<option value="">— pin from a location —</option>' +
+      st.locations.map(function (l) {
+        return '<option value="' + esc(l.id) + '">' + esc(l.name || 'Unnamed location') + '</option>';
+      }).join('');
+  }
+  $('skSunLoc').addEventListener('change', function () {
+    var l = findLoc(this.value); if (!l) return;
+    if (l.lat === '' || l.lon === '') return toast('That location has no lat/lon yet — add the pin on its card');
+    $('skLat').value = l.lat; $('skLon').value = l.lon;
+    $('skTz').value = l.tzOffsetMin == null ? '' : l.tzOffsetMin;
+    st.lat = l.lat; st.lon = l.lon; st.tz = $('skTz').value;
+    save(); renderSun();
+  });
   function renderChecklist() {
     $('skCheck').innerHTML = S.locationChecklist().map(function (c) {
       return '<li><input type="checkbox" data-chk="' + esc(c.id) + '"' + (st.checks[c.id] ? ' checked' : '') + '>' +
@@ -372,9 +521,11 @@
   $('skPermitCity').innerHTML = cityOptions(S.PERMITS, st.permitCity);
   $('skStageCity').innerHTML = cityOptions(S.STAGES, st.stageCity);
   $('skLat').value = st.lat || '';
+  $('skLon').value = st.lon || '';
+  $('skTz').value = st.tz == null ? '' : st.tz;
   $('skDate').value = st.date || new Date().toISOString().slice(0, 10);
-  renderLocations(); renderPermit(); renderStages(); renderSun(); renderChecklist();
-  function renderAll() { renderLocations(); renderPermit(); renderStages(); renderSun(); renderChecklist(); }
+  renderLocations(); renderSunLocs(); renderPermit(); renderStages(); renderSun(); renderChecklist();
+  function renderAll() { renderLocations(); renderSunLocs(); renderPermit(); renderStages(); renderSun(); renderChecklist(); }
   window.ScoutApp = { render: renderAll, state: st };
 })();
 </script>

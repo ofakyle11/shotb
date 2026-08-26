@@ -89,17 +89,102 @@
     return findings;
   }
 
-  function summary(findings) {
+  /* ── E&O readiness ─────────────────────────────────────────────────────
+     "E&O-ready" is a representation made to an insurer, so it is computed
+     from the state of the clearance work — not from whether anybody typed
+     anything. The old rule was `open === 0` where open counted only findings
+     still marked `pending`: set every finding to "accepted risk" and the page
+     turned green with ZERO items actually cleared, and an empty chain of
+     title, no music licences and no certificate of insurance still read
+     CLEAR because those stores were never consulted.
+
+     A finding is RESOLVED only when it is cleared or rewritten. "Accepted
+     risk" is a decision to carry it — a disclosure the underwriter must see,
+     never a clearance. Everything else is a blocker with a name. */
+  var RESOLVED = ['cleared', 'rewritten'];
+  var STATUSES = ['pending', 'cleared', 'rewritten', 'accepted risk'];
+  var CHAIN_KINDS = ['Underlying rights', 'Option', 'Purchase', 'Life rights', 'Writer agreement'];
+
+  function isResolved(f) { return RESOLVED.indexOf(f && f.status) >= 0; }
+
+  /* summary(findings, ctx?) — ctx is the rest of the E&O file, read from the
+     stores that already hold it:
+       ctx.rights     SB_Rights_v1 rows   [{material,kind,party,termEnd,status}]
+       ctx.music      SB_Music_v1 store   {cues:[{title,status,scope}]}
+       ctx.insurance  SB_Insurance_v1 rows[{kind,carrier,policy,expiry}]
+       ctx.todayISO   the caller's date — this module never calls Date.now()
+     With no ctx the finding maths still runs and the three file blockers are
+     reported as UNKNOWN rather than silently passing. */
+  function summary(findings, ctx) {
+    var list = findings || [];
+    var c = ctx || {};
     var by = {};
-    (findings || []).forEach(function (f) {
+    list.forEach(function (f) {
       by[f.cat] = by[f.cat] || { total: 0, cleared: 0, high: 0 };
       by[f.cat].total++;
-      if (f.status === 'cleared' || f.status === 'rewritten') by[f.cat].cleared++;
-      if (f.risk === 'high' && f.status === 'pending') by[f.cat].high++;
+      if (isResolved(f)) by[f.cat].cleared++;
+      if (f.risk === 'high' && !isResolved(f)) by[f.cat].high++;
     });
-    var open = (findings || []).filter(function (f) { return f.status === 'pending'; }).length;
-    return { byCategory: by, open: open, total: (findings || []).length,
-             eoReady: open === 0 };
+    var pending = list.filter(function (f) { return f.status === 'pending'; }).length;
+    var accepted = list.filter(function (f) { return f.status === 'accepted risk'; }).length;
+    var open = list.filter(function (f) { return !isResolved(f); }).length;
+
+    var blockers = [];
+    var disclosures = [];
+    if (pending) blockers.push({ id: 'findings', label: pending + ' script finding' + (pending === 1 ? '' : 's') +
+      ' still pending', detail: 'Clear, rewrite, or record an accepted risk against every one.' });
+    if (accepted) disclosures.push({ id: 'accepted-risk', label: accepted + ' finding' + (accepted === 1 ? '' : 's') +
+      ' carried as accepted risk', detail: 'Not cleared — list each one on the application; the underwriter decides, not the production.' });
+
+    /* chain of title */
+    var rights = c.rights;
+    if (!rights) blockers.push({ id: 'chain', label: 'Chain of title not checked',
+      detail: 'Rights register (Tools › Rights & chain of title) was not read.', unknown: true });
+    else {
+      var executed = rights.filter(function (r) { return r.status === 'Executed'; });
+      var gaps = rights.filter(function (r) { return r.status && r.status !== 'Executed'; });
+      var hasUnderlying = executed.some(function (r) { return CHAIN_KINDS.indexOf(r.kind) >= 0; });
+      if (!hasUnderlying) blockers.push({ id: 'chain', label: 'No executed underlying-rights agreement',
+        detail: 'The chain starts with an executed option, purchase, life-rights or writer agreement. Nothing on file.' });
+      if (gaps.length) blockers.push({ id: 'chain-gaps', label: gaps.length + ' rights agreement' +
+        (gaps.length === 1 ? '' : 's') + ' not executed',
+        detail: gaps.map(function (r) { return (r.material || 'untitled') + ' — ' + (r.status || 'no status'); }).join('; ') });
+    }
+
+    /* music licences */
+    var music = c.music;
+    if (!music) blockers.push({ id: 'music', label: 'Music licences not checked',
+      detail: 'SB_Music_v1 (Music Rights & Score) was not read.', unknown: true });
+    else {
+      var cues = (music.cues || music || []).filter(function (q) { return q && q.status !== 'replaced'; });
+      var unlicensed = cues.filter(function (q) { return q.status !== 'licensed'; });
+      var festivalOnly = cues.filter(function (q) { return q.status === 'licensed' && q.scope === 'festival'; });
+      if (unlicensed.length) blockers.push({ id: 'music', label: unlicensed.length + ' music cue' +
+        (unlicensed.length === 1 ? '' : 's') + ' not licensed',
+        detail: unlicensed.map(function (q) { return (q.title || 'untitled cue') + ' — ' + (q.status || 'no status'); }).join('; ') });
+      if (festivalOnly.length) disclosures.push({ id: 'music-scope', label: festivalOnly.length + ' cue' +
+        (festivalOnly.length === 1 ? '' : 's') + ' licensed for festivals only',
+        detail: 'A festival-only sync does not cover distribution — exercise the step-up before delivery.' });
+    }
+
+    /* certificate of insurance */
+    var ins = c.insurance;
+    if (!ins) blockers.push({ id: 'eo-policy', label: 'E&O policy not checked',
+      detail: 'Insurance register (Tools › Insurance & certificates) was not read.', unknown: true });
+    else {
+      var eo = ins.filter(function (r) { return r.kind === 'E&O'; });
+      var live = eo.filter(function (r) { return !c.todayISO || !r.expiry || r.expiry >= c.todayISO; });
+      if (!eo.length) blockers.push({ id: 'eo-policy', label: 'No E&O policy on file',
+        detail: 'Log the policy or the broker submission in the insurance register.' });
+      else if (!live.length) blockers.push({ id: 'eo-policy', label: 'E&O policy expired',
+        detail: eo.map(function (r) { return (r.carrier || 'carrier unknown') + ' expired ' + (r.expiry || '—'); }).join('; ') });
+    }
+
+    return { byCategory: by, open: open, pending: pending, acceptedRisk: accepted,
+             resolved: list.length - open, total: list.length,
+             blockers: blockers, disclosures: disclosures,
+             checked: !!(c.rights && c.music && c.insurance),
+             eoReady: blockers.length === 0 };
   }
 
   /* ── the letters ──────────────────────────────────────────────────── */
@@ -141,7 +226,8 @@
   }
 
   root.CClear = {
-    BRANDS: BRANDS, splitScenes: splitScenes, scan: scan, summary: summary,
+    BRANDS: BRANDS, STATUSES: STATUSES, RESOLVED: RESOLVED, CHAIN_KINDS: CHAIN_KINDS,
+    splitScenes: splitScenes, scan: scan, summary: summary, isResolved: isResolved,
     materialsRequest: materialsRequest, appearanceRelease: appearanceRelease,
     locationRelease: locationRelease, syncRequest: syncRequest
   };

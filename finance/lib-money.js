@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    CINAMATE — Money Room engine (CMoney)
    The weekly cost report exactly as studio accounting runs it: for every
-   budget account — Budget, Actual (paid/invoiced + petty cash), Committed
+   budget account — Budget, Actual (paid/invoiced + petty cash + labour), Committed
    (open purchase orders and signed deals), Estimate-To-Complete, then
    EFC = Actual + Committed + ETC and Variance = Budget − EFC. Overruns
    surface while there is still time to act, and every actual feeds the
@@ -34,7 +34,10 @@
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
 
   function blank() {
-    return { v: 1, pos: [], petty: [], etc: {}, snapshots: [], nextPo: 1001 };
+    /* labor is DERIVED — rebuilt from the timecards by js/lib-payroll.js on
+       every render, never edited here. It is declared so the shape the report
+       reads is visible in one place. */
+    return { v: 1, pos: [], petty: [], etc: {}, labor: [], snapshots: [], nextPo: 1001 };
   }
 
   /* ── purchase orders ─────────────────────────────────────────────────
@@ -109,6 +112,24 @@
     });
     (m.petty || []).forEach(function (p) { row(postAcct(accts, p.acct)).actual += M.cents(p.amount); });
 
+    /* Labour. Half to two-thirds of a film is people, and until this line
+       existed none of it reached the report: every EFC and every variance was
+       wrong by the size of the crew. The postings arrive as plain data on
+       m.labor — {acct, kind:'actual'|'committed', cents} — built by
+       js/lib-payroll.js from the timecards. Deliberately dumb on this side:
+       this file is script-loaded by six other module pages, so the join
+       cannot add a dependency here. `cents` is authoritative when present so
+       payroll's integer arithmetic survives the trip. */
+    var labor = { actual: 0, committed: 0 };
+    (m.labor || []).forEach(function (p) {
+      if (!p || p.kind === 'void') return;
+      var c = p.cents != null ? M.roundHalfAway(p.cents) : M.cents(p.amount);
+      if (!c) return;
+      var r = row(postAcct(accts, p.acct));
+      if (p.kind === 'committed') { r.committed += c; labor.committed += c; }
+      else { r.actual += c; labor.actual += c; }
+    });
+
     /* Totals are the sum of the cents that were actually posted — never a sum
        of already-rounded rows, and EFC/variance are DERIVED from those sums
        rather than added up separately. That is what makes the TOTAL row foot:
@@ -141,6 +162,9 @@
       efc: M.dollars(efcC), variance: M.dollars(varC), over: varC < 0
     };
     return { rows: list, totals: totals,
+             labor: { actual: M.dollars(labor.actual), committed: M.dollars(labor.committed),
+                      total: M.dollars(labor.actual + labor.committed),
+                      postings: (m.labor || []).length },
              openPOs: (m.pos || []).filter(function (p) { return p.status === 'open'; }).length };
   }
 

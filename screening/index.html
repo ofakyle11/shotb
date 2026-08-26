@@ -106,7 +106,8 @@
   function renderNotes() {
     var s = sess();
     var p = S.progress(s);
-    $('srProg').textContent = p.total + ' notes · ' + p.open + ' open' + (p.locked ? ' — ALL ADDRESSED ✓' : '');
+    $('srProg').textContent = p.total + ' notes · ' + p.open + ' open' + (p.locked ? ' — ALL ADDRESSED ✓' : '') +
+      ' · cut: ' + S.cutLabel(s);
     $('srNotes').innerHTML = S.sortNotes(s).map(function (n) {
       return '<div class="sr-note' + (n.status === 'done' ? ' done' : '') + '">' +
         '<span class="tc" data-seek="' + esc(n.sec) + '">' + S.fmtTc(n.sec, s.fps) + '</span>' +
@@ -121,6 +122,16 @@
   $('srFile').addEventListener('change', function () {
     var f = this.files[0]; if (!f) return;
     video.src = URL.createObjectURL(f);
+    /* Notes are notes against A CUT. Recording which one is what lets the
+       screener registry say what it sent, and stops a note from a v3 review
+       being read against v5. */
+    S.setCut(sess(), { id: f.name + '|' + f.size, label: f.name, file: f.name,
+                       version: (/(v\d+)/i.exec(f.name) || [])[1] || '' });
+    video.addEventListener('loadedmetadata', function once() {
+      video.removeEventListener('loadedmetadata', once);
+      var c = sess().cut; if (c) { c.durSec = Math.round(video.duration || 0); save(); renderNotes(); }
+    });
+    save(); renderNotes();
     $('srFileName').textContent = f.name;
     toast('Cut loaded — space to play, notes land at the playhead');
   });

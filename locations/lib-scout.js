@@ -454,11 +454,14 @@
       encodeURIComponent(String(name || '') + ' ' + String(city || '')).replace(/%20/g, '+');
   }
 
-  /* ── 4 · golden hour — compact NOAA-style approximation ───────────────
-     Returns LOCAL SOLAR TIME (solar noon = 12:00): no timezone or
-     longitude correction is applied, so real clock times shift by up to
-     ~an hour either way plus DST. Every result carries the note.        */
-  var RAD = Math.PI / 180;
+  /* ── 4 · day-of-year (kept: used by scheduling callers) ──────────────
+     The approximate solar engine that used to live here has been deleted.
+     It returned LOCAL SOLAR TIME with no longitude, timezone or DST
+     correction and was up to 1h40m out on sunset — on the number that
+     decides whether you make the day. tools/lib-sun.js is a tested
+     NOAA/Meeus implementation with real timezone handling and sun
+     direction; locations/index.html loads it now. Do not re-add a second
+     solar engine here.                                                   */
   function dayOfYear(isoDate) {
     var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(isoDate || ''));
     if (!m) return null;
@@ -470,44 +473,11 @@
     for (i = 0; i < mo - 1; i++) n += days[i];
     return n;
   }
-  function fmtHour(h) {
-    while (h < 0) h += 24;
-    while (h >= 24) h -= 24;
-    var hh = Math.floor(h), mm = Math.round((h - hh) * 60);
-    if (mm === 60) { mm = 0; hh = (hh + 1) % 24; }
-    return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
-  }
-  function goldenHour(lat, isoDate) {
-    var NOTE = 'solar time — verify locally';
-    var n = dayOfYear(isoDate);
-    var la = +lat;
-    if (n == null || !isFinite(la) || la < -90 || la > 90) {
-      return { sunrise: null, sunset: null, goldenAmStart: null, goldenPmStart: null,
-               polar: null, error: 'bad input', note: NOTE };
-    }
-    /* Cooper's declination formula + official-sunrise zenith 90.833° */
-    var decl = 23.44 * Math.sin(2 * Math.PI * (284 + n) / 365);
-    var cosH = (Math.cos(90.833 * RAD) - Math.sin(la * RAD) * Math.sin(decl * RAD)) /
-               (Math.cos(la * RAD) * Math.cos(decl * RAD));
-    if (cosH > 1)  return { sunrise: null, sunset: null, goldenAmStart: null, goldenPmStart: null,
-                            polar: 'polar night — sun never rises this date', note: NOTE };
-    if (cosH < -1) return { sunrise: null, sunset: null, goldenAmStart: null, goldenPmStart: null,
-                            polar: 'midnight sun — sun never sets this date', note: NOTE };
-    var H = Math.acos(cosH) / RAD / 15;          /* half day-length in hours */
-    var rise = 12 - H, set = 12 + H;
-    return {
-      sunrise: fmtHour(rise), sunset: fmtHour(set),
-      goldenAmStart: fmtHour(rise),              /* golden light runs ~1h from sunrise */
-      goldenPmStart: fmtHour(set - 1),           /* …and the last ~1h before sunset    */
-      dayLength: Math.round(H * 2 * 10) / 10,
-      polar: null, note: NOTE
-    };
-  }
 
   /* ── 5 · tech-scout checklist ─────────────────────────────────────────── */
   function locationChecklist() {
     return [
-      { id: 'power',     item: 'Power',        detail: 'House power capacity and tie-in point, or generator spot (with cable run + noise distance).' },
+      { id: 'power',     item: 'Power',        detail: 'House power capacity and tie-in point, or generator spot (with cable run + noise distance). Record the panel rating in AMPS PER LEG and the phase count, not "should be fine" — the load calculator on each location card needs a number.' },
       { id: 'parking',   item: 'Parking',      detail: 'Trucks, basecamp, and crew parking — measured, legal, and close enough to matter.' },
       { id: 'loadin',    item: 'Load-in',      detail: 'Doors, ramps, stairs, elevator dimensions and weight limits; push distance to set.' },
       { id: 'bathrooms', item: 'Bathrooms',    detail: 'Working facilities on site or honeywagon spot — count against crew size.' },
@@ -528,8 +498,142 @@
       name: f.name || '', address: f.address || '', scenes: f.scenes || '',
       hospital: f.hospital || '', hospitalAddress: f.hospitalAddress || '',
       parking: f.parking || '', power: f.power || '', loadIn: f.loadIn || '',
-      notes: f.notes || '', permitStatus: 'none', releaseStatus: 'none', photos: []
+      notes: f.notes || '', permitStatus: 'none', releaseStatus: 'none', photos: [],
+      /* Sun: the pin, plus the LOCATION's civil UTC offset in minutes so the
+         page can render the location's clock with no network call. tzSource
+         records where the offset came from — an estimate must never be shown
+         as though it were the real civil offset. */
+      lat: f.lat == null ? '' : f.lat, lon: f.lon == null ? '' : f.lon,
+      tzOffsetMin: f.tzOffsetMin == null ? null : f.tzOffsetMin,
+      tzSource: f.tzSource || '',
+      /* Power: what is actually available here, structured, plus the fixture
+         order that has to run off it. `power` above stays as the free-text
+         scout note it always was. */
+      supplyAmps: f.supplyAmps == null ? null : f.supplyAmps,
+      supplyVolts: f.supplyVolts == null ? 120 : f.supplyVolts,
+      supplyPhases: f.supplyPhases == null ? 1 : f.supplyPhases,
+      fixtures: f.fixtures || []
     };
+  }
+
+  /* ── 7 · electrical load ──────────────────────────────────────────────
+   * A location that records "lots of power, ask the super" is a location
+   * nobody has costed and nobody has checked. Blowing the house service is
+   * the most common electrical incident on a small set, and the second most
+   * common is discovering at 6am that the day needs a generator nobody
+   * budgeted.
+   *
+   * Nameplate draw in watts. HMI and tungsten figures are the lamp rating;
+   * `draw` is the multiplier that turns lamp watts into what the ballast or
+   * transformer actually pulls off the line (magnetic HMI ballasts run well
+   * under unity power factor, so they draw more line current than the lamp
+   * rating suggests). Verify against the plate on the actual unit — rental
+   * stock varies — but these are the standard sizes a package is built from.
+   */
+  var FIXTURES = [
+    { id: 'led-tube',    name: 'LED tube (Astera Titan class)', watts: 72,    kind: 'led',      draw: 1 },
+    { id: 'led-mat2',    name: 'LED mat, 2x1 (LiteMat 2L class)', watts: 220, kind: 'led',      draw: 1 },
+    { id: 'led-panel',   name: 'LED panel, S60 class',          watts: 450,   kind: 'led',      draw: 1 },
+    { id: 'led-600',     name: 'LED point source, 600W class',  watts: 720,   kind: 'led',      draw: 1 },
+    { id: 'led-1200',    name: 'LED point source, 1200W class', watts: 1400,  kind: 'led',      draw: 1 },
+    { id: 'tung-650',    name: 'Tungsten fresnel 650W',         watts: 650,   kind: 'tungsten', draw: 1 },
+    { id: 'tung-1k',     name: 'Tungsten fresnel 1K',           watts: 1000,  kind: 'tungsten', draw: 1 },
+    { id: 'tung-2k',     name: 'Tungsten fresnel 2K',           watts: 2000,  kind: 'tungsten', draw: 1 },
+    { id: 'tung-5k',     name: 'Tungsten fresnel 5K',           watts: 5000,  kind: 'tungsten', draw: 1 },
+    { id: 'tung-10k',    name: 'Tungsten fresnel 10K',          watts: 10000, kind: 'tungsten', draw: 1 },
+    { id: 'hmi-575',     name: 'HMI 575 (Joker class)',         watts: 575,   kind: 'hmi',      draw: 1.2 },
+    { id: 'hmi-1200',    name: 'HMI 1.2K',                      watts: 1200,  kind: 'hmi',      draw: 1.2 },
+    { id: 'hmi-1800',    name: 'HMI M18 / 1.8K',                watts: 1800,  kind: 'hmi',      draw: 1.2 },
+    { id: 'hmi-4000',    name: 'HMI M40 / 4K',                  watts: 4000,  kind: 'hmi',      draw: 1.2 },
+    { id: 'hmi-12000',   name: 'HMI 12K',                       watts: 12000, kind: 'hmi',      draw: 1.2 },
+    { id: 'practical',   name: 'Practical / china ball',        watts: 100,   kind: 'practical', draw: 1 },
+    { id: 'video-vill',  name: 'Video village + monitors',      watts: 600,   kind: 'support',  draw: 1 },
+    { id: 'camera-cart', name: 'Camera cart + chargers',        watts: 500,   kind: 'support',  draw: 1 },
+    { id: 'hmu-station', name: 'Hair/make-up station (irons, dryers)', watts: 1800, kind: 'support', draw: 1 },
+    { id: 'heater',      name: 'Space heater',                  watts: 1500,  kind: 'support',  draw: 1 }
+  ];
+  function fixtureById(id) {
+    var hit = null;
+    FIXTURES.forEach(function (f) { if (f.id === id) hit = f; });
+    return hit;
+  }
+
+  /* Read a structured supply out of the free text a scout actually writes:
+     "200A 3-phase 120/208", "two 20 amp circuits", "60A bates". Returns null
+     when nothing numeric is in there — an unparseable note is unknown supply,
+     not zero and not a guess. */
+  function parseSupply(text) {
+    var s = String(text == null ? '' : text).toLowerCase();
+    var amps = null, phases = 1, volts = 120, circuits = 1;
+    var m = /(\d+(?:\.\d+)?)\s*(?:a\b|amp)/.exec(s);
+    if (m) amps = parseFloat(m[1]);
+    var c = /(\d+)\s*(?:x|×)\s*(\d+(?:\.\d+)?)\s*(?:a\b|amp)/.exec(s);
+    if (c) { circuits = parseInt(c[1], 10); amps = parseFloat(c[2]); }
+    if (/3[\s-]*(?:phase|ph\b)|three[\s-]*phase/.test(s)) phases = 3;
+    var v = /(\d{3})\s*v\b/.exec(s);
+    if (v) volts = parseInt(v[1], 10) >= 200 ? 120 : parseInt(v[1], 10);  // 208/240 quoted line-to-line; legs are 120
+    if (amps == null) return null;
+    return { amps: amps, phases: phases, volts: volts, circuits: circuits };
+  }
+
+  /* Demand for a fixture order against the supply on record.
+     rows: [{fixture:'hmi-1800', qty:2}] or [{watts:900, qty:1, name:'…'}]
+     supply: {amps, volts, phases} — or a free-text string, or null/unknown.
+
+     Amps are per LEG at 120V leg-to-neutral, which is how a distro is
+     actually loaded: a balanced 3-phase 200A service carries the total load
+     across three 200A legs. The 80% figure is the continuous-load derate
+     every electrical code applies to a load running more than three hours —
+     a shoot day is by definition continuous. */
+  function powerDemand(rows, supply) {
+    var sup = typeof supply === 'string' ? parseSupply(supply) : (supply || null);
+    var lines = [], watts = 0;
+    (rows || []).forEach(function (r) {
+      var fx = r && r.fixture ? fixtureById(r.fixture) : null;
+      var each = fx ? fx.watts : (isFinite(r && r.watts) ? +r.watts : 0);
+      var draw = fx ? fx.draw : (isFinite(r && r.draw) ? +r.draw : 1);
+      var qty = Math.max(0, parseInt((r && r.qty) || 0, 10) || 0);
+      if (!each || !qty) return;
+      var line = Math.round(each * draw * qty);
+      watts += line;
+      lines.push({ id: (fx && fx.id) || '', name: (fx && fx.name) || (r && r.name) || 'Custom load',
+                   each: each, qty: qty, draw: draw, watts: line,
+                   amps: Math.round(line / 120 * 10) / 10 });
+    });
+    var volts = (sup && sup.volts) || 120;
+    var phases = (sup && sup.phases) || 1;
+    var perLeg = Math.round(watts / (phases * volts) * 10) / 10;
+    var supplyAmps = sup && isFinite(sup.amps) ? sup.amps * ((sup.circuits || 1)) : null;
+    var usable = supplyAmps == null ? null : Math.round(supplyAmps * 0.8 * 10) / 10;
+    var out = {
+      watts: watts, kw: Math.round(watts / 100) / 10,
+      volts: volts, phases: phases,
+      ampsPerLeg: perLeg,
+      supplyAmps: supplyAmps, usableAmps: usable,
+      headroomAmps: usable == null ? null : Math.round((usable - perLeg) * 10) / 10,
+      pctOfSupply: usable == null ? null : Math.round(perLeg / usable * 100),
+      needAmpsPerLeg: Math.ceil(perLeg / 0.8),
+      lines: lines,
+      verdict: 'unknown',
+      note: 'Nameplate draw at ' + volts + 'V, ' + (phases === 3 ? '3-phase, per leg' : 'single phase') +
+            '. Continuous-load derate 80%. Inrush on HMI strike is higher still — verify at the tie-in.'
+    };
+    if (usable == null) out.verdict = 'unknown';
+    else if (perLeg > supplyAmps) out.verdict = 'over';
+    else if (perLeg > usable) out.verdict = 'derate';
+    else if (perLeg > usable * 0.85) out.verdict = 'tight';
+    else out.verdict = 'ok';
+    return out;
+  }
+
+  /* One line a producer can act on, rather than a number to interpret. */
+  function powerVerdictText(d) {
+    if (!d) return '';
+    if (d.verdict === 'unknown') return 'Supply not recorded — this order draws ' + d.kw + 'kW (' + d.ampsPerLeg + 'A per leg). Get the panel rating on the tech scout.';
+    if (d.verdict === 'over') return 'OVER SUPPLY — ' + d.ampsPerLeg + 'A per leg against ' + d.supplyAmps + 'A available. This trips the service. Needs ' + d.needAmpsPerLeg + 'A per leg, or a generator.';
+    if (d.verdict === 'derate') return 'Over the 80% continuous-load limit — ' + d.ampsPerLeg + 'A per leg against ' + d.usableAmps + 'A usable of ' + d.supplyAmps + 'A. Legal only in short bursts; plan a genny.';
+    if (d.verdict === 'tight') return 'Tight — ' + d.ampsPerLeg + 'A per leg of ' + d.usableAmps + 'A usable. No room for a heater, a hair dryer or one more unit.';
+    return 'Clear — ' + d.ampsPerLeg + 'A per leg of ' + d.usableAmps + 'A usable (' + d.pctOfSupply + '%).';
   }
 
   /* Unique script locations from sluglines: [{name, scenes:[n..]}] */
@@ -553,8 +657,10 @@
   root.CScout = {
     PERMITS: PERMITS, STAGES: STAGES, INCENTIVE_HUB: INCENTIVE_HUB,
     hubForIncentive: hubForIncentive, permitFor: permitFor, stagesFor: stagesFor,
-    searchLink: searchLink, goldenHour: goldenHour, dayOfYear: dayOfYear,
+    searchLink: searchLink, dayOfYear: dayOfYear,
     locationChecklist: locationChecklist, blankLocation: blankLocation,
-    scriptLocations: scriptLocations
+    scriptLocations: scriptLocations,
+    FIXTURES: FIXTURES, fixtureById: fixtureById, parseSupply: parseSupply,
+    powerDemand: powerDemand, powerVerdictText: powerVerdictText
   };
 })(typeof window !== 'undefined' ? window : globalThis);

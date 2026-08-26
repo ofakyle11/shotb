@@ -12,6 +12,104 @@
   function uid() { return 'f' + Math.random().toString(36).slice(2, 9); }
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
 
+  /* ── 0 · THE STORE — one shape for SB_Festivals_v1 ──────────────────────
+     Two pages used to write this key with incompatible top-level types: the
+     Tools register wrote a bare ARRAY of rows keyed [name, tier, deadline,
+     fee, submitted, status, premiere, notes], this page wrote an OBJECT
+     {premiereStatus, subs, buyers}. localStorage holds one value, so whichever
+     page was opened second overwrote the other — Tools-first dropped every
+     submission, buyer and the premiere status; object-first made the Tools tab
+     throw `rows.reduce is not a function`. Owners lost real submissions.
+
+     The OBJECT wins: it is the only one of the two that can carry the buyer
+     CRM and the premiere status, which are the facts the strategy is computed
+     from, and it can hold the Register's rows as `subs` without loss.
+     migrate() reads BOTH legacy shapes, so an upgrade never costs an owner a
+     row whichever page they used. Every field the Register wrote is kept —
+     `name`→`festival`, `submitted`→`submittedOn`, `premiere`→`premiereReq`,
+     and `status` maps to a `result` while the original word is preserved in
+     `stage` so nothing an owner typed is thrown away. */
+  var KEY = 'SB_Festivals_v1';
+  var STORE_VERSION = 2;
+  var PREMIERE_STATUSES = ['unpremiered', 'us-premiered', 'world-premiered'];
+  /* The Tools register's richer status vocabulary, mapped onto the four
+     results the tracker reasons about. */
+  var LEGACY_STAGES = {
+    'Planned': 'pending', 'Submitted': 'pending', 'In consideration': 'pending',
+    'Accepted': 'accepted', 'Rejected': 'rejected', 'Premiered': 'accepted',
+    'Withdrawn': 'withdrawn'
+  };
+
+  function blank() {
+    return { v: STORE_VERSION, premiereStatus: 'unpremiered', subs: [], buyers: [] };
+  }
+
+  /* One submission record, whichever shape it arrived in. */
+  function normSub(raw) {
+    var r = raw || {};
+    var result = RESULTS.indexOf(r.result) >= 0 ? r.result : null;
+    var stage = r.stage || (LEGACY_STAGES[r.status] ? r.status : '');
+    if (!result) result = LEGACY_STAGES[r.status] || 'pending';
+    return {
+      id: r.id || uid(),
+      festival: String(r.festival || r.name || ''),
+      category: String(r.category || ''),
+      tier: String(r.tier || ''),
+      deadline: String(r.deadline || ''),
+      fee: num(r.fee),
+      submittedOn: String(r.submittedOn || r.submitted || ''),
+      result: result,
+      stage: String(stage || ''),
+      premiereReq: String(r.premiereReq || r.premiere || ''),
+      notes: String(r.notes || '')
+    };
+  }
+  function normBuyer(raw) {
+    var b = newBuyer(raw || {});
+    if (raw && raw.id) b.id = raw.id;
+    return b;
+  }
+
+  /* migrate(raw) → the canonical store. Accepts the legacy ARRAY, the legacy
+     OBJECT, null, and anything else without throwing. Pure. */
+  function migrate(raw) {
+    var store = blank();
+    var subs = [], buyers = [];
+    if (raw && Object.prototype.toString.call(raw) === '[object Array]') {
+      subs = raw;                                   // legacy: bare Register rows
+    } else if (raw && typeof raw === 'object') {
+      subs = [].concat(raw.subs || [], raw.rows || []);
+      buyers = raw.buyers || [];
+      if (PREMIERE_STATUSES.indexOf(raw.premiereStatus) >= 0) store.premiereStatus = raw.premiereStatus;
+    }
+    var seen = {};
+    subs.forEach(function (r) {
+      if (!r || typeof r !== 'object') return;
+      var s = normSub(r);
+      while (seen[s.id]) s.id = uid();
+      seen[s.id] = 1;
+      store.subs.push(s);
+    });
+    (buyers || []).forEach(function (b) {
+      if (!b || typeof b !== 'object') return;
+      store.buyers.push(normBuyer(b));
+    });
+    return store;
+  }
+
+  /* The two pages read and write through these, so neither can invent a shape
+     the other cannot read. load() migrates on the way in. */
+  function load() {
+    var raw = null;
+    try { raw = JSON.parse((root.localStorage && root.localStorage.getItem(KEY)) || 'null'); }
+    catch (e) { raw = null; }
+    return migrate(raw);
+  }
+  function save(store) {
+    try { root.localStorage && root.localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {}
+    return store;
+  }
+
   /* Shown once above the directory — the honesty banner. */
   var BANNER = 'Windows and fees drift every year — verify on FilmFreeway or the festival site before planning.';
 
@@ -125,9 +223,9 @@
   var RESULTS = ['pending', 'accepted', 'rejected', 'withdrawn'];
   function newSub(fields) {
     var f = fields || {};
-    return { id: uid(), festival: f.festival || '', category: f.category || '',
-      deadline: f.deadline || '', fee: num(f.fee), submittedOn: f.submittedOn || '',
-      result: RESULTS.indexOf(f.result) >= 0 ? f.result : 'pending' };
+    var s = normSub(f);
+    s.id = uid();                 // a new submission is never someone else's row
+    return s;
   }
   function setResult(subs, id, result) {
     if (RESULTS.indexOf(result) < 0) return null;
@@ -199,6 +297,10 @@
 
   root.CFest = {
     BANNER: BANNER, MAJORS: MAJORS, TIERS: TIERS, TIER_LABELS: TIER_LABELS, RESULTS: RESULTS,
+    KEY: KEY, STORE_VERSION: STORE_VERSION, PREMIERE_STATUSES: PREMIERE_STATUSES,
+    LEGACY_STAGES: LEGACY_STAGES,
+    blank: blank, normSub: normSub, normBuyer: normBuyer, migrate: migrate,
+    load: load, save: save,
     searchLink: searchLink, byTier: byTier, strategy: strategy,
     newSub: newSub, setResult: setResult, feesTotal: feesTotal, upcoming: upcoming,
     resultCounts: resultCounts,

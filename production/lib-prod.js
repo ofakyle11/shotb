@@ -16,54 +16,111 @@
      <script> tag before this file, and by the node suites. */
   var CS = root.CScenes;
   if (!CS) throw new Error('lib-prod.js requires js/lib-scenes.js to be loaded first');
+  /* The one shoot-day record — js/lib-shootdays.js. It is the join key between
+     the stripboard's day index, the calendar date the plan computes, and the
+     two take stores. The DPR used to invent all three for itself. */
+  var CSD = root.CShootDays;
+  if (!CSD) throw new Error('lib-prod.js requires js/lib-shootdays.js to be loaded first');
 
 
-  /* ── Daily Production Report ────────────────────────────────────── */
-  /* stores: {takes: SB_TakeLog_v1 rows, timecards: SB_Timecards_v1 rows,
+  /* ── Daily Production Report ──────────────────────────────────────
+   * stores: {takes: SB_TakeLog_v1 rows, dailies: SB_Dailies_v1,
+   *          timecards: SB_Timecards_v1 rows, hotcost: SB_HotCost_v1 rows,
    *          board: SB_ScheduleBoard_v1, plan: SB_ShootPlan_v1,
-   *          hotcost: SB_HotCost_v1 rows, timeline: SB_Timeline_v1} */
+   *          shootDays: SB_ShootDays_v1 rows, timeline: SB_Timeline_v1}
+   *
+   * What this report used to do, and why none of it was true:
+   *   · it filtered takes on `t.date`, a field NO writer of either take store
+   *     emits, behind `!t.date || t.date === date` — so every take ever logged
+   *     was reported on every date of the shoot;
+   *   · it counted prints with /print|good|circle/ against `t.status||t.print`,
+   *     two more fields no writer emits, so printedCount was permanently 0;
+   *   · it read only SB_TakeLog_v1, so a full day logged in /dailies/ — the
+   *     store the on-set app actually writes — never reached the report;
+   *   · "scheduled" counted every strip on the board with a day >= 0, i.e. the
+   *     whole schedule, reported as though it were today's work.
+   * All four are the same root cause: no shoot-day record to join on. Takes
+   * now come through CShootDays.takesOn (both stores, normalised, dated), and
+   * scheduled scenes are the strips on THIS day's index. */
   function num(v) { var n = parseFloat(v); return isFinite(n) ? n : 0; }
   function rowsOf(v) { return Array.isArray(v) ? v : (v && Array.isArray(v.rows)) ? v.rows : []; }
 
   function dpr(stores, opts) {
     stores = stores || {}; opts = opts || {};
-    var takes = rowsOf(stores.takes);
     var cards = rowsOf(stores.timecards);
     var hot = rowsOf(stores.hotcost);
     var date = opts.date || '';
-    var dayTakes = date ? takes.filter(function (t) { return !t.date || t.date === date; }) : takes;
+
+    /* Which shoot day is this? By date if the record knows it, else by the
+       index the caller names, else derived from the plan. -1 means the date
+       is not a shoot day at all, which the report says out loud rather than
+       quietly counting the whole schedule. */
+    var days = stores.shootDays;
+    var dayIdx = (opts.dayIdx == null || opts.dayIdx < 0) ? CSD.indexForDate(days, date) : opts.dayIdx;
+    if (dayIdx < 0 && date && stores.plan) {
+      var derived = CSD.build(stores.plan, stores.board, { existing: days });
+      dayIdx = CSD.indexForDate(derived, date);
+    }
+    var unitRec = CSD.byIndex(days, dayIdx);
+
+    var takeStores = { takeLog: stores.takes, dailies: stores.dailies };
+    var dayTakes = date ? CSD.takesOn(takeStores, date) : CSD.allTakes(takeStores);
     var scenes = {};
-    dayTakes.forEach(function (t) { if (t.scene != null && t.scene !== '') scenes[t.scene] = 1; });
-    var printed = dayTakes.filter(function (t) { return /print|good|circle/i.test(String(t.status || t.print || '')); });
+    dayTakes.forEach(function (t) { if (t.scene) scenes[t.scene] = 1; });
+    var printed = CSD.circledTakes(dayTakes);
     var cardDay = date ? cards.filter(function (c) { return !c.date || c.date === date; }) : cards;
     var hotTotal = hot.reduce(function (a, h) { return a + num(h.amount || h.actual || h.total); }, 0);
-    var boardScenes = (stores.board && Array.isArray(stores.board.scenes)) ? stores.board.scenes : [];
-    var scheduled = boardScenes.filter(function (s) { return s.day >= 0; }).length;
+
+    /* Scheduled vs shot, for THIS day. */
+    var strips = dayIdx >= 0 ? CSD.scheduledOn(stores.board, dayIdx) : [];
+    var scheduledNums = strips.map(function (s) { return String(s.num == null ? s.id : s.num); });
+    var covered = Object.keys(scenes);
+    var shotOfScheduled = scheduledNums.filter(function (n) { return scenes[n]; });
     return {
       date: date,
+      dayIdx: dayIdx,
+      dayLabel: dayIdx >= 0 ? 'Day ' + (dayIdx + 1) : '',
+      unit: unitRec ? unitRec.unit : '',
       project: (stores.timeline && stores.timeline.projectName) || 'Untitled Film',
-      scenesCovered: Object.keys(scenes).sort(),
+      scenesCovered: covered.sort(),
+      scheduledSceneNums: scheduledNums,
+      scheduledScenes: scheduledNums.length,
+      scenesShot: shotOfScheduled.length,
+      scenesUnshot: scheduledNums.filter(function (n) { return !scenes[n]; }),
+      pagesScheduled: strips.reduce(function (a, s) { return a + num(s.eighths); }, 0),
       takeCount: dayTakes.length,
       printedCount: printed.length,
+      undatedTakes: CSD.undatedTakes(takeStores).length,
       crewOnCards: cardDay.length,
       hotCostTotal: Math.round(hotTotal),
-      scheduledScenes: scheduled,
-      dayOneDate: (stores.plan && stores.plan.date) || '',
+      dayOneDate: CSD.firstShootDate(stores.plan) || (stores.plan && stores.plan.date) || '',
       notes: opts.notes || ''
     };
   }
 
   function dprText(d) {
-    return [
+    var head = 'Date: ' + (d.date || '—') +
+      (d.dayLabel ? '   ·   ' + d.dayLabel : '   ·   not a scheduled shoot day') +
+      (d.unit ? '   ·   ' + d.unit + ' unit' : '');
+    var out = [
       'DAILY PRODUCTION REPORT — ' + d.project,
-      'Date: ' + (d.date || '—'),
+      head,
       '',
+      'Scheduled: ' + d.scheduledScenes + ' scene' + (d.scheduledScenes === 1 ? '' : 's') +
+        (d.scheduledSceneNums.length ? ' (' + d.scheduledSceneNums.join(', ') + ')' : '') +
+        '  ·  shot ' + d.scenesShot + '/' + d.scheduledScenes +
+        (d.scenesUnshot.length ? '  ·  NOT SHOT: ' + d.scenesUnshot.join(', ') : ''),
       'Scenes covered: ' + (d.scenesCovered.length ? d.scenesCovered.join(', ') : 'none logged'),
-      'Takes: ' + d.takeCount + ' (' + d.printedCount + ' printed)',
-      'Crew timecards: ' + d.crewOnCards,
-      'Hot-cost postings to date: $' + d.hotCostTotal.toLocaleString('en-US'),
-      d.notes ? '\nNotes: ' + d.notes : ''
-    ].join('\n').trim();
+      'Takes: ' + d.takeCount + ' (' + d.printedCount + ' circled/printed)'
+    ];
+    if (d.undatedTakes) {
+      out.push(d.undatedTakes + ' take' + (d.undatedTakes === 1 ? '' : 's') +
+        ' carry no shoot day and are on no report — date them in the take log.');
+    }
+    out.push('Crew timecards: ' + d.crewOnCards);
+    out.push('Hot-cost postings to date: $' + d.hotCostTotal.toLocaleString('en-US'));
+    if (d.notes) out.push('\nNotes: ' + d.notes);
+    return out.join('\n').trim();
   }
 
   /* ── Music cue sheet from the Editor timeline ───────────────────── */

@@ -73,6 +73,7 @@
       <label class="dl-note">Unit
         <select id="dlUnit"><option>MAIN</option><option>2ND</option><option>SPLINTER</option></select>
       </label>
+      <span class="dl-note" id="dlDayLabel" title="The shoot-day record this date resolves to — the same day the stripboard, the call sheet and the daily production report use"></span>
       <span class="dl-note" id="dlDayStat"></span>
     </div>
     <div class="dl-form">
@@ -135,6 +136,7 @@
 <div class="toast" id="dlToast" aria-live="polite"></div>
 <script src="/js/project-badge.js?v=20260823a"></script>
 <script src="/js/lib-scenes.js?v=20260826a"></script>
+<script src="/js/lib-shootdays.js?v=20260826a"></script>
 <script src="lib-dailies.js?v=20260823a"></script>
 <script>
 (function () {
@@ -158,12 +160,28 @@
   function curDay() { return $('dlDate').value || st.cur.date || today(); }
   function camVal() { return $('dlCamB').classList.contains('on') ? 'B' : 'A'; }
 
+  /* The shoot-day record (js/lib-shootdays.js) is the one join key: this page
+     knew the date and the unit, the stripboard knew the day index, and the day
+     planner knew the calendar date — and none of the three could reach the
+     others, which is why the daily production report could not find a single
+     take logged here. Starting a day here writes that record, so the DPR,
+     /today/ and the call sheet all resolve the same day. */
+  var SD = window.CShootDays;
+  var shootDays = SD.sync(window.localStorage, { dailies: st });
   function touchDay() {
     var d = curDay(), u = $('dlUnit').value;
     st.cur = { date: d, unit: u };
     var hit = st.days.filter(function (x) { return x.date === d && x.unit === u; })[0];
     if (!hit) st.days.push({ date: d, unit: u });
     save();
+    shootDays = SD.upsertDate(window.localStorage, d, { unit: u });
+    stampDay();
+  }
+  function stampDay() {
+    var el = $('dlDayLabel');
+    if (!el) return;
+    var rec = SD.byDate(shootDays, curDay());
+    el.textContent = rec ? SD.label(rec) : 'not on the stripboard yet';
   }
 
   /* ── prefill from the log ── */
@@ -319,9 +337,16 @@
     dayOptions($('dlRepDay'), false);
     renderCoverage();
     renderPicks();
-    var dayRows = st.takes.filter(function (t) { return t.day === curDay(); });
-    var cr = D.circleRate(dayRows);
-    $('dlDayStat').textContent = dayRows.length ? dayRows.length + ' takes today · ' + cr.overall.circled + ' circled' : '';
+    /* Both take stores, through the one accessor: a take slated on the phone
+       in /tools/ is the same day's work as one logged here, and the count on
+       this page used to pretend the other store did not exist. */
+    var dayRows = SD.takesOn({ takeLog: readLS('SB_TakeLog_v1'), dailies: st }, curDay());
+    var mine = dayRows.filter(function (t) { return t.source === SD.DAILIES_KEY; }).length;
+    $('dlDayStat').textContent = dayRows.length
+      ? dayRows.length + ' takes today · ' + SD.circledTakes(dayRows).length + ' circled' +
+        (dayRows.length > mine ? ' (' + (dayRows.length - mine) + ' from the Tools slate log)' : '')
+      : '';
+    stampDay();
   }
 
   /* ── init ── */

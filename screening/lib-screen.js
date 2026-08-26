@@ -14,12 +14,32 @@
 
   function blank() { return { v: 1, sessions: [], active: null }; }
 
-  function newSession(store, title, author, when) {
+  /* A review session is notes against A SPECIFIC CUT. Recording no cut
+     identity meant a note could not be tied to the picture it was made on,
+     and the screener registry next door could not say what it had sent — so
+     the cut travels with the session: an id, a version name, a duration and
+     whatever hash/filename the owner exported. */
+  function normCut(cut) {
+    var c = cut || {};
+    return { id: c.id || '', label: c.label || '', version: c.version || '',
+             durSec: +c.durSec || 0, file: c.file || '' };
+  }
+  function cutLabel(sess) {
+    var c = (sess && sess.cut) || {};
+    var parts = [c.label, c.version].filter(function (x) { return x; });
+    return parts.join(' ') || (c.file || c.id || 'unidentified cut');
+  }
+  function newSession(store, title, author, when, cut) {
     var s = { id: uid(), title: title || 'Cut review', createdBy: author || '',
-              createdAt: when || '', fps: 24, notes: [] };
+              createdAt: when || '', fps: 24, cut: normCut(cut), notes: [] };
     store.sessions.push(s);
     store.active = s.id;
     return s;
+  }
+  function setCut(sess, cut) {
+    if (!sess) return null;
+    sess.cut = normCut(cut);
+    return sess.cut;
   }
   function session(store, id) {
     return store.sessions.filter(function (s) { return s.id === (id || store.active); })[0] || null;
@@ -90,7 +110,8 @@
   }
 
   function exportText(sess) {
-    var out = 'REVIEW NOTES — ' + sess.title + (sess.createdAt ? ' · ' + sess.createdAt : '') + '\n' +
+    var out = 'REVIEW NOTES — ' + sess.title + (sess.createdAt ? ' · ' + sess.createdAt : '') +
+              '\nCut: ' + cutLabel(sess) + '\n' +
               '────────────────────────────────────────\n';
     sortNotes(sess).forEach(function (n) {
       out += fmtTc(n.sec, sess.fps) + '  [' + n.status.toUpperCase() + ']  ' +
@@ -100,7 +121,8 @@
   }
 
   root.CScreen = {
-    blank: blank, newSession: newSession, session: session, removeSession: removeSession,
+    blank: blank, newSession: newSession, normCut: normCut, setCut: setCut, cutLabel: cutLabel,
+    session: session, removeSession: removeSession,
     addNote: addNote, setStatus: setStatus, removeNote: removeNote, sortNotes: sortNotes,
     fmtTc: fmtTc, parseTc: parseTc, toMarkers: toMarkers, progress: progress, exportText: exportText
   };

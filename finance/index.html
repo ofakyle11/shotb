@@ -57,7 +57,10 @@
     <table class="mr-table"><thead><tr>
       <th>Acct</th><th>Category</th><th>Budget</th><th>Actual</th><th>Committed</th><th>ETC</th><th>EFC</th><th>Variance</th>
     </tr></thead><tbody id="mrRows"></tbody></table>
-    <p class="mr-note">Actual = paid/invoiced POs + petty cash. Committed = open POs and signed deals. ETC defaults to the money left in the plan — override it per line when you know better. EFC = Actual + Committed + ETC; red variance means the account lands over budget <b>unless something changes now</b>. Every actual quietly calibrates the estimators for your next film.</p>
+    <h2>Payroll <span class="mr-chip" id="mrPayChip"></span></h2>
+    <p class="mr-note" id="mrPayroll"></p>
+
+    <p class="mr-note">Actual = paid/invoiced POs + petty cash + worked timecards. Committed = open POs, signed deals and scheduled crew days. ETC defaults to the money left in the plan — override it per line when you know better. EFC = Actual + Committed + ETC; red variance means the account lands over budget <b>unless something changes now</b>. Every actual quietly calibrates the estimators for your next film.</p>
 
     <h2>Purchase orders</h2>
     <div class="mr-bar">
@@ -91,6 +94,11 @@
 <script src="/js/lib-money-math.js?v=20260826a"></script>
 <script src="/js/lib-money-accounts.js?v=20260826a"></script>
 <script src="/js/lib-money-sheet.js?v=20260826a"></script>
+<!-- Payroll: the timecard OT engine, then the join that turns a logged card
+     into postings on the cost report. TMoney must precede CPayroll, and both
+     precede the Money Room engine that reads their postings. -->
+<script src="/tools/lib-money.js?v=20260826a"></script>
+<script src="/js/lib-payroll.js?v=20260826a"></script>
 <script src="/js/learn.js?v=20260823a"></script>
 <script src="lib-money.js?v=20260823a"></script>
 <script>
@@ -109,6 +117,23 @@
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
   function sheet() { return readLS('SB_BudgetSheet_v1') || { categories: [] }; }
 
+  /* ── payroll ──────────────────────────────────────────────────────────
+     Labour is half to two thirds of the film and it used to reach this report
+     not at all. The timecards are the source of truth and live in their own
+     store, so the postings are DERIVED on every render rather than copied
+     into SB_Money_v1 — nothing here can go stale against the cards. */
+  var P = window.CPayroll;
+  function cards() {
+    var rows = readLS(P.LOG_KEY);
+    return (Array.isArray(rows) ? rows : []).map(P.cardFromLog);
+  }
+  function withLabor() {
+    var v = {};
+    Object.keys(st).forEach(function (k) { v[k] = st[k]; });
+    v.labor = P.postingsFor(cards());
+    return v;
+  }
+
   function acctOptions() {
     var accts = M.budgetByAcct(sheet());
     var keys = Object.keys(accts).sort();
@@ -120,7 +145,7 @@
   }
 
   function render() {
-    var rep = M.costReport(sheet(), st);
+    var rep = M.costReport(sheet(), withLabor());
     $('mrRows').innerHTML = rep.rows.map(function (r) {
       return '<tr><td>' + esc(r.acct) + '</td><td>' + esc(r.name) + '</td>' +
         '<td>' + fm(r.budget) + '</td><td>' + fm(r.actual) + '</td><td>' + fm(r.committed) + '</td>' +
@@ -147,8 +172,29 @@
       return '<div>' + esc(p.date) + ' · <b>' + esc(p.who) + '</b> — ' + esc(p.desc) + ' · acct ' + esc(p.acct) + ' · ' + fm(p.amount) +
         ' <button class="tb-btn" data-del="' + esc(p.id) + '">✕</button></div>';
     }).join('') || 'No petty cash logged.';
+    renderPayroll(rep);
     var fed = M.feedLearning(sheet(), st);
     $('mrLearn').textContent = fed ? fed + ' actuals fed to the estimator brain' : '';
+  }
+
+  function renderPayroll(rep) {
+    var s = P.payrollSummary(cards());
+    $('mrPayChip').textContent = s.cards + (s.cards === 1 ? ' timecard' : ' timecards');
+    if (!s.cards) {
+      $('mrPayroll').innerHTML = 'No timecards logged yet — log them in <a href="/tools/#timecards">Tools → Timecards</a> ' +
+        'and every day of labour posts itself here: gross and penalties to the department account, fringes to 20000. ' +
+        'Until then this cost report is understating the film by the size of the crew.';
+      return;
+    }
+    var where = Object.keys(s.byAcct).map(function (a) {
+      return esc(a) + ' ' + fm(s.byAcct[a]);
+    }).join(' · ');
+    $('mrPayroll').innerHTML =
+      '<b>' + fm(s.total) + '</b> of labour on the report — ' + fm(s.labor) + ' gross + penalties, ' +
+      fm(s.fringes) + ' fringes (acct 20000) · ' + s.people + ' people · ' + s.workedHours + ' worked hours · ' +
+      fm(rep.labor.actual) + ' actual, ' + fm(rep.labor.committed) + ' committed<br>' + where +
+      (s.errors.length ? '<br><span class="mr-over">' + s.errors.length + ' card' + (s.errors.length === 1 ? '' : 's') +
+        ' could not be costed: ' + esc(s.errors[0].person + ' — ' + s.errors[0].error) + '</span>' : '');
   }
 
   $('poAdd').addEventListener('click', function () {
@@ -174,12 +220,12 @@
     if (del && confirm('Remove this line?')) { M.removeRow(st, del); save(); render(); }
   });
   $('mrSnap').addEventListener('click', function () {
-    var s = M.snapshot(st, M.costReport(sheet(), st), now());
+    var s = M.snapshot(st, M.costReport(sheet(), withLabor()), now());
     save(); render(); toast('Week ' + s.week + ' locked into the record');
   });
   $('mrCsv').addEventListener('click', function () {
     var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([M.csv(M.costReport(sheet(), st))], { type: 'text/csv' }));
+    a.href = URL.createObjectURL(new Blob([M.csv(M.costReport(sheet(), withLabor()))], { type: 'text/csv' }));
     a.download = 'cost-report.csv'; a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
   });

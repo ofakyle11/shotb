@@ -109,37 +109,78 @@
 
     var buf = {
       pos: gl.createBuffer(), nrm: gl.createBuffer(), col: gl.createBuffer(),
-      linePos: gl.createBuffer(), lineCol: gl.createBuffer()
+      linePos: gl.createBuffer(), lineCol: gl.createBuffer(),
+      framePos: gl.createBuffer(), frameCol: gl.createBuffer()
     };
     var tri = null, lineCount = 0, meshes = [], meshRanges = [];
+
+    /* ── frame lines ─────────────────────────────────────────────────
+       Drawn in clip space with identity matrices, so they sit on the frame
+       rather than in the set: the frame edge, the 90% action-safe box, the
+       80% title-safe box and a centre cross. Every monitor on the floor has
+       these; a viewport that claims to be a lens should too. */
+    var FRAME = (function () {
+      var pos = [], col = [];
+      function rect(k, c) {
+        var p = [[-k, -k], [k, -k], [k, k], [-k, k]];
+        for (var i = 0; i < 4; i++) {
+          var a = p[i], b = p[(i + 1) % 4];
+          pos.push(a[0], a[1], 0, b[0], b[1], 0);
+          col.push(c[0], c[1], c[2], c[0], c[1], c[2]);
+        }
+      }
+      var edge = [0.79, 0.66, 0.42], safe = [0.55, 0.64, 0.72];
+      rect(0.999, edge); rect(0.9, safe); rect(0.8, safe);
+      var m = 0.035;
+      pos.push(-m, 0, 0, m, 0, 0, 0, -m, 0, 0, m, 0);
+      for (var j = 0; j < 4; j++) col.push(edge[0], edge[1], edge[2]);
+      return { pos: new Float32Array(pos), col: new Float32Array(col), count: pos.length / 3 };
+    })();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf.framePos);
+    gl.bufferData(gl.ARRAY_BUFFER, FRAME.pos, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf.frameCol);
+    gl.bufferData(gl.ARRAY_BUFFER, FRAME.col, gl.STATIC_DRAW);
+    var IDENT = new Float32Array(S3.mat4());
 
     /* Orbit state, in feet and degrees. */
     var view = { target: [12, 3, 9], dist: 46, yaw: 28, pitch: 26, fov: 52 };
     var lockedCamera = null;                    // an item id while looking through a lens
     var selectedId = null;
+    var currentPlan = null;
 
+    /* One call, so fovY and aspect can never come from two different places
+       again — which is exactly how the lens ended up widening when the
+       browser window did. */
+    function lensView() {
+      if (!lockedCamera) return null;
+      var it = itemById(lockedCamera);
+      return it ? S3.cameraView(it, null, currentPlan && currentPlan.sensor) : null;
+    }
     function eye() {
-      if (lockedCamera) {
-        var it = itemById(lockedCamera);
-        if (it) return S3.cameraView(it).eye;
-      }
+      var v = lensView();
+      if (v) return v.eye;
       return S3.orbitEye(view.target, view.dist, view.yaw, view.pitch);
     }
     function target() {
-      if (lockedCamera) {
-        var it = itemById(lockedCamera);
-        if (it) return S3.cameraView(it).target;
-      }
-      return view.target;
+      var v = lensView();
+      return v ? v.target : view.target;
     }
     function fovY() {
-      if (lockedCamera) {
-        var it = itemById(lockedCamera);
-        if (it) return S3.cameraView(it).fovY;
-      }
-      return view.fov;
+      var v = lensView();
+      return v ? v.fovY : view.fov;
     }
-    var currentPlan = null;
+    /* The frame the lens actually covers, in device pixels: the format's
+       aspect, letterboxed inside whatever shape the panel happens to be.
+       Free orbit is not a lens, so it keeps the whole panel. */
+    function frameRect() {
+      var cw = canvas.width || 1, ch = canvas.height || 1;
+      var v = lensView();
+      if (!v || !(v.aspect > 0)) return { x: 0, y: 0, w: cw, h: ch, aspect: cw / ch, letterboxed: false };
+      var w = cw, h = Math.round(cw / v.aspect);
+      if (h > ch) { h = ch; w = Math.round(ch * v.aspect); }
+      return { x: Math.round((cw - w) / 2), y: Math.round((ch - h) / 2), w: w, h: h,
+               aspect: v.aspect, letterboxed: w < cw - 1 || h < ch - 1 };
+    }
     function itemById(id) {
       if (!currentPlan) return null;
       for (var i = 0; i < (currentPlan.items || []).length; i++) {
@@ -174,9 +215,9 @@
       var c = [0.79, 0.66, 0.42];
       (plan.items || []).forEach(function (it) {
         if (it.type !== 'camera') return;
-        var v = S3.cameraView(it);
-        var fovH = S3.lensFov(it.lens, false) * Math.PI / 360;
-        var fovV = S3.lensFov(it.lens, true) * Math.PI / 360;
+        var v = S3.cameraView(it, null, plan && plan.sensor);
+        var fovH = v.fovX * Math.PI / 360;
+        var fovV = v.fovY * Math.PI / 360;
         var fwd = S3.normalize(S3.sub(v.target, v.eye));
         var right = S3.normalize(S3.cross(fwd, [0, 1, 0]));
         var up = S3.cross(right, fwd);
@@ -244,18 +285,35 @@
         canvas.width = Math.round(w * dpr);
         canvas.height = Math.round(h * dpr);
       }
+      /* Bars first, over the whole panel, then the frame itself. Anything
+         outside the format is matte, not extra coverage. */
+      gl.disable(gl.SCISSOR_TEST);
       gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0.02, 0.03, 0.05, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      var rect = frameRect();
+      gl.viewport(rect.x, rect.y, rect.w, rect.h);
+      gl.scissor(rect.x, rect.y, rect.w, rect.h);
+      gl.enable(gl.SCISSOR_TEST);
       gl.enable(gl.DEPTH_TEST);
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      /* Faces wind counter-clockwise from outside (lib-set3d.js), so the back
+         of a face is never meant to be seen. Culling makes a winding error
+         show up as a missing wall instead of as nothing at all — which is how
+         every normal in this engine pointed inward for as long as it did. */
+      gl.enable(gl.CULL_FACE);
+      gl.cullFace(gl.BACK);
+      gl.frontFace(gl.CCW);
       gl.clearColor(0.043, 0.086, 0.157, 1);        // matches the app's --base
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      if (!tri) return;
+      if (!tri) { gl.disable(gl.SCISSOR_TEST); return; }
 
-      var proj = S3.perspective(fovY(), (canvas.width / canvas.height) || 1, 0.1, 800);
+      var proj = S3.perspective(fovY(), rect.aspect || 1, 0.1, 800);
       var vw = S3.lookAt(eye(), target(), [0, 1, 0]);
 
-      /* grid + frustums */
+      /* grid + frustums — lines are not culled, so this is unaffected */
       gl.useProgram(lines);
       gl.uniformMatrix4fv(gl.getUniformLocation(lines, 'uProj'), false, new Float32Array(proj));
       gl.uniformMatrix4fv(gl.getUniformLocation(lines, 'uView'), false, new Float32Array(vw));
@@ -284,6 +342,19 @@
         gl.uniform1f(hl, 1);
         gl.drawArrays(gl.TRIANGLES, sel.start, sel.count);
       }
+
+      /* frame lines, last and on top of everything */
+      if (lockedCamera) {
+        gl.disable(gl.DEPTH_TEST);
+        gl.useProgram(lines);
+        gl.uniformMatrix4fv(gl.getUniformLocation(lines, 'uProj'), false, IDENT);
+        gl.uniformMatrix4fv(gl.getUniformLocation(lines, 'uView'), false, IDENT);
+        bind(lines, 'aPos', buf.framePos, 3);
+        bind(lines, 'aColor', buf.frameCol, 3);
+        gl.drawArrays(gl.LINES, 0, FRAME.count);
+        gl.enable(gl.DEPTH_TEST);
+      }
+      gl.disable(gl.SCISSOR_TEST);
     }
 
     function bind(prog, name, buffer, size) {
@@ -369,7 +440,14 @@
     /* Click to select, using the same ray maths the tests exercise. */
     function pickAt(clientX, clientY) {
       var r = canvas.getBoundingClientRect();
-      var ray = S3.screenRay(clientX - r.left, clientY - r.top, r.width, r.height,
+      /* Pick against the FRAME, not the panel. In free orbit they are the
+         same rectangle; through a lens the frame is letterboxed inside the
+         panel, and a ray cast against the panel would miss by the width of
+         the bars. */
+      var f = frameRect(), sx = r.width / (canvas.width || 1), sy = r.height / (canvas.height || 1);
+      var fx = r.left + f.x * sx, fw = f.w * sx;
+      var fy = r.top + (canvas.height - f.y - f.h) * sy, fh = f.h * sy;
+      var ray = S3.screenRay(clientX - fx, clientY - fy, fw, fh,
                              eye(), target(), fovY(), 0.1, 800);
       var hit = S3.pick(meshes, ray.origin, ray.dir);
       return hit ? hit.id : null;
@@ -383,6 +461,16 @@
       selected: function () { return selectedId; },
       lookThrough: function (id) { lockedCamera = id || null; frame(); },
       lockedCamera: function () { return lockedCamera; },
+      /* What the viewport is currently showing, so the caption can state the
+         format instead of guessing at it. */
+      lensFrame: function () {
+        var v = lensView(), r = frameRect();
+        return { aspect: r.aspect, letterboxed: r.letterboxed,
+                 width: r.w, height: r.h,
+                 sensor: v ? v.sensor : null, sensorKey: v ? v.sensorKey : null,
+                 fovX: v ? v.fovX : null, fovY: v ? v.fovY : fovY(),
+                 lens: v ? v.lens : null };
+      },
       frameAll: function () {
         if (!currentPlan) return;
         var b = S3.buildScene(currentPlan).bounds;

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 (0, eval)(readFileSync(join(ROOT, 'locations/lib-scout.js'), 'utf8'));
 const S = globalThis.CScout;
+const SRC = readFileSync(join(ROOT, 'locations/lib-scout.js'), 'utf8');
 
 let pass = 0, fail = 0;
 function t(name, cond) {
@@ -56,31 +57,17 @@ const link = S.searchLink('Pinewood Toronto Studios', 'Toronto');
 t('searchLink is a google search', link.indexOf('https://www.google.com/search?q=') === 0);
 t('searchLink encodes the query', link.indexOf('Pinewood+Toronto+Studios+Toronto') > 0);
 
-/* ── golden hour ── */
-const eq = S.goldenHour(0, '2026-03-20');            // equator, near equinox
-t('equator equinox sunrise ≈ 06:00', eq.sunrise >= '05:40' && eq.sunrise <= '06:20');
-t('equator equinox sunset ≈ 18:00', eq.sunset >= '17:40' && eq.sunset <= '18:20');
-t('AM golden starts at sunrise', eq.goldenAmStart === eq.sunrise);
-t('PM golden starts 1h before sunset', (() => {
-  const [sh, sm] = eq.sunset.split(':').map(Number);
-  const [gh, gm] = eq.goldenPmStart.split(':').map(Number);
-  return (sh * 60 + sm) - (gh * 60 + gm) === 60;
-})());
-t('golden hour carries the solar-time note', /solar time — verify locally/.test(eq.note));
-const june = S.goldenHour(45, '2026-06-21');         // mid-lat summer
-const dec = S.goldenHour(45, '2026-12-21');          // mid-lat winter
-t('summer day longer than winter at 45°N', june.dayLength > 14 && dec.dayLength < 10);
-t('summer sunrise earlier than winter', june.sunrise < dec.sunrise);
-t('polar night detected', /polar night/.test(S.goldenHour(78, '2026-12-21').polar));
-t('midnight sun detected', /midnight sun/.test(S.goldenHour(78, '2026-06-21').polar));
-t('polar results still carry the note', /verify locally/.test(S.goldenHour(78, '2026-06-21').note));
-t('bad input flagged, no fake times', (() => {
-  const bad = S.goldenHour(200, '2026-06-21');
-  const bad2 = S.goldenHour(45, 'not-a-date');
-  return bad.error && bad.sunrise === null && bad2.error && bad2.sunrise === null;
-})());
-t('dayOfYear handles leap years', S.dayOfYear('2024-03-01') === 61 && S.dayOfYear('2026-03-01') === 60 &&
+/* ── the approximate solar engine is GONE ──
+   It returned local solar time with no longitude, timezone or DST
+   correction and was up to 1h40m out on sunset. tools/lib-sun.js is the
+   tested engine and locations/index.html loads it; a second one living
+   here is the defect, so its absence is the assertion. Sun maths itself is
+   covered by scripts/test_sun.mjs. */
+t('CScout no longer ships a solar engine', S.goldenHour === undefined);
+t('nothing in lib-scout.js still computes sunrise', !/goldenHour|declination|cosH/.test(SRC));
+t('dayOfYear survives and handles leap years', S.dayOfYear('2024-03-01') === 61 && S.dayOfYear('2026-03-01') === 60 &&
   S.dayOfYear('2026-01-01') === 1 && S.dayOfYear('2026-12-31') === 365);
+t('dayOfYear rejects a non-date', S.dayOfYear('not-a-date') === null && S.dayOfYear('2026-13-01') === null);
 
 /* ── checklist ── */
 const ck = S.locationChecklist();

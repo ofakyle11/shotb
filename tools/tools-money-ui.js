@@ -20,6 +20,7 @@
       '<p class="tk-desc">Call and wrap in, gross pay out — film overtime conventions built in: 1.5× after 8 worked hours, 2× after 12 elapsed, golden time 3× after 15, meal penalties, forced-call turnaround, 6th/7th-day premiums and fringes. Rules are editable to match your agreement. A planning tool, not payroll.</p>' +
       '<div class="tk-grid">' +
       f('tcName', 'Crew member', 'text', '') +
+      f('tcRole', 'Role / department', 'text', '') +
       f('tcRate', 'Hourly rate ($)', 'text', '50') +
       f('tcCall', 'Call', 'time', '06:00') +
       f('tcWrap', 'Wrap', 'time', '18:30') +
@@ -70,9 +71,17 @@
 
     var log = new C.Register({
       key: 'SB_Timecards_v1',
+      /* Role and rate are columns, not decoration: the Money Room reads this
+         same store through CPayroll and the role is what decides the account
+         a day of labour posts to (a gaffer is G&E 8000, not Direction). The
+         rest of the timecard inputs ride along on the row so the cost report
+         re-derives the day through the one OT engine instead of trusting a
+         number typed once. */
       fields: [
         { id: 'date', label: 'Date', type: 'date', width: '130px' },
-        { id: 'name', label: 'Name' }, { id: 'call', label: 'Call', width: '70px' },
+        { id: 'name', label: 'Name' }, { id: 'role', label: 'Role', width: '120px' },
+        { id: 'rate', label: 'Rate ($/hr)', width: '90px' },
+        { id: 'call', label: 'Call', width: '70px' },
         { id: 'wrap', label: 'Wrap', width: '70px' }, { id: 'hours', label: 'Worked', width: '70px' },
         { id: 'total', label: 'Total ($)', width: '90px' }, { id: 'notes', label: 'Notes' }
       ],
@@ -85,9 +94,20 @@
     C.$('tcLog').onclick = function () {
       var res = calc();
       if (!res) return;
-      log.add({ date: C.today(), name: C.$('tcName').value, call: C.$('tcCall').value, wrap: C.$('tcWrap').value, hours: res.worked, total: res.total, notes: '' });
+      log.add({
+        date: C.today(), name: C.$('tcName').value, role: C.$('tcRole').value,
+        rate: C.$('tcRate').value, call: C.$('tcCall').value, wrap: C.$('tcWrap').value,
+        hours: res.worked, total: res.total, notes: '',
+        /* everything the Money Room needs to re-derive this day exactly */
+        meals: C.$('tcMeals').value, firstMeal: C.$('tcFirstMeal').value.trim(),
+        dow: C.$('tcDow').value, prevWrap: C.$('tcPrevWrap').value || '',
+        fringePct: res.fringePct, gross: res.gross, penalties: res.penalties,
+        fringes: res.fringes, kind: 'crew', status: 'worked'
+      });
       log.render('tcLogWrap');
-      C.toast('Timecard logged');
+      var acct = root.CPayroll && root.CAccounts
+        ? root.CPayroll.laborAcct({ role: C.$('tcRole').value, kind: 'crew' }) : '';
+      C.toast('Timecard logged' + (acct ? ' — posts to account ' + acct + ' + fringes 20000' : ''));
     };
 
     // rate autosuggest from crew directory
@@ -101,6 +121,7 @@
       C.$('tcName').addEventListener('change', function () {
         var hit = crew.find(function (c) { return c.name === C.$('tcName').value; });
         if (hit && hit.rate) C.$('tcRate').value = hit.rate;
+        if (hit && (hit.role || hit.dept)) C.$('tcRole').value = hit.role || hit.dept;
       });
     }
   };

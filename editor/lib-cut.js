@@ -10,10 +10,21 @@
 (function (root) {
   'use strict';
 
-  function blank(name) {
+  var FPS_DEFAULT = 24;
+
+  /* One place decides what a frame rate is. Every conversion below asks for it
+     rather than writing `p.fps || 24` again, so a project that has never had
+     a rate written to it cannot pick up a different default in each exporter. */
+  function normFps(v) {
+    v = +v;
+    return (isFinite(v) && v > 0) ? v : FPS_DEFAULT;
+  }
+  function fpsOf(p) { return normFps(p && p.fps); }
+
+  function blank(name, fps) {
     return {
       name: name || 'Untitled Cut',
-      fps: 24, width: 1280, height: 720,
+      fps: normFps(fps), width: 1280, height: 720,
       video: [],   // {id, srcId, label, in, out, speed, trans:{type,dur}}
       titles: [],  // {id, text, sub, start, dur, pos, size}
       audio: []    // {id, srcId, label, start, in, out, gain}
@@ -129,19 +140,22 @@
 
   /* ── timecode + EDL ─────────────────────────────────────────────── */
   function tc(sec, fps) {
-    fps = fps || 24;
-    var totalF = Math.round(sec * fps);
-    var f = totalF % fps;
-    var s = Math.floor(totalF / fps) % 60;
-    var m = Math.floor(totalF / fps / 60) % 60;
-    var h = Math.floor(totalF / fps / 3600);
+    /* Non-drop timecode counts against the NOMINAL integer rate: 24, 25, 30.
+       A fractional rate (23.976) still prints :00–:23. */
+    var rate = Math.max(1, Math.round(normFps(fps)));
+    var totalF = Math.max(0, Math.round(sec * rate));
+    var f = totalF % rate;
+    var s = Math.floor(totalF / rate) % 60;
+    var m = Math.floor(totalF / (rate * 60)) % 60;
+    var h = Math.floor(totalF / (rate * 3600));
     function p2(n) { return (n < 10 ? '0' : '') + n; }
     return p2(h) + ':' + p2(m) + ':' + p2(s) + ':' + p2(f);
   }
 
   function edl(p) {
-    var fps = p.fps || 24;
-    var lines = ['TITLE: ' + (p.name || 'CINAMATE CUT'), 'FCM: NON-DROP FRAME', ''];
+    var fps = fpsOf(p);
+    var lines = ['TITLE: ' + (p.name || 'CINAMATE CUT'), 'FCM: NON-DROP FRAME',
+      '* FRAME RATE: ' + Math.max(1, Math.round(fps)), ''];
     var st = starts(p);
     (p.video || []).forEach(function (c, i) {
       var recIn = st[i], recOut = st[i] + effDur(c);
@@ -158,10 +172,16 @@
 
   /* ── OpenTimelineIO JSON (Timeline.1 schema) ────────────────────── */
   function rt(seconds, fps) {
-    return { OTIO_SCHEMA: 'RationalTime.1', rate: fps, value: Math.round(seconds * fps) };
+    return { OTIO_SCHEMA: 'RationalTime.1', rate: normFps(fps), value: Math.round(seconds * normFps(fps)) };
+  }
+  /* Same schema, but from a frame count that has already been decided — the
+     gap/cursor arithmetic must round ONCE, in frames, or the rounding drifts
+     against the clip it is supposed to butt against. */
+  function rtF(frames, fps) {
+    return { OTIO_SCHEMA: 'RationalTime.1', rate: normFps(fps), value: Math.round(frames) };
   }
   function otio(p, srcMap) {
-    var fps = p.fps || 24;
+    var fps = fpsOf(p);
     srcMap = srcMap || {};
     var videoChildren = (p.video || []).map(function (c) {
       return {
@@ -186,15 +206,16 @@
         markers: [], enabled: true, metadata: {}
       };
     });
-    var audioChildren = (p.audio || []).map(function (a, i) {
-      var kids = [];
-      if (a.start > 0) {
-        kids.push({
-          OTIO_SCHEMA: 'Gap.1', name: 'gap',
-          source_range: { OTIO_SCHEMA: 'TimeRange.1', start_time: rt(0, fps), duration: rt(a.start, fps) }
-        });
-      }
-      kids.push({
+    /* An OTIO track's children play back to back: each one starts where the
+       previous one ended. The old code emitted a Gap of the clip's ABSOLUTE
+       start before every clip, so the gaps summed — cues at 2s and 10s came
+       out at 2s and 15s, and every conform past the first cue was late. Each
+       lane now carries a cursor in FRAMES and the gap is start − cursor.
+       A cue that would overlap the lane's cursor opens a new lane (A2, A3…)
+       rather than being silently shoved later, because a single track cannot
+       express two sounds at once. */
+    function audioClipChild(a, i) {
+      return {
         OTIO_SCHEMA: 'Clip.2', name: a.label || 'audio ' + (i + 1),
         source_range: { OTIO_SCHEMA: 'TimeRange.1', start_time: rt(a.in, fps), duration: rt(a.out - a.in, fps) },
         media_references: {
@@ -202,21 +223,38 @@
         },
         active_media_reference_key: 'DEFAULT_MEDIA',
         effects: [], markers: [], enabled: true, metadata: {}
+      };
+    }
+    var lanes = [];
+    (p.audio || []).map(function (a, i) { return { a: a, i: i }; })
+      .sort(function (x, y) { return (x.a.start || 0) - (y.a.start || 0) || x.i - y.i; })
+      .forEach(function (e) {
+        var startF = Math.max(0, Math.round((e.a.start || 0) * fps));
+        var durF = Math.max(0, Math.round(((e.a.out || 0) - (e.a.in || 0)) * fps));
+        var lane = null;
+        for (var k = 0; k < lanes.length; k++) { if (lanes[k].cursorF <= startF) { lane = lanes[k]; break; } }
+        if (!lane) { lane = { cursorF: 0, kids: [] }; lanes.push(lane); }
+        if (startF > lane.cursorF) {
+          lane.kids.push({
+            OTIO_SCHEMA: 'Gap.1', name: 'gap',
+            source_range: { OTIO_SCHEMA: 'TimeRange.1', start_time: rtF(0, fps), duration: rtF(startF - lane.cursorF, fps) }
+          });
+        }
+        lane.kids.push(audioClipChild(e.a, e.i));
+        lane.cursorF = startF + durF;
       });
-      return kids;
-    });
     var tracks = [{
       OTIO_SCHEMA: 'Track.1', name: 'V1', kind: 'Video',
       children: videoChildren, markers: [], effects: [], enabled: true, metadata: {},
       source_range: null
     }];
-    if (audioChildren.length) {
+    lanes.forEach(function (lane, k) {
       tracks.push({
-        OTIO_SCHEMA: 'Track.1', name: 'A1', kind: 'Audio',
-        children: [].concat.apply([], audioChildren), markers: [], effects: [], enabled: true, metadata: {},
+        OTIO_SCHEMA: 'Track.1', name: 'A' + (k + 1), kind: 'Audio',
+        children: lane.kids, markers: [], effects: [], enabled: true, metadata: {},
         source_range: null
       });
-    }
+    });
     return {
       OTIO_SCHEMA: 'Timeline.1',
       name: p.name || 'CINAMATE CUT',
@@ -378,7 +416,8 @@
   }
 
   root.CCut = {
-    blank: blank, effDur: effDur, starts: starts, duration: duration,
+    blank: blank, normFps: normFps, fpsOf: fpsOf,
+    effDur: effDur, starts: starts, duration: duration,
     videoAt: videoAt, titlesAt: titlesAt, audioAt: audioAt,
     split: split, move: move, clampTrim: clampTrim,
     tc: tc, edl: edl, otio: otio, peaks: peaks,

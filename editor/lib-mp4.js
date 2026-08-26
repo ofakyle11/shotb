@@ -89,6 +89,21 @@
     return full('stss', 0, 0, concat(b));
   }
 
+  /* Edit list. ONE segment: play `segmentMv` of movie time (movie timescale)
+     starting `mediaTime` into the media (media timescale) at rate 1.
+     This is the only legal way to say "the first N samples of this track are
+     not part of the programme" — which is exactly what an AAC encoder's
+     priming samples are — and equally the only way to say "stop here" when the
+     encoder had to round the tail up to a whole frame. */
+  function elst(segmentMv, mediaTime) {
+    var b = bytes();
+    push(b, u32(1));
+    push(b, u32(Math.max(0, Math.round(segmentMv))));
+    push(b, u32(Math.round(mediaTime) >>> 0));   // int32, always >= 0 here
+    push(b, u16(1)); push(b, u16(0));            // media_rate 1.0
+    return full('elst', 0, 0, concat(b));
+  }
+
   function mvhd(timescale, duration, nextTrack) {
     var b = bytes();
     push(b, u32(0)); push(b, u32(0));               // times
@@ -138,7 +153,20 @@
   }
 
   /* ── sample entries ─────────────────────────────────────────────── */
-  function avc1Entry(width, height, avcC) {
+  /* Colour information (14496-12 ColourInformationBox, 'nclx' form). Without
+     it a player has to guess the primaries/transfer/matrix from the frame
+     size, and the guess differs between QuickTime, Resolve and Chrome — the
+     same master then grades three different ways. We encode Rec.709 with a
+     limited (video) range, which is what the WebCodecs H.264 path produces. */
+  var COLR_709 = { primaries: 1, transfer: 1, matrix: 1, fullRange: false };
+  function colr(c) {
+    var b = bytes();
+    push(b, str('nclx'));
+    push(b, u16(c.primaries)); push(b, u16(c.transfer)); push(b, u16(c.matrix));
+    push(b, [c.fullRange ? 0x80 : 0x00]);
+    return box('colr', concat(b));
+  }
+  function avc1Entry(width, height, avcC, colour) {
     var b = bytes();
     push(b, new Uint8Array(6)); push(b, u16(1));     // reserved, data_ref_index
     push(b, new Uint8Array(16));                     // predefined/reserved
@@ -148,6 +176,7 @@
     push(b, new Uint8Array(32));                     // compressor name
     push(b, u16(0x0018)); push(b, u16(0xffff));      // depth, predefined
     push(b, box('avcC', avcC));
+    if (colour !== false) push(b, colr(colour || COLR_709));
     return box('avc1', concat(b));
   }
   function mp4aEntry(channels, sampleRate, asc) {
@@ -174,13 +203,34 @@
   }
 
   /* ── track assembly ─────────────────────────────────────────────── */
-  function trackBoxes(t, id, mvTimescale, chunkOffset) {
+
+  /* An AAC-LC encoder emits 1024 samples of algorithmic lead-in before the
+     first real sample, and it can only emit WHOLE 1024-sample frames, so the
+     tail is rounded up too. Both are properties of the codec, not mistakes:
+     the container is where they are corrected. What a track actually presents
+     is therefore [priming, priming + presentTicks) of its own media. */
+  var AAC_PRIMING = 1024;
+  function timing(t) {
     var totalTicks = t.durations.reduce(function (a, d) { return a + d; }, 0);
-    var durMv = Math.round(totalTicks / t.timescale * mvTimescale);
+    var priming = t.priming != null ? Math.max(0, Math.round(t.priming))
+      : (t.type === 'audio' ? AAC_PRIMING : 0);
+    if (priming >= totalTicks) priming = 0;          // never edit a track away
+    var present = totalTicks - priming;
+    if (t.presentDuration != null) {
+      present = Math.max(0, Math.min(Math.round(t.presentDuration), present));
+      if (!present) present = totalTicks - priming;
+    }
+    return { total: totalTicks, priming: priming, present: present };
+  }
+
+  function trackBoxes(t, id, mvTimescale, chunkOffset) {
+    var tm = timing(t);
+    var totalTicks = tm.total;
+    var durMv = Math.round(tm.present / t.timescale * mvTimescale);
     var isAudio = t.type === 'audio';
     var entry = isAudio
       ? mp4aEntry(t.channels || 2, t.sampleRate || 48000, t.description || [0x11, 0x90])
-      : avc1Entry(t.width || 0, t.height || 0, t.description || []);
+      : avc1Entry(t.width || 0, t.height || 0, t.description || [], t.colr);
     var stsdB = bytes();
     push(stsdB, u32(1)); push(stsdB, entry);
     var stblParts = [full('stsd', 0, 0, concat(stsdB)), stts(t.durations)];
@@ -198,20 +248,34 @@
       mdhd(t.timescale, totalTicks),
       hdlr(isAudio ? 'soun' : 'vide', isAudio ? 'CinamateSound' : 'CinamateVideo'),
       minf);
-    return box('trak', tkhd(id, durMv, t.width, t.height, isAudio), mdia);
+    /* Only write an edit list when there is an edit to express. A track that
+       starts at its own sample 0 and runs to the end needs none, and an
+       identity elst is one more thing for a player to get wrong. */
+    var needsEdit = tm.priming > 0 || tm.present < totalTicks;
+    var trakParts = ['trak', tkhd(id, durMv, t.width, t.height, isAudio)];
+    if (needsEdit) trakParts.push(box('edts', elst(durMv, tm.priming)));
+    trakParts.push(mdia);
+    return box.apply(null, trakParts);
   }
 
   /* buildMp4(tracks): tracks = [{
    *   type: 'video'|'audio', timescale, durations:[ticks per sample],
    *   sizes:[bytes], data: Uint8Array (all samples concatenated),
    *   sync:[bool] (video), description: Uint8Array (avcC / ASC),
-   *   width, height | channels, sampleRate }] */
+   *   width, height | channels, sampleRate,
+   *   priming: media ticks of codec lead-in to skip (audio defaults to the
+   *     1024-sample AAC-LC priming; pass 0 to disable),
+   *   presentDuration: media ticks the track should actually present, for
+   *     trimming an encoder's rounded-up tail,
+   *   colr: {primaries,transfer,matrix,fullRange} or false (video) }] */
   function buildMp4(tracks) {
     var MV = 1000;
     var maxMs = 0;
     tracks.forEach(function (t) {
-      var ticks = t.durations.reduce(function (a, d) { return a + d; }, 0);
-      maxMs = Math.max(maxMs, Math.round(ticks / t.timescale * MV));
+      /* The movie is as long as the longest PRESENTED track, not the longest
+         pile of samples — otherwise mvhd re-advertises the priming that the
+         edit lists just removed. */
+      maxMs = Math.max(maxMs, Math.round(timing(t).present / t.timescale * MV));
     });
     var ftyp = box('ftyp', str('isom'), u32(0x200), str('isom'), str('iso2'), str('avc1'), str('mp41'));
 

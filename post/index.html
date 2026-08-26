@@ -43,6 +43,16 @@
 .po-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .po-card b{font-family:var(--display);font-size:14px}
 .po-spacer{flex:1}
+.po-table input[type=date]{max-width:130px;font-family:var(--mono)}
+.po-table select[data-status]{max-width:118px}
+.po-slip{font-family:var(--mono);font-size:11px;white-space:nowrap;color:var(--dim)}
+.po-slip.late{color:var(--red)}
+.po-slip.early{color:var(--green)}
+.po-fc{font-family:var(--mono);font-size:9.5px;color:var(--dim);display:block}
+.po-tag.red{color:var(--red);border-color:var(--red)}
+.po-tag.green{color:var(--green);border-color:var(--green)}
+.po-warn{color:var(--red)}
+.po-scroll{overflow-x:auto}
 </style>
 <link rel="manifest" href="/manifest.webmanifest">
 </head>
@@ -68,12 +78,14 @@
       </select>
       <span class="po-spacer"></span>
       <button class="tb-btn" id="poReset" title="Restore the template durations">↺ Template days</button>
+      <button class="tb-btn" id="poResetAct" title="Forget every recorded status and actual date">↺ Clear actuals</button>
     </div>
-    <table class="po-table"><thead><tr>
-      <th>Milestone</th><th>Days</th><th>Start</th><th>End</th><th>Blocked by</th>
-    </tr></thead><tbody id="poRows"></tbody></table>
+    <div class="po-scroll"><table class="po-table"><thead><tr>
+      <th>Milestone</th><th>Est. days</th><th>Planned start</th><th>Planned end</th>
+      <th>Status</th><th>Actual start</th><th>Actual end</th><th>Slip</th><th>Blocked by</th>
+    </tr></thead><tbody id="poRows"></tbody></table></div>
     <div class="po-banner" id="poBanner"></div>
-    <p class="po-note">Working days only — weekends are skipped automatically; a weekend anchor date snaps to the nearest working day. Milestones marked <span style="color:var(--gold)">●</span> sit on the critical path: a day lost there is a day lost on delivery. Durations are template estimates — verify against your facility bookings before relying on any date here.</p>
+    <p class="po-note">Working days only — weekends are skipped automatically; a weekend anchor date snaps to the nearest working day. Milestones marked <span style="color:var(--gold)">●</span> sit on the <b>planned</b> critical path: a day lost there is a day lost on delivery. The plan is a template estimate and never changes on its own — the <b>status and actual dates you record here</b> are kept separately, laid over the plan to produce the slip and the forecast, and are the only thing this page treats as fact. Record an end date and the milestone counts as done; leave it blank and it does not, whatever the estimate says.</p>
 
     <h2>2 · Versions log</h2>
     <div class="po-bar">
@@ -101,7 +113,7 @@
 
     <h2>4 · Delivery readiness</h2>
     <div id="poReady"></div>
-    <p class="po-note">As each milestone completes, the matching deliverable becomes ready to tick in <a href="/distribution/" style="color:var(--gold)">/distribution/</a> — nothing is ticked for you. Dates are calendar estimates from section 1; verify with your post house before promising them to a distributor.</p>
+    <p class="po-note">Readiness is read from the <b>actual end dates you record in section 1</b>, not from the calendar. Mark a milestone done with the day it actually finished and the matching deliverable flips from <span class="po-tag">planned</span> to <span class="po-tag green">ready</span> — nothing is ticked in <a href="/distribution/" style="color:var(--gold)">/distribution/</a> for you. Until then the date shown is a template estimate, and a deliverable nobody has finished is never called ready here.</p>
   </main>
 </div>
 
@@ -126,6 +138,14 @@
   if (!st.bids) st.bids = [];
   function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
 
+  /* The plan (SB_Post_v1) and what actually happened (SB_PostActuals_v1) are
+     two stores on purpose: the calendar stays a pure re-derivable plan, and
+     the actuals are laid over it. Nothing here writes an actual for you. */
+  var AKEY = P.ACTUALS_KEY;
+  var act = readLS(AKEY) || P.blankActuals();
+  if (!act.milestones) act = P.blankActuals();
+  function saveAct() { try { localStorage.setItem(AKEY, JSON.stringify(act)); } catch (e) {} }
+
   function milestones() {
     return P.template().map(function (m) {
       var o = st.dayOverrides[m.id];
@@ -139,38 +159,89 @@
     return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()] + ' ' + iso;
   }
 
-  /* ── 1 · calendar ── */
+  /* ── 1 · calendar (plan) + actuals overlay ── */
   function currentSchedule() {
-    return P.schedule(milestones(), st.anchor || $('poDate').value || '', st.direction);
+    return P.overlay(milestones(), act, st.anchor || $('poDate').value || '', st.direction);
+  }
+  var STATUS_LABEL = { 'not-started': 'Not started', 'in-progress': 'In progress', 'done': 'Done' };
+  function slipCell(r) {
+    if (!r.plannedEnd || !r.forecastEnd) return '<span class="po-slip">—</span>';
+    var cls = r.slip > 0 ? 'late' : r.slip < 0 ? 'early' : '';
+    var txt = r.slip === 0 ? 'on plan' : (r.slip > 0 ? '+' + r.slip : r.slip) + ' d ' + (r.slip > 0 ? 'late' : 'early');
+    var fc = (r.status !== 'done' && r.forecastEnd !== r.plannedEnd)
+      ? '<span class="po-fc">forecast ' + esc(r.forecastEnd) + '</span>' : '';
+    return '<span class="po-slip ' + cls + '">' + esc(txt) + '</span>' + fc;
   }
   function renderCalendar() {
     $('poDateLabel').firstChild.nodeValue = st.direction === 'backward' ? 'Delivery date ' : 'Assembly starts ';
     var s = currentSchedule();
     var names = {}; s.rows.forEach(function (r) { names[r.id] = r.name; });
     $('poRows').innerHTML = s.rows.map(function (r) {
+      var moved = r.critical && !r.criticalNow ? ' <span class="po-tag">was critical</span>'
+                : !r.critical && r.criticalNow ? ' <span class="po-tag red">now critical</span>' : '';
       return '<tr' + (r.critical ? ' class="po-crit"' : '') + ' data-id="' + esc(r.id) + '">' +
-        '<td class="po-name">' + esc(r.name) + '</td>' +
-        '<td><input data-days="' + esc(r.id) + '" type="number" min="1" max="200" style="width:56px" value="' + r.days + '"></td>' +
-        '<td class="po-date">' + esc(fmtNice(r.start)) + '</td>' +
-        '<td class="po-date">' + esc(fmtNice(r.end)) + '</td>' +
+        '<td class="po-name">' + esc(r.name) + moved + '</td>' +
+        '<td><input data-days="' + esc(r.id) + '" type="number" min="1" max="200" style="width:56px" value="' + r.days + '"' +
+          (r.actualDays ? ' title="Ran ' + esc(r.actualDays) + ' working days"' : '') + '></td>' +
+        '<td class="po-date">' + esc(fmtNice(r.plannedStart)) + '</td>' +
+        '<td class="po-date">' + esc(fmtNice(r.plannedEnd)) + '</td>' +
+        '<td><select data-status="' + esc(r.id) + '">' +
+          P.STATUSES.map(function (v) {
+            return '<option value="' + esc(v) + '"' + (v === r.status ? ' selected' : '') + '>' + esc(STATUS_LABEL[v]) + '</option>';
+          }).join('') + '</select></td>' +
+        '<td><input data-astart="' + esc(r.id) + '" type="date" value="' + esc(r.actualStart) + '"></td>' +
+        '<td><input data-aend="' + esc(r.id) + '" type="date" value="' + esc(r.actualEnd) + '"></td>' +
+        '<td>' + slipCell(r) + '</td>' +
         '<td class="po-dep">' + (r.blockedBy.length ? r.blockedBy.map(function (b) { return esc(names[b] || b); }).join(' + ') : '—') + '</td></tr>';
     }).join('');
+    var slipTxt = s.slip === 0 ? 'on plan' : (s.slip > 0 ? '+' + s.slip + ' working days late' : (-s.slip) + ' working days early');
     $('poBanner').innerHTML = s.error ? '<span>Dependency cycle — check the milestone graph</span>' :
-      '<span>Critical path <b>' + esc(s.criticalPath) + ' working days</b></span>' +
-      (s.start ? '<span>Post runs <b>' + esc(fmtNice(s.start)) + '</b> → <b>' + esc(fmtNice(s.end)) + '</b></span>'
-               : '<span class="po-dep" style="align-self:center">pick a date above to place it on the calendar</span>') +
-      '<span class="po-dep" style="align-self:center">' + s.path.map(function (id) { return esc(names[id] || id); }).join(' → ') + '</span>';
+      '<span>Planned critical path <b>' + esc(s.criticalPath) + ' working days</b></span>' +
+      (s.plannedStart ? '<span>Plan <b>' + esc(fmtNice(s.plannedStart)) + '</b> → <b>' + esc(fmtNice(s.plannedEnd)) + '</b></span>' +
+                        '<span>Forecast from actuals <b class="' + (s.slip > 0 ? 'po-warn' : '') + '">' + esc(fmtNice(s.forecastEnd)) + '</b> · ' + esc(slipTxt) + '</span>'
+                      : '<span class="po-dep" style="align-self:center">pick a date above to place it on the calendar</span>') +
+      '<span>' + esc(s.done) + ' done · ' + esc(s.inProgress) + ' in progress · ' + esc(s.notStarted) + ' not started</span>' +
+      '<span class="po-dep" style="align-self:center">' + s.path.map(function (id) { return esc(names[id] || id); }).join(' → ') + '</span>' +
+      (s.criticalMoved ? '<span class="po-warn">Critical path has MOVED — as run: ' +
+          s.actualPath.map(function (id) { return esc(names[id] || id); }).join(' → ') +
+          ' (' + esc(s.criticalPathActual) + ' working days)</span>' : '');
     renderReady(s);
+  }
+  function recordActual(id, fields) {
+    var row = P.setActual(act, id, fields);
+    saveAct(); renderCalendar();
+    return row;
   }
   $('poDate').addEventListener('change', function () { st.anchor = this.value; save(); renderCalendar(); });
   $('poDir').addEventListener('change', function () { st.direction = this.value; save(); renderCalendar(); });
   $('poRows').addEventListener('change', function (e) {
-    var id = e.target.getAttribute('data-days'); if (!id) return;
-    st.dayOverrides[id] = Math.max(1, +e.target.value || 1);
-    save(); renderCalendar();
+    var el = e.target;
+    var id = el.getAttribute('data-days');
+    if (id) {
+      st.dayOverrides[id] = Math.max(1, +el.value || 1);
+      save(); renderCalendar(); return;
+    }
+    id = el.getAttribute('data-status');
+    if (id) {
+      var r = recordActual(id, { status: el.value });
+      if (el.value === 'done' && r.status !== 'done') toast('Fill in the actual end date — “done” with no date records nothing');
+      return;
+    }
+    id = el.getAttribute('data-astart');
+    if (id) { recordActual(id, { actualStart: el.value }); return; }
+    id = el.getAttribute('data-aend');
+    if (id) {
+      recordActual(id, { actualEnd: el.value });
+      if (el.value) toast('Recorded as done — nothing is ticked in /distribution/ for you');
+      return;
+    }
   });
   $('poReset').addEventListener('click', function () {
     st.dayOverrides = {}; save(); renderCalendar(); toast('Durations back to the template');
+  });
+  $('poResetAct').addEventListener('click', function () {
+    act = P.blankActuals(); saveAct(); renderCalendar();
+    toast('Actuals cleared — every deliverable is back to planned, none ready');
   });
 
   /* ── 2 · versions ── */
@@ -254,16 +325,25 @@
     save(); renderBids();
   });
 
-  /* ── 4 · delivery readiness ── */
+  /* ── 4 · delivery readiness — read from the ACTUALS, never the plan ── */
   function renderReady(s) {
     var hints = P.distReadiness((s && s.rows) || []);
     $('poReady').innerHTML = hints.map(function (h) {
-      return '<div class="po-card"><b>' + esc(h.deliverable) + '</b>' +
+      var when, tag, act2;
+      if (h.status === 'ready') {
+        tag = '<span class="po-tag green">ready</span>';
+        when = 'delivered ' + fmtNice(h.ready) + (h.slip ? ' · ' + (h.slip > 0 ? '+' + h.slip : h.slip) + ' d vs plan' : ' · on plan');
+        act2 = '<a class="tb-btn" href="/distribution/">tick it in /distribution/ →</a>';
+      } else {
+        tag = h.status === 'in-progress' ? '<span class="po-tag">in progress</span>' : '<span class="po-tag">planned</span>';
+        when = h.forecast ? 'planned ' + fmtNice(h.forecast) + ' — not delivered' : 'no date yet';
+        act2 = '<span class="po-dep">nothing to tick until it is recorded done above</span>';
+      }
+      return '<div class="po-card"><b>' + esc(h.deliverable) + '</b>' + tag +
         '<span class="po-tag">after ' + esc(h.milestone) + '</span>' +
-        '<span class="po-date po-dep">est. ' + esc(fmtNice(h.ready)) + '</span>' +
-        '<span class="po-spacer"></span>' +
-        '<a class="tb-btn" href="/distribution/">ready to tick in /distribution/ →</a></div>';
-    }).join('') || '<p class="po-note">Set a date in section 1 to see when each deliverable comes available.</p>';
+        '<span class="po-date po-dep">' + esc(when) + '</span>' +
+        '<span class="po-spacer"></span>' + act2 + '</div>';
+    }).join('') || '<p class="po-note">Set a date in section 1 to see when each deliverable is planned for.</p>';
   }
 
   /* ── init ── */
@@ -271,7 +351,8 @@
   $('poDir').value = st.direction || 'backward';
   $('poProj').value = st.project || '';
   renderCalendar(); renderVersions(); renderBids();
-  window.PostApp = { render: function () { renderCalendar(); renderVersions(); renderBids(); }, state: st };
+  window.PostApp = { render: function () { renderCalendar(); renderVersions(); renderBids(); },
+                     state: st, actuals: function () { return act; }, overlay: currentSchedule };
 })();
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>

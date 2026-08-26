@@ -61,6 +61,87 @@
     };
   }
 
+  /* Solar noon (ms UTC) for the local calendar day at lon. */
+  function solarNoon(date, lat, lon) {
+    var noonUTC = Date.parse(date + 'T12:00:00Z') - Math.round(lon / 15) * 3600000;
+    if (isNaN(noonUTC)) return null;
+    var lw = RAD * -lon;
+    var d = toJulian(noonUTC) - 2451545 + 0.0009 - lw / (2 * Math.PI);
+    var ds = Math.round(d) + 0.0009 + lw / (2 * Math.PI);
+    var M = solarMeanAnomaly(ds);
+    var L = eclipticLongitude(M);
+    return fromJulian(2451545 + ds + 0.0053 * Math.sin(M) - 0.0069 * Math.sin(2 * L));
+  }
+
+  /* ── Sun DIRECTION ────────────────────────────────────────────────────
+   * Where the sun actually is, which is most of what a DP or a gaffer asks
+   * of this maths: which way does it rise, where is it at the 4pm setup,
+   * and how high. Same NOAA/Meeus coordinates as the rise/set solver.     */
+  function rightAscension(L) {
+    return Math.atan2(Math.sin(L) * Math.cos(RAD * 23.4397), Math.cos(L));
+  }
+  /* Greenwich mean sidereal time, corrected to the local meridian. */
+  function siderealTime(d, lw) { return RAD * (280.16 + 360.9856235 * d) - lw; }
+
+  /* Sun position at an instant. azimuth = degrees CLOCKWISE FROM TRUE NORTH
+     (0 N, 90 E, 180 S, 270 W); altitude = degrees above the horizon, negative
+     below it. Returns null on bad input rather than a plausible wrong number. */
+  function sunPosition(ms, lat, lon) {
+    if (ms == null || !isFinite(ms) || !isFinite(lat) || !isFinite(lon)) return null;
+    var lw = RAD * -lon, phi = RAD * lat;
+    var d = toJulian(ms) - 2451545;
+    var M = solarMeanAnomaly(d);
+    var L = eclipticLongitude(M);
+    var dec = declination(L);
+    var H = siderealTime(d, lw) - rightAscension(L);
+    var alt = Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H));
+    /* atan2 form is measured from due SOUTH; +180 puts it on the compass. */
+    var az = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi)) / RAD + 180;
+    az = ((az % 360) + 360) % 360;
+    return { azimuth: Math.round(az * 10) / 10, altitude: Math.round(alt / RAD * 10) / 10 };
+  }
+
+  var COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+                 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  function compass(az) {
+    if (az == null || !isFinite(az)) return '—';
+    return COMPASS[Math.round((((az % 360) + 360) % 360) / 22.5) % 16];
+  }
+
+  /* Direction of every moment the shoot day cares about, plus the noon peak. */
+  function sunAngles(date, lat, lon) {
+    var t = sunTimes(date, lat, lon);
+    var out = { sunrise: null, goldenEndAM: null, goldenStartPM: null, sunset: null, noon: null };
+    ['sunrise', 'goldenEndAM', 'goldenStartPM', 'sunset'].forEach(function (k) {
+      out[k] = sunPosition(t[k], lat, lon);
+    });
+    var n = solarNoon(date, lat, lon);
+    var np = sunPosition(n, lat, lon);
+    if (np) { np.time = n; out.noon = np; }
+    return out;
+  }
+
+  /* ── Timezone ─────────────────────────────────────────────────────────
+   * fmtLocal renders in whatever offset it is GIVEN. Passing nothing means
+   * the VIEWER's offset, which is only right when the viewer is standing on
+   * the location — so every caller must supply the location's offset. The
+   * authoritative source is the Open-Meteo response we already fetch
+   * (`timezone=auto` → `utc_offset_seconds`); tzOffsetFromLon is the
+   * no-network fallback and is solar-mean, not civil: it knows nothing of
+   * political borders or DST, so anything rendered from it must say so.  */
+  function tzOffsetFromWeather(w) {
+    var s = w && w.utc_offset_seconds;
+    return typeof s === 'number' && isFinite(s) ? Math.round(s / 60) : null;
+  }
+  function tzOffsetFromLon(lon) {
+    return isFinite(lon) ? Math.round(lon / 15) * 60 : null;
+  }
+  function tzLabel(min) {
+    if (min == null || !isFinite(min)) return 'UTC±??';
+    var s = min < 0 ? '-' : '+', a = Math.abs(min);
+    return 'UTC' + s + String(Math.floor(a / 60)).padStart(2, '0') + ':' + String(a % 60).padStart(2, '0');
+  }
+
   function fmtLocal(ms, tzOffsetMin) {
     if (ms == null) return '—';
     var d = new Date(ms + (tzOffsetMin != null ? tzOffsetMin * 60000 : -new Date(ms).getTimezoneOffset() * 60000));
@@ -98,5 +179,7 @@
   }
 
   root.TSun = { sunTimes: sunTimes, fmtLocal: fmtLocal, daylightHours: daylightHours,
-    weatherUrl: weatherUrl, wmoLabel: wmoLabel, shootRisk: shootRisk };
+    weatherUrl: weatherUrl, wmoLabel: wmoLabel, shootRisk: shootRisk,
+    sunPosition: sunPosition, sunAngles: sunAngles, solarNoon: solarNoon, compass: compass,
+    tzOffsetFromWeather: tzOffsetFromWeather, tzOffsetFromLon: tzOffsetFromLon, tzLabel: tzLabel };
 })(typeof window !== 'undefined' ? window : globalThis);

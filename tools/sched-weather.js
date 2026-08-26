@@ -71,7 +71,9 @@
       '<label class="ps-inline"><input type="checkbox" id="swWk" style="width:auto" checked> skip weekends</label>' +
       '<label class="ps-inline">days <input id="swN" type="number" min="1" max="60" style="width:56px" placeholder="auto" title="How many shoot days to plan — blank follows the stripboard"></label>' +
       '<button class="tb-btn gold" id="swGo">Plan days</button>' +
-      '</div><div id="swOut" style="padding:0 14px 8px"></div>';
+      '</div><style>#swOut .sw-dim{color:var(--dim)}#swOut .sw-bad{color:var(--red)}' +
+      '#swOut .sw-tz{font-family:var(--mono);font-size:10px}</style>' +
+      '<div id="swOut" style="padding:0 14px 8px"></div>';
     var board = $('sbDays') ? $('sbDays').closest('.ps-board') : null;
     pane.insertBefore(bar, board || pane.children[1] || null);
 
@@ -82,6 +84,7 @@
     if (p.lon != null) $('swLon').value = p.lon;
     if (p.skipWk === false) $('swWk').checked = false;
     if (p.n) $('swN').value = p.n;
+    if (p.tz != null) { tz = p.tz; tzSource = p.tzSource || 'saved'; tzKey = p.tzKey || ''; }
     $('swCity').addEventListener('change', function () {
       var c = CITIES[this.value];
       if (c && c[1] != null) { $('swLat').value = c[1]; $('swLon').value = c[2]; }
@@ -89,6 +92,16 @@
     $('swGo').addEventListener('click', plan);
     if (p.date && p.lat) plan();
   }
+
+  /* The LOCATION's UTC offset, in minutes — never the viewer's. Fetched from
+     Open-Meteo (`timezone=auto` → utc_offset_seconds) and then kept on the
+     saved plan, so a reload renders the location's clock with no network at
+     all. Until it has ever been fetched for this pin we fall back to the
+     longitude estimate and SAY SO on the page: solar mean time is not civil
+     time, and a DST-shifted hour presented as fact is the defect this file
+     exists to stop repeating. */
+  var tz = null, tzSource = '', tzKey = '';
+  function pinKey(lat, lon) { return lat.toFixed(2) + ',' + lon.toFixed(2); }
 
   function plan() {
     var S = root.TSun;
@@ -100,7 +113,13 @@
     }
     var skipWk = $('swWk').checked;
     var nOverride = parseInt($('swN').value, 10);
-    save({ date: date, city: $('swCity').value, lat: lat, lon: lon, skipWk: skipWk, n: nOverride || '' });
+    var key = pinKey(lat, lon);
+    if (tzKey !== key || tz == null) { tz = S.tzOffsetFromLon(lon); tzSource = 'est'; tzKey = key; }
+    function store() {
+      save({ date: date, city: $('swCity').value, lat: lat, lon: lon, skipWk: skipWk,
+             n: nOverride || '', tz: tz, tzSource: tzSource, tzKey: tzKey });
+    }
+    store();
     var n = nOverride > 0 ? Math.min(60, nOverride) : Math.max(dayCount(), 5);
     var days = [];
     var cur = date;
@@ -113,13 +132,18 @@
     }
     var rows = days.map(function (d, i) {
       var t = S.sunTimes(d, lat, lon);
-      return { i: i + 1, date: d, sun: t };
+      return { i: i + 1, date: d, sun: t, ang: S.sunAngles(d, lat, lon) };
     });
-    renderRows(rows, null);
+    renderRows(rows, null, null);
     // live forecast (Open-Meteo covers ~16 days out)
     fetch(S.weatherUrl(lat, lon, days[0], days[days.length - 1]))
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (!r.ok) throw new Error('Open-Meteo replied ' + r.status);
+        return r.json();
+      })
       .then(function (w) {
+        var off = S.tzOffsetFromWeather(w);
+        if (off != null) { tz = off; tzSource = 'api'; tzKey = key; store(); }
         var byDate = {};
         if (w && w.daily && w.daily.time) w.daily.time.forEach(function (d, i) {
           byDate[d] = {
@@ -130,28 +154,55 @@
             windMax: w.daily.wind_speed_10m_max[i]
           };
         });
-        renderRows(rows, byDate);
+        renderRows(rows, byDate, null);
       })
-      .catch(function () { /* astro-only view already rendered */ });
+      /* An empty catch here is how this planner died in production: the CSP
+         blocked api.open-meteo.com, every row said "beyond forecast", and
+         nothing anywhere said the fetch had failed. "Beyond forecast" is a
+         real answer for day 40; a blocked request must not be able to
+         impersonate it. */
+      .catch(function (e) {
+        renderRows(rows, null, (e && e.message) || 'the request failed');
+      });
   }
 
-  function renderRows(rows, wx) {
+  function renderRows(rows, wx, err) {
     var S = root.TSun;
-    var h = '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th>Day</th><th>Date</th><th>Sunrise</th><th>Golden AM ends</th><th>Golden PM starts</th><th>Sunset</th><th>Daylight</th><th>Forecast</th><th>Risk</th></tr></thead><tbody>';
+    var h = '<div class="bud-tablewrap"><table class="bud-table"><thead><tr><th>Day</th><th>Date</th>' +
+      '<th>Sunrise</th><th>Golden AM ends</th><th>Golden PM starts</th><th>Sunset</th>' +
+      '<th>Sun rises / sets</th><th>Noon alt</th><th>Daylight</th><th>Forecast</th><th>Risk</th></tr></thead><tbody>';
     rows.forEach(function (r) {
-      var t = r.sun;
+      var t = r.sun, a = r.ang || {};
       var w = wx && wx[r.date];
       var risk = w ? S.shootRisk(w) : null;
       var dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(r.date + 'T12:00:00Z').getUTCDay()];
-      h += '<tr><td><b>Day ' + esc(r.i) + '</b></td><td>' + dow + ' ' + esc(r.date) + '</td>' +
-        '<td>' + S.fmtLocal(t.sunrise) + '</td><td>' + S.fmtLocal(t.goldenEndAM) + '</td>' +
-        '<td style="color:var(--gold)">' + S.fmtLocal(t.goldenStartPM) + '</td><td>' + S.fmtLocal(t.sunset) + '</td>' +
+      var fc = w ? S.wmoLabel(w.code) + ' · ' + w.tmin + '–' + w.tmax + '° · ' + (w.precipProb || 0) + '% rain'
+        : err ? 'forecast unavailable' : 'beyond forecast';
+      var fcCls = w ? '' : err ? 'sw-bad' : 'sw-dim';
+      var dir = (a.sunrise && a.sunset)
+        ? S.compass(a.sunrise.azimuth) + ' ' + a.sunrise.azimuth + '° → ' + S.compass(a.sunset.azimuth) + ' ' + a.sunset.azimuth + '°'
+        : '—';
+      h += '<tr><td><b>Day ' + esc(r.i) + '</b></td><td>' + esc(dow) + ' ' + esc(r.date) + '</td>' +
+        '<td>' + esc(S.fmtLocal(t.sunrise, tz)) + '</td><td>' + esc(S.fmtLocal(t.goldenEndAM, tz)) + '</td>' +
+        '<td style="color:var(--gold)">' + esc(S.fmtLocal(t.goldenStartPM, tz)) + '</td>' +
+        '<td>' + esc(S.fmtLocal(t.sunset, tz)) + '</td>' +
+        '<td class="sw-tz">' + esc(dir) + '</td>' +
+        '<td>' + esc(a.noon ? a.noon.altitude + '°' : '—') + '</td>' +
         '<td>' + esc(S.daylightHours(t) || '—') + 'h</td>' +
-        '<td>' + (w ? esc(S.wmoLabel(w.code)) + ' · ' + esc(w.tmin) + '–' + esc(w.tmax) + '° · ' + esc(w.precipProb || 0) + '% rain' : '<span style="color:var(--dim)">beyond forecast</span>') + '</td>' +
+        '<td class="' + esc(fcCls) + '">' + esc(fc) + '</td>' +
         '<td>' + (risk == null ? '—' : '<span class="tk-chip ' + (risk >= 50 ? 'bad' : risk >= 25 ? 'warn' : 'good') + '">' + risk + '</span>') + '</td></tr>';
     });
-    h += '</tbody></table></div>' +
-      '<p class="bud-note">Sun times computed locally (±2 min); forecast from the free Open-Meteo API, fetched by your browser. Risk blends rain probability, wind and storm codes — reorder exterior days away from red.</p>';
+    h += '</tbody></table></div>';
+    if (err) {
+      h += '<p class="bud-note sw-bad"><b>Forecast unavailable</b> — ' + esc(err) +
+        '. No weather row on this table is a forecast, and no risk score has been computed. ' +
+        'Sun times below are unaffected; they are computed in this browser.</p>';
+    }
+    h += '<p class="bud-note">Clock times are <b class="sw-tz">' + esc(S.tzLabel(tz)) + '</b> — ' +
+      esc(tzSource === 'api' ? 'the location\'s own civil offset, from the forecast service'
+        : 'ESTIMATED from longitude (solar mean time: no DST, no political border). Plan days once with a working forecast to pin the real offset.') +
+      '. Azimuth is degrees clockwise from true north. Sun times computed locally (±2 min); forecast from the free Open-Meteo API, fetched by your browser. ' +
+      'Risk blends rain probability, wind and storm codes — reorder exterior days away from red.</p>';
     $('swOut').innerHTML = h;
   }
 

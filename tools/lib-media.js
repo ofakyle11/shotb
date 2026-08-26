@@ -1,10 +1,15 @@
 /* TMedia — camera & media math:
  *  1. .cube LUT parser + trilinear apply (the public IRIDAS/Adobe text
  *     format: TITLE / LUT_3D_SIZE / DOMAIN_MIN / DOMAIN_MAX / RGB rows).
- *  2. Lens field-of-view / coverage optics (thin-lens trigonometry).
+ *  2. Lens field-of-view / coverage optics (thin-lens trigonometry), plus
+ *     depth of field and hyperfocal distance.
  *  3. Media hash manifest — MHL-style sidecar with per-file SHA-256,
  *     verifiable on re-scan (hash function injected: WebCrypto in the
  *     browser, node:crypto in tests).
+ *
+ * SENSORS below is THE sensor table for the platform. The Set Designer's 2D
+ * plan (sets/lib-set.js) and its 3D viewport (sets/lib-set3d.js) both read it,
+ * so one lens on one page gives one answer. It used to give three.
  *
  * All original code, written for Cinamate.
  */
@@ -67,13 +72,35 @@
     's16':          { label: 'Super 16 (12.52×7.41)', w: 12.52, h: 7.41 },
     'iphone-main':  { label: 'Phone main cam (~9.8×7.3)', w: 9.8, h: 7.3 }
   };
+  var DEFAULT_SENSOR = 'super35';
+  /* The one place an unknown or missing format is resolved. Everything that
+     asks the table a question goes through here, so "what did we assume?" has
+     exactly one answer and callers can print it. */
+  function sensorKey(key) { return SENSORS[key] ? key : DEFAULT_SENSOR; }
+  function sensor(key) { return SENSORS[sensorKey(key)]; }
+  function sensorList() {
+    return Object.keys(SENSORS).map(function (k) {
+      return { key: k, label: SENSORS[k].label, w: SENSORS[k].w, h: SENSORS[k].h };
+    });
+  }
+  /* The FORMAT's aspect ratio — not the browser window's. A viewport wider
+     than this letterboxes; it does not hand the lens extra coverage. */
+  function aspectOf(key) { var s = sensor(key); return s.w / s.h; }
+
   function fov(sensorW, focal) { return 2 * Math.atan(sensorW / (2 * focal)) * 180 / Math.PI; }
+  /* Field of view for a named format, horizontal unless `vertical`. */
+  function fovFor(key, focalMm, vertical) {
+    var s = sensor(key), mm = +focalMm > 0 ? +focalMm : 35;
+    return fov(vertical ? s.h : s.w, mm);
+  }
   /* Coverage width at subject distance (same units as distance). */
   function coverage(sensorW, focal, distance) { return distance * sensorW / focal; }
-  function lensCalc(sensorKey, focalMm, distanceM) {
-    var s = SENSORS[sensorKey] || SENSORS.super35;
-    return {
+  function lensCalc(sensorKey_, focalMm, distanceM, fStop) {
+    var k = sensorKey(sensorKey_), s = SENSORS[k];
+    var out = {
+      key: k,
       sensor: s.label,
+      aspect: Math.round(aspectOf(k) * 1000) / 1000,
       hfov: Math.round(fov(s.w, focalMm) * 10) / 10,
       vfov: Math.round(fov(s.h, focalMm) * 10) / 10,
       widthAt: distanceM ? Math.round(coverage(s.w, focalMm, distanceM) * 100) / 100 : null,
@@ -81,6 +108,60 @@
       /* focal length giving the same HFOV on full frame (the common ref) */
       ffEquiv: Math.round(focalMm * 36 / s.w)
     };
+    /* An aperture is optional — lensCalc had none at all until now, which is
+       why "Shallow f/1.4" was a prompt word rather than a number. */
+    if (+fStop > 0) out.dof = dof(k, focalMm, fStop, distanceM);
+    return out;
+  }
+
+  /* ── 2b. depth of field ──────────────────────────────────────────
+     Circle of confusion is the whole argument in a DOF table, so it is stated
+     rather than buried: the ANSI/Zeiss convention of frame diagonal ÷ 1500,
+     which yields the familiar 0.029 mm on full frame. A house that works to a
+     different standard (0.025 mm is common on Super 35) passes its own value
+     as opts.coc rather than editing this file.
+
+     Distances are METRES in and metres out — the same unit lensCalc's
+     coverage already uses. `far` is Infinity at or past the hyperfocal, which
+     is the honest answer and prints as ∞ rather than as a huge number. */
+  var COC_DIVISOR = 1500;
+  function cocFor(key, divisor) {
+    var s = sensor(key);
+    return Math.hypot(s.w, s.h) / (+divisor > 0 ? +divisor : COC_DIVISOR);
+  }
+  /* Hyperfocal distance in metres: focus here and everything from half of it
+     to infinity is acceptably sharp. H = f²/(N·c) + f. */
+  function hyperfocal(focalMm, fStop, cocMm) {
+    var f = +focalMm > 0 ? +focalMm : 35;
+    var N = +fStop > 0 ? +fStop : 2.8;
+    var c = +cocMm > 0 ? +cocMm : cocFor(DEFAULT_SENSOR);
+    return (f * f / (N * c) + f) / 1000;
+  }
+  function dof(key, focalMm, fStop, distanceM, opts) {
+    opts = opts || {};
+    var f = +focalMm > 0 ? +focalMm : 35;
+    var N = +fStop > 0 ? +fStop : 2.8;
+    var c = +opts.coc > 0 ? +opts.coc : cocFor(key, opts.cocDivisor);
+    var H = hyperfocal(f, N, c);                       // metres
+    var s = +distanceM > 0 ? +distanceM : null;
+    var r3 = function (v) { return v == null ? null : Math.round(v * 1000) / 1000; };
+    var out = {
+      key: sensorKey(key), focal: f, fStop: N,
+      coc: Math.round(c * 10000) / 10000,
+      hyperfocal: r3(H),
+      distance: r3(s),
+      near: null, far: null, total: null, inFront: null, behind: null
+    };
+    if (s == null) return out;
+    var Hmm = H * 1000, smm = s * 1000;                // the formula is in mm
+    var near = smm * (Hmm - f) / (smm + Hmm - 2 * f);
+    var far = smm < Hmm - 1e-9 ? smm * (Hmm - f) / (Hmm - smm) : Infinity;
+    out.near = r3(near / 1000);
+    out.far = far === Infinity ? Infinity : r3(far / 1000);
+    out.total = far === Infinity ? Infinity : r3((far - near) / 1000);
+    out.inFront = r3((smm - near) / 1000);
+    out.behind = far === Infinity ? Infinity : r3((far - smm) / 1000);
+    return out;
   }
 
   /* ── 3. media hash manifest (MHL-style) ──────────────────────── */
@@ -132,6 +213,9 @@
   function xmlUnesc(s) { return String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&'); }
 
   root.TMedia = { parseCube: parseCube, sampleLut: sampleLut, applyLutToPixels: applyLutToPixels,
-    SENSORS: SENSORS, lensCalc: lensCalc,
+    SENSORS: SENSORS, DEFAULT_SENSOR: DEFAULT_SENSOR, COC_DIVISOR: COC_DIVISOR,
+    sensor: sensor, sensorKey: sensorKey, sensorList: sensorList, aspectOf: aspectOf,
+    fovFor: fovFor, lensCalc: lensCalc,
+    cocFor: cocFor, hyperfocal: hyperfocal, dof: dof,
     manifestXml: manifestXml, parseManifest: parseManifest, verifyAgainst: verifyAgainst };
 })(typeof window !== 'undefined' ? window : globalThis);

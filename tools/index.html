@@ -94,7 +94,10 @@
 <script src="lib-script.js?v=20260819a"></script>
 <script src="lib-money.js?v=20260819a"></script>
 <script src="lib-media.js?v=20260819a"></script>
-<script src="tools-registers.js?v=20260819a"></script>
+<!-- The Festivals tab and /festivals/ share ONE store (SB_Festivals_v1); its
+     shape and migration live in CFest, so it loads before the registers. -->
+<script src="/festivals/lib-fest.js?v=20260826a"></script>
+<script src="tools-registers.js?v=20260826a"></script>
 <script src="tools-money-ui.js?v=20260819a"></script>
 <script src="tools-script-ui.js?v=20260819a"></script>
 <script src="tools-media-ui.js?v=20260819a"></script>

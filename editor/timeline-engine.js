@@ -112,11 +112,17 @@ window.SBTimelineEditor = (function () {
       return state.timeline.reduce((a, c) => a + clipDuration(c), 0);
     }
 
+    /* Scrub readout, not turnover timecode — seconds to two places, with an
+       hours field once there is one. Without it a 90-minute assembly read
+       '90:00.00', which is the same "a magnitude nobody tested" shape as the
+       hours bug in timeline/timeline-export.js ftc(). */
     function formatTc(sec) {
       const s = Math.max(0, sec || 0);
-      const m = Math.floor(s / 60);
-      const r = s - m * 60;
-      return String(m).padStart(2, '0') + ':' + r.toFixed(2).padStart(5, '0');
+      const h = Math.floor(s / 3600);
+      const m = Math.floor(s / 60) - h * 60;
+      const r = s - Math.floor(s / 60) * 60;
+      return (h ? String(h).padStart(2, '0') + ':' : '') +
+        String(m).padStart(2, '0') + ':' + r.toFixed(2).padStart(5, '0');
     }
 
     function renderBin() {
