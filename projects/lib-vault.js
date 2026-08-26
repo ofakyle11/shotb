@@ -222,10 +222,65 @@
   }
   function saveMeta(store, m) { store.setItem(META_KEY, JSON.stringify(m)); }
 
+  /* ── completion ───────────────────────────────────────────────────
+     A production is either still being made or it is wrapped, and until now
+     nothing on this platform recorded which. Every stage indicator is DERIVED
+     from what happens to be in localStorage, so "finished" and "barely started"
+     are the same shape of absence, and js/learn.js was folding half-invoiced
+     budgets into a cross-project multiplier as if they were final costs
+     (finding 44). This is the one durable fact that fixes that: a flag on the
+     slot, set by a person who knows the film is done.
+
+     `wrappedAt` is passed IN. This engine stays sync and pure — it never reads
+     the clock and never opens a database — so the caller (projects/index.html)
+     supplies the timestamp exactly as it does for savedAt. */
+  var WRAPPED = 'wrapped';
+  /* Carry the completion marker across every rewrite of a slot record.
+     saveActive/switchTo/newProject all replace the record wholesale, so
+     without this a routine snapshot would silently un-wrap a finished film. */
+  function keepStatus(prev, rec) {
+    if (prev && typeof prev === 'object' && prev.status) {
+      rec.status = prev.status;
+      if (prev.wrappedAt) rec.wrappedAt = prev.wrappedAt;
+    }
+    return rec;
+  }
+  function statusOf(store, name) {
+    var m = meta(store);
+    var who = name || m.active;
+    var s = m.slots[who];
+    var st = (s && typeof s === 'object' && s.status) ? String(s.status) : '';
+    return { project: who, status: st || 'in progress', wrapped: st === WRAPPED,
+             wrappedAt: (s && s.wrappedAt) ? String(s.wrappedAt) : '' };
+  }
+  function isWrapped(store, name) { return statusOf(store, name).wrapped; }
+  /* Mark a production finished. Its budget then teaches the learning layer
+     once, as a whole closed ledger, instead of continuously as a partial one. */
+  function setWrapped(store, name, when) {
+    var m = meta(store);
+    var who = name || m.active;
+    if (!m.slots[who]) m.slots[who] = { savedAt: when || '', stores: {} };
+    m.slots[who].status = WRAPPED;
+    m.slots[who].wrappedAt = when || '';
+    saveMeta(store, m);
+    return m;
+  }
+  /* Re-opened for reshoots or pickups. What was already learned stays learned —
+     each line teaches once, keyed on identity — but nothing new is folded in
+     until the production is wrapped again. */
+  function clearWrapped(store, name) {
+    var m = meta(store);
+    var who = name || m.active;
+    if (m.slots[who]) { delete m.slots[who].status; delete m.slots[who].wrappedAt; }
+    saveMeta(store, m);
+    return m;
+  }
+
   /* update the active project's slot from the live workspace */
   function saveActive(store, when) {
     var m = meta(store);
-    m.slots[m.active] = { savedAt: when || '', stores: snapshot(store) };
+    m.slots[m.active] = keepStatus(m.slots[m.active],
+      { savedAt: when || '', stores: snapshot(store) });
     saveMeta(store, m);
     return m;
   }
@@ -239,7 +294,8 @@
        The old order cleared the workspace first and saved the record after, so
        a failure in between (a full quota, a closed tab) left the meta pointing
        at a project whose contents had already been thrown away. */
-    m.slots[m.active] = { savedAt: when || '', stores: snapshot(store) };
+    m.slots[m.active] = keepStatus(m.slots[m.active],
+      { savedAt: when || '', stores: snapshot(store) });
     m.active = name;
     if (!m.slots[name]) m.slots[name] = { savedAt: when || '', stores: {} };
     saveMeta(store, m);
@@ -256,7 +312,8 @@
     if (Object.prototype.hasOwnProperty.call(m.slots, name)) {
       throw new Error('A project named "' + name + '" already exists — open it instead of starting over');
     }
-    m.slots[m.active] = { savedAt: when || '', stores: snapshot(store) };
+    m.slots[m.active] = keepStatus(m.slots[m.active],
+      { savedAt: when || '', stores: snapshot(store) });
     /* Record the stash BEFORE clearing live storage: if the write below fails
        (a full quota is the usual cause) the meta already holds the work, so
        nothing is stranded between two states. */
@@ -773,6 +830,12 @@
     parseArchive: parseArchive,
     restore: restore,
     meta: meta,
+    WRAPPED: WRAPPED,
+    statusOf: statusOf,
+    isWrapped: isWrapped,
+    setWrapped: setWrapped,
+    clearWrapped: clearWrapped,
+    keepStatus: keepStatus,
     saveActive: saveActive,
     switchTo: switchTo,
     newProject: newProject,

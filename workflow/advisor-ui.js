@@ -93,12 +93,32 @@
       '<p class="wf-adv-foot"><button class="tb-btn gold" id="wfAdvSeedCrew">Seed these as open positions in Crew</button>' +
       '<span class="wf-dim">' + esc(st.note) + '</span></p>';
 
-    if (window.CLearn) {
-      var L = CLearn.summary();
-      h += '<p class="wf-adv-foot wf-dim" style="font-size:10px;color:var(--dim)">Self-learning: ' +
-        (L.budgetLines ? esc(L.budgetLines) + ' budget actuals learned (avg correction ×' + esc(L.avgMult) + ')' : 'no budget actuals learned yet — fill the Actual column as invoices land') +
-        ' · ' + (L.renders ? L.renders + ' renders timed — your machine averages ' + L.wallPerClip + 's/clip (' + L.trend + ')' : 'render speed not measured yet') +
-        (L.cached ? ' · ' + L.cached + ' research lookups cached' : '') + '</p>';
+    /* What this paragraph is allowed to claim.
+       It used to print CLearn.budgetSummary().avgMult — the n-weighted mean of
+       the corrections the platform has applied — under the words "Self-learning".
+       That number RISES as the estimates get worse: it measures how much
+       correcting has been needed, not whether the correcting helped, and finding
+       44 calls it the cleanest example in the audit of a confident label over a
+       number that does not mean what the label says.
+
+       The only question that matters is whether the calibrated estimate beat the
+       uncalibrated one on a line the platform had not seen. CLearn.walkForward()
+       answers exactly that, over the observations recorded before each one was
+       folded in, and it can come back NEGATIVE. Below the evidence threshold it
+       says so in words instead of showing a neutral-looking number — the
+       sentence itself is built and tested in js/learn.js, so what the platform
+       claims about itself is pinned by a suite rather than by an untested UI. */
+    if (window.CLearn && CLearn.learningReport) {
+      var R = CLearn.learningReport();
+      var S = CLearn.summary();
+      var w = R.walk;
+      var tone = !w.enough ? 'var(--dim)' : (w.verdict === 'worse' ? '#A65D5D' : (w.verdict === 'better' ? '#4A8B7A' : 'var(--dim)'));
+      h += '<p class="wf-adv-foot wf-dim" style="font-size:10px;color:var(--dim);display:block;line-height:1.7">' +
+        '<span style="color:' + tone + '">' + esc(R.headline) + '</span><br>' +
+        esc(R.gate) + '<br>' + esc(R.activity) + '<br>' +
+        (S.renders ? esc(S.renders + ' renders timed — your machine averages ' + S.wallPerClip + 's/clip (' + S.trend + ')')
+                   : 'Render speed not measured yet.') +
+        (S.cached ? esc(' · ' + S.cached + ' research lookups cached') : '') + '</p>';
     }
     host.innerHTML = h;
 

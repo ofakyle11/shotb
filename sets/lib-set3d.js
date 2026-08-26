@@ -138,10 +138,63 @@
   }
 
   /* ── mesh building ──────────────────────────────────────────────────
-     Each item becomes a list of quads, each quad four world-space corners
-     wound counter-clockwise from outside. Quads (not triangles) at this
-     stage because they are far easier to reason about and to test; the
-     renderer splits them. */
+     Each item becomes a list of faces, each face three or four world-space
+     corners wound counter-clockwise from outside. Four wherever a quad is
+     the honest shape — a box side is far easier to reason about and to test
+     as one face than as two — and three for a cap fan, where the fourth
+     corner would only ever be a repeat of the first.
+
+     The list is still called `quads` because that is what almost all of it
+     is and the name is on the mesh contract; `faceTris()` below is the one
+     place that knows a face can be a triangle, and every consumer — the
+     renderer, the picker and both exporters — goes through it.
+
+     Caps used to be emitted as degenerate quads [c, p1, p0, c]. On screen
+     that is invisible: the second triangle has zero area and rasterises to
+     nothing. In an export it is not invisible at all — one plant produced
+     24 of 72 STL facets reading `facet normal 0 0 0` and 24 of 36 OBJ faces
+     with a repeated vertex, which is non-manifold, and which a slicer or a
+     DCC tool either rejects or silently "repairs" into something else. */
+  /* One face → its triangles, as a fan from the first corner. A quad gives
+     exactly the two triangles the renderer has always drawn; a triangle
+     gives itself; anything with fewer than three corners gives none, so a
+     malformed face drops out rather than becoming a zero-area facet.
+
+     Corners that repeat their predecessor (or close the loop back onto the
+     first) are dropped first: a repeated vertex is what makes an exported
+     face non-manifold, and it is cheaper to refuse one here than to ask
+     every caller to remember. */
+  function cleanFace(face) {
+    if (!face || face.length < 3) return null;
+    var out = [];
+    for (var i = 0; i < face.length; i++) {
+      var p = face[i], q = out[out.length - 1];
+      if (q && same(p, q)) continue;
+      out.push(p);
+    }
+    while (out.length > 1 && same(out[0], out[out.length - 1])) out.pop();
+    return out.length >= 3 ? out : null;
+  }
+  function same(a, b) {
+    return Math.abs(a[0] - b[0]) < 1e-9 && Math.abs(a[1] - b[1]) < 1e-9 &&
+           Math.abs(a[2] - b[2]) < 1e-9;
+  }
+  function faceTris(face) {
+    var f = cleanFace(face);
+    if (!f) return [];
+    var out = [];
+    for (var i = 1; i + 1 < f.length; i++) out.push([f[0], f[i], f[i + 1]]);
+    return out;
+  }
+  /* How many triangles a mesh draws — the renderer needs it to know where
+     each mesh's vertices start, and it must agree with triangulate() exactly.
+     Both go through faceTris(), so it does. */
+  function meshTriCount(mesh) {
+    var n = 0;
+    ((mesh && mesh.quads) || []).forEach(function (q) { n += faceTris(q).length; });
+    return n;
+  }
+
   function rotY(px, pz, cx, cz, deg) {
     /* Matches SVG's rotate() exactly, which is what the 2D plan uses. In a
        y-down coordinate system that rotation is clockwise on screen and maps
@@ -186,12 +239,13 @@
       var p1 = [cx + r * Math.cos(a1), cz + r * Math.sin(a1)];
       /* Side, wound so the normal points out along the radius. */
       out.push([[p0[0], y1, p0[1]], [p1[0], y1, p1[1]], [p1[0], y0, p1[1]], [p0[0], y0, p0[1]]]);
-      /* Cap fans, degenerate on their fourth corner: top faces up, bottom
-         faces down. The bottom used to be missing altogether, which with
-         face culling on is a hole you can see through, and which no slicer
-         will accept as a solid. */
-      out.push([[cx, y1, cz], [p1[0], y1, p1[1]], [p0[0], y1, p0[1]], [cx, y1, cz]]);
-      out.push([[cx, y0, cz], [p0[0], y0, p0[1]], [p1[0], y0, p1[1]], [cx, y0, cz]]);
+      /* Cap fans, as TRIANGLES: top faces up, bottom faces down. The bottom
+         used to be missing altogether, which with face culling on is a hole
+         you can see through and which no slicer will accept as a solid; then
+         both were quads with a repeated fourth corner, which exports as
+         degenerate geometry. Three corners is what a fan wedge actually has. */
+      out.push([[cx, y1, cz], [p1[0], y1, p1[1]], [p0[0], y1, p0[1]]]);
+      out.push([[cx, y0, cz], [p0[0], y0, p0[1]], [p1[0], y0, p1[1]]]);
     }
     return out;
   }
@@ -295,14 +349,14 @@
   }
 
   /* ── flat-shaded triangles for the renderer ─────────────────────────
-     Quads become two triangles each, with one face normal per triangle so
-     the shading stays flat and every edge reads. */
+     Every face becomes a fan of triangles, with one face normal per triangle
+     so the shading stays flat and every edge reads. */
   function triangulate(meshes) {
     var pos = [], nrm = [], col = [], ids = [];
     meshes.forEach(function (m, mi) {
       var rgb = hexToRgb(m.color);
       m.quads.forEach(function (q) {
-        [[q[0], q[1], q[2]], [q[0], q[2], q[3]]].forEach(function (t) {
+        faceTris(q).forEach(function (t) {
           var n = normalize(cross(sub(t[1], t[0]), sub(t[2], t[0])));
           t.forEach(function (p) {
             pos.push(p[0], p[1], p[2]);
@@ -356,7 +410,7 @@
     var best = null, bestT = Infinity;
     meshes.forEach(function (m) {
       m.quads.forEach(function (q) {
-        [[q[0], q[1], q[2]], [q[0], q[2], q[3]]].forEach(function (t) {
+        faceTris(q).forEach(function (t) {
           var hit = rayTriangle(rayOrigin, rayDir, t[0], t[1], t[2]);
           if (hit > 0 && hit < bestT) { bestT = hit; best = m.id; }
         });
@@ -396,14 +450,20 @@
 
      Soft dependency: props/index.html loads this module without the tools
      bundle, so an absent TMedia falls back to the default format COPIED from
-     that table — and test_set3d.mjs asserts the copy still matches, so it
-     cannot drift into a second sensor. */
+     that table — and test_set3d.mjs asserts the copy still matches, key
+     included, so it cannot drift into a second sensor. The key matters as
+     much as the millimetres: moving TMedia.DEFAULT_SENSOR while this pin
+     still says 'super35' would put the two halves of the app on different
+     formats again, silently, which is the bug this whole table exists to
+     have ended. Nothing here spells the default out — it is read from the
+     shared table, and the fallback is the only copy. */
   var FALLBACK_SENSOR = { key: 'super35', label: 'Super 35 (24.9×18.7)', w: 24.9, h: 18.7 };
 
   function sensorFor(key) {
     var M = root.TMedia;
     if (M && M.SENSORS) {
-      var k = M.sensorKey ? M.sensorKey(key) : (M.SENSORS[key] ? key : 'super35');
+      var def = M.DEFAULT_SENSOR || FALLBACK_SENSOR.key;
+      var k = M.sensorKey ? M.sensorKey(key) : (M.SENSORS[key] ? key : def);
       var s = M.SENSORS[k];
       if (s) return { key: k, label: s.label, w: s.w, h: s.h };
     }
@@ -456,11 +516,18 @@
     scene.meshes.forEach(function (m) {
       lines.push('g ' + slug(m.id + '_' + m.type));
       m.quads.forEach(function (q) {
-        q.forEach(function (p) {
+        /* A face is written with as many indices as it has DISTINCT corners.
+           Padding a cap triangle out to four by repeating one of them is a
+           face with a duplicated vertex — non-manifold, and every importer
+           has its own opinion about what to do with that. */
+        var f = cleanFace(q);
+        if (!f) return;
+        var idx = [];
+        f.forEach(function (p) {
           lines.push('v ' + fmt(p[0]) + ' ' + fmt(p[1]) + ' ' + fmt(p[2]));
+          idx.push(n++);
         });
-        lines.push('f ' + n + ' ' + (n + 1) + ' ' + (n + 2) + ' ' + (n + 3));
-        n += 4;
+        lines.push('f ' + idx.join(' '));
       });
     });
     return lines.join('\n') + '\n';
@@ -471,8 +538,12 @@
     var out = ['solid ' + slug(name || (plan && plan.name) || 'set')];
     scene.meshes.forEach(function (m) {
       m.quads.forEach(function (q) {
-        [[q[0], q[1], q[2]], [q[0], q[2], q[3]]].forEach(function (t) {
+        faceTris(q).forEach(function (t) {
           var nv = normalize(cross(sub(t[1], t[0]), sub(t[2], t[0])));
+          /* A slicer reads the normal and believes it. `0 0 0` is not a
+             direction, so a zero-area facet is worse than no facet at all —
+             it is a hole with an opinion. Drop it. */
+          if (!nv[0] && !nv[1] && !nv[2]) return;
           out.push('facet normal ' + fmt(nv[0]) + ' ' + fmt(nv[1]) + ' ' + fmt(nv[2]));
           out.push('  outer loop');
           t.forEach(function (p) {
@@ -497,6 +568,7 @@
     normalize: normalize, cross: cross, sub: sub, dot: dot,
     orbitEye: orbitEye,
     itemMesh: itemMesh, buildScene: buildScene, triangulate: triangulate,
+    faceTris: faceTris, cleanFace: cleanFace, meshTriCount: meshTriCount,
     hexToRgb: hexToRgb,
     rayTriangle: rayTriangle, pick: pick, screenRay: screenRay,
     FALLBACK_SENSOR: FALLBACK_SENSOR, sensorFor: sensorFor, aspectFor: aspectFor,

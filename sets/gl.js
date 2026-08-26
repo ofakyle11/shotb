@@ -148,13 +148,45 @@
     var selectedId = null;
     var currentPlan = null;
 
+    /* ── the lock, and why it has to clear itself ────────────────────
+       `lockedCamera` is a bare id, and an id outlives the thing it names:
+       delete the camera you are looking through and it still reads as
+       locked. Nothing used to notice. lensView() returned null, and fovY()
+       and frameRect() quietly fell through to the ORBIT fov and the CANVAS
+       aspect — so the viewport went on calling itself a lens while its
+       horizontal coverage was the panel's shape again: 39.6° at 1024×768,
+       60.5° at 1280×720, 93.1° at 1680×620 on the same "35 mm". The
+       letterbox switched off, the caption fell back to a bare "Through
+       camera", and input stayed blocked, so there was no way out of it.
+       That is the exact defect the sensor work removed, hiding behind one
+       delete.
+
+       So the lock validates itself: the moment its camera stops existing —
+       deleted, or on a plan we just switched away from — it is dropped and
+       the host is told, so look-through can be left visibly instead of
+       silently. After that fovY() and frameRect() are answering for free
+       orbit honestly, not for a lens that is not there. */
+    function lockValid() {
+      var it = itemById(lockedCamera);
+      return !!(it && it.type === 'camera');
+    }
+    var releasing = false;
+    function releaseLock() {
+      if (!lockedCamera || releasing) return;
+      lockedCamera = null;
+      releasing = true;
+      try { if (typeof opts.onLockLost === 'function') opts.onLockLost(); } catch (e) {}
+      releasing = false;
+    }
+    function syncLock() { if (lockedCamera && !lockValid()) releaseLock(); }
+
     /* One call, so fovY and aspect can never come from two different places
        again — which is exactly how the lens ended up widening when the
        browser window did. */
     function lensView() {
+      syncLock();
       if (!lockedCamera) return null;
-      var it = itemById(lockedCamera);
-      return it ? S3.cameraView(it, null, currentPlan && currentPlan.sensor) : null;
+      return S3.cameraView(itemById(lockedCamera), null, currentPlan && currentPlan.sensor);
     }
     function eye() {
       var v = lensView();
@@ -167,6 +199,9 @@
     }
     function fovY() {
       var v = lensView();
+      /* No view means no lens — lensView() has already dropped a lock that
+         no longer names a camera, so the orbit fov below can never be handed
+         out as a lens's answer. */
       return v ? v.fovY : view.fov;
     }
     /* The frame the lens actually covers, in device pixels: the format's
@@ -175,7 +210,13 @@
     function frameRect() {
       var cw = canvas.width || 1, ch = canvas.height || 1;
       var v = lensView();
-      if (!v || !(v.aspect > 0)) return { x: 0, y: 0, w: cw, h: ch, aspect: cw / ch, letterboxed: false };
+      /* The panel's shape is only ever the frame when we are NOT a lens.
+         lensView() guarantees that by clearing a stale lock; the assertion
+         below is what makes a future regression loud instead of a fake lens. */
+      if (!v || !(v.aspect > 0)) {
+        if (lockedCamera) releaseLock();
+        return { x: 0, y: 0, w: cw, h: ch, aspect: cw / ch, letterboxed: false };
+      }
       var w = cw, h = Math.round(cw / v.aspect);
       if (h > ch) { h = ch; w = Math.round(ch * v.aspect); }
       return { x: Math.round((cw - w) / 2), y: Math.round((ch - h) / 2), w: w, h: h,

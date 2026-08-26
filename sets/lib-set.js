@@ -89,14 +89,17 @@
      It is a soft dependency, not a hard one: props/index.html loads the sets
      geometry without the tools bundle, so an absent TMedia falls back to the
      default format's numbers — COPIED from that table, with a test asserting
-     the copy still matches it, so the fallback cannot drift into a fourth
-     sensor. */
+     the copy still matches it (key included), so the fallback cannot drift
+     into a fourth sensor. The default key is read from the shared table
+     rather than spelled out here: moving TMedia.DEFAULT_SENSOR must move
+     this module with it, not leave it behind on a format nobody chose. */
   var FALLBACK_SENSOR = { key: 'super35', label: 'Super 35 (24.9×18.7)', w: 24.9, h: 18.7 };
 
   function sensorOf(key) {
     var M = root.TMedia;
     if (M && M.SENSORS) {
-      var k = M.sensorKey ? M.sensorKey(key) : (M.SENSORS[key] ? key : 'super35');
+      var def = M.DEFAULT_SENSOR || FALLBACK_SENSOR.key;
+      var k = M.sensorKey ? M.sensorKey(key) : (M.SENSORS[key] ? key : def);
       var s = M.SENSORS[k];
       if (s) return { key: k, label: s.label, w: s.w, h: s.h };
     }

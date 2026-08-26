@@ -19,30 +19,66 @@ const near = (a, b, eps = 0.02) => Math.abs(a - b) < eps;
 
 L.reset();
 
+/* ── the completion gate ──
+   A production teaches once, when it is finished. Mid-shoot, `actual` is only
+   what has been invoiced so far against a whole-picture estimate — every
+   department reads as a huge underrun. producer/budget-sheet.js calls
+   learnBudget on every save of the live sheet, so without this gate the store
+   was being taught the shape of a partial ledger over and over. */
+{
+  const partial = { categories: [{ acct: '11000', items: [
+    { desc: 'Director', est: 100000, actual: 12000.50 }   // week two of a 10-week shoot
+  ] }] };
+  ok(L.learnBudget(partial) === 0, 'gate: an unwrapped production teaches nothing');
+  ok(L.calibration('11000').n === 0, 'gate: nothing was folded in');
+  ok(L.gate().wrapped === false, 'gate: reports the production as in progress');
+  ok(L.learnBudget(partial, { wrapped: true, project: 'P' }) === 1,
+    'gate: a caller that knows the ledger is closed may force it');
+  L.reset();
+}
+
 /* ── budget calibration ── */
 {
   const sheet = { categories: [
     { acct: '11000', items: [
-      { desc: 'Director', est: 100000, actual: 150000 },
-      { desc: 'Producer', est: 200000, actual: 260000 },
-      { desc: 'No actual yet', est: 50000, actual: 0 }
+      { id: 'i1', desc: 'Director', est: 100000, actual: 150000 },
+      { id: 'i2', desc: 'Producer', est: 200000, actual: 260000 },
+      { id: 'i3', desc: 'No actual yet', est: 50000, actual: 0 }
     ] },
-    { acct: '20000', items: [{ desc: 'Cast', est: 300000, actual: 240000 }] }
+    { acct: '20000', items: [{ id: 'i4', desc: 'Cast', est: 300000, actual: 240000 }] }
   ] };
-  ok(L.learnBudget(sheet) === 3, 'learn: three rows with actuals learned');
-  ok(L.learnBudget(sheet) === 0, 'learn: idempotent — same sheet learns nothing new');
+  const W = { wrapped: true, project: 'THE SALT ROAD' };
+  ok(L.learnBudget(sheet, W) === 3, 'learn: three rows with actuals learned');
+  ok(L.learnBudget(sheet, W) === 0, 'learn: idempotent — same sheet learns nothing new');
+  /* The old fingerprint was acct|desc|est|actual, so a revised actual was a
+     brand-new fact and three postings against one line taught three ratios from
+     one purchase. Identity is the account and the line, not what it says. */
+  sheet.categories[0].items[0].actual = 151250.75;
+  ok(L.learnBudget(sheet, W) === 0, 'learn: a revised actual on a known line does not re-teach');
+  ok(L.lineFp('P', '11000', { id: 'i1', desc: 'Director', est: 9, actual: 9 }, 0) ===
+     L.lineFp('P', '11000', { id: 'i1', desc: 'Director', est: 400, actual: 900 }, 3),
+    'learn: the fingerprint keys on identity, not on est/actual');
+  ok(L.lineFp('P', '11000', { id: 'i1' }, 0) !== L.lineFp('Q', '11000', { id: 'i1' }, 0),
+    'learn: the same line on another production is a separate fact');
   const c = L.calibration('11000');
   ok(c.n === 2 && near(c.mult, 1.5 * 0.7 + 1.3 * 0.3), 'learn: EWMA calibration (' + c.mult + ')');
   ok(L.calibration('20000').mult === 1 && L.calibration('20000').n === 1, 'learn: one data point stays anecdotal');
   ok(L.calibration('99999').mult === 1, 'learn: unknown account neutral');
   // clamp: a wild overage cannot more than double future estimates
   const wild = { categories: [{ acct: '30000', items: [
-    { desc: 'a', est: 100, actual: 10000 }, { desc: 'b', est: 100, actual: 10000 }
+    { id: 'w1', desc: 'a', est: 100, actual: 10000 }, { id: 'w2', desc: 'b', est: 100, actual: 10000 }
   ] }] };
-  L.learnBudget(wild);
+  L.learnBudget(wild, W);
   ok(L.calibration('30000').mult === 2, 'learn: correction clamped at 2x');
   const s = L.budgetSummary();
-  ok(s.lines === 5 && s.avgMult > 1, 'learn: summary aggregates');
+  ok(s.lines === 5 && s.accounts === 3, 'learn: summary aggregates');
+  /* Finding 44. avgMult was the n-weighted mean of the corrections applied and
+     it was printed to the owner as "Self-learning" — a number that RISES as the
+     platform gets more wrong. It is gone under that name, and what remains says
+     what it is. */
+  ok(!('avgMult' in s), 'learn: budgetSummary no longer offers avgMult as a headline number');
+  ok(s.avgCorrection > 1, 'learn: the correction average survives, named as correction');
+  ok(!('avgMult' in L.summary()), 'learn: summary() does not carry avgMult either');
 }
 
 /* ── render-speed learning ── */

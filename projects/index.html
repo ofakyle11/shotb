@@ -55,7 +55,9 @@
       <span class="pv-spacer"></span>
       <button class="tb-btn gold" id="pvExport" title="One portable .cinamate file with every module's data">⬇ Export backup</button>
       <button class="tb-btn" id="pvSaveSlot" title="Snapshot the current state into this project's slot">💾 Save snapshot</button>
+      <button class="tb-btn" id="pvWrap" title="Mark this production finished">◉ Mark wrapped</button>
     </div>
+    <p class="pv-note" id="pvWrapNote"></p>
     <p class="pv-note">Everything Cinamate saves lives in this browser. <b>Export a backup after real work sessions</b> — the file restores the entire production (script, boards, budget, schedule, cut, tools) on any machine, <b>including its photographs</b>.</p>
     <div id="pvMedia"></div>
     <div class="pv-mods" id="pvMods"></div>
@@ -89,7 +91,13 @@
 
 <div class="toast" id="pvToast" aria-live="polite"></div>
 <script src="/js/project-badge.js?v=20260821a"></script>
-<script src="lib-vault.js?v=20260820d"></script>
+<!-- The wrap marker is what releases a production's budget to the learning
+     layer, so this page carries the sheet reader and js/learn.js: the moment a
+     film is marked wrapped its closed ledger teaches, once, right here. -->
+<script src="/js/lib-money-math.js?v=20260826a"></script>
+<script src="/js/lib-money-sheet.js?v=20260826a"></script>
+<script src="/js/learn.js?v=20260826b"></script>
+<script src="lib-vault.js?v=20260826b"></script>
 <script>
 (function () {
   'use strict';
@@ -293,12 +301,51 @@
       return '<div class="pv-slot"><b>' + esc(n) + '</b>' +
         '<span class="pv-meta">' + esc(siz.count) + ' modules · ' + kb(siz.bytes) +
         (med.count ? ' · ' + esc(med.count) + ' media · ' + esc(med.label) : '') +
+        (s.status === V.WRAPPED ? ' · wrapped' + (s.wrappedAt ? ' ' + esc(s.wrappedAt) : '') : '') +
         (s.savedAt ? ' · saved ' + esc(s.savedAt) : '') + '</span>' +
         '<span class="pv-spacer"></span>' +
         '<button class="tb-btn gold" data-open="' + esc(n) + '">Open</button>' +
         '<button class="tb-btn" data-del="' + esc(n) + '">✕</button></div>';
     }).join('') || '<p class="pv-note">No other projects yet — New project starts a second one, and switching keeps both safe.</p>';
+    renderWrap();
     renderMedia();
+  }
+
+  /* ── wrap: the only durable "this production is finished" on the platform ──
+     Everything else about a film's state is derived from what happens to be in
+     storage, which cannot tell a finished picture from an abandoned one. The
+     learning layer needs that distinction: a half-invoiced budget looks like a
+     catastrophic underrun and would drag every future estimate down with it. */
+  function renderWrap() {
+    var st = V.statusOf(localStorage);
+    var btn = $('pvWrap'), note = $('pvWrapNote');
+    if (!btn || !note) return;
+    btn.textContent = st.wrapped ? '↺ Re-open production' : '◉ Mark wrapped';
+    btn.title = st.wrapped
+      ? 'Re-open for reshoots or pickups — nothing new is learned until it is wrapped again'
+      : 'Mark this production finished — its closed budget then calibrates future films';
+    var learn = window.CLearn;
+    var line = st.wrapped
+      ? '<b>Wrapped' + (st.wrappedAt ? ' ' + esc(st.wrappedAt) : '') + '.</b> Its budget has taught the ' +
+        'cross-project estimator — every line teaches once, keyed on the line, not on what it currently says.'
+      : '<b>In production.</b> Nothing here is being learned from yet. Mark it wrapped when the film is ' +
+        'finished and its closed budget calibrates the next one — a part-shot ledger reads as a huge ' +
+        'underrun and would poison every future estimate.';
+    if (learn && learn.learningReport) {
+      try { line += '<br>' + esc(learn.learningReport().headline); } catch (e) {}
+    }
+    note.innerHTML = line;
+  }
+
+  /* Learn the moment the wrap is recorded, rather than waiting for the owner to
+     happen to open the Producer Suite again. */
+  function learnFromWrapped(name) {
+    var learn = window.CLearn;
+    if (!learn || !learn.learnBudget) return 0;
+    var sheet = null;
+    try { sheet = JSON.parse(localStorage.getItem('SB_BudgetSheet_v1') || 'null'); } catch (e) {}
+    if (!sheet) return 0;
+    try { return learn.learnBudget(sheet, { wrapped: true, project: name }); } catch (e) { return 0; }
   }
 
   /* What the vault can actually see of this production's bytes, and what it
@@ -343,6 +390,23 @@
     V.saveActiveAsync(localStorage, now(), MEDIA)
       .then(function () { render(); toast('Snapshot saved'); })
       .catch(function (e) { toast(e.message); });
+  });
+  $('pvWrap').addEventListener('click', function () {
+    var st = V.statusOf(localStorage);
+    if (st.wrapped) {
+      if (!confirm('Re-open "' + st.project + '"? Nothing new will be learned from its budget until it is wrapped again.')) return;
+      V.clearWrapped(localStorage);
+      render();
+      toast('"' + st.project + '" re-opened');
+      return;
+    }
+    if (!confirm('Mark "' + st.project + '" wrapped? Its closed budget will calibrate future films — ' +
+                 'only do this when the actuals are final.')) return;
+    V.setWrapped(localStorage, st.project, now());
+    var n = learnFromWrapped(st.project);
+    render();
+    toast('"' + st.project + '" wrapped' +
+      (n ? ' — ' + n + ' closed budget line(s) taught the estimator' : ' — no closed budget lines to learn from yet'));
   });
   $('pvExport').addEventListener('click', function () {
     var m = V.meta(localStorage);
