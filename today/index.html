@@ -47,6 +47,7 @@
   <main class="td-main">
     <div class="td-bar">
       <select id="tdDay"></select>
+      <button class="tb-btn" id="tdWrap" style="display:none">◉ Wrap day</button>
     </div>
     <div id="tdSheet"><p class="td-note">Pull the production from the studio cloud on this device (Projects → Studio cloud → Open here), and the schedule built in the Producer Suite shows up here — call time, scenes, cast, hospital and safety notes, phone-sized.</p></div>
   </main>
@@ -64,6 +65,15 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
   function eighths(n) { var w = Math.floor(n / 8), f = n % 8; return (w ? w : '') + (f ? (w ? ' ' : '') + f + '/8' : (w ? '' : '0')); }
+  var toastTimer;
+  function toast(m) {
+    var el = $('tdToast');
+    if (!el) return;
+    el.textContent = m;
+    el.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('on'); }, 3000);
+  }
 
   var board = readLS('SB_ScheduleBoard_v1') || { scenes: [], dayMeta: {} };
   var scenes = Array.isArray(board.scenes) ? board.scenes : [];
@@ -159,6 +169,52 @@
     $('tdSheet').innerHTML = h;
   }
 
+  /* ── calling the wrap ─────────────────────────────────────────────────
+     `wrapped` is the one thing about a shoot day that nothing else can derive.
+     A day with no takes logged against it is an unshot day and a wrapped day
+     at the same time, and only the people standing on it know which — so it
+     has to be stated, and it is stated here, on the on-set page, on the day.
+
+     CShootDays.wrapDay writes it to SB_ShootDays_v1 and
+     producer/schedule-board.js:paceRowsModel reads exactly that flag: the
+     pages a WRAPPED day actually achieved are the only evidence the board's
+     pages-per-day target is ever learned from. Until this control existed the
+     library had no caller outside its own suite, so the board could only ever
+     offer its shipped default while telling the user to wrap a day.
+
+     Confirmed rather than silent, and reversible, for the same reason
+     js/lib-shootdays.js:307 gives: a day wrapped by mistake would teach the
+     schedule a pace nobody worked, and the retraction has to be as easy as
+     the mistake. */
+  function wrapBtn() { return $('tdWrap'); }
+  function renderWrap(d) {
+    var btn = wrapBtn();
+    if (!btn) return;
+    var rec = SD.byIndex(shootDays, d);
+    if (!rec) { btn.style.display = 'none'; return; }
+    btn.style.display = '';
+    btn.textContent = rec.wrapped ? '↺ Re-open day' : '◉ Wrap day';
+    btn.title = rec.wrapped
+      ? 'Re-open this day — what it shot stops counting towards the learned shooting pace'
+      : 'Call the wrap on this day — what it shot then teaches the schedule its real pace';
+  }
+  wrapBtn().addEventListener('click', function () {
+    var d = parseInt(sel.value, 10);
+    var rec = d >= 0 ? SD.byIndex(shootDays, d) : null;
+    if (!rec) { toast('That day is not in the schedule yet'); return; }
+    var name = SD.label(rec);
+    var ask = rec.wrapped
+      ? 'Re-open ' + name + '? What it shot stops counting towards the learned shooting pace.'
+      : 'Call the wrap on ' + name + '? What it achieved joins the evidence the schedule ' +
+        'learns its pace from, so wrap it only when the day is genuinely over.';
+    if (!confirm(ask)) return;
+    shootDays = SD.wrapDay(window.localStorage, d, !rec.wrapped);
+    var after = SD.byIndex(shootDays, d);
+    renderWrap(d);
+    render(d);
+    toast(name + (after && after.wrapped ? ' wrapped' : ' re-opened'));
+  });
+
   var sel = $('tdDay');
   if (maxDay < 0) { sel.style.display = 'none'; }
   else {
@@ -170,10 +226,11 @@
     sel.innerHTML = opts.join('');
     var g = todayIndex();
     sel.value = String(g);
-    sel.addEventListener('change', function () { render(+sel.value); });
+    sel.addEventListener('change', function () { render(+sel.value); renderWrap(+sel.value); });
     render(g);
+    renderWrap(g);
   }
-  window.CTodayApp = { render: render };
+  window.CTodayApp = { render: render, renderWrap: renderWrap };
 })();
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
