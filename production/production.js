@@ -149,16 +149,27 @@
       if (!isFinite(lat) || !isFinite(lon)) return T.toast('Enter lat/lon');
       var t = Sun.sunTimes(d, lat, lon);
       /* The LOCATION's offset, never the viewer's — fmtLocal with no offset
-         renders an LA sunset of 19:28 as 02:28 on a UTC machine. This page
-         has no forecast call to read utc_offset_seconds from, so it uses the
-         longitude estimate and labels it: solar mean time, no DST. */
-      var tz = Sun.tzOffsetFromLon(lon);
+         renders an LA sunset of 19:28 as 02:28 on a UTC machine. The real
+         civil offset is the one the Scout Book recorded for this pin (it
+         comes off the forecast service's utc_offset_seconds and is kept on
+         the location record, so no network call is needed here). Failing
+         that, the longitude estimate — labelled, because solar mean time
+         knows nothing of DST or borders. */
+      var book = readLS('SB_ScoutBook_v1');
+      var pin = null;
+      ((book && book.locations) || []).forEach(function (l) {
+        if (l.tzOffsetMin == null) return;
+        if (Math.abs(parseFloat(l.lat) - lat) <= 0.05 && Math.abs(parseFloat(l.lon) - lon) <= 0.05) pin = l;
+      });
+      var tz = pin ? pin.tzOffsetMin : Sun.tzOffsetFromLon(lon);
       var a = Sun.sunAngles(d, lat, lon);
       $('prLocSunOut').innerHTML = 'sunrise ' + esc(Sun.fmtLocal(t.sunrise, tz)) + ' · golden pm ' +
         '<b style="color:var(--gold)">' + esc(Sun.fmtLocal(t.goldenStartPM, tz)) + '</b> · sunset ' +
         esc(Sun.fmtLocal(t.sunset, tz)) +
         esc(a.sunset ? ' toward ' + Sun.compass(a.sunset.azimuth) + ' ' + a.sunset.azimuth + '°' : '') +
-        esc(' · times ' + Sun.tzLabel(tz) + ' (estimated from longitude — no DST)');
+        esc(' · times ' + Sun.tzLabel(tz) + (pin
+          ? ' (recorded for ' + (pin.name || 'this location') + ')'
+          : ' (estimated from longitude — no DST; record the offset in the Scout Book)'));
     });
   };
 

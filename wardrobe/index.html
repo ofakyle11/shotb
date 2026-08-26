@@ -10,7 +10,7 @@
 <meta property="og:site_name" content="CINAMATE">
 <meta property="og:type" content="website">
 <meta property="og:title" content="CINAMATE — Wardrobe">
-<meta property="og:description" content="Wardrobe &amp; Looks — characters from the script, looks with piece-by-piece costs, a scene-by-scene change plot with quick-change and continuity flags, and photo continuity.">
+<meta property="og:description" content="Wardrobe &amp; Looks — characters from the script, looks with piece-by-piece costs, story days derived from the script, a costume plot ordered by story day and cross-referenced to the shooting order, and photo continuity.">
 <meta property="og:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://cinamate-studio.netlify.app/assets/og-image.png">
@@ -90,7 +90,7 @@
     <div class="wd-bar">
       <button class="tb-btn gold" id="wdSeed" title="Scan the working screenplay for speaking characters">⟳ Seed characters from script</button>
       <button class="tb-btn" id="wdAddLook">+ Add look</button>
-      <span class="wd-note">Click a character chip to start a look for them. Scenes take ranges — e.g. <span style="font-family:var(--mono)">1, 4-6, 12</span>.</span>
+      <span class="wd-note">Click a character chip to start a look for them. Scenes take ranges and A-scenes — e.g. <span style="font-family:var(--mono)">1, 4A, 6-9</span>.</span>
     </div>
     <div class="wd-bar" id="wdChars"><span class="wd-note">No characters yet — seed from the script, or just add a look and type a name.</span></div>
     <div id="wdLooks"></div>
@@ -553,7 +553,7 @@
         idbPut(rec).then(function () {
           l.photoIds = l.photoIds || [];
           l.photoIds.push(rec.id);
-          save(); renderPhotos(); input.value = '';
+          save(); renderPhotos(); scanPhotos(); input.value = '';
           toast('Photo attached to ' + (l.character || '?') + ' — ' + l.lookName);
         }, function () { toast('Could not save the photo in this browser'); });
       };

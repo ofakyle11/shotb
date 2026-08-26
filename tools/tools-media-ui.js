@@ -67,7 +67,7 @@
         }).length;
         var undated = rows.filter(function (r) { return !r.day; }).length;
         return '<b>' + rows.length + '</b> takes logged · <b>' + circ + '</b> circled' +
-          (undated ? ' · <b>' + undated + '</b> with no shoot day — they appear on no daily report' : '');
+          (undated ? ' · <b>' + esc(undated) + '</b> with no shoot day — they appear on no daily report' : '');
       },
       /* A row added by hand starts on the day the slate is on, not blank: an
          undated take is invisible to the daily production report. */

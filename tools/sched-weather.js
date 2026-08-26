@@ -200,7 +200,7 @@
     }
     h += '<p class="bud-note">Clock times are <b class="sw-tz">' + esc(S.tzLabel(tz)) + '</b> — ' +
       esc(tzSource === 'api' ? 'the location\'s own civil offset, from the forecast service'
-        : 'ESTIMATED from longitude (solar mean time: no DST, no political border). Plan days once with a working forecast to pin the real offset.') +
+        : 'ESTIMATED from longitude (solar mean time: no DST, no political border) — plan days once with a working forecast to pin the real offset') +
       '. Azimuth is degrees clockwise from true north. Sun times computed locally (±2 min); forecast from the free Open-Meteo API, fetched by your browser. ' +
       'Risk blends rain probability, wind and storm codes — reorder exterior days away from red.</p>';
     $('swOut').innerHTML = h;
