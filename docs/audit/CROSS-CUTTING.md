@@ -339,3 +339,65 @@ Beyond `SB_Deals_v1` (finding 3), the same split recurs:
 | Casting | `SB_CastingDesk_v1` | pipeline store | complementary halves of one status vocabulary (crew-06) |
 | Editor | `editor/` | `editor/timeline-engine.js:409` still mounted in the Studio | second editor whose EDL has **no event lines at all** (crew-17) |
 
+
+---
+
+## 17. ROOT CAUSE of finding 1: the scene number is discarded at parse
+
+Finding 1 listed five modules that each parse scene numbers differently. The
+development audit found *why* they all have to: **the printed scene number is
+thrown away the moment the script is read.**
+
+- `timeline/parser.js:61` discards the printed number in a **non-capturing
+  group**.
+- `dailies/lib-dailies.js:27` therefore numbers scenes by **array position**.
+- Dailies takes, `wardrobe/lib-ward.js:98`, `safety/lib-safety.js:147`,
+  `vfx/lib-vfx.js:189` and the stripboard all key off a number that **silently
+  shifts when a scene is inserted**.
+- A/B numbering cannot be expressed at all.
+
+So the five regexes are not five independent bugs — they are five departments
+each trying to re-derive a fact the parser already had and threw away. **Capture
+it once at `parser.js:61`, carry it on the scene, and findings 1 and 17 both
+close.** This is now the single highest-leverage change in the backlog.
+
+---
+
+## 18. Page count is 4.4× wrong, and it drives the schedule and the budget
+
+`timeline/timeline-budget.js:285` counts eighths in **physical newlines ÷ 5**,
+not typeset lines. Every Writer output and every unflattened PDF has unwrapped
+paragraphs, so the count is meaningless for exactly the documents the platform
+produces itself.
+
+Measured: a **4,136-word draft (≈22 pages) reports 5 pages / 40 eighths** — a
+**4.4× under-measure**. That number flows into `shootDays`
+(`timeline/timeline-budget.js:563`), the stripboard, and from there the entire
+budget.
+
+There is no pagination anywhere in the repo. Combined with finding 2, the two
+biggest numbers a producer relies on — how many days, and how much — are both
+computed from inputs that are wrong by construction.
+
+---
+
+## 19. Development has no idea→treatment path, and `toFountain` writes prose
+
+- The Writer's precondition is that **you already own a treatment**. Idea →
+  logline → treatment does not exist.
+- `writer/lib-treatment.js:220` `toFountain` does not write a screenplay; it
+  re-headers treatment prose verbatim — no dialogue, no screen direction, no
+  sections.
+- `:101` destroys act structure, verified by execution: `ACT ONE` becomes
+  `INT. ONE - DAY`; `SEQUENCE 2 — THE HEIST` becomes `EXT. — THE HEIST - NIGHT`.
+  **These fake locations then propagate into the location bible and the
+  stripboard.**
+- `scripts/test_writer.mjs:76` only asserts the slug starts with `INT.`, so
+  44/44 passes over it — another instance of finding 12.
+- Three modules overwrite `SB_Timeline_v1.scriptText` with **no snapshot**
+  (`writer/writer.js:213`, `producer/index.html:271`, `timeline/timeline.js:1071`).
+  The Writer has no undo and swallows quota errors silently.
+- Nothing on the development path calls a model: `parse-script.js` **has no
+  caller and is not in the deploy set**.
+
+(crew-01)
