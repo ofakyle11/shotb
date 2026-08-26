@@ -40,15 +40,53 @@ function scan(args = []) {
 {
   const allow = JSON.parse(readFileSync(join(ROOT, 'scripts', 'html_sinks_allow.json'), 'utf8'));
   const keys = Object.keys(allow);
-  t('the allow-list is not empty', keys.length > 100, keys.length + ' entries');
+  /* A floor, not a target. It exists so an emptied or truncated ledger is
+     noticed — with no entries, every other assertion in this block passes
+     vacuously. The figure was 100, calibrated when the file held 119 entries;
+     pruning the 25 that covered deleted code brought it to 94 and the stale
+     threshold, not the ledger, is what failed. Set below the live sink count
+     so honest pruning never trips it and an emptied file always does. */
+  t('the allow-list is not empty', keys.length > 50, keys.length + ' entries');
   const uncounted = keys.filter((k) => typeof allow[k] !== 'object' || typeof allow[k].n !== 'number');
   t('every entry carries an occurrence count', uncounted.length === 0, uncounted.slice(0, 3).join(', '));
   const unexplained = keys.filter((k) => !allow[k].why || allow[k].why.length < 20);
   t('every entry carries a reason', unexplained.length === 0, unexplained.slice(0, 3).join(', '));
   /* An entry for sinks that no longer exist is dead weight that would silently
-     cover a future one, so it should be noticed rather than left. */
-  const stale = keys.filter((k) => allow[k].n === 0);
-  t('no entry covers zero occurrences', stale.length === 0, stale.slice(0, 5).join(', '));
+     cover a future one, so it should be noticed rather than left.
+
+     THIS CHECK USED TO READ THE WRONG SIDE OF THE COMPARISON. It filtered
+     `allow[k].n === 0` — the count RECORDED in the ledger — which can only
+     ever fire on an entry somebody deliberately wrote as zero. An entry
+     budgeting 18 occurrences of code that has since been deleted stayed
+     invisible. Measured at the time of this fix: 25 of 119 entries were dead
+     and held 44 unreviewed slots, and two more were over-budgeted by 10.
+     A reviewer proved what that buys an attacker: five raw `${si}`
+     interpolations planted into app.html markup, two inside attributes, and
+     `--check` still printed "0 unreviewed" and exited 0.
+
+     So the ledger is now compared against a fresh scan. `--counts` reports
+     what the scanner actually finds; the recorded number only ever describes
+     the past, and grading the past against itself is not a check. */
+  const observed = JSON.parse(scan(['--counts']).out);
+  t('the counts probe returned a populated map (an empty one would pass everything)',
+    Object.keys(observed).length > 50, Object.keys(observed).length + ' live keys');
+
+  const dead = keys.filter((k) => !observed[k]);
+  t('no entry covers a sink that no longer exists',
+    dead.length === 0,
+    dead.length + ' dead: ' + dead.slice(0, 5).join(', '));
+
+  const overBudget = keys.filter((k) => observed[k] && allow[k].n > observed[k]);
+  t('no entry budgets more occurrences than exist',
+    overBudget.length === 0,
+    overBudget.slice(0, 5).map((k) => `${k} allows ${allow[k].n}, found ${observed[k]}`).join(' · '));
+
+  /* The converse, which the scan's own --check already enforces, asserted here
+     too so this block describes the whole invariant rather than half of it. */
+  const underBudget = keys.filter((k) => observed[k] && allow[k].n < observed[k]);
+  t('no entry has grown past its reviewed count',
+    underBudget.length === 0,
+    underBudget.slice(0, 5).map((k) => `${k} allows ${allow[k].n}, found ${observed[k]}`).join(' · '));
 }
 
 /* ── a second copy of a reviewed expression is a new, unreviewed sink ── */

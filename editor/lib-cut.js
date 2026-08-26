@@ -154,7 +154,13 @@
 
   function edl(p) {
     var fps = fpsOf(p);
-    var lines = ['TITLE: ' + (p.name || 'CINAMATE CUT'), 'FCM: NON-DROP FRAME',
+    /* See js/safe-url.js edlField: an EDL is line-oriented, so a newline in
+       a project name or a clip label forges a record. */
+    var E = function (v, n) {
+      return (root.CinUrl && root.CinUrl.edlField) ? root.CinUrl.edlField(v, n)
+        : String(v == null ? '' : v).replace(/[\r\n\u2028\u2029]+/g, ' ').slice(0, n || 200);
+    };
+    var lines = ['TITLE: ' + E(p.name || 'CINAMATE CUT'), 'FCM: NON-DROP FRAME',
       '* FRAME RATE: ' + Math.max(1, Math.round(fps)), ''];
     var st = starts(p);
     (p.video || []).forEach(function (c, i) {
@@ -163,7 +169,7 @@
       while (n.length < 3) n = '0' + n;
       lines.push(n + '  AX       V     C        ' +
         tc(c.in, fps) + ' ' + tc(c.out, fps) + ' ' + tc(recIn, fps) + ' ' + tc(recOut, fps));
-      lines.push('* FROM CLIP NAME: ' + (c.label || 'CLIP ' + (i + 1)));
+      lines.push('* FROM CLIP NAME: ' + E(c.label || 'CLIP ' + (i + 1)));
       if ((c.speed || 1) !== 1) lines.push('* SPEED: ' + Math.round((c.speed || 1) * 100) + '%');
       lines.push('');
     });

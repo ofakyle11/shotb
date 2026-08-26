@@ -393,10 +393,44 @@ exports.handler = async (event) => {
       parsed.blobsMissing = Array.isArray(parsed.blobsMissing)
         ? parsed.blobsMissing.map(manifestEntry).filter(Boolean).slice(0, 500)
         : [];
-      const blobCount = manifest.length;
-      const blobBytes = manifest.reduce((a, r) => a + (Number(r.bytes) || 0), 0);
+      /* SILENT ABOUT MEDIA IS NOT THE SAME AS "HAS NO MEDIA", and conflating
+         the two destroyed photographs.
+
+         The background auto-sync in js/project-badge.js:144 pushes
+         { op, name, archive, ifVer } — no `blobs`, no `blobChunks`, because it
+         only ever carries the text stores. Read as an authoritative statement,
+         that says "this production now has zero media", and the sweep below
+         obediently DELETEd every chunk a deliberate "Save to cloud" had just
+         uploaded. Continuity and scout photographs, gone four minutes after
+         being saved, with no way back: the version ring keeps the text record
+         only. The count and manifest were lost from the record too, so even
+         the evidence that media had existed went with it.
+
+         `mediaSilent` below is therefore the only thing that suppresses the sweep.
+         An explicit `blobChunks: 0` from a real save still counts as a
+         declaration — that push genuinely means "no media" and must be allowed
+         to clear the old parts. Absence means the push is simply not about
+         media, and the previous state is carried forward untouched. */
       const declared = Number(body.blobChunks);
-      const blobChunks = Number.isInteger(declared) && declared >= 0 ? declared : 0;
+      const declaresChunks = body.blobChunks != null
+        && Number.isInteger(declared) && declared >= 0;
+      let blobCount = manifest.length;
+      let blobBytes = manifest.reduce((a, r) => a + (Number(r.bytes) || 0), 0);
+      let blobChunks = declaresChunks ? declared : 0;
+
+      /* SILENT about media, which is a THIRD state — not "has media" and not
+         "has no media". Three cases, and only the middle one is new:
+
+           manifest + blobChunks   a real save. Sweep to the declared count.
+           no manifest, no chunks  SILENT. Carry the previous state forward.
+           manifest, no chunks     contradictory: an archive that lists photos
+                                   but declares no parts to carry them. Still
+                                   refused below, as it always was.
+
+         An explicit `blobChunks: 0` is a DECLARATION, not silence — that push
+         genuinely means "this production has no media now" and must still be
+         allowed to clear the old parts. */
+      const mediaSilent = !declaresChunks && blobCount === 0;
       if (blobChunks > MAX_BLOB_CHUNKS) {
         return respond(413, { error: 'This production needs ' + blobChunks + ' media parts; the studio cloud ' +
           'takes at most ' + MAX_BLOB_CHUNKS + ' (' + kbOf(MAX_BLOB_CHUNKS * MAX_CHUNK_BYTES) +
@@ -407,7 +441,7 @@ exports.handler = async (event) => {
           'carry them. Nothing was saved — a production that arrives without its photographs must not look complete.' });
       }
 
-      const payload = JSON.stringify(parsed);
+      let payload = JSON.stringify(parsed);
       if (payload.length > MAX_ARCHIVE_BYTES) {
         return respond(413, { error: 'The written record of this production is ' + kbOf(payload.length) +
           '; the studio cloud takes ' + kbOf(MAX_ARCHIVE_BYTES) + ' (photos and media travel separately and do ' +
@@ -416,6 +450,35 @@ exports.handler = async (event) => {
       const savedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
       const idxBefore = await readIndex();
       const known = idxBefore.trusted ? idxBefore.productions[name] : null;
+
+      /* A media-silent push inherits the media state it did not speak about.
+         Without this the record would still be written with blobChunks 0 and
+         an empty manifest — the chunks would survive the sweep above, but the
+         production would describe itself as having no photographs and a pull
+         would hand back none of them. Carrying the count forward is what makes
+         the sweep skip meaningful on the NEXT push too, since that one reads
+         `known.blobChunks`. */
+      if (mediaSilent && known) {
+        blobChunks = Math.min(MAX_BLOB_CHUNKS, Math.max(0, Number(known.blobChunks) || 0));
+        blobCount = Math.max(0, Number(known.blobCount) || 0);
+        blobBytes = Math.max(0, Number(known.blobBytes) || 0);
+        if (blobChunks) {
+          /* The manifest lives inside the stored archive, not the index, so it
+             is recovered from the copy being replaced. If that read fails the
+             counts above still stand and the chunks are still on disk — the
+             production is describable and recoverable either way, which is the
+             property that matters. */
+          try {
+            const before = await blob('GET', 'p:' + name);
+            const prevBlobs = before.ok && before.text
+              ? JSON.parse(JSON.parse(before.text).archive || '{}').blobs : null;
+            if (Array.isArray(prevBlobs) && prevBlobs.length) {
+              parsed.blobs = prevBlobs.map(manifestEntry).filter(Boolean);
+              payload = JSON.stringify(parsed);
+            }
+          } catch (e) { /* counts carried; manifest simply not restored */ }
+        }
+      }
 
       /* Optimistic concurrency: a caller may declare which version it believes
          it is replacing. If the cloud has moved on since, refuse rather than
@@ -484,11 +547,46 @@ exports.handler = async (event) => {
         }));
       }
       await blob('DELETE', 'p:' + name);
+
+      /* The photographs are swept too, and this is the one place the soft
+         delete is deliberately hard.
+
+         They were not being swept at all. The record went, the catalog entry
+         went, and the media chunks stayed at their own keys — so `pull-blobs`
+         still returned the location interiors and wardrobe continuity of a
+         production its owner believed he had deleted, to any of the five
+         owners who had seen the name in `list`.
+
+         Keeping them was not buying recovery either. The version ring holds
+         the record TEXT (`cur.text`); the chunks live at separate keys, so a
+         restore only reproduced photographs by reading bytes that deletion had
+         failed to remove. That is not a safety net, it is a leak that looks
+         like one — and the promise it appeared to make was never written down.
+
+         So: text stays recoverable through the ring, media does not, and the
+         tombstone RECORDS that so restore can say it plainly instead of
+         quietly handing back a production with its pictures missing. */
+      const hadChunks = Math.min(MAX_BLOB_CHUNKS,
+        Math.max(0, Number(meta && meta.blobChunks) || 0));
+      for (let n = 0; n < hadChunks; n++) await blob('DELETE', blobKey(name, n));
+      if (keptVer !== null && hadChunks) {
+        await blob('PUT', 'tomb:' + name, JSON.stringify({
+          deletedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          deletedBy: owner, ver: keptVer,
+          savedAt: meta && meta.savedAt, savedBy: meta && meta.savedBy,
+          mediaSwept: hadChunks, mediaCount: Number(meta && meta.blobCount) || 0,
+        }));
+      }
+
       if (idxNow.trusted) {
         delete idxNow.productions[name];
         await writeIndex(idxNow);
       }
-      return respond(200, { ok: true, recoverable: cur.ok, deletedBy: owner });
+      return respond(200, {
+        ok: true, recoverable: cur.ok, deletedBy: owner,
+        /* Said out loud rather than discovered later. */
+        mediaDeleted: hadChunks ? (Number(meta && meta.blobCount) || 0) : 0,
+      });
     }
 
     if (op === 'versions') {
@@ -552,6 +650,19 @@ exports.handler = async (event) => {
       let meta = {};
       try { meta = JSON.parse(prev) || {}; } catch (e) { /* keep defaults */ }
       const savedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
+
+      /* Did a delete sweep this production's media? The tombstone knows, and it
+         is read BEFORE it is removed below. Without this the restored catalog
+         entry would inherit the old blobCount and advertise photographs whose
+         chunks deletion has already removed — a production describing media it
+         cannot produce, which is the same class of lie the sweep bug told in
+         the other direction. */
+      let sweptMedia = false;
+      try {
+        const tomb = await blob('GET', 'tomb:' + name);
+        if (tomb.ok && tomb.text) sweptMedia = !!(JSON.parse(tomb.text).mediaSwept);
+      } catch (e) { /* no tombstone, or unreadable: assume nothing was swept */ }
+
       const idx = await readIndex();
       if (idx.trusted) {
         /* Attribute the restore to whoever performed it, and keep the original
@@ -562,9 +673,9 @@ exports.handler = async (event) => {
           restoredFrom: { savedAt: meta.savedAt || '', savedBy: meta.savedBy || '' },
           bytes: (meta.archive || '').length,
           ver: ((meta0 && typeof meta0.ver === 'number') ? meta0.ver : 0) + 2,
-          blobCount: Number(meta.blobCount) || 0,
-          blobBytes: Number(meta.blobBytes) || 0,
-          blobChunks: Number(meta.blobChunks) || 0,
+          blobCount: sweptMedia ? 0 : Number(meta.blobCount) || 0,
+          blobBytes: sweptMedia ? 0 : Number(meta.blobBytes) || 0,
+          blobChunks: sweptMedia ? 0 : Number(meta.blobChunks) || 0,
         };
         await writeIndex(idx);
       }
@@ -574,7 +685,8 @@ exports.handler = async (event) => {
          it in the response rather than let an operator infer that an older
          version came back with the photographs it was taken with. */
       return respond(200, { ok: true, savedAt, savedBy: owner, mediaVersioned: false,
-        blobCount: Number(meta.blobCount) || 0,
+        mediaSweptOnDelete: sweptMedia,
+        blobCount: sweptMedia ? 0 : Number(meta.blobCount) || 0,
         restoredFrom: { savedAt: meta.savedAt || '', savedBy: meta.savedBy || '' } });
     }
 

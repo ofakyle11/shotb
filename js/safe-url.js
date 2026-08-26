@@ -101,7 +101,43 @@
      rendering a dead link. */
   function isSafe(value) { return safe(value) !== ''; }
 
-  var api = { safe: safe, isSafe: isSafe };
+  /* ── edlField: the same idea, one format over ────────────────────────
+   * An EDL is line-oriented, and every exporter built one by concatenation:
+   *
+   *     '* FROM CLIP NAME: ' + c.label + '\n'
+   *
+   * A label carrying a newline therefore does not produce a long label — it
+   * ENDS the comment and starts a record. A reviewer proved the whole path
+   * from a hostile .cinamate archive through CVault.restore() to a finished
+   * EDL: a project name of "Heist\nFCM: DROP FRAME" emits that line ABOVE the
+   * real FCM, and CMX readers take the first, so the entire reel is
+   * reinterpreted at the wrong timecode base. A label of
+   * "Clip\n002  BX  V  C ..." forges an event that was never cut.
+   *
+   * The vault cannot fix this upstream: projectName and label are neither
+   * PROSE nor URLISH in its scrubber, so it strips <>"' and leaves \n and \r
+   * intact — correct for HTML, useless here. Same lesson as CinUrl above: the
+   * check belongs at the sink, where every path converges.
+   *
+   * This lives in safe-url.js because it is the only file BOTH consumers
+   * already load (timeline/index.html and editor/index.html), and because
+   * copying a guard into three files is how this repo previously ended up with
+   * five divergent copies of csvCell. Cap is 200 chars — long enough for any
+   * real clip name, short enough that no field can bloat a reel.
+   */
+  function edlField(value, max) {
+    if (value == null) return '';
+    return String(value)
+      /* The injection itself. U+2028/U+2029 are included because they are line
+         terminators to a JS engine and to some parsers, and a value that has
+         been through JSON.parse can still be carrying one. */
+      .replace(/[\r\n\u2028\u2029]+/g, ' ')
+      .replace(/[\x00-\x1F\x7F]/g, '')
+      .trim()
+      .slice(0, max || 200);
+  }
+
+  var api = { safe: safe, isSafe: isSafe, edlField: edlField };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.CinUrl = api;
 })(typeof window !== 'undefined' ? window : globalThis);

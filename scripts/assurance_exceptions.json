@@ -144,7 +144,7 @@
   "why": "DEFECT. 9 of 16 exports unnamed by any suite: add, csvNum, csvWhole, dollars, mul, mulCents, pctOfCents, roundHalfAway, sumCents. roundHalfAway and pctOfCents are the explicit-rounding primitives wave 1.5 exists to introduce, and csvNum/csvWhole are the ones that decide whether a raw float reaches a CSV — finding 42's third defect. The decimal money helper being untested is the same failure as having no decimal money helper. Owner: wave 1.5; under active edit."
  },
  "api-reach::js/lib-money-sheet.js": {
-  "n": 12,
+  "n": 10,
   "why": "DEFECT, the largest single gap in this check. 13 of 15 exported functions are never named by any suite that loads the file — actualCents, actualTotal, byAcct, byAcctCents, catCents, catTotals, itemActual, itemActualCents, itemEstCents, itemNeedsSync, laborBaseCents, subtotalCents, syncEst. This is the budget sheet's arithmetic, on the SB_BudgetSheet_v1 store that finding 31 says eight modules read, and finding 2 says four of five budget-total implementations are wrong. A module can be loaded and still be untested; that is what mode 5 means one level down. Owner: wave 1.3 (one budget total) / wave 1.5, and the money-suites agent is in this file now — expect movement."
  },
  "api-reach::js/lib-scenes.js": {
@@ -192,7 +192,7 @@
   "why": "DEFECT, mitigated. 430 lines, 9 document. references; the pure logic it renders lives in boards/lib-shots.js, which IS covered. What is left untested is the page controller. Owner: the boards slice, via a browser harness. Accepted for now on the basis that the numbers a production reads come from the tested lib and not from here."
  },
  "coverage::editor/timeline-engine.js": {
-  "n": 1,
+  "n": 0,
   "why": "DEFECT with a mitigating reason. 611 lines, 21 document. references — this is the NLE surface and needs a browser harness, not a node suite. The mitigation is real and the size is why it is still a defect: it is the second-largest unexecuted file in the repo. Owner: wave 2.4. scripts/test_cut.mjs already covers the pure cut logic; the engine itself has nothing."
  },
  "coverage::js/config.js": {
@@ -278,6 +278,10 @@
  "inputs::cents:scripts/test_festivals.mjs": {
   "n": 0,
   "why": "DEFECT, same standing rule. festivals/lib-fest.js sums submission fees; every fee in the fixture is round, so feesTotal is never asked to add 65.50 to 41.25. Festival fees in the real world are almost never whole dollars, which makes this the input class the bug would live in. Owner: the festivals slice."
+ },
+ "inputs::cents:scripts/test_gate.mjs": {
+  "n": 1,
+  "why": "NOT a money suite. test_gate.mjs is the authentication suite — forged HMACs, expired tokens, cookie shadowing, traversal — and it touches no amount of money at all. It appears here only because this run corrected EXEC_MARK to recognise require()/createRequire as execution, which it had never counted; test_gate transitively loads js/learn.js and is now, correctly, filed as executing it. The cents rule is right for a suite that ASSERTS on money and wrong for one that merely loads a module which happens to handle it. Adding cents fixtures here would test nothing and obscure what the suite is for. The real cents coverage for js/learn.js lives in test_walkforward.mjs and test_ops_money.mjs. Re-examine if test_gate ever asserts on an amount."
  },
  "inputs::cents:scripts/test_locations.mjs": {
   "n": 0,

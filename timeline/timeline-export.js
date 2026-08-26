@@ -43,6 +43,8 @@ window.SBExport = (function(){
     /* The rate is stamped into the file. An EDL carries no frame rate of its
        own beyond FCM, so a conform at the wrong rate is silent — a reader that
        sees this line at least knows what these numbers were counted in. */
+    const E=(v,n)=>(window.CinUrl&&window.CinUrl.edlField)?window.CinUrl.edlField(v,n)
+      :String(v==null?'':v).replace(/[\r\n\u2028\u2029]+/g,' ').slice(0,n||200);
     let edl='TITLE: CINAMATE TIMELINE\nFCM: NON-DROP FRAME\n* FRAME RATE: '+rate+'\n\n';
     let fp=0,ev=1;
     (clips||[]).forEach((c,i)=>{
@@ -52,10 +54,13 @@ window.SBExport = (function(){
       const sf=Math.max(1,Math.round(dur*rate));
       const cn=('CLIP_'+String(c.num).padStart(2,'0')).substring(0,32);
       edl+=String(ev).padStart(3,'0')+'  '+cn.padEnd(8).substring(0,8)+' V     C        '+ftc(0,rate)+' '+ftc(sf,rate)+' '+ftc(fp,rate)+' '+ftc(fp+sf,rate)+'\n';
-      edl+='* FROM CLIP NAME: '+cn+'\n* LABEL: '+c.label+'\n';
-      if(c.videoUrl)edl+='* SOURCE FILE: '+c.videoUrl+'\n';
-      if(c.edit&&c.edit.transition&&c.edit.transition!=='cut')edl+='* TRANSITION: '+c.edit.transition+'\n';
-      edl+='* DESC: '+(c.description||'').substring(0,200)+'\n\n';
+      /* EVERY interpolated field goes through edlField. An EDL is line-
+         oriented, so a newline in a label does not make a long label — it
+         ends this comment and starts a record. See js/safe-url.js. */
+      edl+='* FROM CLIP NAME: '+cn+'\n* LABEL: '+E(c.label)+'\n';
+      if(c.videoUrl)edl+='* SOURCE FILE: '+E(c.videoUrl)+'\n';
+      if(c.edit&&c.edit.transition&&c.edit.transition!=='cut')edl+='* TRANSITION: '+E(c.edit.transition,40)+'\n';
+      edl+='* DESC: '+E(c.description)+'\n\n';
       fp+=sf;ev++;
     });
     return edl;

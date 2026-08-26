@@ -148,8 +148,20 @@ const threw = (fn) => { try { fn(); return false; } catch (e) { return true; } }
      as escaped TEXT. What actually matters is whether a hostile value can
      become an ATTRIBUTE, so read attribute names out of real tag positions
      and require that none of them is an event handler. */
+  /* `.every()` on an EMPTY array is true, so this assertion passed whether or
+     not attrNames had parsed anything at all. A reviewer proved it: breaking
+     the tag regex above so attrNames returns [] left this suite at 81 passed,
+     0 failed, byte-identical to a clean run. The helper was written to remove
+     a false POSITIVE and quietly introduced a false NEGATIVE in its place —
+     which is the worse of the two, because nothing ever complains.
+     So the parse is asserted to have HAPPENED before its result is trusted. */
+  t('attrNames actually parsed this markup (guards the .every() below)',
+    attrNames(html).length > 0, attrNames(html).length + ' attributes found');
+  t('attrNames finds the attributes we know are in the chrome',
+    ['class', 'href'].every((k) => attrNames(html).includes(k)),
+    attrNames(html).join(','));
   t('no hostile value becomes an event-handler attribute',
-    attrNames(html).every((n) => !/^on/i.test(n)),
+    attrNames(html).length > 0 && attrNames(html).every((n) => !/^on/i.test(n)),
     attrNames(html).filter((n) => /^on/i.test(n)).join(','));
   t('the hostile value is still present, escaped', html.indexOf('&quot;&gt;&lt;img') >= 0);
   t('the logo and the spacer are always there',
@@ -180,10 +192,13 @@ const threw = (fn) => { try { fn(); return false; } catch (e) { return true; } }
      was created. */
   const dirty = CChrome.control({ kind: 'button', label: 'x', cls: 'ok" onclick="alert(1)' });
   t('a class name is filtered to what a class may contain',
-    /class="[\w\s-]*"/.test(dirty) && attrNames(dirty).every((n) => !/^on/i.test(n)), dirty);
+    /class="[\w\s-]*"/.test(dirty) && attrNames(dirty).length > 0
+      && attrNames(dirty).every((n) => !/^on/i.test(n)), dirty);
   const tabs = CChrome.control({ kind: 'tabs', attr: 'x" onload="y', items: [{ id: 'a', label: 'A' }] });
   t('a data-* attribute name is filtered too',
-    attrNames(tabs).every((n) => /^[a-z0-9-]+$/i.test(n) && !/^on/i.test(n)), attrNames(tabs).join(','));
+    attrNames(tabs).length > 0
+      && attrNames(tabs).every((n) => /^[a-z0-9-]+$/i.test(n) && !/^on/i.test(n)),
+    attrNames(tabs).join(','));
   t('an absent id emits no empty attribute',
     CChrome.control({ kind: 'button', label: 'A' }).indexOf('id=') < 0);
 }
@@ -277,7 +292,8 @@ function reg(extra) {
      still spells "onmouseover". What matters is that it is a class token and
      not an attribute. */
   t('a flag class cannot break out of the attribute',
-    attrNames(eh).every((n) => !/^on/i.test(n)) && /class="tk-chip [\w\s-]*"/.test(eh), eh);
+    attrNames(eh).length > 0 && attrNames(eh).every((n) => !/^on/i.test(n))
+      && /class="tk-chip [\w\s-]*"/.test(eh), eh);
   t('a flag label is escaped', eh.indexOf('<b>no</b>') < 0 && eh.indexOf('&lt;b&gt;') >= 0);
 }
 

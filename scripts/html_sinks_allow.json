@@ -1,8 +1,4 @@
 {
- "app.html::(op?180:0)": {
-  "n": 1,
-  "why": "Ternary between the two numeric literals 180 and 0 (CSS rotate degrees for the scene-header caret). No value flows in. Also cannot be esc()-wrapped: esc() maps falsy to '' so esc(0) would emit rotate(deg)."
- },
  "app.html::(p.locationBible||[]).map(l=>'<option value=\"'+esc(l.key)+'\"'+(ph.locationKey===l.key?' selected':'')+'>'+esc(l.name)+'</option>').join('')": {
   "n": 1,
   "why": "Every value inside the mapped template is already wrapped: esc(l.key) in the option value and esc(l.name) in its text. The only unescaped part is the literal ' selected'."
@@ -19,25 +15,13 @@
   "n": 1,
   "why": "Each element is already wrapped in esc() by the map callback, and the '<br>' separator is deliberate markup. Escaping the joined result would double-escape the messages and print literal <br>."
  },
- "app.html::ex(t)": {
-  "n": 1,
-  "why": "ex() (app.html:2358) already escapes all five of & < > \" ' \u2014 verified character by character. The scanner just does not know the name. Output is XML written into a .docx zip via JSZip, never into the DOM."
- },
  "app.html::i": {
-  "n": 12,
+  "n": 3,
   "why": "Array index in every case: csLocked.forEach((c,i)=>) at 3309; p.scenes.forEach((s,i)=>) at 4771 and the same index passed to mhBgRenderMasterPanel(p,i) at 4810; p.characterBible.forEach((c,i)=>) passed to mhCharRenderCard(p,i) at 5527-5546; and mhCharRefreshDescOnly(i) at 5715, only ever called with that index. 0-valued, so esc() would blank it."
  },
  "app.html::i + 1": {
   "n": 1,
   "why": "Loop counter arithmetic: `for (let i = 0; i < keys.length; i++)` in mhDoFinalGenerate (app.html:7569), rendered as the human-readable shot number."
- },
- "app.html::j": {
-  "n": 3,
-  "why": "Numeric loop counter: `for(let j=0;j<p.scenes.length;j++)` at 4822 and 4890, and p.characterBible.forEach((other,j)=>) at 5558. Used as an <option value>. 0-valued, so esc() would blank it."
- },
- "app.html::k": {
-  "n": 1,
-  "why": "Shot index from `for(let k=0;k<shots.length;k++)` (app.html:4790) passed straight into mhBgRenderClipCard(p,i,k); rendered into data-k at 4876. 0-valued, so esc() would blank it."
  },
  "app.html::key": {
   "n": 21,
@@ -52,7 +36,7 @@
   "why": "Returns markup this file builds, with the URL through CinUrl.safe and every other value through esc(). Read at app.html:6477."
  },
  "app.html::mhClipSourceBadge(j)": {
-  "n": 2,
+  "n": 1,
   "why": "Every return path of mhClipSourceBadge (app.html:6428-6444) is a string literal in this file or ''. It interpolates nothing at all, and it returns markup on purpose, so escaping it would print the badge as text."
  },
  "app.html::minCls": {
@@ -75,21 +59,9 @@
   "n": 1,
   "why": "sbProviderBadge(...) output (app.html:1584). It escapes the tip and the label, and the only unescaped part is a colour taken from the SB_PROVIDER_LABELS constant or the literal '#888' fallback."
  },
- "app.html::reasonList.join(' \u00b7 ')": {
-  "n": 1,
-  "why": "reasonList is built on the line immediately above as '<strong>'+esc(f)+'</strong>: '+esc(sugR[f]) \u2014 both interpolated values are already esc()'d and the <strong> tags are intentional markup. Escaping the join would print the tags as text."
- },
- "app.html::relTime(p.updated_at)": {
-  "n": 1,
-  "why": "Returns 'just now', an integer with a unit suffix, or toLocaleDateString() of a timestamp (app.html:9257). All derived from a number."
- },
  "app.html::sbProviderBadge(imgMode)": {
   "n": 1,
   "why": "Deliberate HTML producer (app.html:1569-1573). It emits a <span> whose only caller-derived fields, p.label and p.tip, are already passed through esc(); p.color comes only from the module-level literal table SB_PROVIDER_LABELS (app.html:1557-1568) or the literal '#888'. Escaping it would print the badge markup as visible text."
- },
- "app.html::sceneCount": {
-  "n": 1,
-  "why": "Code-computed number: const sceneCount=(p.scenes||[]).length (app.html:4196). Can be 0, so esc() would blank it."
  },
  "app.html::scenes.reduce((a,s)=>a+(s.shots||[]).length,0)": {
   "n": 1,
@@ -99,10 +71,6 @@
   "n": 1,
   "why": "`S${si+1}.${shi+1}` from the same loop indices \u2014 digits and a dot. Rendered as text."
  },
- "app.html::si": {
-  "n": 18,
-  "why": "Scene loop index, all 18 sites. It is the `si` of rD.scenes.forEach((sc,si)=>) (2345,2349,2350) and p.scenes.forEach((s,si)=>) (5979-5990), or that same numeric index threaded as a parameter into mhBgRenderClipCard(p,si,k) (4856) and its children mhBgRenderTextField/mhBgRenderCineField (4949-4989), whose only callers pass the loop index. It is 0-valued, so esc() would blank it (esc maps falsy to '')."
- },
  "app.html::si + 1": {
   "n": 1,
   "why": "Loop index arithmetic: the `si` of scenes.forEach((sc, si) => ...) in mhRefreshBaselineShotSelect (app.html:8667)."
@@ -110,30 +78,6 @@
  "app.html::src": {
   "n": 3,
   "why": "`const src = CinUrl.safe(j.videoUrl)` at app.html:6485. Used in img/video src and an href, which are URL contexts, so the scheme allow-list is the right check and HTML escaping would corrupt the query string."
- },
- "app.html::stepLabel(p)": {
-  "n": 1,
-  "why": "Returns one of seven fixed labels from a literal map (app.html:9266). No project value reaches the output."
- },
- "app.html::totalClips": {
-  "n": 1,
-  "why": "Number the code itself computed: Object.values(byScene).reduce((s,a)=>s+a.length,0). It can be 0 at this line (the !totalClips guard is on the next line), so esc() would blank the count."
- },
- "app.html::totalCst": {
-  "n": 1,
-  "why": "Counter the code computed in the same block as totalShots (`let totalCst=0`, incremented when sh.background.sources[k]==='cst'). Number, 0-valued."
- },
- "app.html::totalLocked": {
-  "n": 1,
-  "why": "Counter the code computed in the same block as totalShots (`let totalLocked=0`, incremented when sh.background.locked). Number, 0-valued."
- },
- "app.html::totalShots": {
-  "n": 1,
-  "why": "Counter the code computed: declared `let totalShots=0` and incremented by `totalShots++` in the scene/shot walk immediately above (app.html:4719-4728). Can be 0, so esc() would blank it."
- },
- "app.html::totalSug": {
-  "n": 1,
-  "why": "Counter the code computed in the same block as totalShots (`let totalSug=0`, incremented when sh.background.sources[k]==='sug'). Number, 0-valued."
  },
  "boards/boards.js::opts(S.ANGLES, sh.angle)": {
   "n": 1,
@@ -182,42 +126,6 @@
  "finance/index.html::fm(rep.totals.efc)": {
   "n": 1,
   "why": "Same fm() helper (finance/index.html:99). Math.round guarantees a Number primitive and Number.prototype.toLocaleString cannot emit & < > \" or ', so this interpolation cannot carry markup."
- },
- "js/budget-engine.js::fmtMins(r.wallMinutes)": {
-  "n": 1,
-  "why": "fmtMins() is defined in this same file (js/budget-engine.js:783-788). Its first statement is min = Math.max(1, Math.round(min)); both return paths are numbers concatenated with the literals ' min', 'h ' and 'm'. No caller-supplied text can reach the output."
- },
- "js/budget-engine.js::fmtMoney(bm.med)": {
-  "n": 1,
-  "why": "Same in-file numeric formatter: fmtMoney() (js/budget-engine.js:775-781) rounds its argument first, and every return path is '$' plus a number or a .toFixed() string plus a literal suffix."
- },
- "js/budget-engine.js::fmtMoney(prod.total.high)": {
-  "n": 1,
-  "why": "Same in-file numeric formatter: fmtMoney() (js/budget-engine.js:775-781) rounds its argument first, and every return path is '$' plus a number or a .toFixed() string plus a literal suffix."
- },
- "js/budget-engine.js::fmtMoney(prod.total.likely)": {
-  "n": 1,
-  "why": "Same in-file numeric formatter: fmtMoney() (js/budget-engine.js:775-781) rounds its argument first, and every return path is '$' plus a number or a .toFixed() string plus a literal suffix."
- },
- "js/budget-engine.js::fmtMoney(prod.total.low)": {
-  "n": 1,
-  "why": "Same in-file numeric formatter: fmtMoney() (js/budget-engine.js:775-781) rounds its argument first, and every return path is '$' plus a number or a .toFixed() string plus a literal suffix."
- },
- "js/budget-engine.js::fmtMoney(r.highUsd)": {
-  "n": 1,
-  "why": "Same in-file numeric formatter: fmtMoney() (js/budget-engine.js:775-781) rounds its argument first, and every return path is '$' plus a number or a .toFixed() string plus a literal suffix."
- },
- "js/budget-engine.js::fmtMoney(r.likelyUsd)": {
-  "n": 1,
-  "why": "Same in-file numeric formatter: fmtMoney() (js/budget-engine.js:775-781) rounds its argument first, and every return path is '$' plus a number or a .toFixed() string plus a literal suffix."
- },
- "js/budget-engine.js::fmtMoney(r.onePassUsd)": {
-  "n": 1,
-  "why": "fmtMoney() is defined in this same file (js/budget-engine.js:775-781). Its first statement is n = Math.max(0, Math.round(n)), and every return path is '$' + a number or '$' + n.toFixed(...) + a literal 'B'/'M'/'k' suffix. No caller-supplied text can reach the output, whatever the argument is."
- },
- "js/budget-engine.js::fmtMoney(sel.likelyUsd)": {
-  "n": 1,
-  "why": "Same in-file numeric formatter: fmtMoney() (js/budget-engine.js:775-781) rounds its argument first, and every return path is '$' plus a number or a .toFixed() string plus a literal suffix."
  },
  "js/ui-table.js::chipCls(x.cls)": {
   "n": 1,
@@ -430,14 +338,6 @@
  "tools/lib-media.js::xmlEsc(meta.project)": {
   "n": 1,
   "why": "Already wrapped by xmlEsc (now all five of & < > \" '); flagged only because the scanner's SAFE_CALL list does not contain the name xmlEsc. Verified: a project name of O'Brien & <Co> emits O&#39;Brien &amp; &lt;Co&gt;."
- },
- "tools/sched-weather.js::(w ? esc(S.wmoLabel(w.code))": {
-  "n": 1,
-  "why": "Scanner truncates the expression at the first '+'; the real cell is (w ? esc(S.wmoLabel(w.code)) + ' \u00b7 ' + esc(w.tmin) + '\u2013' + esc(w.tmax) + '\u00b0 \u00b7 ' + esc(w.precipProb || 0) + '% rain' : '<span style=\"color:var(--dim)\">beyond forecast</span>'). Every interpolated value is now wrapped in this file's new esc(); the else branch is a string literal in this file. Nothing unescaped remains in it."
- },
- "tools/tools-core.js::s.summary(this.rows)": {
-  "n": 1,
-  "why": "Deliberate HTML producer. The register engine renders each section's own summary(), and those functions emit markup on purpose (<b> counts, <span class=\"tk-chip bad\"> warnings), so escaping here would print tags as text. Verified against all 17 summary providers in the repo \u2014 not 13, as an earlier note claimed: every value any of them interpolates is either a code-computed count (rows.filter(...).length, an incremented tally) or already wrapped in esc()/escAttr() inside the provider. Re-check this entry if a provider is ever added that interpolates a row field directly."
  },
  "tools/tools-media-ui.js::opts": {
   "n": 1,

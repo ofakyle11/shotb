@@ -643,7 +643,22 @@ function sceneNumberOf(sc) {
    to grep it is a lint, not a test: test_helpers_defined.mjs statically reads
    every script on every page, and js/budget-engine.js was still never once
    executed. Counting a lint as coverage is how a 1,082-line engine hid. */
-const EXEC_MARK = /\beval\b|\bvm\.run|new Function|import\s*\(|runInContext|runInNewContext/;
+/* What counts as a suite EXECUTING a file rather than merely reading it.
+   `require` and `createRequire` were missing, and they are the most ordinary
+   way an .mjs suite runs a CommonJS module in this repo. Without them,
+   scripts/test_safe_url_client.mjs — which does
+   `require_('/home/user/shotb/js/safe-url.js')` and then drives 62 assertions
+   through it — was filed under lintBy, "reads but does not run". The api-reach
+   check then reported that js/safe-url.js's `isSafe` is "never named by any
+   suite that loads it", while the suite naming it seven times sat in the wrong
+   bucket, and the coverage line under-counted every require-based suite.
+
+   That is the THIRD misattribution of this family in this file: the absolute
+   path one is documented at the SHIPPED lookup below, the borrowed-name one
+   above the api-reach regex. Each was the checker being confidently wrong
+   about code it had not actually understood — which is the failure this file
+   exists to catch, one level down. */
+const EXEC_MARK = /\beval\b|\bvm\.run|new Function|import\s*\(|runInContext|runInNewContext|\brequire\s*\(|\brequire_\s*\(|createRequire/;
 const runBy = new Map();     // shipped file -> [suites that execute it]
 const lintBy = new Map();    // shipped file -> [suites that only read it]
 const execOf = new Map();    // suite -> Set(shipped files it executes)

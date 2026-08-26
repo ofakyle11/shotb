@@ -242,6 +242,27 @@ const allowedCount = (key) => {
 const onlyArg = process.argv.find((a) => a.startsWith('--only='));
 const only = onlyArg ? new Set(onlyArg.slice(7).split(',').map((s) => s.trim()).filter(Boolean)) : null;
 
+/* `--counts` prints what the scan ACTUALLY found, as JSON, keyed the same way
+   as the allow-list.
+
+   It exists because test_html_sinks.mjs could not tell a live entry from a
+   dead one. Its staleness check read `allow[k].n === 0` — the RECORDED count —
+   so an entry budgeting 18 occurrences of code that has since been deleted
+   never fired, and 25 of 119 entries had drifted that way, holding 54 free
+   slots open for future sinks to land in unreviewed. A reviewer proved the
+   consequence: five raw `${si}` interpolations planted into app.html markup,
+   two of them inside attributes, and `--check` still reported "0 unreviewed"
+   and exited 0.
+
+   The recorded count can only ever describe the past. Comparing it against
+   this is what makes the ledger honest. */
+if (process.argv.includes('--counts')) {
+  const counts = {};
+  for (const h of hits) counts[keyOf(h)] = (counts[keyOf(h)] || 0) + 1;
+  console.log(JSON.stringify(counts, null, 1));
+  process.exit(0);
+}
+
 if (process.argv.includes('--migrate')) {
   const counts = {};
   for (const h of hits) counts[keyOf(h)] = (counts[keyOf(h)] || 0) + 1;
@@ -249,8 +270,11 @@ if (process.argv.includes('--migrate')) {
   for (const key of Object.keys(allow).sort()) {
     const e = allow[key];
     const why = typeof e === 'string' ? e : (e && e.why) || '';
-    /* An entry whose sinks have since gone keeps n from its old shape rather
-       than dropping to zero, so removing code cannot quietly widen anything. */
+    /* An entry whose sinks have gone drops to n:0, which is what makes it
+       visible to the staleness check rather than dead weight holding slots
+       open. (This comment previously claimed the opposite — that n was kept
+       from the old shape — describing a fail-closed behaviour the code has
+       never had. It was the stale comment on the stale-entry detector.) */
     out[key] = { n: counts[key] || 0, why };
   }
   writeFileSync(ALLOW_FILE, JSON.stringify(out, null, 1) + '\n');

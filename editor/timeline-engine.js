@@ -413,14 +413,20 @@ window.SBTimelineEditor = (function () {
     }
 
     function exportEdl() {
-      const lines = ['TITLE: ' + state.projectName, 'FCM: NON-DROP FRAME'];
+      /* See js/safe-url.js edlField. A project name carrying a newline emits
+         a second FCM line ABOVE the real one, and CMX readers take the first
+         — the whole reel then conforms at the wrong timecode base. */
+      const E = (v, n) => (window.CinUrl && window.CinUrl.edlField)
+        ? window.CinUrl.edlField(v, n)
+        : String(v == null ? '' : v).replace(/[\r\n\u2028\u2029]+/g, ' ').slice(0, n || 200);
+      const lines = ['TITLE: ' + E(state.projectName), 'FCM: NON-DROP FRAME'];
       let offset = 0;
       state.timeline.forEach((tl) => {
         const b = binById(tl.binId);
         if (!b) return;
         const dur = clipDuration(tl);
-        lines.push('* FROM CLIP NAME: ' + b.name);
-        lines.push('* SOURCE FILE: ' + b.src);
+        lines.push('* FROM CLIP NAME: ' + E(b.name));
+        lines.push('* SOURCE FILE: ' + E(b.src));
         offset += dur;
       });
       const blob = new Blob([lines.join('\n')], { type: 'text/plain' });

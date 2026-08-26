@@ -99,6 +99,67 @@ r = await handler(ev('GET', { op: 'list' }));
 t('list empty after delete', j(r).productions.length === 0);
 t('blob really gone', !blobs.has('p:Night Harvest'));
 
+/* ── media survival: the two bugs that destroyed photographs ──────────
+   Neither had a test, which is why both shipped. The first was found by an
+   adversarial reviewer executing the real handler; the second by reading the
+   delete branch and noticing what it does NOT do. */
+{
+  const B64 = 'data:image/png;base64,iVBORw0KGgo=';
+  const mkArchive = (blobs_) => JSON.stringify({
+    format: 'cinamate/1', name: 'Dust Bowl', savedAt: 'x',
+    stores: { SB_Timeline_v1: '{"title":"Dust Bowl"}' }, blobs: blobs_ });
+  const manifest = [{ db: 'cinamate_scout', store: 'photos', id: 'ph1', bytes: 30 }];
+
+  /* A deliberate save that carries one photograph. */
+  r = await handler(ev('POST', null, { op: 'push', name: 'Dust Bowl',
+    archive: mkArchive(manifest), blobChunks: 1 }));
+  t('media push accepted', r.statusCode === 200 && j(r).blobChunks === 1);
+  r = await handler(ev('POST', null, { op: 'push-blobs', name: 'Dust Bowl', seq: 0, total: 1,
+    blobs: [{ db: 'cinamate_scout', store: 'photos', id: 'ph1', data: B64 }] }));
+  t('media chunk stored', r.statusCode === 200 && blobs.has('b:0:Dust Bowl'));
+
+  /* THE BUG: the background auto-sync pushes text only — no `blobs`, no
+     `blobChunks` — and the server read that silence as "this production has no
+     media", sweeping every chunk four minutes after the save. */
+  r = await handler(ev('POST', null, { op: 'push', name: 'Dust Bowl',
+    archive: JSON.stringify({ format: 'cinamate/1', name: 'Dust Bowl', savedAt: 'auto',
+      stores: { SB_Timeline_v1: '{"title":"Dust Bowl v2"}' } }) }));
+  t('media-silent push succeeds', r.statusCode === 200);
+  t('media-silent push does NOT delete the chunks', blobs.has('b:0:Dust Bowl'));
+  t('media-silent push carries the chunk count forward', j(r).blobChunks === 1);
+  t('media-silent push carries the manifest forward',
+    JSON.parse(JSON.parse(blobs.get('p:Dust Bowl')).archive).blobs.length === 1);
+  t('media-silent push still saved the new text',
+    blobs.get('p:Dust Bowl').includes('Dust Bowl v2'));
+
+  /* An EXPLICIT zero is a real statement and must still clear the old parts —
+     otherwise removing every photo from a production would leave them uploaded
+     forever. This is the half the fix must not break. */
+  r = await handler(ev('POST', null, { op: 'push', name: 'Dust Bowl',
+    archive: mkArchive([]), blobChunks: 0 }));
+  t('an explicit blobChunks:0 still sweeps', r.statusCode === 200 && !blobs.has('b:0:Dust Bowl'));
+
+  /* THE SECOND BUG: delete removed the record and the catalog entry but left
+     the chunks at their own keys, so pull-blobs still served the photographs of
+     a production its owner believed was gone. */
+  r = await handler(ev('POST', null, { op: 'push', name: 'Reservoir',
+    archive: JSON.stringify({ format: 'cinamate/1', name: 'Reservoir', savedAt: 'x',
+      stores: { SB_Timeline_v1: '{}' }, blobs: manifest }), blobChunks: 1 }));
+  await handler(ev('POST', null, { op: 'push-blobs', name: 'Reservoir', seq: 0, total: 1,
+    blobs: [{ db: 'cinamate_scout', store: 'photos', id: 'ph1', data: B64 }] }));
+  t('second production has media', blobs.has('b:0:Reservoir'));
+  r = await handler(ev('POST', null, { op: 'delete', name: 'Reservoir' }));
+  t('delete sweeps the media chunks', !blobs.has('b:0:Reservoir'));
+  t('delete reports what it removed', j(r).mediaDeleted === 1);
+  t('delete keeps the text recoverable', j(r).recoverable === true);
+
+  /* And a restore must not then advertise photographs that deletion removed. */
+  r = await handler(ev('POST', null, { op: 'restore', name: 'Reservoir' }));
+  t('restore succeeds after a media sweep', r.statusCode === 200);
+  t('restore admits the media was swept', j(r).mediaSweptOnDelete === true);
+  t('restore does not claim media it cannot produce', j(r).blobCount === 0);
+}
+
 r = await handler(ev('GET', { op: 'zap' }));
 t('unknown op → 400', r.statusCode === 400);
 

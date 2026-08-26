@@ -94,6 +94,28 @@ allowed('a base64 mp4', 'data:video/mp4;base64,AAAAIGZ0eXBpc29t');
     CinUrl.safe('/timeline/') === '/timeline/');
   t('isSafe agrees with safe', CinUrl.isSafe('https://x.example/') === true &&
     CinUrl.isSafe('javascript:alert(1)') === false);
+
+  /* ── the userinfo host spoof ──────────────────────────────────────────
+     js/safe-url.js strips credentials from an http(s) URL, and NO assertion
+     anywhere covered it. A reviewer neutered that line and the whole suite
+     stayed green at 55 passed, 0 failed — while
+     safe('https://cinamate-studio.netlify.app@evil.tld/x') came back unchanged.
+     The shape test above it does not parse the authority, so the string READS
+     as this site's host and RESOLVES to somebody else's. That is precisely the
+     link a person checks by eye and trusts. */
+  t('a URL whose userinfo impersonates this host is refused',
+    CinUrl.safe('https://cinamate-studio.netlify.app@evil.tld/x') === '');
+  t('a URL with a password in the authority is refused',
+    CinUrl.safe('https://user:pw@evil.tld/x') === '');
+  t('a bare username in the authority is refused',
+    CinUrl.safe('https://user@evil.tld/') === '');
+  t('isSafe refuses the same spoof', CinUrl.isSafe('https://a.test@evil.tld/') === false);
+  /* The counter-assertion: an ordinary URL containing an @ in its PATH or
+     QUERY is legitimate and must survive, or this guard becomes a denial of
+     every mailto-ish link and every share URL. */
+  t('an @ in the path is not a spoof', CinUrl.safe('https://x.example/a@b') !== '');
+  t('an @ in the query is not a spoof', CinUrl.safe('https://x.example/?to=a@b') !== '');
+  t('mailto still works', CinUrl.safe('mailto:someone@x.example') !== '');
 }
 
 /* ── the loopback bridge URLs the Studio really uses ── */
