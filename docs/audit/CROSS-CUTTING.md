@@ -36,17 +36,43 @@ five regex patches. This is the highest-leverage single change found so far.
 
 ---
 
-## 2. The budget total does not propagate — downstream reads $0
+## 2. FIVE budget-total implementations, four of them wrong (CONFIRMED ×2)
 
-`producer/budget-sheet.js:62` computes line items as `amt × units × rate` and
-leaves `est` at 0. `finance/lib-money.js:53` and `investors/lib-invest.js:207`
-sum `est` only. Verified by execution: `budgetTotal → 0`, cost report
-`variance −52000, over: true`.
+The toolbar advertises an **Amt × Units × Rate** calculator. Only
+`producer/budget-sheet.js:69` uses `itemEst()`. These four read `it.est`
+directly, which is **zero** for every line entered that way:
 
-So the quarterly investor letter either prints "budget not yet locked" or
-declares the picture over budget by the entire spend — **a wrong number in a
-document that goes to investors**. `tools/tools-money-ui.js:132` already does
-it correctly, so the right shape exists in the codebase (crew-03).
+- `finance/lib-money.js:53` — the cost report
+- `investors/lib-invest.js:207` — the quarterly investor letter
+- `workflow/advisor-ui.js:31` — the advisor
+- `js/learn.js:60` — **the learning layer**
+
+Verified by execution: a "6 × 20 days × $700" camera line reads **$84,000** on
+the top sheet and **$0** in the cost report — `variance: -84000, over: true` on
+day one. The investor letter either prints "budget not yet locked" or declares
+the picture over budget by the entire spend. **A wrong number in a document
+that goes to investors** (crew-03, crew-04).
+
+`tools/tools-money-ui.js:132` does it correctly, which is what makes the other
+four oversights rather than a design.
+
+**Two further defects in the same path** (crew-04):
+- The cost report drops fringes, bond, insurance and contingency entirely —
+  verified grand total **$1,463,000** vs cost-report budget **$1,000,000** — and
+  there is no 19000 Contingency row, so contingency can never be drawn down.
+- The CSV export omits the fringe/bond/insurance rows, so **$330k appears from
+  nowhere** between SUBTOTAL and GRAND TOTAL. And the whole top sheet renders
+  through `fmtMoney` at two significant figures: `$163k` for $163,412.
+
+**Note for Phase 4:** `js/learn.js` is one of the four. The existing learning
+layer is learning from a field that is zero — so whatever it currently claims
+to have learned about budgets is learned from nothing. Phase 4 must not build
+on top of it without fixing this first.
+
+**The test that would have caught all of it:** one assertion that
+`sum(budgetByAcct) === sheetTotals().grand`. `scripts/test_ops.mjs:19` uses a
+bare `{est: N}` fixture, so the entire bug class is invisible to the suite —
+see finding 12.
 
 ---
 
@@ -258,3 +284,58 @@ findings 2, 3, 10 and 11 above.
 - Days are indices and `dayMeta.date` is free text, while the Day Planner
   computes real dates into `SB_ShootPlan_v1` and never writes back — so **no
   date-based constraint can exist at all** (crew-05).
+
+---
+
+## 14. Further confirmations of finding 9 (already exists, unused)
+
+- **Sun times.** `locations/lib-scout.js:480` `goldenHour()` returns *solar*
+  time with no longitude, timezone or DST correction. `tools/lib-sun.js` is a
+  correct NOAA/Meeus implementation, **already tested**, and is simply never
+  loaded on the Locations page. Measured error on 21 June sunset: Atlanta 19:12
+  vs 20:52, Toronto 19:43 vs 21:03, Vancouver 20:07 vs 21:23 — **up to 1h40m**,
+  on the number that decides whether you make the day (crew-12).
+- **Reel / source timecode / checksum for relinking.** Dailies already captures
+  `tcIn`, `soundRoll` and `lens`; Tools already SHA-256s every file; the Editor
+  bin carries none of it, so `edl()` writes `AX` for every event with no
+  `* SOURCE FILE:` line. Three modules hold the pieces and none talk (crew-17).
+
+## 15. Silent wrong answers, where failing loudly was the only safe option
+
+A wrong number presented confidently is worse than a blank, and this pattern
+recurs independently of the modules it appears in.
+
+- `today/index.html:106` falls back to **the first location in the book with
+  any hospital** when its match fails — no caveat shown. Its slugline parser is
+  weaker than the stripboard's (no en-dash, no scene number), which makes that
+  failure the *common* path, not the rare one. So the phone prints a real
+  hospital, for the wrong location (crew-12).
+- `casting/`: with no TMDB key `directorFilms` is always `[]`, yet the card
+  renders **"Fit with <Director> — 36/100" under a gold bar** for a comparison
+  that never ran. Wikidata carries no billing field, so every performer is
+  pinned at "Established supporting, $25k–$150k" with the basis printed as *"no
+  recent top-billed roles found"* — a stated fact the code cannot observe
+  (crew-06).
+- `cut-ui.js:141` mints a new id on every import and nothing reassigns
+  `clip.srcId`, so a `missing` source is permanent — the UI's **"re-import
+  needed" is a lie** (crew-17).
+- Weather is built but CSP-blocked at `_headers:4` and **fails silently**
+  (crew-12). `tools/sched-weather.js:150` computes and scores wind, then never
+  displays it — the one number deciding whether a 20×20 flies (crew-11).
+
+These are the same class as the security work's `CinUrl.safe()` rule: when the
+platform cannot vouch for something, it must say so rather than substitute a
+plausible value.
+
+## 16. Two stores for one concept, repeatedly
+
+Beyond `SB_Deals_v1` (finding 3), the same split recurs:
+
+| Concept | Store A | Store B | Consequence |
+|---|---|---|---|
+| Locations | `SB_ScoutBook_v1` | `SB_Locations_v1` | Advisor reads the one **without** the hospital (crew-12) |
+| Take log | `SB_Dailies_v1` | `SB_TakeLog_v1` | DPR reads the one nobody writes (crew-13/14) |
+| Cue list | `SB_Music_v1` | `SB_CueSheet_v1` | neither can produce a PRO cue sheet alone (crew-18) |
+| Casting | `SB_CastingDesk_v1` | pipeline store | complementary halves of one status vocabulary (crew-06) |
+| Editor | `editor/` | `editor/timeline-engine.js:409` still mounted in the Studio | second editor whose EDL has **no event lines at all** (crew-17) |
+
